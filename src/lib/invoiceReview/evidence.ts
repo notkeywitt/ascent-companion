@@ -75,6 +75,7 @@ import type {
   InvoiceEvidence,
   InvoiceLine,
   InvoiceSourceItem,
+  InvoiceTimeSource,
   JobEvidence,
   LaborEntryRef,
   MonthEvidence,
@@ -465,6 +466,56 @@ async function loadBillSources(
       },
     );
   }
+  return out;
+}
+
+/**
+ * The time entries on one client invoice, whatever month they were worked in.
+ * `document.referencedTimeEntries` — probed live 2026-10-19 on Berger Main
+ * House #25: a paged connection, 20 entries, the same set the job's own
+ * entries reference back.
+ */
+async function loadTimeSources(cfg: PaveConfig, invoiceId: string): Promise<InvoiceTimeSource[]> {
+  const out: InvoiceTimeSource[] = [];
+  await pageEach<any>(
+    cfg,
+    {
+      label: "document.referencedTimeEntries (review: time behind an invoice)",
+      maxPages: PAGE_GUARD,
+      query: (args) => ({
+        document: {
+          $: { id: invoiceId },
+          referencedTimeEntries: {
+            $: args,
+            nextPage: {},
+            nodes: {
+              id: {},
+              cost: {},
+              minutes: {},
+              startedAt: {},
+              type: {},
+              user: { name: {} },
+              costItem: { costCode: { number: {} } },
+            },
+          },
+        },
+      }),
+      pick: (r) => r?.document?.referencedTimeEntries,
+    },
+    (rows) => {
+      for (const t of rows) {
+        out.push({
+          id: t.id,
+          employee: t?.user?.name ?? "Unknown",
+          payType: String(t?.type ?? "").trim(),
+          code: String(t?.costItem?.costCode?.number ?? "").trim(),
+          day: jtIsoToOrgLocal(t?.startedAt ?? "").slice(0, 10),
+          hours: (Number(t?.minutes) || 0) / 60,
+          cost: Number(t?.cost) || 0,
+        });
+      }
+    },
+  );
   return out;
 }
 
@@ -877,8 +928,7 @@ export async function loadMonthEvidence(
       );
     }
 
-    const prev = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
-    const [bills, drafts, voided, invoices, folder, labor, priorBills, priorLabor] = await Promise.all([
+    const [bills, drafts, voided, invoices, folder, labor, priorBills] = await Promise.all([
       loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
@@ -930,9 +980,6 @@ export async function loadMonthEvidence(
         );
         return undefined;
       }),
-      // Last month's time — an invoice often pulls its tail. Undefined on
-      // failure, which the line reconciliation reads as "can't tell".
-      loadMonthLabor(cfg, row.jobId, prev.year, prev.month, liveIds).catch(() => undefined),
     ]);
 
     if (folder.warning) warnings.push(folder.warning);
@@ -943,21 +990,21 @@ export async function loadMonthEvidence(
     shell.folder = folder.folder;
     shell.labor = labor;
     shell.priorBills = priorBills;
-    shell.priorLabor = priorLabor;
-    // The bill lines behind each invoice. Per invoice, after the invoices are
-    // read, because the bill list comes from the invoice itself. A failure
-    // leaves `billSources` undefined, which the reconciliation skips.
+    // The bill lines and time entries behind each invoice. Per invoice, after
+    // the invoices are read, because the sources come from the invoice itself.
+    // A failure leaves them undefined, which the reconciliation skips.
     await mapWithLimit(shell.invoices, 2, async (inv) => {
-      if (!inv.billIds.length) {
-        inv.billSources = [];
-        return;
-      }
       try {
-        inv.billSources = await loadBillSources(cfg, row.jobId, inv.billIds);
+        [inv.billSources, inv.timeSources] = await Promise.all([
+          inv.billIds.length ? loadBillSources(cfg, row.jobId, inv.billIds) : Promise.resolve([]),
+          loadTimeSources(cfg, inv.id),
+        ]);
       } catch (e) {
+        inv.billSources = undefined;
+        inv.timeSources = undefined;
         warnings.push(
-          `${row.jobName || row.jobId}: could not read the bill lines behind invoice ` +
-            `#${inv.number || inv.id} — ${e instanceof Error ? e.message : "unknown error"}`,
+          `${row.jobName || row.jobId}: could not read the bills and time behind invoice ` +
+            `#${inv.number || inv.id} (line check skipped) — ${e instanceof Error ? e.message : "unknown error"}`,
         );
       }
     });

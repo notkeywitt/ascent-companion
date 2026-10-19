@@ -105,6 +105,8 @@ export type FindingKind =
   | "bill-duplicate-number"
   /** Two finalized bills on a job are the same vendor and amount, weeks apart. */
   | "bill-duplicate-amount"
+  /** One vendor bill or credit booked on two jobs. */
+  | "bill-duplicate-cross-job"
   /** Invoice cost on a cost code that no bill or time entry behind it accounts for. */
   | "invoice-line-unsourced"
   /** Bills or time on the invoice carry cost on a code the invoice does not bill. */
@@ -384,6 +386,18 @@ export interface InvoiceSourceItem {
   costs: number[];
 }
 
+/** A time entry on a client invoice, as `document.referencedTimeEntries` returns it. */
+export interface InvoiceTimeSource {
+  id: string;
+  employee: string;
+  payType: string;
+  code: string;
+  /** Org-local "YYYY-MM-DD" — JobTread merges a code's entries per day into one line. */
+  day: string;
+  hours: number;
+  cost: number;
+}
+
 /** A backup PDF filed in the job's billing folder, as parsed by the Apps Script
  *  half from the `syncFilenameCsiAndFilePath` naming convention. */
 export interface BackupFile {
@@ -479,6 +493,11 @@ export interface InvoiceEvidence {
    * makes the line reconciliation say nothing rather than guess.
    */
   billSources?: InvoiceSourceItem[];
+  /**
+   * The time entries on this invoice, any month. Undefined when they could not
+   * be read, which makes the line reconciliation say nothing.
+   */
+  timeSources?: InvoiceTimeSource[];
 }
 
 /** One job's slice of the month. */
@@ -559,12 +578,6 @@ export interface JobEvidence {
   voidedBills?: BillRef[];
   /** The job's time entries for the month, each with the rate it was costed at. */
   labor: LaborEntryRef[];
-  /**
-   * The previous month's time entries. An invoice built early in a month often
-   * pulls the tail of the month before; without these the line reconciliation
-   * would call that labor unsourced. Optional: absent on older evidence.
-   */
-  priorLabor?: LaborEntryRef[];
   /**
    * Non-denied bills (draft included) issued in the lookback window before the
    * month — what the wide duplicate check compares this month's bills against.

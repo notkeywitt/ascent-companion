@@ -32,6 +32,7 @@ import { draftBillsCheck } from "./checks/draftBills";
 import { duplicateBillCheck } from "./checks/duplicateBill";
 import { duplicateDraftCheck } from "./checks/duplicateDraft";
 import { duplicateWideCheck } from "./checks/duplicateWide";
+import { duplicateCrossJobCheck } from "./checks/duplicateCrossJob";
 import { invoiceLinesCheck } from "./checks/invoiceLines";
 import { lineCodeMismatchCheck } from "./checks/lineCodeMismatch";
 import { taxDoubledCheck } from "./checks/taxDoubled";
@@ -77,6 +78,7 @@ const MONTH_CHECKS: MonthCheck<never>[] = [
   mailCaptureCheck,
   vendorSilentCheck,
   markupDriftCheck,
+  duplicateCrossJobCheck,
 ] as unknown as MonthCheck<never>[];
 
 /** Every declared check, whatever its scope — for listing and validation. */

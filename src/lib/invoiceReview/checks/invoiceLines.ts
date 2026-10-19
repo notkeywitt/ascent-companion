@@ -12,11 +12,13 @@
  * direction. A hand-typed credit lowers the total and passes; a hand-typed
  * charge on a busy month hides inside it. This reconciles CODE BY CODE.
  *
- * HOW. JobTread copies a bill line onto the invoice at the line's own cost, and
- * a time entry at hours × the rate in force when the invoice is built
- * (costBasis.ts). Invoice lines carry no link back to their source
- * (`sourceCostItem` is null — probed on Berger #379, 2026-10-19), so the match
- * is by code and cost:
+ * HOW. JobTread copies a bill line onto the invoice at the line's own cost.
+ * Time it MERGES: one invoice line per cost code per day, summed across the
+ * crew (Berger #379: 01 31 10, $850 = Seth $637.50 + Ty $212.50 on 9/16), at
+ * the rate in force when the invoice is built (costBasis.ts). Invoice lines
+ * carry no link back to their source (`sourceCostItem` is null — probed on
+ * #379, 2026-10-19), so the match is by code and cost, with time grouped by
+ * code and day first:
  *
  *   1. Pair each invoice line with one source on the same code at the same cost.
  *   2. What is left on a code — lines and sources both — is compared as sums,
@@ -28,8 +30,11 @@
  * A priced line with NO cost is reported on its own: it is invisible to any
  * cost sum, and it is the shape of a line typed by hand.
  *
- * QUIET WHEN IT CANNOT KNOW. No bill lines read (`billSources` undefined) means
- * nothing is said. An invoice whose lines miss on many codes at once was most
+ * Dry-run on live data 2026-10-19: Berger #379 (225 lines, 55 bills, 138 time
+ * entries) and Main House #25 reconcile on every code with no finding.
+ *
+ * QUIET WHEN IT CANNOT KNOW. Sources not read (`billSources` or `timeSources`
+ * undefined) means nothing is said. An invoice whose lines miss on many codes at once was most
  * likely rebuilt from a voided invoice whose bill links stayed behind, so it
  * gets ONE finding naming the codes, not one per code.
  */
@@ -42,6 +47,8 @@ import {
   type Finding,
   type InvoiceLine,
   type InvoiceSourceItem,
+  type InvoiceTimeSource,
+  type MonthEvidence,
 } from "../types";
 import { isDepositLine } from "./shared";
 
@@ -83,6 +90,31 @@ export function reconcileCode(
   // which is what a consolidated invoice line would have used.
   const sourceSum = open.reduce((s, x) => s + x.costs[x.costs.length - 1], 0);
   return { gap: cents(lineSum - sourceSum), leftoverLines };
+}
+
+/**
+ * An invoice's time as JobTread bills it: one source per cost code per day.
+ * Two candidate costs — the entries' stored cost, and hours × today's rate
+ * when every entry in the group has one.
+ */
+export function timeSourcesByDay(
+  time: InvoiceTimeSource[],
+  laborRates: MonthEvidence["laborRates"],
+): InvoiceSourceItem[] {
+  const groups = new Map<string, InvoiceTimeSource[]>();
+  for (const t of time) {
+    const k = `${t.code}|${t.day}`;
+    groups.set(k, [...(groups.get(k) ?? []), t]);
+  }
+  return [...groups.entries()].map(([k, entries]) => {
+    const stored = cents(entries.reduce((s, t) => s + t.cost, 0));
+    const current = entries.map((t) => laborRates?.get(t.employee)?.get(t.payType));
+    const costs = [stored];
+    if (current.every((r) => typeof r === "number")) {
+      costs.push(cents(entries.reduce((s, t, i) => s + (current[i] as number) * t.hours, 0)));
+    }
+    return { kind: "time" as const, sourceId: k, code: entries[0].code, costs };
+  });
 }
 
 export const invoiceLinesCheck = defineInvoiceCheck<InvoiceLinesConfig>({
@@ -127,17 +159,8 @@ export const invoiceLinesCheck = defineInvoiceCheck<InvoiceLinesConfig>({
     }
 
     // ── Code by code ─────────────────────────────────────────────────────────
-    if (!inv.billSources) return out; // the bill lines could not be read
-    const rate = (who: string, type: string) => month.laborRates?.get(who)?.get(type);
-    const time: InvoiceSourceItem[] = [...job.labor, ...(job.priorLabor ?? [])]
-      .filter((t) => t.invoiceIds.includes(inv.id))
-      .map((t) => {
-        const current = rate(t.employee, t.payType);
-        const costs = [t.cost];
-        if (typeof current === "number" && t.hours > 0) costs.push(cents(current * t.hours));
-        return { kind: "time" as const, sourceId: t.id, code: t.code, costs };
-      });
-    const sources = [...inv.billSources, ...time];
+    if (!inv.billSources || !inv.timeSources) return out; // sources could not be read
+    const sources = [...inv.billSources, ...timeSourcesByDay(inv.timeSources, month.laborRates)];
 
     const codes = new Set<string>([
       ...billable.filter((l) => Math.abs(l.cost) > global.tolerance).map((l) => l.code),
@@ -190,7 +213,7 @@ export const invoiceLinesCheck = defineInvoiceCheck<InvoiceLinesConfig>({
             (g.lines.length
               ? ` Unmatched line${g.lines.length === 1 ? "" : "s"}: ${g.lines.map(lineLabel).join("; ")}.`
               : "") +
-            ` If it is time older than last month, check it was meant to be billed now. Otherwise find the document behind it, or remove it.`,
+            ` Find the document behind it, or remove it.`,
           amount: g.gap,
         });
       } else {

@@ -42,6 +42,7 @@ import type { DraftBillsConfig } from "./checks/draftBills";
 import type { DuplicateBillConfig } from "./checks/duplicateBill";
 import type { DuplicateDraftConfig } from "./checks/duplicateDraft";
 import type { DuplicateWideConfig } from "./checks/duplicateWide";
+import type { DuplicateCrossJobConfig } from "./checks/duplicateCrossJob";
 import type { InvoiceLinesConfig } from "./checks/invoiceLines";
 import type { LineCodeMismatchConfig } from "./checks/lineCodeMismatch";
 import type { TaxDoubledConfig } from "./checks/taxDoubled";
@@ -86,6 +87,7 @@ export interface InvoiceReviewSettings {
     "taxable-flag": SettingsBlock<TaxableFlagConfig>;
     "tax-doubled": SettingsBlock<TaxDoubledConfig>;
     "duplicate-wide": SettingsBlock<DuplicateWideConfig>;
+    "duplicate-cross-job": SettingsBlock<DuplicateCrossJobConfig>;
     "invoice-lines": SettingsBlock<InvoiceLinesConfig>;
     "line-code-mismatch": SettingsBlock<LineCodeMismatchConfig>;
   };
@@ -205,9 +207,19 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
       config: {
         // Dirt Doctors was a month apart; a revised invoice arrives within weeks.
         amountWindowDays: 45,
-        // A $40 hardware run bought twice is a habit, not a duplicate.
-        minCost: 100,
+        // Low on purpose: Sunset's duplicate credits were $17.99 to $145.91.
+        // Repeat purchases at the same price carry different Sunset ticket
+        // numbers, and two different numbers never pair.
+        minCost: 15,
         reportAmountMatches: true,
+      },
+    },
+    "duplicate-cross-job": {
+      enabled: true,
+      config: {
+        // Both Sunset credits found on two Berger jobs carried the same date.
+        windowDays: 7,
+        minCost: 15,
       },
     },
     "invoice-lines": {

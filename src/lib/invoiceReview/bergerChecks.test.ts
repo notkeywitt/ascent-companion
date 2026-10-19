@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { taxLooksDoubled } from "@/lib/salesTax";
+import { duplicateCrossJobCheck } from "./checks/duplicateCrossJob";
 import { duplicateWideCheck, invoiceNumberStem } from "./checks/duplicateWide";
-import { invoiceLinesCheck, reconcileCode } from "./checks/invoiceLines";
+import { invoiceLinesCheck, reconcileCode, timeSourcesByDay } from "./checks/invoiceLines";
 import { codesInText, lineCodeMismatchCheck } from "./checks/lineCodeMismatch";
 import { taxDoubledCheck } from "./checks/taxDoubled";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -10,8 +11,8 @@ import type {
   BillRef,
   InvoiceEvidence,
   InvoiceLine,
+  InvoiceTimeSource,
   JobEvidence,
-  LaborEntryRef,
   MonthEvidence,
 } from "./types";
 
@@ -79,6 +80,7 @@ function invoice(lines: InvoiceLine[], over: Partial<InvoiceEvidence> = {}): Inv
     billIds: [],
     jtUrl: "https://app.jobtread.com/x",
     billSources: [],
+    timeSources: [],
     ...over,
   };
 }
@@ -202,6 +204,21 @@ describe("duplicateWideCheck", () => {
     expect(run(job({ bills: [a, credit], draftBills: [b] }))).toHaveLength(0);
   });
 
+  it("leaves Starr Sanitation's $300 a month alone — two numbers are two invoices", () => {
+    const may = bill({ id: "a", vendor: "Starr Sanitation", cost: 300, issueDate: "2026-07-31", externalId: "J654466", taxAmount: 0 });
+    const jun = bill({ id: "b", vendor: "Starr Sanitation", cost: 300, issueDate: "2026-08-31", externalId: "J661020", taxAmount: 0 });
+    expect(run(job({ bills: [jun], priorBills: [may] }))).toHaveLength(0);
+  });
+
+  it("catches Sunset's -$145.91 credit captured twice", () => {
+    const memo = bill({ id: "a", vendor: "Sunset Builders Supply", cost: -145.91, issueDate: "2026-10-01", status: "draft", externalId: "INV-1a2b3c4d", taxAmount: 0 });
+    const itemized = bill({ id: "b", vendor: "Sunset Builders Supply", cost: -145.91, issueDate: "2026-10-02", status: "draft", externalId: "INV-5e6f7a8b", taxAmount: 0 });
+    const out = run(job({ draftBills: [memo, itemized] }));
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toContain("-$145.91");
+    expect(out[0].amount).toBe(145.91);
+  });
+
   it("stays quiet on two equal charges further apart than the window", () => {
     const a = bill({ id: "a", vendor: "Cascade Roofing", cost: 13841.5, issueDate: "2026-03-31", taxAmount: 0 });
     const b = bill({ id: "b", vendor: "Cascade Roofing", cost: 13841.5, issueDate: "2026-05-29", taxAmount: 0 });
@@ -210,16 +227,14 @@ describe("duplicateWideCheck", () => {
 });
 
 describe("invoiceLinesCheck", () => {
-  const labor = (over: Partial<LaborEntryRef>): LaborEntryRef => ({
+  const time = (over: Partial<InvoiceTimeSource>): InvoiceTimeSource => ({
     id: "t1",
     employee: "Ty",
     payType: "Principal",
-    rate: 105,
     hours: 4,
     cost: 420,
     code: "01 31 00",
     day: "2026-09-10",
-    invoiceIds: ["inv1"],
     ...over,
   });
   const run = (inv: InvoiceEvidence, j: Partial<JobEvidence> = {}, m: MonthEvidence = month) =>
@@ -228,9 +243,9 @@ describe("invoiceLinesCheck", () => {
   it("is quiet when every line has its bill line or time entry", () => {
     const inv = invoice(
       [line({ code: "01 31 30", cost: 7.59 }), line({ id: "l2", code: "01 31 00", cost: 420 })],
-      { billSources: [{ kind: "bill", sourceId: "b1", code: "01 31 30", costs: [7.59] }] },
+      { billSources: [{ kind: "bill", sourceId: "b1", code: "01 31 30", costs: [7.59] }], timeSources: [time({})] },
     );
-    expect(run(inv, { labor: [labor({})] })).toEqual([]);
+    expect(run(inv)).toEqual([]);
   });
 
   it("finds the January $63.36 nobody could explain", () => {
@@ -261,6 +276,16 @@ describe("invoiceLinesCheck", () => {
     expect(out.map((f) => f.kind)).toEqual(["invoice-line-no-cost"]);
   });
 
+  it("merges a code's time per day the way JobTread bills it — #379, 01 31 10 on 9/16", () => {
+    const inv = invoice([line({ code: "01 31 10", cost: 850 })], {
+      timeSources: [
+        time({ id: "s", employee: "Seth", code: "01 31 10", day: "2026-09-16", hours: 7.5, cost: 637.5 }),
+        time({ id: "t", employee: "Ty", code: "01 31 10", day: "2026-09-16", hours: 2.5, cost: 212.5 }),
+      ],
+    });
+    expect(run(inv)).toEqual([]);
+  });
+
   it("leaves deposits alone and says nothing when bill lines could not be read", () => {
     const inv = invoice([line({ code: "CD", cost: -20000, price: -20000 }), line({ id: "l2", cost: 999 })], {
       billSources: undefined,
@@ -268,11 +293,18 @@ describe("invoiceLinesCheck", () => {
     expect(run(inv)).toEqual([]);
   });
 
-  it("matches time priced at today's rate, and last month's tail", () => {
+  it("matches time priced at today's rate, from any month", () => {
     const m = { ...month, laborRates: new Map([["Ty", new Map([["Principal", 115]])]]) };
-    const inv = invoice([line({ code: "01 31 00", cost: 460 }), line({ id: "l2", code: "01 31 00", cost: 840 })]);
-    const out = run(inv, { labor: [labor({})], priorLabor: [labor({ id: "t2", hours: 8, cost: 840, day: "2026-08-29" })] }, m);
-    expect(out).toEqual([]);
+    const inv = invoice([line({ code: "01 31 00", cost: 460 }), line({ id: "l2", code: "01 31 00", cost: 920 })], {
+      timeSources: [time({}), time({ id: "t2", hours: 8, cost: 840, day: "2026-08-29" })],
+    });
+    expect(run(inv, {}, m)).toEqual([]);
+  });
+
+  it("timeSourcesByDay offers today's rate only when every entry has one", () => {
+    const rates = new Map([["Ty", new Map([["Principal", 115]])]]);
+    const [g] = timeSourcesByDay([time({}), time({ id: "x", employee: "Seth" })], rates);
+    expect(g.costs).toEqual([840]);
   });
 
   it("collapses a rebuilt invoice into one finding", () => {
@@ -293,6 +325,32 @@ describe("invoiceLinesCheck", () => {
       0.01,
     );
     expect(r.gap).toBe(0);
+  });
+});
+
+describe("duplicateCrossJobCheck", () => {
+  it("finds Sunset's -$83.03 credit booked on both Berger jobs", () => {
+    const bunk = job({ bills: [bill({ id: "a", vendor: "Sunset Builders Supply", cost: -83.03, issueDate: "2026-07-09", externalId: "690843", taxAmount: 0 })] });
+    const main = job({
+      jobId: "J2",
+      jobName: "Main House",
+      bills: [bill({ id: "b", vendor: "Sunset Builders Supply", cost: -83.03, issueDate: "2026-07-09", externalId: "", taxAmount: 0 })],
+    });
+    const out = duplicateCrossJobCheck.run({
+      month: { ...month, jobs: [bunk, main] },
+      config: S["duplicate-cross-job"].config,
+      global,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].title).toContain("credit on two jobs");
+  });
+
+  it("leaves two different Sunset tickets for the same figure alone", () => {
+    const a = job({ bills: [bill({ id: "a", vendor: "Sunset Builders Supply", cost: 40.44, externalId: "661496" })] });
+    const b = job({ jobId: "J2", bills: [bill({ id: "b", vendor: "Sunset Builders Supply", cost: 40.44, externalId: "661500" })] });
+    expect(
+      duplicateCrossJobCheck.run({ month: { ...month, jobs: [a, b] }, config: S["duplicate-cross-job"].config, global }),
+    ).toEqual([]);
   });
 });
 

@@ -16,7 +16,17 @@
  *   amount   same vendor, same cost to the cent, within `amountWindowDays`.
  *            Often a duplicate, sometimes two genuine equal charges (a 50/50
  *            progress bill, a monthly rental): warning, and a ruling silences
- *            the real ones.
+ *            the real ones. Skipped when BOTH bills carry a vendor invoice
+ *            number and the numbers differ — two numbers are two invoices.
+ *            That rule is what silences Starr Sanitation's $300 a month
+ *            (five pairs in the 2026-10-19 dry run on Berger Bunkhouse).
+ *
+ * CREDITS COUNT. A credit captured twice pays the client twice: Sunset's
+ * −$145.91 on Main House was entered as one "Credit Memo" line and again
+ * itemized (dry run 2026-10-19). A credit pairs only with a credit.
+ *
+ * Within one job only. The same bill booked on two jobs is month-scoped and
+ * lives in duplicateCrossJob.ts.
  *
  * A pair duplicate-draft already reports (one draft, same date, same cents) is
  * left to it, so the office never sees one problem twice.
@@ -34,7 +44,7 @@ export interface DuplicateWideConfig {
   reportAmountMatches: boolean;
 }
 
-const vendorKey = (b: BillRef) => (b.vendor || "").trim().toLowerCase().replace(/\s+/g, " ");
+export const vendorKey = (b: BillRef) => (b.vendor || "").trim().toLowerCase().replace(/\s+/g, " ");
 
 /**
  * A vendor invoice number reduced to what identifies the invoice: case,
@@ -52,7 +62,17 @@ export function invoiceNumberStem(raw: string | undefined): string {
   return s.length >= 4 ? s : "";
 }
 
-const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
+export const dayNumber = (iso: string) => Date.parse(`${iso}T00:00:00Z`) / 86_400_000;
+
+/**
+ * Can two bills of the same vendor and amount be the same invoice? Not when
+ * both carry a vendor invoice number and the numbers differ.
+ */
+export function numbersAllowSame(a: BillRef, b: BillRef): boolean {
+  const x = invoiceNumberStem(a.externalId);
+  const y = invoiceNumberStem(b.externalId);
+  return !(x && y && x !== y);
+}
 
 /** The pair duplicate-draft reports already. */
 function draftCheckOwns(a: BillRef, b: BillRef): boolean {
@@ -77,9 +97,10 @@ export const duplicateWideCheck = defineJobCheck<DuplicateWideConfig>({
     const seen = new Set<string>();
 
     for (const a of current) {
-      if (!(a.cost > 0)) continue; // a credit is not a copy of anything
+      if (a.cost === 0) continue;
       for (const b of pool) {
-        if (b.id === a.id || !(b.cost > 0)) continue;
+        // A credit pairs only with a credit.
+        if (b.id === a.id || Math.sign(b.cost) !== Math.sign(a.cost)) continue;
         if (vendorKey(a) === "" || vendorKey(a) !== vendorKey(b)) continue;
         const pairKey = [a.id, b.id].sort().join("|");
         if (seen.has(pairKey)) continue;
@@ -89,9 +110,10 @@ export const duplicateWideCheck = defineJobCheck<DuplicateWideConfig>({
         const gapDays = Math.abs(dayNumber(a.issueDate) - dayNumber(b.issueDate));
         const sameAmount =
           config.reportAmountMatches &&
-          a.cost >= config.minCost &&
+          Math.abs(a.cost) >= config.minCost &&
           Math.abs(a.cost - b.cost) <= global.tolerance &&
           gapDays <= config.amountWindowDays &&
+          numbersAllowSame(a, b) &&
           !draftCheckOwns(a, b);
         if (!sameNumber && !sameAmount) continue;
         seen.add(pairKey);
@@ -99,6 +121,7 @@ export const duplicateWideCheck = defineJobCheck<DuplicateWideConfig>({
         // The later copy is the one to look at first.
         const [older, newer] = a.issueDate <= b.issueDate ? [b, a] : [a, b];
         const kind = sameNumber ? "bill-duplicate-number" : "bill-duplicate-amount";
+        const what = a.cost < 0 ? "credit" : "bill";
         const onInvoice = (x: BillRef) =>
           x.sentInvoiceIds.length ? "on a sent invoice" : x.invoiceIds.length ? "on a draft invoice" : "not invoiced yet";
         const both =
@@ -122,13 +145,15 @@ export const duplicateWideCheck = defineJobCheck<DuplicateWideConfig>({
               ? `Two bills carry the same ${a.vendor} invoice number: ${both}. A revised ` +
                 `invoice replaces its original — void the superseded bill (deny it after ` +
                 `removing its payments; never delete it).`
-              : `Two ${a.vendor} bills for exactly ${money(a.cost)}: ${both}. That is often ` +
-                `one invoice captured twice. If they are two real charges (a progress ` +
+              : `Two ${a.vendor} ${what}s for exactly ${money(a.cost)}: ${both}. That is often ` +
+                `one document captured twice. If they are two real charges (a progress ` +
                 `payment in halves, a monthly rental), record a ruling so this stays quiet.`) +
             (older.sentInvoiceIds.length && newer.sentInvoiceIds.length
-              ? ` Both have reached the client: credit the duplicate on the next invoice.`
+              ? a.cost < 0
+                ? ` Both have reached the client: the credit was given twice.`
+                : ` Both have reached the client: credit the duplicate on the next invoice.`
               : ""),
-          amount: newer.cost,
+          amount: Math.abs(newer.cost),
           sourceLink: billLink(job.jobId, newer.id),
           target: { kind: "bill", billId: newer.id },
           sourceLabel: "Open the newer bill",
