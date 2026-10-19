@@ -18,8 +18,8 @@ import {
  * AI COST — what the app's Claude calls have cost, by month and by feature.
  *
  * Every Claude call is recorded and priced as it happens (src/lib/aiUsage.ts).
- * This covers the Assistant only: the Apps Script back end also calls Claude to
- * read emailed invoices, and that spend is not in these figures.
+ * The Apps Script invoice reader logs its own calls (AiUsage.js there) and the
+ * route merges them in, priced with the same table.
  */
 
 interface UsageRow {
@@ -44,6 +44,14 @@ const FEATURE_LABELS: Record<string, string> = {
   "spec-list": "Specifications",
   "tool-serial-ocr": "Tools — serial number",
   chat: "Assistant chat",
+  "invoice-reader.expenditure": "Invoice reader — emailed invoices",
+  "invoice-reader.sunsetInvoiceDetailsText": "Invoice reader — Sunset invoices",
+  "invoice-reader.statementLineItems": "Invoice reader — Sunset statements",
+  "invoice-reader.statementPaymentHeader": "Invoice reader — statement payments",
+  "invoice-reader.enrichElectrical": "Invoice reader — electrical items",
+  "invoice-reader.sunsetProjectName": "Invoice reader — Sunset project",
+  "invoice-reader.soldToDump": "Invoice reader — LSWDD statement",
+  "invoice-reader.other": "Invoice reader — other",
 };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -59,15 +67,19 @@ const tokens = (n: number) =>
 
 export default function AiCostPage() {
   const [rows, setRows] = useState<UsageRow[] | null>(null);
+  const [readerNote, setReaderNote] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/ai-usage")
       .then(async (r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return (await r.json()) as { rows: UsageRow[] };
+        return (await r.json()) as { rows: UsageRow[]; readerNote?: string };
       })
-      .then((d) => setRows(d.rows))
+      .then((d) => {
+        setRows(d.rows);
+        setReaderNote(d.readerNote ?? "");
+      })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
@@ -96,8 +108,13 @@ export default function AiCostPage() {
               label={`This month — ${monthLabel(thisMonth)}`}
               value={usd(monthTotal(thisMonth))}
               sub={`${(rows ?? []).filter((r) => r.month === thisMonth).reduce((s, r) => s + r.calls, 0)} calls`}
-              footnote="The Apps Script invoice reader also uses Claude; its cost is not included here."
+              footnote="Includes the Apps Script invoice reader, logged from Oct 19, 2026."
             />
+            {readerNote ? (
+              <Banner tone="warning" className="mt-4">
+                {readerNote}
+              </Banner>
+            ) : null}
             {unpriced ? (
               <Banner tone="warning" className="mt-4">
                 {unpriced} call{unpriced === 1 ? "" : "s"} used a model with no price on file, so
