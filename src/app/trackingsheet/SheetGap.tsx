@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { HistoricalCost } from "@/app/historical-cost/HistoricalCost";
 import { Banner, Card, MetaLine, Spinner, Toggle, btn } from "@/components/ui";
 import { money, money0 } from "./BillCodingCard";
 
@@ -93,6 +93,8 @@ export function SheetGap({
   className?: string;
 }) {
   const [on, setOn] = useState(false);
+  // The catch-up bill opens over the board (stage 6), not on its own page.
+  const [creating, setCreating] = useState(false);
   const [mode, setMode] = useState<Mode>("spend");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -316,12 +318,9 @@ export function SheetGap({
               )}
 
               <div className="flex items-center gap-2 px-3 py-2">
-                <Link
-                  href={`/historical-cost?job=${encodeURIComponent(jobId)}&url=${encodeURIComponent(url)}`}
-                  className={btn("secondary", "sm")}
-                >
-                  Create the bill →
-                </Link>
+                <button type="button" onClick={() => setCreating(true)} className={btn("secondary", "sm")}>
+                  Create the bill
+                </button>
                 <button
                   type="button"
                   onClick={() => void run()}
@@ -333,6 +332,34 @@ export function SheetGap({
               </div>
             </Card>
           )}
+        </div>
+      )}
+      {creating && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Historical cost bill"
+          onClick={() => setCreating(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[92dvh] w-full max-w-3xl overflow-y-auto rounded-t-2xl border border-line bg-cream p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-xl dark:bg-ink sm:rounded-2xl"
+          >
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setCreating(false);
+                  void run();
+                }}
+                className="inline-flex min-h-9 items-center text-xs font-semibold text-accent hover:underline"
+              >
+                Close
+              </button>
+            </div>
+            <HistoricalCost embedded presetJob={jobId} presetUrl={url} />
+          </div>
         </div>
       )}
     </div>
