@@ -223,9 +223,11 @@ view id would reach a signed-in person only at their next sign-in, because the
 role base is fixed in the session token. The People workspace is gone — Pay
 Rates and Safety Meeting joined Employees; Payroll sits under Time.
 
-Not done in stage 5: one pay-period picker driving every section; each
-employee's period total linked to their timesheet; the time-entries email and
-the miles PDF on Payroll; Pay Rates' per-person editing moved into the
+Then (2026-10-19): Payroll opens on a **Pay period** section (`PayPeriod.tsx`)
+— one month + half picker, the time-entries email, the month's all-drivers
+miles PDF, and a link to review a timesheet.
+
+Not done in stage 5: each employee's period total; Pay Rates' per-person editing moved into the
 Employees record; Time Sync's 7-day window widened to the period; the Employees
 table that fits a phone.
 

@@ -8,6 +8,7 @@ import { setUrlParam } from "@/lib/urlParam";
 import { TimeOffView } from "@/app/time-off/TimeOff";
 import { TimeSync } from "@/app/time-sync/TimeSync";
 import { LaborImport } from "@/app/labor-import/LaborImport";
+import { PayPeriod } from "./PayPeriod";
 
 /**
  * PAYROLL (CONSOLIDATION_PLAN.md stage 5) — the pay-period work that used to
@@ -19,6 +20,8 @@ import { LaborImport } from "@/app/labor-import/LaborImport";
  * the open one loads. /time-off/office, /time-sync and /labor-import redirect.
  */
 const SECTIONS = [
+  // The pay period's outputs. Rides the page's own gate (time-sync).
+  { id: "period", label: "Pay period", view: "time-sync" },
   { id: "timeoff", label: "Time off", view: "time-off-admin" },
   { id: "sync", label: "Sync gaps", view: "time-sync" },
   { id: "labor", label: "Labor import", view: "labor-import" },
@@ -52,6 +55,7 @@ export function Payroll() {
           ))}
         </div>
       )}
+      {section === "period" && can("time-sync") && <PayPeriod />}
       {section === "timeoff" && can("time-off-admin") && <TimeOffView office embedded />}
       {section === "sync" && can("time-sync") && <TimeSync embedded />}
       {section === "labor" && can("labor-import") && <LaborImport embedded />}
