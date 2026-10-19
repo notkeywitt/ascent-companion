@@ -9,13 +9,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 7d ago | 2 | — |
+| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 8d ago | 2 | — |
 | [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 17d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 26d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 34d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 39d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
 | [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 39d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
-| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 40d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
+| [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 41d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
 | [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 41d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
 | [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 43d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
 | [ascent-building-theme](.claude/sessions/2026-09-06-ascent-building-theme.md) | `claude/ascent-building-theme-rz1o6h` | 43d ago | 6 | Tune the palettes in /theme on the phone, then paste the Copy CSS output back s… |
@@ -26,12 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 35d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 36d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-19 | 48 | — |
 | [kevin-berger-invoice-review](.claude/sessions/2026-10-19-kevin-berger-invoice-review.md) | 2026-10-19 | 6 | Turn Kevin Berger's invoice disputes into review checks, and run the review on … |
 | [todo-assignees](.claude/sessions/2026-10-19-todo-assignees.md) | 2026-10-19 | 3 | Home to-dos show details and assignees |
 | [page-consolidation-audit](.claude/sessions/2026-10-18-page-consolidation-audit.md) | 2026-10-19 | 33 | audit admin and office pages, recommend merges |
@@ -39,7 +40,6 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [manual-mileage-recording](.claude/sessions/2026-10-17-manual-mileage-recording.md) | 2026-10-17 | 1 | — |
 | [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 11 | remove billing period label and caption from home picker |
 | [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 7 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-17 | 47 | — |
 | [automate-timesheet-email](.claude/sessions/2026-10-16-automate-timesheet-email.md) | 2026-10-16 | 1 | Draft the pay-period time entries email (JobTread CSV attached) from a button o… |
 | [jobtread-clock-in-description](.claude/sessions/2026-10-16-jobtread-clock-in-description.md) | 2026-10-16 | 1 | — |
 | [invoicing-email](.claude/sessions/2026-10-15-invoicing-email.md) | 2026-10-15 | 7 | One button on Tracking Sheets all-jobs that drafts the monthly Invoicing Packag… |
