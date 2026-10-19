@@ -834,7 +834,8 @@ export default function ToolsPage() {
                           {t.locationLabel || "Unassigned"}
                         </div>
                       </div>
-                      {t.condition && (
+                      {/* "Good" is the ordinary state, so it gets no pill (look rule 2). */}
+                      {t.condition && !/^good$/i.test(t.condition) && (
                         <span
                           className={`hidden rounded-full px-2 py-0.5 text-[11px] font-semibold sm:inline ${conditionClass(
                             t.condition,
@@ -845,7 +846,7 @@ export default function ToolsPage() {
                       )}
                       <button
                         onClick={() => openEdit(t)}
-                        className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600"
+                        className="rounded-lg border border-line-strong px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent"
                       >
                         Edit
                       </button>

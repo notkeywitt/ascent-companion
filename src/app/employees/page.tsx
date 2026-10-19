@@ -336,11 +336,12 @@ export default function EmployeesPage() {
       return (
         <span
           title={live ? `JobTread: ${name}` : `Linked to ${name} (not found in current JobTread users)`}
+          // Linked is the ordinary state — quiet text; a link to a missing
+          // JobTread user is the exception and keeps the amber pill.
           className={
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold " +
-            (live || !jtUsers.length
-              ? "text-green-700 bg-green-100 dark:text-green-300 dark:bg-green-950/50"
-              : "text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50")
+            live || !jtUsers.length
+              ? "text-[12px] text-neutral-600 dark:text-neutral-400"
+              : "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-950/50"
           }
         >
           ✓ {name}
@@ -450,7 +451,11 @@ export default function EmployeesPage() {
                     <td className="px-3 py-2">
                       {e.status && (
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass(e.status)}`}
+                          className={
+                            /^active$/i.test(e.status)
+                              ? "text-[12px] text-neutral-600 dark:text-neutral-400"
+                              : `rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass(e.status)}`
+                          }
                         >
                           {e.status}
                         </span>

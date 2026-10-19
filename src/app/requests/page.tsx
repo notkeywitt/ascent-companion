@@ -79,7 +79,7 @@ export default function RequestsPage() {
     <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
       <PageHeader
         title="App Feedback"
-        description="Ask for panel updates and new features."
+        description="Ask for app fixes and new features."
         actions={
           <Button
             variant={showNew ? "secondary" : "primary"}
@@ -128,9 +128,11 @@ export default function RequestsPage() {
         <EmptyState>No requests yet — be the first.</EmptyState>
       )}
 
-      <ul className="space-y-2">
+      {/* One hairline list, not a box per request (CONSOLIDATION_PLAN look rule 1). */}
+      {requests.length > 0 && (
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
         {requests.map((r) => (
-          <li key={r.id} className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+          <li key={r.id} className="p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-medium">{r.title}</div>
@@ -170,6 +172,7 @@ export default function RequestsPage() {
           </li>
         ))}
       </ul>
+      )}
     </main>
   );
 }

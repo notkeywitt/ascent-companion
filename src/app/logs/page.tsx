@@ -106,12 +106,11 @@ export default function LogsPage() {
       {error && <Banner tone="error">{error}</Banner>}
       {!loading && !error && items.length === 0 && <EmptyState>No log entries match.</EmptyState>}
 
-      <ul className="space-y-2">
+      {/* One hairline list, not a box per entry (CONSOLIDATION_PLAN look rule 1). */}
+      {items.length > 0 && (
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
         {items.map((it, i) => (
-          <li
-            key={i}
-            className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
-          >
+          <li key={i} className="p-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-xs text-neutral-500">{it.timestamp}</span>
               {it.level && (
@@ -146,6 +145,7 @@ export default function LogsPage() {
           </li>
         ))}
       </ul>
+      )}
     </main>
   );
 }

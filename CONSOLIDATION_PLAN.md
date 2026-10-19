@@ -251,6 +251,18 @@ Not done in stage 6: Access's Activity tab into Audit; Historical Cost as a
 Tracking Sheets drawer; Search tidy-up (Vendors' bill-number box, Archive
 reading `?q`).
 
+### Look pass 1, 2026-10-19
+
+One hairline list instead of a box per record: Requisitions, App Feedback,
+System Logs (and Bill Corrections, Check mail earlier). A pill only for the
+exception: Requisitions shows one only for "Requested"; Employees shows plain
+text for an Active status and a live JobTread link; Tools drops the "Good" pill.
+App Feedback no longer says "panel".
+
+Still card-per-record: Email Invoices (each card carries a form), Not in
+JobTread, Sunset, LSWDD, Amazon, Bill Search, Leads, Taxable lines, Invoicing
+Package, the Tracking Sheets month list.
+
 ## Look rules (apply as each page merges)
 
 1. A list is one hairline card (`Card pad={false}`, `divide-y divide-line-soft`).

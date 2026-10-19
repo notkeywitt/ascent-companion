@@ -47,7 +47,12 @@ const statusClass: Record<string, string> = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const cls = statusClass[status] ?? "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800";
+  // A pill only for the exception — a request still waiting on the office.
+  // Every other state is quiet text (look rule 2).
+  if (status && status !== "Requested") {
+    return <span className="shrink-0 text-xs font-medium text-neutral-500 dark:text-neutral-400">{status}</span>;
+  }
+  const cls = statusClass[status] ?? statusClass.Requested;
   return (
     <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
       {status || "Requested"}
@@ -350,7 +355,9 @@ function Requisitions() {
               : "You haven't submitted any requests yet. Tap “New request” to start one."}
         </EmptyState>
       ) : (
-        <ul className="space-y-2">
+        // One hairline list, not a card per request (CONSOLIDATION_PLAN look rule 1).
+        <Card pad={false} className="overflow-hidden">
+        <ul className="divide-y divide-line-soft">
           {rows.map((r) => (
             <RequisitionCard
               key={r["ReqID"]}
@@ -363,6 +370,7 @@ function Requisitions() {
             />
           ))}
         </ul>
+        </Card>
       )}
     </main>
   );
@@ -418,8 +426,7 @@ function RequisitionCard({
   const notesDirty = notes !== (r["Office Notes"] ?? "");
 
   return (
-    <li>
-      <Card className="space-y-2">
+    <li className="space-y-2 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold">
@@ -494,7 +501,6 @@ function RequisitionCard({
         )}
 
         {err && <Banner tone="error">{err}</Banner>}
-      </Card>
     </li>
   );
 }
