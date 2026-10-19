@@ -1,42 +1,16 @@
 {
-  "generatedAt": "2026-10-19T10:43:20Z",
+  "generatedAt": "2026-10-19T10:48:34Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "kevin-berger-invoice-review",
-      "file": "2026-10-19-kevin-berger-invoice-review.md",
-      "branch": "claude/kevin-berger-invoice-review-gktmtf",
-      "status": "shipped",
-      "started": "2026-10-19T10:34:29Z",
-      "updated": "2026-10-19T10:43:20Z",
-      "goal": "Turn Kevin Berger's invoice disputes into review checks, and run the review on the 10th-to-15th timeline",
-      "next": "After the 2026-11-11 scheduled run: read the November digest card and the review history (ranBy schedule) to confirm the nightly run fired; tune any noisy new check with a ruling or settings. Owner decision pending on the /api/bill-tax guard.",
-      "commits": [
-        {
-          "date": "2026-10-19",
-          "time": "10:34",
-          "sha": "c42fd65",
-          "subject": "companion: add berger invoice checks and run the review on the 10th-to-15th timeline",
-          "files": ".claude/skills/invoice-review/SKILL.md, CODEBASE_MAP.md, src/app/api/digest/run/route.ts, src/app/api/invoice-review/run/route.ts, src/lib/digest/checks/invoiceReviewWindow.ts, src/lib/digest/registry.ts, +13 more"
-        },
-        {
-          "date": "2026-10-19",
-          "time": "10:43",
-          "sha": "c213adc",
-          "subject": "companion: tune berger checks against live data and add cross-job duplicates",
-          "files": "CODEBASE_MAP.md, src/lib/invoiceReview/bergerChecks.test.ts, src/lib/invoiceReview/checks/duplicateCrossJob.ts, src/lib/invoiceReview/checks/duplicateWide.ts, src/lib/invoiceReview/checks/invoiceLines.ts, src/lib/invoiceReview/evidence.ts, +3 more"
-        }
-      ]
-    },
     {
       "slug": "page-consolidation-audit",
       "file": "2026-10-18-page-consolidation-audit.md",
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-19T03:25:42Z",
+      "updated": "2026-10-19T10:48:33Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "desktop polish stage 3: Dialog, Segmented, Checkbox, FileDrop, Button xs, one table style (only on the owner's go)",
+      "next": "desktop polish stage 4: page sweep — type sizes, money/date formats, colour literals (only on the owner's go)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -254,6 +228,39 @@
           "sha": "342d3e1",
           "subject": "companion: desktop polish stage 2 — one tab style, one left edge, sidebar states",
           "files": "CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/admin/copy/page.tsx, src/app/admin/page.tsx, src/app/amazon-import/page.tsx, src/app/ar-aging/page.tsx, +58 more"
+        },
+        {
+          "date": "2026-10-19",
+          "time": "10:48",
+          "sha": "55df24f",
+          "subject": "companion: desktop polish stage 3 — one dialog, segmented, checkbox, file drop, table style",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, CONSOLIDATION_PLAN.md, src/app/add-bill/page.tsx, src/app/amazon-import/page.tsx, src/app/email/EmailInvoices.tsx, +27 more"
+        }
+      ]
+    },
+    {
+      "slug": "kevin-berger-invoice-review",
+      "file": "2026-10-19-kevin-berger-invoice-review.md",
+      "branch": "claude/kevin-berger-invoice-review-gktmtf",
+      "status": "shipped",
+      "started": "2026-10-19T10:34:29Z",
+      "updated": "2026-10-19T10:43:20Z",
+      "goal": "Turn Kevin Berger's invoice disputes into review checks, and run the review on the 10th-to-15th timeline",
+      "next": "After the 2026-11-11 scheduled run: read the November digest card and the review history (ranBy schedule) to confirm the nightly run fired; tune any noisy new check with a ruling or settings. Owner decision pending on the /api/bill-tax guard.",
+      "commits": [
+        {
+          "date": "2026-10-19",
+          "time": "10:34",
+          "sha": "c42fd65",
+          "subject": "companion: add berger invoice checks and run the review on the 10th-to-15th timeline",
+          "files": ".claude/skills/invoice-review/SKILL.md, CODEBASE_MAP.md, src/app/api/digest/run/route.ts, src/app/api/invoice-review/run/route.ts, src/lib/digest/checks/invoiceReviewWindow.ts, src/lib/digest/registry.ts, +13 more"
+        },
+        {
+          "date": "2026-10-19",
+          "time": "10:43",
+          "sha": "c213adc",
+          "subject": "companion: tune berger checks against live data and add cross-job duplicates",
+          "files": "CODEBASE_MAP.md, src/lib/invoiceReview/bergerChecks.test.ts, src/lib/invoiceReview/checks/duplicateCrossJob.ts, src/lib/invoiceReview/checks/duplicateWide.ts, src/lib/invoiceReview/checks/invoiceLines.ts, src/lib/invoiceReview/evidence.ts, +3 more"
         }
       ]
     },
