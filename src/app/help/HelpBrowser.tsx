@@ -182,7 +182,7 @@ export function HelpBrowser() {
   const shown = only ? sections.filter((s) => s.id === only) : sections;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageTabs tabs={HELP_TABS} />
       <PageHeader
         title="Help"

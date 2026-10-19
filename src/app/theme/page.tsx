@@ -191,14 +191,14 @@ export default function ThemeEditorPage() {
 
   if (!ready) {
     return (
-      <main className="mx-auto max-w-3xl px-4 pb-10 pt-5">
+      <main className="w-full max-w-4xl px-4 pad:px-7 pb-10 pt-5">
         <PageHeader title="Theme" description="Loading the palette…" />
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-10 pt-5">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-10 pt-5">
       <PageTabs tabs={LOOK_TABS} />
       <PageHeader
         title="Theme"

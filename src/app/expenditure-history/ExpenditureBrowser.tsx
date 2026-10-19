@@ -769,7 +769,7 @@ export default function ExpenditureBrowser() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Bill Archive"
         description="Every bill in the Expenditure sheet, including the years before JobTread."

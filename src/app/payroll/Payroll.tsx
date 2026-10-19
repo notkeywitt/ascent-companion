@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
-import { FilterChip, PageHeader } from "@/components/ui";
+import { PageHeader, Tabs } from "@/components/ui";
 import { setUrlParam } from "@/lib/urlParam";
 import { TimeOffView } from "@/app/time-off/TimeOff";
 import { TimeSync } from "@/app/time-sync/TimeSync";
@@ -37,24 +37,20 @@ export function Payroll() {
   });
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader title="Payroll" description="Time off, time that did not reach JobTread, and the month's labor." />
-      {sections.length > 1 && (
-        <div className="mb-4 mt-3 flex flex-wrap gap-2">
-          {sections.map((x) => (
-            <FilterChip
-              key={x.id}
-              on={section === x.id}
-              onClick={() => {
-                setSection(x.id);
+      <Tabs
+        label="Payroll sections"
+        items={sections.map((x) => ({
+          key: x.id,
+          label: x.label,
+          active: section === x.id,
+          onClick: () => {
+            setSection(x.id);
                 setUrlParam("section", x.id === sections[0].id ? "" : x.id);
-              }}
-            >
-              {x.label}
-            </FilterChip>
-          ))}
-        </div>
-      )}
+          },
+        }))}
+      />
       {section === "period" && can("time-sync") && <PayPeriod />}
       {section === "timeoff" && can("time-off-admin") && <TimeOffView office embedded />}
       {section === "sync" && can("time-sync") && <TimeSync embedded />}

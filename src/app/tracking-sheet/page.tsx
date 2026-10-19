@@ -408,7 +408,7 @@ export default function TrackingSheetPage() {
 
   if (loading)
     return (
-      <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+      <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
         <Loading label="Loading tracking sheets…" />
       </main>
     );
@@ -417,7 +417,7 @@ export default function TrackingSheetPage() {
     // The app's standard page container. This was a bare <div> with no padding
     // at all, so the title and every card sat hard against both screen edges on
     // a phone — the only page besides Historical Cost Import that wasn't on it.
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Sheet sync settings"
         description="Pause the automatic tracking-sheet sync, pin its month, or sync and finalize one job. Finalize is also on each job in Tracking Sheets."

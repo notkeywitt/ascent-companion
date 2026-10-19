@@ -455,7 +455,7 @@ export default function PaymentsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Sunset Statements"
         description="Pay each statement at TSYS — copy the fields, pay, mark it done. Each card reconciles the statement total against the Sunset invoices logged for that project & month."

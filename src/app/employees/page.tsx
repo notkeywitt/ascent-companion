@@ -372,7 +372,7 @@ export default function EmployeesPage() {
   }, [jtUsers]);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Employees"
         description="The Project Database roster — search, edit, and link people to their JobTread user."

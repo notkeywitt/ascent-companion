@@ -159,8 +159,8 @@ export function TimeOffView({ office, embedded = false }: { office: boolean; emb
     <Wrap embedded={embedded}>
       <PageHeader
         title={office ? "Time Off (Office)" : TIME_OFF_TITLE}
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Time off</h2> : undefined}
-        description={
+        titleSlot={embedded ? <span className="sr-only">Time off</span> : undefined}
+        description={embedded ? undefined : 
           office
             ? "Requests to approve, accrual, balances, the balance import, and policy."
             : "Your PTO and sick-time balance, and request time off."
@@ -1273,5 +1273,5 @@ function PolicyRow({ policy, onSaved }: { policy: Policy; onSaved: () => void })
 
 /** A page of its own, or a section of Payroll (/payroll). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

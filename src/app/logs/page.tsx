@@ -63,7 +63,7 @@ export default function LogsPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
       <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="System Logs"

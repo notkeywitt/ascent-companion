@@ -58,7 +58,7 @@ export default async function OfficePage({
   const ym = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Office Dashboard"
         description="The Office job's bills and files. Its to-dos are on Home."

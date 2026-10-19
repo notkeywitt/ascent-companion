@@ -307,7 +307,7 @@ export default function LswddPage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-32 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-32 pt-6">
       <PageHeader
         title="LSWDD Statement"
         description="The dump bills one statement a month covering every job. Assign each charge to a job, then submit — each job gets its own draft bill in JobTread."

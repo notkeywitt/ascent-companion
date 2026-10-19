@@ -723,8 +723,8 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     <Wrap embedded={embedded}>
       <PageHeader
         title="Leads"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Leads</h2> : undefined}
-        description='Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'
+        titleSlot={embedded ? <span className="sr-only">Leads</span> : undefined}
+        description={embedded ? undefined : 'Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'}
         actions={
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={() => setAdding((v) => !v)}>
@@ -1869,5 +1869,5 @@ function Field({ label, value }: { label: string; value: string }) {
 
 /** A page of its own, or a section of Customers (/leads). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 py-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 py-6">{children}</main>;
 }

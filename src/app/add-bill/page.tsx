@@ -409,7 +409,7 @@ function AddBill() {
   ) : null;
 
   return (
-    <main className={`mx-auto px-4 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-xl"}`}>
+    <main className={`w-full px-4 pad:px-7 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-2xl"}`}>
       <PageHeader
         title="Add Bill"
         description={

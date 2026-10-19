@@ -145,4 +145,12 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
     expect(activeBarKey(rail, "/employee-time")).toBe("time");
   });
+  it("lights the parent workspace on a job page or a bill", () => {
+    const rail = railFor("office", can("office"));
+    expect(activeBarKey(rail, "/jobs")).toBe("clients");
+    expect(activeBarKey(rail, "/budget-import")).toBe("clients");
+    expect(activeBarKey(rail, "/bill/123")).toBe("close");
+    expect(activeBarKey(rail, "/add-bill")).toBe("close");
+    expect(activeBarKey(rail, "/bill-search")).not.toBe("close");
+  });
 });

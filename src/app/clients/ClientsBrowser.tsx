@@ -219,10 +219,11 @@ export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}
 
   return (
     <Wrap embedded={embedded}>
+      {view.kind === "job" && <JobTabs jobId={view.id} />}
       <PageHeader
-        title="Directory"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">All customers</h2> : undefined}
-        description="Every customer and job in JobTread — the record, not the cost. Edit it here."
+        title={view.kind === "job" ? "Record" : "Directory"}
+        titleSlot={embedded ? <span className="sr-only">All customers</span> : undefined}
+        description={embedded ? undefined : "Every customer and job in JobTread — the record, not the cost. Edit it here."}
       />
 
       {view.kind !== "list" && (
@@ -235,7 +236,6 @@ export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}
         </button>
       )}
 
-      {view.kind === "job" && <JobTabs jobId={view.id} />}
       {view.kind === "job" && (
         <JobPanel
           jobId={view.id}
@@ -380,5 +380,5 @@ export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}
 
 /** A page of its own, or a section of Customers (/leads). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

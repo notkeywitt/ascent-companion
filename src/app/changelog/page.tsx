@@ -195,7 +195,7 @@ export default function ChangelogPage() {
   const recentChanges = recent.reduce((n, s) => n + s.commits.length, 0);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageTabs tabs={HELP_TABS} />
       <PageHeader
         title="Changelog"

@@ -216,8 +216,8 @@ export function HistoricalCost({
     <Wrap embedded={embedded}>
       <PageHeader
         title="Historical Cost Import"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Historical cost bill</h2> : undefined}
-        description="Capture a job's historical costs from its Tracking Sheet as one draft JobTread bill, coded by cost code."
+        titleSlot={embedded ? <span className="sr-only">Historical cost bill</span> : undefined}
+        description={embedded ? undefined : "Capture a job's historical costs from its Tracking Sheet as one draft JobTread bill, coded by cost code."}
       />
       <Banner tone="info" className="mb-4 text-xs">
         Admin utility. Compares the Tracking Sheet&apos;s <strong>Total Previously Invoiced</strong>
@@ -386,5 +386,5 @@ export function HistoricalCost({
 
 /** A page of its own, or a popup on Tracking Sheets' budget rail (SheetGap). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

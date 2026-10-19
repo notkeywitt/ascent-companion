@@ -2017,7 +2017,7 @@ export function EmployeeTimeClient({
   if (done) {
     const dur = fmtDuration(done.summary.startTime, done.summary.endTime);
     return (
-      <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+      <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
         {/* A bare <h1>: no peak mark and no description on this page. */}
         <PageHeader titleSlot={<h1 className="text-xl font-bold tracking-tight">{linkTitle}</h1>} />
         <div className="space-y-4">
@@ -2083,7 +2083,7 @@ export function EmployeeTimeClient({
   const running = !!activeClock;
 
   return (
-    <main className={`mx-auto ${tab === "compare" ? "max-w-7xl" : "max-w-2xl"} px-4 pb-28 pt-4`}>
+    <main className={`w-full ${tab === "compare" ? "max-w-7xl" : "max-w-2xl"} px-4 pad:px-7 pb-28 pt-4`}>
       {/* A bare <h1>: no peak mark on this page, and a description only
           while an admin is acting as someone else. */}
       <PageHeader
@@ -3490,10 +3490,10 @@ function CostSheet({
 function Dock({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="fixed inset-x-0 z-20 px-4 print:hidden"
+      className="fixed inset-x-0 z-20 px-4 pad:px-7 print:hidden"
       style={{ bottom: "calc(var(--tabbar-h, 0px) + 0.75rem)", left: "var(--rail-w, 0px)" }}
     >
-      <div className="relative mx-auto flex max-w-2xl items-center justify-center">{children}</div>
+      <div className="relative flex max-w-2xl items-center justify-center">{children}</div>
     </div>
   );
 }

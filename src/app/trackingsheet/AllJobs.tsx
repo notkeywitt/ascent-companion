@@ -107,7 +107,7 @@ export function AllJobs() {
   };
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 xl:max-w-[110rem]">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 xl:max-w-[110rem]">
       <InvoicingTabs ym={ym} />
       <PageHeader
         titleSlot={

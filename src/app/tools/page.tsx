@@ -735,7 +735,7 @@ export default function ToolsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Tools"
         description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."

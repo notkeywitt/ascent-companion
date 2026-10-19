@@ -145,7 +145,7 @@ export default function VendorMailIndex() {
   const pending = candidates.filter((c) => !done[c.vendorId]);
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6">
+    <main className="max-w-2xl w-full px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Vendor Addresses"
         description="The mail check only sees vendors it has an address for. These are addresses found in recent mail, matched to vendors that have none."

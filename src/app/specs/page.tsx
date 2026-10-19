@@ -389,11 +389,11 @@ function Specs() {
     // Full width: a finish schedule is a wide table, and this page is mostly
     // used at a desk (owner, 2026-09-29).
     <main className="px-4 pb-24 pt-6 pad:px-7">
+      <JobTabs jobId={jobId} />
       <PageHeader
         title="Specifications"
         description="An architect's spec selection list, with every product link live."
       />
-      <JobTabs jobId={jobId} />
 
       {error && (
         <Banner tone="error" className="mb-4">

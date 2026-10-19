@@ -1340,7 +1340,7 @@ function BillDetail() {
     // The bottom action drawer is `fixed` to the bottom edge, so the page's own
     // bottom padding has to clear BOTH the drawer and the home-indicator inset
     // (the layout sets viewportFit: "cover", so `env()` is live here).
-    <main className="mx-auto max-w-xl px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-5">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-[calc(9rem+env(safe-area-inset-bottom))] pt-5">
       {/* Back owns the top row at a 44px hit height (Apple HIG / WCAG 2.5.5
           target size). There is no Refresh here any more — the app header's
           reload button (in the job-picker bar) remounts this page, which
@@ -1636,7 +1636,7 @@ function BillDetail() {
           style={{ bottom: "var(--tabbar-h, 0px)", left: "var(--rail-w, 0px)" }}
           className="fixed inset-x-0 z-30 border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
         >
-          <div className="mx-auto max-w-xl px-4">
+          <div className="max-w-2xl px-4 pad:px-7">
             {/* Drawer handle. The bill's secondary actions — open in JobTread,
                 mark reviewed, push to the tracking sheet — live behind it, so
                 they're one tap away from the thumb wherever you are in a long

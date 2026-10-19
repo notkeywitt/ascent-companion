@@ -125,8 +125,8 @@ export function TaxableLinesBrowser({ embedded = false }: { embedded?: boolean }
     <Wrap embedded={embedded}>
       <PageHeader
         title="Taxable Flags"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Taxable lines</h2> : undefined}
-        description="Lines marked non-taxable, which take their cost out of the client invoice's tax base."
+        titleSlot={embedded ? <span className="sr-only">Taxable lines</span> : undefined}
+        description={embedded ? undefined : "Lines marked non-taxable, which take their cost out of the client invoice's tax base."}
         actions={
           <div className="w-44 max-w-[50vw]">
             <Select
@@ -347,5 +347,5 @@ function DocRow({
 
 /** A page of its own, or a section of Checks (/invoice-review). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 py-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 py-6">{children}</main>;
 }

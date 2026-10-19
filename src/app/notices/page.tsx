@@ -11,7 +11,7 @@ import { NoticesAdmin } from "@/components/NoticesAdmin";
  */
 export default function NoticesPage() {
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Notices"
         description="Post a banner or popup to the whole team, a group, or one person — now or on a schedule."

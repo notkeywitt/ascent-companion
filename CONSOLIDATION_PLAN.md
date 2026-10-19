@@ -374,3 +374,25 @@ Time Off's amber "Beta" pill is quiet text; the last 9.5px captions are 11px.
 
 Next: stage 2 — Page widths and gutters, header proportions, one Tabs part for
 the tab rows and section pills, sidebar active states, one name per page.
+
+## Desktop polish, stage 2 (structure), 2026-10-19
+
+- **One tab style.** `Tabs` in `ui.tsx`: an underlined row. Sibling-page tabs
+  (JobTabs, PageTabs, InvoicingTabs) sit ABOVE the page title; section tabs
+  (Inbox, Payroll, Customers, Checks) sit BELOW it. A pill only filters.
+- **No second heading in a section.** An embedded page keeps its title for
+  screen readers only and drops its description; the tab names it.
+- **One left edge.** Every page shell is left-aligned at `px-4 pad:px-7`, so the
+  header, notices and content start on one line. Three widths: form
+  `max-w-2xl`, read `max-w-4xl` (pages that were 3xl/4xl), wide (`110rem` or
+  none: Today, Job Board, Job Cost, Tracking Sheets, Specifications). Login,
+  Privacy and LopezRocks stay centred. Fixed bottom docks follow the same edge.
+- **Header.** Search caps at `max-w-xl` from `pad`; Add bill is an outline
+  button, pushed right; the logo lines up with the content edge.
+- **Sidebar.** A job page lights Customers & Jobs; a bill or Add bill lights
+  Close. From 2xl the fill sits on the current page row, not its workspace.
+- **One name per page.** Job Board, Overview, Record, Job Cost and
+  Specifications read the same in the tab row and the page title.
+
+Next: stage 3 — Dialog, Segmented, Checkbox, FileDrop, an xs Button and one
+table style. Then stage 4, the page sweep.

@@ -410,5 +410,19 @@ export function activeBarKey(items: BarItem[], pathname: string): string {
   );
   const hit = hits.find((i) => !i.workspace) ?? hits[0];
   if (hit) return hit.key;
-  return items.find((i) => i.area?.some((href) => within(pathname, href)))?.key ?? "";
+  const inArea = items.find((i) => i.area?.some((href) => within(pathname, href)));
+  if (inArea) return inArea.key;
+  const parent = PARENT_WORKSPACE.find(([href]) => within(pathname, href))?.[1];
+  return items.find((i) => i.workspace === parent)?.key ?? "";
 }
+
+/**
+ * Pages on no workspace that still sit inside one: a job's own pages open from
+ * a customer's record, and a bill opens from the month's close. Without this
+ * the rail lit nothing on them, so the sidebar lost its place.
+ */
+const PARENT_WORKSPACE: [string, string][] = [
+  ...JOB_PAGES.map((t) => [t.href, "clients"] as [string, string]),
+  ["/bill", "close"],
+  ["/add-bill", "close"],
+];

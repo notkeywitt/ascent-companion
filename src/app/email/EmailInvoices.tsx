@@ -322,8 +322,8 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
     <Wrap embedded={embedded}>
       <PageHeader
         title="Email Invoices"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">To log</h2> : undefined}
-        description="Unprocessed invoice emails from the office inbox — pick a job and log each one."
+        titleSlot={embedded ? <span className="sr-only">To log</span> : undefined}
+        description={embedded ? undefined : "Unprocessed invoice emails from the office inbox — pick a job and log each one."}
         actions={
           <Button variant="secondary" size="sm" onClick={() => void load()} disabled={loading}>
             {loading ? "Loading…" : "Refresh"}
@@ -662,5 +662,5 @@ function CodeBillLink({ jtJobId, expId }: { jtJobId: string; expId: string }) {
 
 /** A page of its own, or a section of the Incoming Bills inbox (/email). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

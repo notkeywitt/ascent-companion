@@ -153,8 +153,8 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
     <Wrap embedded={embedded}>
       <PageHeader
         title="Mail Check"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Check mail</h2> : undefined}
-        description="Every email from a vendor we have an address for, and whether it reached JobTread."
+        titleSlot={embedded ? <span className="sr-only">Check mail</span> : undefined}
+        description={embedded ? undefined : "Every email from a vendor we have an address for, and whether it reached JobTread."}
         actions={
           <Select
             value={String(days)}
@@ -295,5 +295,5 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
 
 /** A page of its own, or a section of the Incoming Bills inbox (/email). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

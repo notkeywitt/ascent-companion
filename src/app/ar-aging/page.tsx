@@ -81,7 +81,7 @@ export default function ArAgingPage() {
   );
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
       <PageHeader
         title="Receivables"
         description="Unpaid client invoices, oldest first. Balances come from JobTread, which derives them from QuickBooks — nothing here is recomputed."

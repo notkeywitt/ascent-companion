@@ -1477,7 +1477,7 @@ export function Board() {
   // not a state the office can reach.
   if (!jobId) {
     return (
-      <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+      <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
         <PageHeader title={c("page.recode.title")} />
         <EmptyState>
           {c("recode.empty.noJob")}{" "}
@@ -1947,7 +1947,7 @@ export function Board() {
   );
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-col px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
+    <main className="flex w-full max-w-2xl flex-col px-4 pad:px-7 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
       <InvoicingTabs ym={ym} />
       {/* The title IS the picker — this page's subject is one job, so the name
           of the job and the control that changes it are the same thing. The

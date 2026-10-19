@@ -163,8 +163,8 @@ export function NotInJobTread({ embedded = false }: { embedded?: boolean } = {})
     <Wrap embedded={embedded}>
       <PageHeader
         title="Not in JobTread"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Stuck</h2> : undefined}
-        description="Every bill that has not reached JobTread: no job yet, a vendor JobTread does not have, or a capture that was never pushed."
+        titleSlot={embedded ? <span className="sr-only">Stuck</span> : undefined}
+        description={embedded ? undefined : "Every bill that has not reached JobTread: no job yet, a vendor JobTread does not have, or a capture that was never pushed."}
         actions={
           <Button variant="secondary" size="sm" onClick={() => load()} disabled={loading}>
             {loading ? "Refreshing…" : "Refresh"}
@@ -289,5 +289,5 @@ export function NotInJobTread({ embedded = false }: { embedded?: boolean } = {})
 
 /** A page of its own, or a section of the Incoming Bills inbox (/email). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

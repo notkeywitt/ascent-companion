@@ -875,8 +875,8 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
     <Wrap embedded={embedded}>
       <PageHeader
         title="Labor Import"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Labor import</h2> : undefined}
-        description="Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file is processed in your browser only."
+        titleSlot={embedded ? <span className="sr-only">Labor import</span> : undefined}
+        description={embedded ? undefined : "Turn the monthly QuickBooks labor report into a JobTread time-entry import CSV. The file is processed in your browser only."}
       />
 
       {/* The other direction: JobTread's month of hours, filed in Drive. */}
@@ -1493,5 +1493,5 @@ function CheckRow({
 
 /** A page of its own, or a section of Payroll (/payroll). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

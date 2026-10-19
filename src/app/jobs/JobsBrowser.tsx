@@ -407,12 +407,12 @@ export function JobsBrowser() {
   );
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 lg:max-w-[110rem]">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[110rem]">
+      <JobTabs jobId={jobId} />
       <PageHeader
         title="Job Cost"
         description="Pick a job for its cost by CSI division, cost code, and estimate line."
       />
-      <JobTabs jobId={jobId} />
 
       {jobsError && (
         <Banner tone="error" className="mb-4">

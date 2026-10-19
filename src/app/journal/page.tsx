@@ -170,7 +170,7 @@ export default function JournalPage() {
   const rejected = rows.filter((r) => r.outcome === "error").length;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
       <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="Financial journal"

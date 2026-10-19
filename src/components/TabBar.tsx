@@ -288,6 +288,10 @@ export function TabBar() {
             on && t.workspace && !MENU_SINGLE_WORKSPACES.has(t.workspace)
               ? WORKSPACES.find((w) => w.id === t.workspace)
               : undefined;
+          const isHere = (href: string) => pathname === href || pathname.startsWith(href + "/");
+          const pages = ws ? reachableTabs(ws, access.can) : [];
+          // From 2xl the fill moves down to the page itself, so one row is lit.
+          const childLit = pages.some((tab) => isHere(tab.href));
           return (
             <div key={t.key} className={t.gap ? "mt-5" : ""}>
               <Link
@@ -296,7 +300,7 @@ export function TabBar() {
                 onClick={guard}
                 className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[10.5px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
                   on
-                    ? "bg-accent/10 text-accent dark:text-accent-soft"
+                    ? `bg-accent/10 text-accent dark:text-accent-soft ${childLit ? "2xl:bg-transparent" : ""}`
                     : "text-neutral-500 hover:text-accent dark:text-neutral-400"
                 }`}
               >
@@ -307,8 +311,8 @@ export function TabBar() {
               {/* The sidebar's second level: the current workspace's pages. */}
               {ws && (
                 <div className="hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
-                  {reachableTabs(ws, access.can).map((tab) => {
-                    const here = pathname === tab.href || pathname.startsWith(tab.href + "/");
+                  {pages.map((tab) => {
+                    const here = isHere(tab.href);
                     return (
                       <Link
                         key={tab.view}
@@ -317,7 +321,7 @@ export function TabBar() {
                         aria-current={here ? "page" : undefined}
                         className={`block truncate rounded-lg px-2 py-1.5 text-[12.5px] transition ${
                           here
-                            ? "font-semibold text-ink dark:text-cream"
+                            ? "bg-accent/10 font-semibold text-accent dark:text-accent-soft"
                             : "text-neutral-500 hover:text-accent dark:text-neutral-400"
                         }`}
                       >

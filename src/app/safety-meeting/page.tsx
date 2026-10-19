@@ -151,7 +151,7 @@ export default function SafetyMeetingPage() {
   // ---- Success screen -----------------------------------------------------
   if (result?.ok) {
     return (
-      <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+      <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
         <PageHeader title="Safety Meeting" className="!mb-0" />
         <div className={"mt-4 " + cardCls}>
           <div className="text-lg font-semibold text-green-700 dark:text-green-400">
@@ -187,7 +187,7 @@ export default function SafetyMeetingPage() {
 
   // ---- Capture screen -----------------------------------------------------
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Safety Meeting"
         description="Set the meeting details, then pass the iPad around — each person picks their name and signs."

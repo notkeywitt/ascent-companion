@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
+import { Tabs } from "@/components/ui";
 
 /**
  * A small tab row joining pages that are ONE menu row (CONSOLIDATION_PLAN.md
@@ -32,27 +32,11 @@ export const HELP_TABS: PageTab[] = [
 export function PageTabs({ tabs, className = "" }: { tabs: PageTab[]; className?: string }) {
   const { can } = useAccess();
   const pathname = usePathname();
-  const shown = tabs.filter((t) => can(t.view));
-  if (shown.length < 2) return null;
   return (
-    <nav className={`mb-4 flex gap-1 border-b border-line ${className}`}>
-      {shown.map((t) => {
-        const here = pathname === t.href;
-        return (
-          <Link
-            key={t.href}
-            href={t.href}
-            aria-current={here ? "page" : undefined}
-            className={`-mb-px inline-flex min-h-11 items-center border-b-2 px-3 text-sm font-semibold transition ${
-              here
-                ? "border-accent text-accent"
-                : "border-transparent text-neutral-500 hover:text-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-200"
-            }`}
-          >
-            {t.label}
-          </Link>
-        );
-      })}
-    </nav>
+    <Tabs
+      label="Pages"
+      className={className}
+      items={tabs.filter((t) => can(t.view)).map((t) => ({ key: t.href, label: t.label, href: t.href, active: pathname === t.href }))}
+    />
   );
 }

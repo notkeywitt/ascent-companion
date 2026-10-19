@@ -93,7 +93,7 @@ export function AppHeader() {
       {/* Ochre marquee hairline — the brand's gold highlight, carried across
           every page as the app's top rule. */}
       <div className="h-0.5 bg-brand" aria-hidden />
-      <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2">
+      <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
         {/* Every page this person can open, by workspace — on a phone only. From
             `pad` up the sidebar lists the workspaces and carries the Account
             item, so ☰ went away there (owner, 2026-10-13). The OFFICE role has
@@ -124,10 +124,11 @@ export function AppHeader() {
           <Link
             href={addHref}
             aria-label="Add bill"
-            className={btn("primary", "md", "relative shrink-0 whitespace-nowrap")}
+            className={btn("outline", "md", "relative ml-auto shrink-0 whitespace-nowrap")}
           >
             {/* The words cost the search box a third of its width on a phone;
-                the plus alone carries it there. */}
+                the plus alone carries it there. Outline, not a fill: a solid
+                button was the brightest thing on every screen in dark. */}
             ＋<span className="hidden sm:inline"> Add bill</span>
             <LinkPendingOverlay spinnerClassName="h-4 w-4" />
           </Link>

@@ -209,8 +209,8 @@ export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
     <Wrap embedded={embedded}>
       <PageHeader
         title="Time Sync"
-        titleSlot={embedded ? <h2 className="text-lg font-bold tracking-tight">Sync gaps</h2> : undefined}
-        description="Time records that did not reach JobTread correctly. Nothing is lost — the record is saved here either way."
+        titleSlot={embedded ? <span className="sr-only">Sync gaps</span> : undefined}
+        description={embedded ? undefined : "Time records that did not reach JobTread correctly. Nothing is lost — the record is saved here either way."}
       />
 
       {err && <Banner tone="error" className="mb-4">{err}</Banner>}
@@ -390,5 +390,5 @@ export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
 
 /** A page of its own, or a section of Payroll (/payroll). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="mx-auto max-w-3xl px-4 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

@@ -134,12 +134,12 @@ export default function BudgetImportPage() {
   const matches = result?.sheetTotal != null && Math.abs(result.total - result.sheetTotal) < 0.005;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+      <JobTabs jobId={jobs?.find((j) => j.id === projectId)?.jtJobId ?? ""} />
       <PageHeader
         title="Budget Import"
         description="Turn a job's tracking-sheet estimate into a CSV for JobTread's Budget → Import."
       />
-      <JobTabs jobId={jobs?.find((j) => j.id === projectId)?.jtJobId ?? ""} />
 
       {error && <Banner tone="error" className="mb-4">{error}</Banner>}
 

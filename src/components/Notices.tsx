@@ -184,7 +184,7 @@ function NoticeBanners({
     // xl:px-8`) so a wide screen doesn't put a narrow centred strip over a
     // full-bleed launcher. The tint spans, the CONTENT is capped below — a
     // dismiss ✕ a metre from its own sentence is not a target anyone aims at.
-    <div className="mx-auto w-full max-w-2xl space-y-2 px-4 pt-3 xl:max-w-none xl:px-8">
+    <div className="w-full max-w-2xl space-y-2 px-4 pt-3 pad:px-7 xl:max-w-none">
       {notices.map((n) => (
         <Banner key={n.id} tone={TONE[n.tone] ?? "info"}>
           <div className="flex items-start gap-2.5 xl:max-w-5xl">

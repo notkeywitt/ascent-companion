@@ -105,7 +105,7 @@ export default function PageTextEditor() {
   if (loading) return <Loading label="Loading page text…" />;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24">
       <PageTabs tabs={LOOK_TABS} />
       <PageHeader
         title="Page Text"

@@ -52,7 +52,7 @@ export default function AdminPage() {
   // No Notices tab since 2026-09-29: /notices is the one place to post one.
   const [tab, setTab] = useState<"access" | "activity" | "digest">("access");
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Access"
         description="Who can sign in, what each person can see, how the panel is being used, and the Daily Digest's settings."

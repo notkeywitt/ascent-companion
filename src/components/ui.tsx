@@ -817,3 +817,57 @@ export function PageHeader({
     </header>
   );
 }
+
+/* --------------------------------------------------------------------- Tabs */
+
+export interface TabItem {
+  key: string;
+  label: React.ReactNode;
+  /** A link tab (another page). */
+  href?: string;
+  /** A state tab (a section of this page). */
+  onClick?: () => void;
+  active: boolean;
+}
+
+/**
+ * THE ONE TAB STYLE (desktop review, 2026-10-19): an underline row. Used for
+ * sibling pages (Invoicing, a job's pages, Audit, Look & Text, Help) — placed
+ * ABOVE the page title — and for sections of one page (Checks, Inbox, Payroll,
+ * Customers) — placed BELOW it. Pills are for filtering a list, never for
+ * navigation. Scrolls sideways on a phone rather than wrapping.
+ */
+export function Tabs({
+  items,
+  label,
+  className = "",
+}: {
+  items: TabItem[];
+  label: string;
+  className?: string;
+}) {
+  if (items.length < 2) return null;
+  const cls = (on: boolean) =>
+    `-mb-px inline-flex min-h-11 items-center whitespace-nowrap border-b-2 px-3 text-sm font-semibold transition ${
+      on
+        ? "border-accent text-accent"
+        : "border-transparent text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
+    }`;
+  return (
+    <nav aria-label={label} className={`mb-5 overflow-x-auto ${className}`}>
+      <div className="flex w-max min-w-full gap-1 border-b border-line">
+        {items.map((t) =>
+          t.href ? (
+            <Link key={t.key} href={t.href} aria-current={t.active ? "page" : undefined} className={cls(t.active)}>
+              {t.label}
+            </Link>
+          ) : (
+            <button key={t.key} type="button" onClick={t.onClick} aria-pressed={t.active} className={cls(t.active)}>
+              {t.label}
+            </button>
+          ),
+        )}
+      </div>
+    </nav>
+  );
+}

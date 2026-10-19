@@ -190,9 +190,9 @@ export function JobBoardPage() {
   }, []);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-10 pt-5 pad:max-w-none pad:px-7 xl:px-8">
+    <main className="w-full max-w-2xl px-4 pb-10 pt-5 pad:max-w-none pad:px-7">
       <PageHeader
-        title="Jobs"
+        title="Job Board"
         description="Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos."
       />
 

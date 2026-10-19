@@ -23,8 +23,7 @@ import {
   SectionLabel,
   Select,
   StatementBlock,
-  Textarea,
-} from "@/components/ui";
+  Textarea, Tabs } from "@/components/ui";
 import { buildBrief } from "@/lib/invoiceReview/brief";
 import {
   DEFAULT_INVESTIGATE_MODEL,
@@ -557,28 +556,24 @@ export function InvoiceReview() {
   const monthLabel = months.find((m) => m.ym === ym)?.label ?? ym;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-24 pt-4">
+    <div className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <InvoicingTabs ym={ym} />
       <PageHeader
         title="Checks"
         description="Everything to fix before the month's invoices go out."
       />
-      {sections.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {sections.map((x) => (
-            <FilterChip
-              key={x.id}
-              on={section === x.id}
-              onClick={() => {
-                setSection(x.id);
+      <Tabs
+        label="Checks sections"
+        items={sections.map((x) => ({
+          key: x.id,
+          label: x.label,
+          active: section === x.id,
+          onClick: () => {
+            setSection(x.id);
                 setUrlParam("section", x.id === "findings" ? "" : x.id);
-              }}
-            >
-              {x.label}
-            </FilterChip>
-          ))}
-        </div>
-      )}
+          },
+        }))}
+      />
       {section === "flagged" && (
         <div className="mt-4">
           <FlaggedBills />

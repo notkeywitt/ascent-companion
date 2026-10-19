@@ -289,7 +289,7 @@ export function GlobalSearch() {
   }, [showPanel]);
 
   return (
-    <div ref={boxRef} className="relative min-w-0 flex-1">
+    <div ref={boxRef} className="relative min-w-0 flex-1 pad:max-w-xl">
       <span
         aria-hidden
         className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"

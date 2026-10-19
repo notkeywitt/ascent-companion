@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
-import { FilterChip, PageHeader } from "@/components/ui";
+import { PageHeader, Tabs } from "@/components/ui";
 import { setUrlParam } from "@/lib/urlParam";
 import { EmailInvoices } from "./EmailInvoices";
 import { NotInJobTread } from "@/app/needs-project/NotInJobTread";
@@ -36,24 +36,20 @@ export function Inbox() {
   });
 
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader title="Inbox" description="Bills arriving by email, at each stage." />
-      {sections.length > 1 && (
-        <div className="mb-4 mt-3 flex flex-wrap gap-2">
-          {sections.map((x) => (
-            <FilterChip
-              key={x.id}
-              on={section === x.id}
-              onClick={() => {
-                setSection(x.id);
+      <Tabs
+        label="Inbox sections"
+        items={sections.map((x) => ({
+          key: x.id,
+          label: x.label,
+          active: section === x.id,
+          onClick: () => {
+            setSection(x.id);
                 setUrlParam("section", x.id === sections[0].id ? "" : x.id);
-              }}
-            >
-              {x.label}
-            </FilterChip>
-          ))}
-        </div>
-      )}
+          },
+        }))}
+      />
       {section === "log" && can("email") && <EmailInvoices embedded />}
       {/* The email scans, from the retired Actions page (stage 6). */}
       {section === "log" && can("actions") && (

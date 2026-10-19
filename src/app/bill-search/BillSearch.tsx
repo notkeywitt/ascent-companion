@@ -232,7 +232,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
   const empty = status !== null && status.billCount === 0;
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6">
+    <main className="max-w-2xl w-full px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Bill Search"
         description="Search every bill and line item — a material like “2x4”, a vendor, or an invoice number."

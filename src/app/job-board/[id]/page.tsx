@@ -10,9 +10,9 @@ import { JobOverview } from "@/components/HomeJobBoard";
 export default async function JobOverviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   return (
-    <main className="mx-auto max-w-2xl px-4 pb-24 pt-6">
-      <PageHeader title="Job overview" description="Schedule, budget and cost by division." />
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <JobTabs jobId={id} />
+      <PageHeader title="Overview" description="Schedule, budget and cost by division." />
       <JobOverview jobId={id} />
     </main>
   );

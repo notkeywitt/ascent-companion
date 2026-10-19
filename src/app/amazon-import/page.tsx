@@ -518,7 +518,7 @@ export default function AmazonImportPage() {
   const selectedVendorName = vendors.find((v) => v.id === vendorId)?.name;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 pb-32 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-32 pt-6">
       <PageHeader
         title="Amazon Import"
         description="Upload the monthly Amazon Business order report, pick a job, cost code, and billing month for each order, then create all the JobTread bills in one push."
@@ -921,9 +921,9 @@ export default function AmazonImportPage() {
       {orders.length > 0 && (
         <div
           style={{ bottom: "var(--tabbar-h, 0px)", left: "var(--rail-w, 0px)" }}
-          className="fixed inset-x-0 z-20 border-t border-line bg-white/95 px-4 py-3 backdrop-blur dark:border-neutral-800 dark:bg-ink/95"
+          className="fixed inset-x-0 z-20 border-t border-line bg-white/95 px-4 py-3 pad:px-7 backdrop-blur dark:border-neutral-800 dark:bg-ink/95"
         >
-          <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
+          <div className="flex max-w-4xl items-center justify-between gap-3">
             <div className="text-sm">
               <span className="font-semibold">{ready.length}</span> bill
               {ready.length === 1 ? "" : "s"} · {money(totalReady)}

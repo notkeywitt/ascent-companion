@@ -37,7 +37,8 @@ export default async function UnbilledPage({
   const jobId = (raw ?? "").trim();
 
   return (
-    <main className="mx-auto max-w-xl px-4 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+      <JobTabs jobId={jobId} />
       <PageHeader
         title="Unbilled"
         description={
@@ -46,7 +47,6 @@ export default async function UnbilledPage({
             : "Pick a job to see its unbilled expenses."
         }
       />
-      <JobTabs jobId={jobId} />
 
       <div className="mb-4">
         <JobParamPicker includeAll={false} placeholder="Choose a job…" />
