@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T01:24:50Z",
+  "generatedAt": "2026-10-19T03:12:07Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-19T01:24:50Z",
+      "updated": "2026-10-19T03:12:07Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "consolidation plan done except optional card-per-record pages with forms (Email Invoices, Not in JobTread, Sunset, LSWDD, Amazon); owner to check on phone/iPad",
+      "next": "desktop polish stage 2: Page widths + header + one Tabs + sidebar active + names (show screenshots before shipping)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -214,6 +214,13 @@
           "sha": "cf207f3",
           "subject": "companion: check mail counts processed and not-an-invoice mail as handled",
           "files": "CONSOLIDATION_PLAN.md, src/app/api/vendor-mail/route.ts, src/app/vendor-mail/VendorMail.tsx"
+        },
+        {
+          "date": "2026-10-19",
+          "time": "03:12",
+          "sha": "0d04566",
+          "subject": "companion: polish foundation — no stretched buttons, readable quiet text in dark, visible spinner, bordered banners, outline disabled buttons",
+          "files": "CONSOLIDATION_PLAN.md, src/app/globals.css, src/app/time-off/TimeOff.tsx, src/app/trackingsheet/MonthJobDonuts.tsx, src/components/HomeJobBoard.tsx, src/components/Spinner.tsx, +1 more"
         }
       ]
     },
