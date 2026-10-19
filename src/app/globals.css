@@ -297,11 +297,26 @@ html .group:hover .group-hover\:text-accent {
    Specificity, not stylesheet order, is what makes these win over the Tailwind
    utility they override — see the note in CLAUDE.md. */
 [data-palette="website"] .ui-caption {
-  letter-spacing: 0.18em;
+  /* Was 0.18em: at 10–11px that read as spaced-out letters, not a word, and
+     made captions the weakest text on the page (desktop review, 2026-10-19). */
+  letter-spacing: 0.1em;
 }
 [data-palette="website"] .ui-btn {
-  letter-spacing: 0.06em;
+  /* No added tracking (was 0.06em): this app's labels run to four or five
+     words ("Sheet sync settings"), and spaced out they read stretched. Pills
+     and switchers never had it, so buttons now agree with them. */
   font-weight: 500;
+}
+
+/* QUIET TEXT IN DARK MODE. `text-neutral-500` is the app's quiet-text class,
+   but ~400 of its 636 uses never got a `dark:text-neutral-400` partner, so in
+   the default (dark) theme they rendered at 3.6:1 — under the 4.5:1 reading
+   minimum — while the partnered ones read at 5.6:1: one role, two greys. This
+   lifts every unpartnered use to the partnered shade. An element that sets its
+   own `dark:text-…` is left alone (the attribute test), which also keeps the
+   rule from winning over a deliberate choice. */
+.dark .text-neutral-500:not([class*="dark:text-"]) {
+  color: #94928c; /* neutral-400 (tailwind.config.ts): 5.6:1 on the dark card */
 }
 
 /* Height of the fixed bottom tab bar (components/TabBar). Published as a

@@ -39,7 +39,11 @@ const BTN_BASE =
   "ui-btn inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
 const BTN_VARIANT: Record<BtnVariant, string> = {
-  primary: "bg-accent text-accent-fg shadow-sm hover:bg-accent-hover",
+  // Disabled primary: an outline, not a faded fill. A 40%-opacity solid button
+  // became a mid-grey slab with a ~2:1 label that looked broken, and was the
+  // heaviest thing on the screen while it did nothing (desktop review).
+  primary:
+    "bg-accent text-accent-fg shadow-sm hover:bg-accent-hover disabled:border disabled:border-line-strong disabled:bg-transparent disabled:text-neutral-500 disabled:opacity-100 disabled:shadow-none dark:disabled:text-neutral-400",
   secondary:
     "border border-neutral-300 text-neutral-700 hover:border-accent hover:text-accent dark:border-neutral-600 dark:text-neutral-300 dark:hover:border-accent",
   outline: "border border-accent text-accent hover:bg-accent/10",
@@ -514,7 +518,7 @@ export function Chip({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${CHIP_TONE[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${CHIP_TONE[tone]} ${className}`}
     >
       {children}
     </span>
@@ -689,9 +693,11 @@ export function Meter({
 export type BannerTone = "error" | "warning" | "success" | "info" | "neutral";
 
 const BANNER_TONE: Record<BannerTone, string> = {
-  error: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300",
-  warning: "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
-  success: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+  // A hairline in the tone on every coloured banner: without one the pale fill
+  // vanished on the cream page (light) and the error read as page furniture.
+  error: "border border-red-200 bg-red-50 text-red-700 dark:border-red-900/70 dark:bg-red-950/40 dark:text-red-300",
+  warning: "border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
+  success: "border border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300",
   info: "bg-accent/10 text-accent dark:bg-accent/15 dark:text-accent-soft",
   neutral: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-300",
 };

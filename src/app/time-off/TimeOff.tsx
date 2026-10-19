@@ -90,7 +90,9 @@ function rateHint(rate: number): string {
 const TIME_OFF_TITLE = (
   <span className="flex items-center gap-3">
     Time Off
-    <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-extrabold uppercase tracking-wider text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+    {/* Quiet, not an amber pill: it was the only colour on a palette that has
+        none, and Time dropped its own Beta tag long ago. */}
+    <span className="ui-caption text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
       Beta
     </span>
   </span>

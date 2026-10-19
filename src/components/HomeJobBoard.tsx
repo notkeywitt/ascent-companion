@@ -443,7 +443,7 @@ function BoardCard({
               <div className="text-[13px] font-bold tabular-nums text-accent dark:text-accent-soft">
                 {money0(toInvoice)}
               </div>
-              <div className="text-[9.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
                 To invoice
               </div>
             </div>

@@ -360,3 +360,17 @@ file:line evidence; four of the largest claims were re-checked by hand. Access i
 the code default; production Role Defaults and Page Text overrides were not
 visible. Nothing was tested on a device. Page-change counts assume an iPad in
 portrait.
+
+## Desktop polish, stage 1 (foundation), 2026-10-19
+
+From the desktop design review (https://claude.ai/artifact/Ppen6MUb6qM11HV1rTf1Gt).
+Shipped in shared parts, so every page changes at once: buttons lose the
+website palette's 0.06em letter-spacing; caption tracking 0.18em → 0.1em;
+unpartnered `text-neutral-500` lifts to neutral-400 in dark (globals.css rule,
+3.6:1 → 5.6:1); the Spinner's arc is visible in dark (inline track/arc
+colours); coloured Banners get a hairline border in their tone; a disabled
+primary Button is an outline instead of a faded fill; Chip is 11px semibold;
+Time Off's amber "Beta" pill is quiet text; the last 9.5px captions are 11px.
+
+Next: stage 2 — Page widths and gutters, header proportions, one Tabs part for
+the tab rows and section pills, sidebar active states, one name per page.

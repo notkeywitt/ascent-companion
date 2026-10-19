@@ -143,7 +143,7 @@ function JobCard({
             <div className="text-[13px] font-bold tabular-nums text-accent dark:text-accent-soft">
               {money0(total)}
             </div>
-            <div className="text-[9.5px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
               This month
             </div>
             {/* The month's client invoices, net of applied deposits — smaller
@@ -152,7 +152,7 @@ function JobCard({
               <div className="mt-1 text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
                 <span className="font-semibold">{money0(j.invoiced)}</span> invoiced
                 {j.deposits !== 0 && (
-                  <div className="text-[9.5px]">after {money0(j.deposits)} deposit</div>
+                  <div className="text-[11px]">after {money0(j.deposits)} deposit</div>
                 )}
               </div>
             )}
