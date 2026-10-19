@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-18T23:46:26Z
+updated: 2026-10-19T00:05:35Z
 goal: audit admin and office pages, recommend merges
 next: remaining: stage 5 pay-period picker + email/miles on Payroll + rates into Employees; stage 6 Search tidy-up + Historical Cost drawer; look rules sweep; 'handled' meaning in appscript
 ---
@@ -54,6 +54,8 @@ next: remaining: stage 5 pay-period picker + email/miles on Payroll + rates into
   CONSOLIDATION_PLAN.md, next.config.mjs, src/app/course/CourseHome.tsx, src/app/course/[seg]/page.tsx, src/app/course/page.tsx, src/app/course/segments.tsx, +10 more
 - 2026-10-18 23:46 · `9d6c906` companion: audit, look and text, and help as one menu row each, joined by tab rows
   CONSOLIDATION_PLAN.md, src/app/admin/copy/page.tsx, src/app/changelog/page.tsx, src/app/help/HelpBrowser.tsx, src/app/journal/page.tsx, src/app/logs/page.tsx, +4 more
+- 2026-10-19 00:05 · `3adc369` companion: payroll pay period section — time entries email and miles pdf on one picker
+  CONSOLIDATION_PLAN.md, src/app/payroll/PayPeriod.tsx, src/app/payroll/Payroll.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
