@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T00:37:24Z
+updated: 2026-10-19T00:37:25Z
 goal: audit admin and office pages, recommend merges
 next: remaining: look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, job Overview tab, 'handled' meaning in appscript (needs owner deploy)
 ---

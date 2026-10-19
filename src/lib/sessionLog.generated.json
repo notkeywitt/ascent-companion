@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-19T00:12:28Z",
+  "generatedAt": "2026-10-19T00:37:25Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/page-consolidation-audit",
       "status": "shipped",
       "started": "2026-10-18T17:20:28Z",
-      "updated": "2026-10-19T00:12:28Z",
+      "updated": "2026-10-19T00:37:25Z",
       "goal": "audit admin and office pages, recommend merges",
-      "next": "owner: pay-rate editor rule (Employees add/remove vs Pay Rates replace list); remaining look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, 'handled' in appscript",
+      "next": "remaining: look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, job Overview tab, 'handled' meaning in appscript (needs owner deploy)",
       "commits": [
         {
           "date": "2026-10-18",
@@ -179,6 +179,13 @@
           "sha": "66891b2",
           "subject": "companion: bill search as one hairline list; archive reads ?q",
           "files": "CONSOLIDATION_PLAN.md, src/app/bill-search/BillSearch.tsx, src/app/expenditure-history/ExpenditureBrowser.tsx"
+        },
+        {
+          "date": "2026-10-19",
+          "time": "00:37",
+          "sha": "ac1754f",
+          "subject": "companion: employee pay types edit as one ordered list, saved like pay rates",
+          "files": "CONSOLIDATION_PLAN.md, src/app/employees/JobTreadSections.tsx"
         }
       ]
     },
