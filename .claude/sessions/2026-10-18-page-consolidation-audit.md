@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/page-consolidation-audit
 status: shipped
 started: 2026-10-18T17:20:28Z
-updated: 2026-10-19T01:20:30Z
+updated: 2026-10-19T01:21:24Z
 goal: audit admin and office pages, recommend merges
 next: remaining: look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Historical Cost drawer, job Overview tab, 'handled' meaning in appscript (needs owner deploy)
 ---
@@ -66,6 +66,8 @@ next: remaining: look pass (Leads, Sunset, LSWDD, Amazon, Not in JobTread), Hist
   src/app/leads/LeadsBoard.tsx
 - 2026-10-19 01:20 · `afe7fec` companion: historical cost bill opens as a popup on the tracking sheets budget rail
   src/app/historical-cost/HistoricalCost.tsx, src/app/historical-cost/page.tsx, src/app/trackingsheet/SheetGap.tsx
+- 2026-10-19 01:21 · `4c05ed5` companion: job overview tab — schedule, budget and cost by division for one job
+  CONSOLIDATION_PLAN.md, src/app/job-board/JobBoardPage.tsx, src/app/job-board/[id]/page.tsx, src/components/GlobalSearch.tsx, src/components/HomeJobBoard.tsx, src/components/JobTabs.tsx
 
 ## Notes
 - 2026-10-18 17:21 — audit: 6 readers over every admin/office page; usage = Vercel server renders 30d (Web Analytics off). Report https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj
