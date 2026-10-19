@@ -7026,6 +7026,14 @@ export interface OpenToDo {
  * `assignees` resolves `assignedMemberships` to each member's JobTread display
  * name (same names `getOrgUsers` returns), so a digest check can group by
  * person without a second lookup.
+ *
+ * TWO PHASES, for the assignees. Nesting `assignedMemberships` in the paged
+ * walk returns HTTP 413 (probed live 2026-10-19, size 100). It used to, and the
+ * catch below then fell back to a read with no description and no assignees —
+ * so every to-do lost its details and its person, and "mine" matched nothing.
+ * The walk now reads the tasks bare, and `_getToDoAssignees` fetches the
+ * assignees for the OPEN ones only, by id. A failed assignee read throws: a
+ * list that quietly shows nobody's name is the bug this replaced.
  */
 async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]> {
   const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
@@ -7047,7 +7055,7 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
     endDate: {},
     progress: {},
     job: { id: {}, name: {}, location: { address: {} } },
-    assignedMemberships: { nodes: { user: { id: {}, name: {} } } },
+    // No assignedMemberships here — see the 413 note above.
   };
   const min = {
     id: {},
@@ -7071,17 +7079,18 @@ async function fetchTasks(cfg: PaveConfig, isToDo: boolean): Promise<OpenToDo[]>
     if (e instanceof PaveTooManyPagesError) throw e;
     return walkWith(min);
   });
+  const open = nodes.filter((n) => {
+    const progress = typeof n.progress === "number" ? n.progress : null;
+    return progress === null || progress < 1; // else done
+  });
+  const people = await _getToDoAssignees(
+    cfg,
+    open.map((n) => n.id),
+  );
   {
-    for (const n of nodes) {
+    for (const n of open) {
       const progress = typeof n.progress === "number" ? n.progress : null;
-      if (progress !== null && progress >= 1) continue; // done
-      const members = (n.assignedMemberships?.nodes ?? []) as any[];
-      const assignees = members
-        .map((m) => m?.user?.name)
-        .filter((x): x is string => typeof x === "string" && x.length > 0);
-      const assigneeIds = members
-        .map((m) => m?.user?.id)
-        .filter((x): x is string => typeof x === "string" && x.length > 0);
+      const { names: assignees, ids: assigneeIds } = people.get(n.id) ?? { names: [], ids: [] };
       out.push({
         id: n.id,
         name: n.name || "(untitled)",
@@ -7251,14 +7260,14 @@ export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<s
       perJob,
     );
     const shown = Object.values(byJob).flat();
-    const names = await _getToDoAssignees(
+    const people = await _getToDoAssignees(
       cfg,
       shown.map((t) => t.id),
     ).catch((e) => {
       console.warn("getRecentJobToDos: assignee read failed —", e);
-      return new Map<string, string[]>();
+      return new Map<string, ToDoAssignees>();
     });
-    for (const t of shown) t.assignees = names.get(t.id) ?? [];
+    for (const t of shown) t.assignees = people.get(t.id)?.names ?? [];
     return byJob;
   });
 }
@@ -7266,41 +7275,54 @@ export function getRecentJobToDos(cfg: PaveConfig, perJob = 3): Promise<Record<s
 /** Page size for the assignee read — under the 413 limit (40 passed, 50 failed). */
 const TODO_ASSIGNEE_CHUNK = 25;
 
-/** to-do id → assignee display names, for a known list of to-do ids. */
-async function _getToDoAssignees(cfg: PaveConfig, ids: string[]): Promise<Map<string, string[]>> {
-  const out = new Map<string, string[]>();
+/** How many assignee chunks are in flight at once — the schedule holds ~470 open tasks. */
+const TODO_ASSIGNEE_PARALLEL = 5;
+
+/** One task's assignees: display names, and the same people as JobTread USER ids. */
+interface ToDoAssignees {
+  names: string[];
+  ids: string[];
+}
+
+/** task id → its assignees, for a known list of task ids (to-dos or schedule items). */
+async function _getToDoAssignees(cfg: PaveConfig, ids: string[]): Promise<Map<string, ToDoAssignees>> {
+  const out = new Map<string, ToDoAssignees>();
   const chunks: string[][] = [];
   for (let i = 0; i < ids.length; i += TODO_ASSIGNEE_CHUNK) {
     chunks.push(ids.slice(i, i + TODO_ASSIGNEE_CHUNK));
   }
   // Each chunk is ONE page: the filter names at most `size` ids, so there is
   // never a second page to walk.
-  const results = await Promise.all(
-    chunks.map((chunk) =>
-      pave(cfg, {
-        organization: {
-          $: { id: cfg.orgId },
-          id: {},
-          tasks: {
-            $: {
-              size: TODO_ASSIGNEE_CHUNK,
-              where: { in: [{ field: "id" }, chunk.map((value) => ({ value }))] },
-            },
-            nodes: { id: {}, assignedMemberships: { nodes: { user: { name: {} } } } },
+  const read = (chunk: string[]) =>
+    pave(cfg, {
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        tasks: {
+          $: {
+            size: TODO_ASSIGNEE_CHUNK,
+            where: { in: [{ field: "id" }, chunk.map((value) => ({ value }))] },
           },
+          nodes: { id: {}, assignedMemberships: { nodes: { user: { id: {}, name: {} } } } },
         },
-      }),
-    ),
-  );
+      },
+    });
+  const results: any[] = [];
+  for (let i = 0; i < chunks.length; i += TODO_ASSIGNEE_PARALLEL) {
+    results.push(...(await Promise.all(chunks.slice(i, i + TODO_ASSIGNEE_PARALLEL).map(read))));
+  }
   for (const r of results) {
     for (const n of (r?.organization?.tasks?.nodes ?? []) as any[]) {
       if (!n?.id) continue;
-      out.set(
-        n.id,
-        ((n.assignedMemberships?.nodes ?? []) as any[])
+      const members = (n.assignedMemberships?.nodes ?? []) as any[];
+      out.set(n.id, {
+        names: members
           .map((m) => m?.user?.name)
           .filter((x): x is string => typeof x === "string" && x.length > 0),
-      );
+        ids: members
+          .map((m) => m?.user?.id)
+          .filter((x): x is string => typeof x === "string" && x.length > 0),
+      });
     }
   }
   return out;
