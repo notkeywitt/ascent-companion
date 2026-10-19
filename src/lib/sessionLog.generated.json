@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-10-19T11:04:27Z",
+  "generatedAt": "2026-10-19T11:07:39Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "todo-assignees",
+      "file": "2026-10-19-todo-assignees.md",
+      "branch": "claude/todo-assignees",
+      "status": "shipped",
+      "started": "2026-10-19T11:02:08Z",
+      "updated": "2026-10-19T11:07:39Z",
+      "goal": "Home to-dos show details and assignees",
+      "next": "confirm Home and Office to-dos show details and assignees live",
+      "commits": [
+        {
+          "date": "2026-10-19",
+          "time": "11:02",
+          "sha": "bd6c85d",
+          "subject": "companion: read to-do assignees in a second phase so details and assignment show again",
+          "files": "src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-19",
+          "time": "11:02",
+          "sha": "e139d8b",
+          "subject": "companion: session ledger for todo-assignees",
+          "files": ""
+        },
+        {
+          "date": "2026-10-19",
+          "time": "11:07",
+          "sha": "08cf9cb",
+          "subject": "companion: session ledger for todo-assignees",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "page-consolidation-audit",
       "file": "2026-10-18-page-consolidation-audit.md",

@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/todo-assignees
 status: shipped
 started: 2026-10-19T11:02:08Z
-updated: 2026-10-19T11:07:38Z
+updated: 2026-10-19T11:07:39Z
 goal: Home to-dos show details and assignees
 next: confirm Home and Office to-dos show details and assignees live
 ---

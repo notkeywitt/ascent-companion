@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [todo-assignees](.claude/sessions/2026-10-19-todo-assignees.md) | 2026-10-19 | 3 | Home to-dos show details and assignees |
 | [page-consolidation-audit](.claude/sessions/2026-10-18-page-consolidation-audit.md) | 2026-10-19 | 33 | audit admin and office pages, recommend merges |
 | [kevin-berger-invoice-review](.claude/sessions/2026-10-19-kevin-berger-invoice-review.md) | 2026-10-19 | 4 | Turn Kevin Berger's invoice disputes into review checks, and run the review on … |
 | [remove-office-hamburger-menu](.claude/sessions/2026-10-18-remove-office-hamburger-menu.md) | 2026-10-18 | 3 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [alljobs-card](.claude/sessions/2026-10-15-alljobs-card.md) | 2026-10-15 | 1 | — |
 | [deploy-stamp](.claude/sessions/2026-10-15-deploy-stamp.md) | 2026-10-15 | 1 | — |
 | [doc-access](.claude/sessions/2026-10-15-doc-access.md) | 2026-10-15 | 1 | — |
-| [copy](.claude/sessions/2026-10-13-copy.md) | 2026-10-14 | 1 | — |
