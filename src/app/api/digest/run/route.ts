@@ -3,6 +3,9 @@ import { timingSafeEqual } from "node:crypto";
 
 import { auth, envAllowed } from "@/auth";
 import { runDigest } from "@/lib/digest/run";
+import { DIGEST_GLOBAL } from "@/lib/digest/settings";
+import { scheduledReview, type ScheduledReview } from "@/lib/invoiceReview/schedule";
+import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/settings";
 import { noAuthConfigured } from "@/lib/authMode";
 
 /** Runs the digest and logs the outcome — shared by the synchronous scheduler
@@ -11,6 +14,42 @@ async function runAndLog(ranBy: string) {
   const digest = await runDigest();
   console.log(`[digest] run by ${ranBy}:\n${digest.log.join("\n")}`);
   return digest;
+}
+
+/**
+ * Start today's scheduled invoice review, if today is a review day.
+ *
+ * The review is NOT run in this function. It is a separate request to
+ * /api/invoice-review/run, so it gets its own 300-second budget instead of
+ * sharing the digest's — a month's review alone can take most of that. The
+ * same scheduler secret goes with it. This is how the review gets a schedule
+ * without a third Vercel cron, which Hobby does not allow (see that route).
+ *
+ * Awaited (with a ceiling) only so the outcome lands in the cron log. If the
+ * ceiling hits, the review keeps running on its own request.
+ */
+async function startScheduledReview(
+  req: NextRequest,
+  run: ScheduledReview,
+): Promise<Record<string, unknown>> {
+  const url = new URL("/api/invoice-review/run", req.nextUrl.origin);
+  url.searchParams.set("ym", run.ym);
+  url.searchParams.set("scheduled", "1");
+  url.searchParams.set("phase", run.phase);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { authorization: req.headers.get("authorization") ?? "" },
+      signal: AbortSignal.timeout(280_000),
+    });
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+    console.log(`[digest] scheduled invoice review ${run.ym} (${run.phase}): HTTP ${res.status}`, body);
+    return { ym: run.ym, phase: run.phase, status: res.status, ...body };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error(`[digest] scheduled invoice review ${run.ym} did not report back: ${message}`);
+    return { ym: run.ym, phase: run.phase, error: message };
+  }
 }
 
 /**
@@ -34,6 +73,11 @@ async function runAndLog(ranBy: string) {
  *
  * GET is accepted as well, because some schedulers only issue GETs; it is the
  * same code path with the same credentials.
+ *
+ * THE INVOICE REVIEW RIDES ALONG. On a review day (src/lib/invoiceReview/
+ * schedule.ts — early looks on the 5th and 8th, then nightly from the 11th to
+ * send day on the 15th) the scheduler call also starts that month's review.
+ * Only the scheduler path does this; the "Refresh now" button never does.
  *
  * TWO RESPONSE SHAPES, ON PURPOSE. The scheduler gets a synchronous, fully
  * awaited run — its invocation has nothing to "close", and its execution log
@@ -99,8 +143,10 @@ async function handle(req: NextRequest) {
   // stays open regardless, and its execution log is more useful with the full
   // per-check outcome in it.
   if (authorized.who === "scheduler") {
+    const due = scheduledReview(new Date(), REVIEW_SETTINGS.schedule, DIGEST_GLOBAL.billingCutoffDay);
+    const review = due ? startScheduledReview(req, due) : Promise.resolve(null);
     try {
-      const digest = await runAndLog(authorized.who);
+      const [digest, reviewOutcome] = await Promise.all([runAndLog(authorized.who), review]);
       return NextResponse.json({
         ok: true,
         ranBy: authorized.who,
@@ -113,6 +159,7 @@ async function handle(req: NextRequest) {
           items: r.items.length,
           durationMs: r.durationMs,
         })),
+        invoiceReview: reviewOutcome,
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";

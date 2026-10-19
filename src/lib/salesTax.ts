@@ -123,3 +123,46 @@ export function isTaxRecoverable(jobPhase: string | null | undefined): boolean {
 export function taxRecoverabilityLabel(jobPhase: string | null | undefined): string {
   return isTaxRecoverable(jobPhase) ? "Recoverable" : "Not recoverable";
 }
+
+/**
+ * Do a bill's lines ALREADY include the tax its 88 80 00 line adds?
+ *
+ * Built from Kevin Berger / Bunkhouse, July 2026. Home Depot printed $50.98 +
+ * $4.26 tax = $55.24 and Fasteners Plus $414.99 + $34.65 = $449.64. Both bills
+ * were captured with the TOTAL as the lines, and tax was added on top later, so
+ * JobTread held $59.50 and $484.29. The client was charged the vendor's tax as
+ * cost, marked up, and then taxed again by the invoice's own WSST.
+ *
+ * THE SHAPE GIVES IT AWAY. On a correct bill the tax is the rate times the
+ * lines. On a doubled one the tax is the rate times (lines − tax), because the
+ * lines are the pre-tax amount PLUS that same tax. So for each rate the office
+ * pays, ask which of the two the tax rounds to:
+ *
+ *   clean    round(lines × rate)          = tax
+ *   doubled  round((lines − tax) × rate)  = tax
+ *
+ * Doubled-and-not-clean is the finding. Both at once happens only on a few
+ * dollars of tax, where a cent of rounding covers both readings — then nothing
+ * is said, because the shape proves nothing.
+ *
+ * `rates` are the rates the office actually pays (San Juan County, plus any a
+ * vendor charges at its own counter). A rate missing from the list makes the
+ * test silent, never wrong.
+ */
+export function taxLooksDoubled(
+  linesCost: number,
+  tax: number,
+  rates: readonly number[],
+  minTax = 1,
+): { doubled: boolean; rate: number | null; pretax: number } {
+  const none = { doubled: false, rate: null, pretax: 0 };
+  if (!(tax >= minTax) || !(linesCost > tax)) return none;
+  const toCents = (n: number) => Math.round(n * 100);
+  const taxC = toCents(tax);
+  const fits = (base: number, r: number) => Math.abs(toCents(base * r) - taxC) <= 1;
+  if (rates.some((r) => fits(linesCost, r))) return none;
+  const r = rates.find((rate) => fits(linesCost - tax, rate));
+  return r === undefined
+    ? none
+    : { doubled: true, rate: r, pretax: Math.round((linesCost - tax) * 100) / 100 };
+}

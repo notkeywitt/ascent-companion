@@ -66,7 +66,7 @@ import {
   type VendorRef,
 } from "@/lib/jobtread";
 
-import { SALES_TAX_CSI } from "@/lib/salesTax";
+import { isSalesTaxLine, SALES_TAX_CSI } from "@/lib/salesTax";
 import { cents, isNeverInvoiced } from "./types";
 import type {
   BackupFile,
@@ -74,6 +74,7 @@ import type {
   BillRef,
   InvoiceEvidence,
   InvoiceLine,
+  InvoiceSourceItem,
   JobEvidence,
   LaborEntryRef,
   MonthEvidence,
@@ -86,6 +87,13 @@ const CONCURRENCY = 4;
 
 /** Guard on every cursor loop, so a pagination bug can't spin forever. */
 const PAGE_GUARD = 100;
+
+/**
+ * How far back the wide duplicate check looks for an earlier copy of a bill.
+ * Two months: Dirt Doctors #1289 was billed in October and again in November,
+ * and a vendor's revised invoice (NS1866 → NS1866-R) arrives within weeks.
+ */
+export const PRIOR_BILL_DAYS = 62;
 
 const MONTH_NAMES = [
   "January",
@@ -172,10 +180,13 @@ async function loadMonthBills(
    *  BillRef.sentInvoiceIds. A subset of liveInvoiceIds. */
   sentInvoiceIds: Set<string>,
   statuses: string[] = ["pending", "approved"],
+  /** Issue-date window, inclusive. Defaults to the billing month. */
+  range?: { first: string; last: string },
 ): Promise<BillRef[]> {
   const mm = String(month).padStart(2, "0");
-  const first = `${year}-${mm}-01`;
-  const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+  const first = range?.first ?? `${year}-${mm}-01`;
+  const last =
+    range?.last ?? `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 
   const bills: BillRef[] = [];
   await pageEach<any>(
@@ -280,6 +291,7 @@ async function loadMonthBills(
           // null, not false, when the field is absent: a bill whose flag could
           // not be read must not be reported as one that WILL push.
           qboIsIgnored: typeof b.qboIsIgnored === "boolean" ? b.qboIsIgnored : null,
+          externalId: String(b.externalId ?? "").trim(),
         });
       }
     },
@@ -395,6 +407,71 @@ async function loadInvoice(
       .map((n) => n.id as string),
     jtUrl: `https://app.jobtread.com/jobs/${encodeURIComponent(jobId)}/documents/${encodeURIComponent(invoiceId)}`,
   };
+}
+
+/**
+ * The vendor-bill lines behind one client invoice, for the line reconciliation.
+ *
+ * One `job.costItems` walk filtered to the invoice's bills, not one query per
+ * bill: an invoice can reference 50+ Sunset tickets. Probed live 2026-10-19 on
+ * Berger Bunkhouse #379 — 55 bills, 148 lines, two pages. `costCode` nested in
+ * this connection does not 413; it is a reference, not a heavy connection.
+ *
+ * Sales-tax lines are left out: they never belong on a client invoice, and the
+ * sales-tax-line check owns the case where one does.
+ */
+async function loadBillSources(
+  cfg: PaveConfig,
+  jobId: string,
+  billIds: string[],
+): Promise<InvoiceSourceItem[]> {
+  const out: InvoiceSourceItem[] = [];
+  // Chunks keep the `in` list a sane size on a job with hundreds of tickets.
+  for (let i = 0; i < billIds.length; i += 50) {
+    const ids = billIds.slice(i, i + 50);
+    await pageEach<any>(
+      cfg,
+      {
+        label: "job.costItems (review: bill lines behind an invoice)",
+        maxPages: PAGE_GUARD,
+        query: (args) => ({
+          job: {
+            $: { id: jobId },
+            costItems: {
+              $: { where: [["document", "id"], "in", ids], ...args },
+              nextPage: {},
+              nodes: {
+                name: {},
+                description: {},
+                cost: {},
+                costCode: { number: {} },
+                document: { id: {} },
+              },
+            },
+          },
+        }),
+        pick: (r) => r?.job?.costItems,
+      },
+      (rows) => {
+        for (const n of rows) {
+          if (isSalesTaxLine(n)) continue;
+          out.push({
+            kind: "bill",
+            sourceId: n?.document?.id ?? "",
+            code: String(n?.costCode?.number ?? "").trim(),
+            costs: [Number(n?.cost) || 0],
+          });
+        }
+      },
+    );
+  }
+  return out;
+}
+
+/** "YYYY-MM-DD" of a day `days` before the 1st of a month. */
+function daysBeforeMonth(year: number, month: number, days: number): string {
+  const d = new Date(Date.UTC(year, month - 1, 1 - days));
+  return d.toISOString().slice(0, 10);
 }
 
 /** The backup PDFs filed for one job in one billing month, via Apps Script. */
@@ -800,7 +877,8 @@ export async function loadMonthEvidence(
       );
     }
 
-    const [bills, drafts, voided, invoices, folder, labor] = await Promise.all([
+    const prev = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
+    const [bills, drafts, voided, invoices, folder, labor, priorBills, priorLabor] = await Promise.all([
       loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds).catch((e) => {
         warnings.push(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
@@ -840,6 +918,21 @@ export async function loadMonthEvidence(
         );
         return [] as LaborEntryRef[];
       }),
+      // The bills before the month, for the wide duplicate check. Undefined on
+      // failure, so that check says nothing rather than "no duplicates".
+      loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds, ["pending", "approved", "draft"], {
+        first: daysBeforeMonth(year, month, PRIOR_BILL_DAYS),
+        last: daysBeforeMonth(year, month, 1),
+      }).catch((e) => {
+        warnings.push(
+          `${row.jobName || row.jobId}: could not read earlier bills for the duplicate check — ` +
+            `${e instanceof Error ? e.message : "unknown error"}`,
+        );
+        return undefined;
+      }),
+      // Last month's time — an invoice often pulls its tail. Undefined on
+      // failure, which the line reconciliation reads as "can't tell".
+      loadMonthLabor(cfg, row.jobId, prev.year, prev.month, liveIds).catch(() => undefined),
     ]);
 
     if (folder.warning) warnings.push(folder.warning);
@@ -849,6 +942,25 @@ export async function loadMonthEvidence(
     shell.invoices = invoices.filter((i): i is InvoiceEvidence => i !== null);
     shell.folder = folder.folder;
     shell.labor = labor;
+    shell.priorBills = priorBills;
+    shell.priorLabor = priorLabor;
+    // The bill lines behind each invoice. Per invoice, after the invoices are
+    // read, because the bill list comes from the invoice itself. A failure
+    // leaves `billSources` undefined, which the reconciliation skips.
+    await mapWithLimit(shell.invoices, 2, async (inv) => {
+      if (!inv.billIds.length) {
+        inv.billSources = [];
+        return;
+      }
+      try {
+        inv.billSources = await loadBillSources(cfg, row.jobId, inv.billIds);
+      } catch (e) {
+        warnings.push(
+          `${row.jobName || row.jobId}: could not read the bill lines behind invoice ` +
+            `#${inv.number || inv.id} — ${e instanceof Error ? e.message : "unknown error"}`,
+        );
+      }
+    });
     // Was this time captured on ANYTHING, draft included — bill.invoiced's
     // exact semantics, applied to time. See the comment where sentIds/liveIds
     // are built above for why this isn't recon.uninvoicedTimeCost.

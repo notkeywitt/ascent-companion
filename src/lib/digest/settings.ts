@@ -146,6 +146,14 @@ export interface UncapturedBillsConfig {
   flagUnknownSenders: boolean;
 }
 
+/** Check "invoice-review-window" — the month's invoice review, from the 1st to send day. */
+export interface InvoiceReviewWindowConfig {
+  /** Most findings listed; the rest are on the review page. */
+  maxItems: number;
+  /** List warnings too, not only the findings that must be fixed. */
+  includeWarnings: boolean;
+}
+
 /** Check "draft-bills-past-cutoff" — drafts left over from a closed billing month. */
 export interface DraftBillsPastCutoffConfig {
   /** Ignore a leftover draft under this many dollars (still counted in the summary). */
@@ -373,6 +381,16 @@ export const DIGEST_SETTINGS = {
       flagUnknownSenders: true,
     },
   } satisfies DigestCheckSettings<UncapturedBillsConfig>,
+
+  // The automatic invoice review's result, 1st to the 15th. ON: it is the
+  // only place the nightly review shows up without opening its page.
+  "invoice-review-window": {
+    enabled: true,
+    config: {
+      maxItems: 15,
+      includeWarnings: false,
+    },
+  } satisfies DigestCheckSettings<InvoiceReviewWindowConfig>,
 
   "draft-bills-past-cutoff": {
     enabled: true,
