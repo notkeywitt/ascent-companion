@@ -8099,18 +8099,24 @@ export async function getInvoiceRefs(
 }
 
 /**
- * Every client invoice on the given jobs with its payment and email state,
- * keyed `${jobId}:${number}` like `getInvoiceRefs`. The Invoicing Package
- * page's Draft/Open/Paid and Sent/Opened marks. `documentRecipients` nests
- * inside the paged documents on purpose: it is one or two light rows per
- * invoice, not a heavy connection (the 413 rule), checked live 2026-10-20.
+ * The named client invoices with their payment and email state, keyed
+ * `${jobId}:${number}` like `getInvoiceRefs`. The Invoice Status page's
+ * Draft/Open/Paid and Sent/Opened marks.
+ *
+ * TWO PHASES (the 413 rule). `documentRecipients` nested inside the paged
+ * invoice list returned HTTP 413 in production (2026-10-20). So phase 1 pages
+ * the jobs' invoices with scalars only, and phase 2 reads the recipients of
+ * just the wanted invoices, as aliased `document(id)` roots in one request.
  */
 export async function getInvoiceStatuses(
   cfg: PaveConfig,
-  jobIds: string[],
+  wanted: { jobId: string; number: string }[],
 ): Promise<Record<string, InvoiceRaw>> {
-  if (jobIds.length === 0) return {};
+  if (wanted.length === 0) return {};
+  const keys = new Set(wanted.map((w) => `${w.jobId}:${w.number}`));
+  const jobIds = [...new Set(wanted.map((w) => w.jobId))];
   const nodes = await pageAll<{
+    id: string;
     number: number | string | null;
     status: string;
     priceWithTax: number | null;
@@ -8118,14 +8124,6 @@ export async function getInvoiceStatuses(
     balance: number | null;
     qboId: string | null;
     job: { id: string } | null;
-    documentRecipients: {
-      nodes: {
-        emailDeliveryStatus: string | null;
-        emailDeliveryStatusUpdatedAt: string | null;
-        documentLastViewedAt: string | null;
-        user: { name: string | null } | null;
-      }[];
-    } | null;
   }>(cfg, {
     label: "organization.documents (client invoice status)",
     query: (args) => ({
@@ -8143,6 +8141,7 @@ export async function getInvoiceStatuses(
           },
           nextPage: {},
           nodes: {
+            id: {},
             number: {},
             status: {},
             priceWithTax: {},
@@ -8150,30 +8149,59 @@ export async function getInvoiceStatuses(
             balance: {},
             qboId: {},
             job: { id: {} },
-            documentRecipients: {
-              nodes: {
-                emailDeliveryStatus: {},
-                emailDeliveryStatusUpdatedAt: {},
-                documentLastViewedAt: {},
-                user: { name: {} },
-              },
-            },
           },
         },
       },
     }),
     pick: (r) => r?.organization?.documents,
   });
+  const hits = nodes.filter((n) => n.job?.id && keys.has(`${n.job.id}:${n.number}`));
+
+  type Rcpt = {
+    emailDeliveryStatus: string | null;
+    emailDeliveryStatusUpdatedAt: string | null;
+    documentLastViewedAt: string | null;
+    user: { name: string | null } | null;
+  };
+  const recipients: Record<string, Rcpt[]> = {};
+  // 25 documents a request keeps each one small; a month has about a dozen.
+  for (let i = 0; i < hits.length; i += 25) {
+    const chunk = hits.slice(i, i + 25);
+    const query: Record<string, unknown> = {};
+    chunk.forEach((n, k) => {
+      query[`d${k}`] = {
+        _: "document",
+        $: { id: n.id },
+        id: {},
+        documentRecipients: {
+          $: { size: 100 },
+          nodes: {
+            emailDeliveryStatus: {},
+            emailDeliveryStatusUpdatedAt: {},
+            documentLastViewedAt: {},
+            user: { name: {} },
+          },
+        },
+      };
+    });
+    const r = await pave<Record<string, { id: string; documentRecipients?: { nodes?: Rcpt[] } } | null>>(
+      cfg,
+      query,
+    );
+    for (const d of Object.values(r ?? {})) {
+      if (d?.id) recipients[d.id] = d.documentRecipients?.nodes ?? [];
+    }
+  }
+
   const out: Record<string, InvoiceRaw> = {};
-  for (const n of nodes) {
-    if (!n.job?.id) continue;
-    out[`${n.job.id}:${n.number}`] = {
+  for (const n of hits) {
+    out[`${n.job!.id}:${n.number}`] = {
       status: n.status,
       priceWithTax: Number(n.priceWithTax ?? 0),
       amountPaid: Number(n.amountPaid ?? 0),
       balance: Number(n.balance ?? 0),
       qboId: n.qboId,
-      recipients: (n.documentRecipients?.nodes ?? []).map((r) => ({
+      recipients: (recipients[n.id] ?? []).map((r) => ({
         name: r.user?.name ?? "",
         emailDeliveryStatus: r.emailDeliveryStatus,
         emailDeliveryStatusUpdatedAt: r.emailDeliveryStatusUpdatedAt,

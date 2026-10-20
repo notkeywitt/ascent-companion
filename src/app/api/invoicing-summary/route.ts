@@ -118,7 +118,10 @@ async function withInvoiceStatus(data: Record<string, unknown>) {
   const invoiced = jobs.filter((j) => j.invoiceNumber);
   if (invoiced.length === 0 || !hasGrant()) return data;
   try {
-    const raw = await getInvoiceStatuses(getPaveConfig(), [...new Set(invoiced.map((j) => j.jtJobId))]);
+    const raw = await getInvoiceStatuses(
+      getPaveConfig(),
+      invoiced.map((j) => ({ jobId: j.jtJobId, number: String(j.invoiceNumber) })),
+    );
     return {
       ...data,
       jobs: jobs.map((j) => {
