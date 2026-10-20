@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/jobtread-email-records-zug7um
 status: shipped
 started: 2026-10-20T14:49:50Z
-updated: 2026-10-20T15:05:08Z
+updated: 2026-10-20T15:05:10Z
 goal: 
 next: confirm Invoice Status marks load on phone; find the trigger for the bottom bar drifting on iOS
 ---

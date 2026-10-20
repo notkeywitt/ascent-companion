@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-20T14:50:09Z",
+  "generatedAt": "2026-10-20T15:05:10Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/jobtread-email-records-zug7um",
       "status": "shipped",
       "started": "2026-10-20T14:49:50Z",
-      "updated": "2026-10-20T14:50:09Z",
+      "updated": "2026-10-20T15:05:10Z",
       "goal": "",
-      "next": "check Invoice Status on a live month; if QBO-sent invoices dominate, consider reading QuickBooks email status",
+      "next": "confirm Invoice Status marks load on phone; find the trigger for the bottom bar drifting on iOS",
       "commits": [
         {
           "date": "2026-10-20",
@@ -18,6 +18,13 @@
           "sha": "d8e4a9f",
           "subject": "companion: turn the invoicing package page into invoice status",
           "files": "CODEBASE_MAP.md, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/components/InvoicingTabs.tsx, src/lib/invoiceStatus.test.ts, src/lib/invoiceStatus.ts, +3 more"
+        },
+        {
+          "date": "2026-10-20",
+          "time": "15:05",
+          "sha": "5b7ea71",
+          "subject": "companion: read invoice recipients in a second phase to stop the 413",
+          "files": "src/app/api/invoicing-summary/route.ts, src/lib/jobtread.ts"
         }
       ]
     },

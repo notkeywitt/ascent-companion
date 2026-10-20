@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [jobtread-email-records](.claude/sessions/2026-10-20-jobtread-email-records.md) | 2026-10-20 | 1 | — |
+| [jobtread-email-records](.claude/sessions/2026-10-20-jobtread-email-records.md) | 2026-10-20 | 2 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-19 | 48 | — |
 | [kevin-berger-invoice-review](.claude/sessions/2026-10-19-kevin-berger-invoice-review.md) | 2026-10-19 | 6 | Turn Kevin Berger's invoice disputes into review checks, and run the review on … |
 | [todo-assignees](.claude/sessions/2026-10-19-todo-assignees.md) | 2026-10-19 | 3 | Home to-dos show details and assignees |
