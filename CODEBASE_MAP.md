@@ -113,7 +113,7 @@ matching row here.
 | **Reviewing a month's client invoices** | `src/lib/invoiceReview/` — `checks/*` (one file per check, pure + tested), `settings.ts` (EVERY threshold), `registry.ts` (the check list + the runner), `evidence.ts` (JobTread + Drive + Gmail), `rulings.ts` (the memory), `runs.ts` (the history), `brief.ts` (the no-API-key hand-off); page `src/app/invoice-review/` ("Checks" — also hosts the Flagged bills section, `src/app/needs-review/FlaggedBills.tsx`, and the Taxable lines section, `src/app/taxable-lines/TaxableLinesBrowser.tsx`; `/needs-review` and `/taxable-lines` redirect there, `next.config.mjs`); the Invoicing tab row is `src/components/InvoicingTabs.tsx`; routes `src/app/api/invoice-review` (+ `/run`, callable manually — NOT on a Vercel cron; see the incident note in `INVOICE_ACCURACY_PLAN.md`); Drive + Gmail reads via appscript `ClientInvoiceReview.js`; skill `.claude/skills/invoice-review/` |
 | **An architect's spec selection list (finish schedule)** | page `src/app/specs/`, route `src/app/api/specs/` (companion DB table `spec_lists`, one row per import; the PDF itself in `spec_files`, served inline by `src/app/api/specs/pdf/` for the page's PDF view). The PDF's links come from `src/lib/pdfLinks.ts` (pdf.js), its rows from `extractSpecListWithClaude` in `src/lib/claudeExtract.ts`, joined by `resolveSpecList` in `src/lib/specList.ts` — the model names link ids, never URLs. "Save to JobTread" is ONE row at a time: `src/app/api/specs/jobtread/` flags the chosen budget line `isSpecification` (approval required) and adds the row to its description via `mergeSpecEntry`, journalled |
 | **A new job's budget from its tracking sheet** | page `src/app/budget-import/`, route `src/app/api/budget-import/` → appscript `BudgetImport.js` (the bucket → cost type mapping, checked by its `scripts/check-budget-import.mjs`). Two outputs: a CSV (costs plus one markup), or "Import into JT" — `JtImport.tsx` → `src/app/api/budget-import/jobtread/` → `src/lib/budgetImport.ts`, which updates the job's live budget IN PLACE (items keep their ids, so time entries and bill lines stay attached), creates what is missing, never deletes, and journals every write. Probe: `scripts/probe-budget-write.mjs` |
-| **The month's Invoicing Package doc** | page `src/app/invoicing-summary/`, route `src/app/api/invoicing-summary/`; every figure and the doc itself come from appscript `MonthlyInvoicingSummary.js`, which the 30-minute tracking-sheet push also calls |
+| **Invoice Status** (a month's client invoices: paid or open, emailed or opened) and the Invoicing Package doc | page `src/app/invoicing-summary/`, route `src/app/api/invoicing-summary/`; every figure and the doc come from appscript `MonthlyInvoicingSummary.js`, which the 30-minute tracking-sheet push also calls; the payment and email state is read live from JobTread (`getInvoiceStatuses` in `src/lib/jobtread.ts`, classified in `src/lib/invoiceStatus.ts`) |
 | **Adding an invoice-review check** | write `src/lib/invoiceReview/checks/<id>.ts`, add its config block to `settings.ts`, add one line to `registry.ts` — the runner, the route, the history and the page are untouched |
 | **Why the review missed something / making it learn** | file it via the page's "Something this missed?" box → `src/lib/invoiceReview/misses.ts`; `POST /api/invoice-review/learn` asks Claude what check would have caught it (`learn.ts`) — the answer is a proposal a person implements |
 | **Is a check any good?** | `GET /api/invoice-review/accuracy` — precision derived in `src/lib/invoiceReview/lifecycle.ts` from what the office did next, not from anyone scoring anything |
@@ -358,10 +358,10 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `tracking-sheet`, `budget-import` (a tracking sheet's estimate as a JobTread
   budget import CSV, costs only; built by appscript `BudgetImport.js`),
   `specs` (Specifications — an architect's spec selection list with live links),
-  `invoicing-summary` (Invoicing Package — the month's client
-  billing summary and the Google Doc it writes; figures and doc both come from
-  appscript `MonthlyInvoicingSummary.js`, and the tracking-sheet push rewrites
-  the doc on its own when a figure moves).
+  `invoicing-summary` (Invoice Status — every job billed in a month, its
+  invoice's payment state and JobTread email state, and the "Draft invoicing
+  email" button; figures come from appscript `MonthlyInvoicingSummary.js`,
+  whose Package doc the tracking-sheet push still rewrites on its own).
 - **Field:** `safety-meeting`, `mileage-tracker`, `employee-time`, `tools`,
   `tool-tracker`, `rfis` (on no workspace since 2026-09-29 — nobody logs RFIs),
   `time-off` (self-service; `/time-off/office` is the office console under the
@@ -433,8 +433,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `amazon-import/*`,
   `sunset-statements/*`, `sunset-duplicates`, `buyback`,
   `invoicing-summary` (GET reads a billing month — every job billed, its labor,
-  bills and total, plus the office's edits and where the doc is; POST saves one
-  edit or writes the doc. Both proxy appscript, which holds the Docs grant).
+  bills and total, the office's edits and where the doc is, all from appscript;
+  then adds each invoice's live payment + email `status` from JobTread. POST
+  saves one edit or writes the doc, proxying appscript, which holds the Docs grant).
 - **Labor / time:** `employee-time/*`, `labor-rates/*`, `labor-review/*` (the API only; the page folded into Tracking Sheets 2026-10-18),
   `labor-report` (the month's company-wide Drive sheet),
   `time-entry` (one entry, edited in place — gated under `recode`),

@@ -159,7 +159,7 @@ export const VIEWS: ViewDef[] = [
   // calling the route directly.
   {
     id: "invoicing-summary",
-    label: "Invoicing Package",
+    label: "Invoice Status",
     group: "Financials",
     paths: ["/invoicing-summary", "/api/invoicing-summary"],
   },

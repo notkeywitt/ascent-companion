@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callAppsScript } from "@/lib/appsScript";
 import { currentBillingPeriod } from "@/lib/billingMonth";
+import { getPaveConfig, hasGrant } from "@/lib/config";
+import { getInvoiceStatuses } from "@/lib/jobtread";
+import { invoiceStatus } from "@/lib/invoiceStatus";
 
 /**
  * The monthly Invoicing Package — proxy to Apps Script
@@ -12,7 +15,8 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
  *
  * Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET
  *
- *   GET  ?ym=YYYY-MM[&refresh=1]        → the month: jobs, figures, edits, doc
+ *   GET  ?ym=YYYY-MM[&refresh=1]        → the month: jobs, figures, edits, doc,
+ *                                         and each invoice's payment + email state
  *   POST { op:"save",  ym, jobId?, … }  → one edit to the overrides tab
  *   POST { op:"build", ym, dryRun? }    → write the Google Doc now
  *
@@ -97,7 +101,39 @@ export async function GET(req: NextRequest) {
     { timeoutMs: SCRIPT_TIMEOUT_MS },
   );
   if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
-  return unwrap(res.data!, "The Invoicing Package could not be read.");
+  if (res.data?.ok !== true) return unwrap(res.data!, "The Invoicing Package could not be read.");
+  return NextResponse.json(await withInvoiceStatus(res.data));
+}
+
+/**
+ * Adds `status` (payment + email state, `lib/invoiceStatus`) to each invoiced
+ * job. Read live from JobTread on every open, NOT from Apps Script's cache: a
+ * payment or an opened email moves hourly, and the figures do not. A failed
+ * read costs the marks, not the page — it becomes a warning.
+ */
+async function withInvoiceStatus(data: Record<string, unknown>) {
+  const jobs = Array.isArray(data.jobs)
+    ? (data.jobs as { jtJobId: string; invoiceNumber?: unknown }[])
+    : [];
+  const invoiced = jobs.filter((j) => j.invoiceNumber);
+  if (invoiced.length === 0 || !hasGrant()) return data;
+  try {
+    const raw = await getInvoiceStatuses(getPaveConfig(), [...new Set(invoiced.map((j) => j.jtJobId))]);
+    return {
+      ...data,
+      jobs: jobs.map((j) => {
+        const r = j.invoiceNumber ? raw[`${j.jtJobId}:${j.invoiceNumber}`] : undefined;
+        return { ...j, status: r ? invoiceStatus(r) : null };
+      }),
+    };
+  } catch (e) {
+    console.error("[invoicing-summary] invoice status", e);
+    const warnings = Array.isArray(data.warnings) ? (data.warnings as string[]) : [];
+    return {
+      ...data,
+      warnings: [...warnings, "JobTread did not answer for invoice status, so paid and sent marks are missing. Refresh to try again."],
+    };
+  }
 }
 
 export async function POST(req: NextRequest) {

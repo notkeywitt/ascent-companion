@@ -51,7 +51,7 @@ export const WORKSPACES: Workspace[] = [
       // Checks holds Bill Corrections and Taxable Flags as sections since
       // 2026-10-18 (CONSOLIDATION_PLAN.md stage 2); their routes redirect.
       tab("invoice-review", "/invoice-review", "Checks", "Findings, flagged bills and non-taxable lines for the month"),
-      tab("invoicing-summary", "/invoicing-summary", "Invoicing Package", "The month's billing summary doc — every job, its labor, bills and total"),
+      tab("invoicing-summary", "/invoicing-summary", "Invoice Status", "Every job billed this month — paid or open, emailed or opened, and the invoicing email"),
     ],
   },
   {

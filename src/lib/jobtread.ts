@@ -14,6 +14,7 @@ import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
 import { splitAddresses } from "@/lib/vendorMail";
 import type { UntaxedLine } from "@/lib/taxableLines";
+import type { InvoiceRaw } from "@/lib/invoiceStatus";
 import {
   byWindow,
   groupRecentToDos,
@@ -8092,6 +8093,92 @@ export async function getInvoiceRefs(
       id: n.id,
       qboId: n.qboId ?? "",
       pdfName: `${n.name || "Invoice"} ${n.job.number ? `${n.job.number}-` : ""}${n.number}.pdf`,
+    };
+  }
+  return out;
+}
+
+/**
+ * Every client invoice on the given jobs with its payment and email state,
+ * keyed `${jobId}:${number}` like `getInvoiceRefs`. The Invoicing Package
+ * page's Draft/Open/Paid and Sent/Opened marks. `documentRecipients` nests
+ * inside the paged documents on purpose: it is one or two light rows per
+ * invoice, not a heavy connection (the 413 rule), checked live 2026-10-20.
+ */
+export async function getInvoiceStatuses(
+  cfg: PaveConfig,
+  jobIds: string[],
+): Promise<Record<string, InvoiceRaw>> {
+  if (jobIds.length === 0) return {};
+  const nodes = await pageAll<{
+    number: number | string | null;
+    status: string;
+    priceWithTax: number | null;
+    amountPaid: number | null;
+    balance: number | null;
+    qboId: string | null;
+    job: { id: string } | null;
+    documentRecipients: {
+      nodes: {
+        emailDeliveryStatus: string | null;
+        emailDeliveryStatusUpdatedAt: string | null;
+        documentLastViewedAt: string | null;
+        user: { name: string | null } | null;
+      }[];
+    } | null;
+  }>(cfg, {
+    label: "organization.documents (client invoice status)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        documents: {
+          $: {
+            ...args,
+            where: {
+              and: [
+                { "=": [{ field: "type" }, { value: "customerInvoice" }] },
+                { in: [{ field: ["job", "id"] }, jobIds.map((value) => ({ value }))] },
+              ],
+            },
+          },
+          nextPage: {},
+          nodes: {
+            number: {},
+            status: {},
+            priceWithTax: {},
+            amountPaid: {},
+            balance: {},
+            qboId: {},
+            job: { id: {} },
+            documentRecipients: {
+              nodes: {
+                emailDeliveryStatus: {},
+                emailDeliveryStatusUpdatedAt: {},
+                documentLastViewedAt: {},
+                user: { name: {} },
+              },
+            },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.organization?.documents,
+  });
+  const out: Record<string, InvoiceRaw> = {};
+  for (const n of nodes) {
+    if (!n.job?.id) continue;
+    out[`${n.job.id}:${n.number}`] = {
+      status: n.status,
+      priceWithTax: Number(n.priceWithTax ?? 0),
+      amountPaid: Number(n.amountPaid ?? 0),
+      balance: Number(n.balance ?? 0),
+      qboId: n.qboId,
+      recipients: (n.documentRecipients?.nodes ?? []).map((r) => ({
+        name: r.user?.name ?? "",
+        emailDeliveryStatus: r.emailDeliveryStatus,
+        emailDeliveryStatusUpdatedAt: r.emailDeliveryStatusUpdatedAt,
+        documentLastViewedAt: r.documentLastViewedAt,
+      })),
     };
   }
   return out;

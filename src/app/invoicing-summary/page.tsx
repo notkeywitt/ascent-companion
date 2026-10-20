@@ -6,10 +6,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
   Banner,
-  Button,
   Card,
   Chip,
+  ChipScroller,
   EmptyState,
+  FilterChip,
   Input,
   Loading,
   MetaLine,
@@ -24,37 +25,34 @@ import {
 import { StickyActionBar } from "@/components/StickyActionBar";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { money } from "@/lib/money";
+import {
+  DELIVERY_LABEL,
+  PAYMENT_LABEL,
+  type InvoiceStatus,
+  type PaymentState,
+} from "@/lib/invoiceStatus";
 
 /**
- * Invoicing Package — the month's client-billing summary, and the Google Doc it
- * writes.
+ * Invoice Status — every job billed in a month, and where its client invoice
+ * stands: Draft / Open / Part paid / Paid, and whether JobTread emailed it and
+ * the client opened it.
  *
- * ONE DOC PER BILLING MONTH, named for the month it goes out in ("September '26
- * Invoicing Package") and filed in that month's own Drive invoicing folder. The
- * 30-minute tracking-sheet push rewrites it whenever a figure moves, so this
- * page is not the only thing keeping it current — it is where the office READS
- * the month and EDITS the wording.
+ * THE FIGURES come from Apps Script's read of the month (`MonthlyInvoicingSummary.js`):
+ * bills from the pull the tracking-sheet sync uses, labor from the month's time
+ * entries, and the total from the job's client invoice when one exists. A job
+ * with no invoice yet shows its COST — not what the client is billed, since P&O
+ * and sales tax are added on the tracking sheet.
  *
- * WHAT IS EDITABLE, AND WHY IT IS NOT THE DOC. Every rebuild replaces the doc's
- * body, so anything typed into the doc is lost on the next push. The editable
- * fields live here instead and are stored on the Project Database's "Invoicing
- * Summary" tab:
+ * THE STATUS is read live from JobTread on every open (`lib/invoiceStatus`), not
+ * from that cache. An invoice sent from QuickBooks has no JobTread email record,
+ * so it reads "not sent from JobTread" — JobTread cannot say whether it went out.
  *
- *   headline    the opening sentence, defaulted to "We are billing N clients a
- *               total of $X this month"
- *   per job     include/exclude, the customer and job headings the doc prints,
- *               and a note under that job
- *   closing     a paragraph at the end
+ * THE EMAIL. "Draft invoicing email" saves the month's package email to Gmail.
+ * Each job's include flag, headings and note carry into it, so they stay
+ * editable here, behind "Edit". The Package Google Doc still exists — the
+ * 30-minute tracking-sheet push keeps it current — and the page links to it.
  *
- * EVERY FIGURE COMES FROM JOBTREAD, through Apps Script: bills from the same
- * pull the tracking-sheet sync uses, labor from the month's time entries, and
- * the total from the job's client invoice when one exists. A job with no invoice
- * yet shows its COST and says so — cost is not what the client is billed, since
- * P&O and sales tax are added on the tracking sheet.
- *
- * Edits save on blur, one field at a time. There is no Save button on purpose:
- * the office walks down a list of nine jobs typing notes, and a page that needs
- * a commit at the end is a page that loses them.
+ * Edits save on blur, one field at a time. There is no Save button on purpose.
  */
 
 /** How many billing months the picker offers. */
@@ -95,6 +93,9 @@ interface JobRow {
   /** -1 when the month's folder was never created for this job. */
   billingFolderFiles: number;
   links: JobLinks;
+  /** Payment and email state, read live from JobTread. Absent on a job with no
+   *  invoice, and when that read failed (the warnings say so). */
+  status?: InvoiceStatus | null;
 }
 
 interface Summary {
@@ -133,24 +134,61 @@ interface Summary {
 
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
+/** "Oct 20", or "Oct 20, 2025" outside this year. Local time: these are datetimes. */
+function day(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    ...(d.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }),
+  });
+}
+
+/** The list filters. Each is a question the office asks while closing a month. */
+type Filter = "all" | "notInvoiced" | "draft" | "unpaid" | "paid" | "notEmailed";
+
+const FILTERS: { key: Filter; label: string; test: (j: JobRow) => boolean }[] = [
+  { key: "all", label: "All", test: () => true },
+  { key: "notInvoiced", label: "Not invoiced", test: (j) => !j.invoiced },
+  { key: "draft", label: "Draft", test: (j) => j.status?.payment === "draft" },
+  {
+    key: "unpaid",
+    label: "Unpaid",
+    test: (j) => j.status?.payment === "open" || j.status?.payment === "partPaid",
+  },
+  { key: "paid", label: "Paid", test: (j) => j.status?.payment === "paid" },
+  {
+    // Open or paid, and JobTread has no email that reached anyone. Sent from
+    // QuickBooks is possible, so this is a list to check, not a list of misses.
+    key: "notEmailed",
+    label: "Not emailed",
+    test: (j) =>
+      !!j.status &&
+      j.status.payment !== "draft" &&
+      j.status.payment !== "void" &&
+      (j.status.delivery === "notSent" || j.status.delivery === "bounced"),
+  },
+];
+
 export default function InvoicingSummaryPage() {
   const [ym, setYm] = useState("");
   const email = usePackageEmail(ym);
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [building, setBuilding] = useState(false);
-  const [buildNote, setBuildNote] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
   const [savingField, setSavingField] = useState("");
   const [saveError, setSaveError] = useState("");
 
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 
   /**
-   * The month's figures. Passing no `ym` on the first load is deliberate: the
-   * route answers for the BILLING MONTH IN FORCE — the one picked on the home
-   * page — so this page opens on the month the office is closing rather than
-   * on whatever the calendar rolled to.
+   * The month's figures and statuses. Passing no `ym` on the first load is
+   * deliberate: the route answers for the BILLING MONTH IN FORCE — the one
+   * picked on the home page — so this page opens on the month the office is
+   * closing rather than on whatever the calendar rolled to.
    */
   const load = useCallback(async (period: string, refresh = false) => {
     setLoading(true);
@@ -158,9 +196,9 @@ export default function InvoicingSummaryPage() {
     try {
       const q = new URLSearchParams();
       if (period) q.set("ym", period);
-      // Without this the answer is Apps Script's cache of the last full read,
-      // which is what makes opening this page instant. "Refresh figures" is
-      // the one caller that pays for a live read of the whole month.
+      // Without this the FIGURES are Apps Script's cache of the last full
+      // read, which is what makes opening this page fast. The statuses are
+      // live either way. "Refresh figures" pays for a live read of the month.
       if (refresh) q.set("refresh", "1");
       const res = await fetch(
         q.size ? `/api/invoicing-summary?${q}` : "/api/invoicing-summary",
@@ -192,14 +230,13 @@ export default function InvoicingSummaryPage() {
   const onPickMonth = (next: string) => {
     setYm(next);
     setUrlParam("ym", next);
-    setBuildNote("");
     void load(next);
   };
 
   /**
    * Save ONE field. The page's state is already optimistic, so this only reports
    * a failure — and it re-reads nothing, because a whole-month refetch after
-   * every keystroke-blur would take tens of seconds.
+   * every blur would take tens of seconds.
    */
   const save = useCallback(
     async (fieldKey: string, patch: Record<string, unknown>) => {
@@ -214,8 +251,6 @@ export default function InvoicingSummaryPage() {
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
-        // An edit changes what the doc would say, so it is now out of date.
-        setData((d) => (d ? { ...d, stale: true } : d));
       } catch (e) {
         setSaveError(e instanceof Error ? e.message : "That edit did not save.");
       } finally {
@@ -232,40 +267,10 @@ export default function InvoicingSummaryPage() {
         : d,
     );
 
-  const build = async () => {
-    if (!data) return;
-    setBuilding(true);
-    setBuildNote("");
-    setError("");
-    // The build re-reads the whole month and then draws two cost rings per job,
-    // which is minutes. Say so before the office decides the page has hung and
-    // reloads it — a reload throws the work away and starts another one.
-    const slow = setTimeout(
-      () => setBuildNote("Still writing. The cost rings take a few minutes — leave this page open."),
-      45_000,
-    );
-    try {
-      const res = await fetch("/api/invoicing-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "build", ym: data.periodKey }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
-      setBuildNote(String(body.note || "The doc is up to date."));
-      setData((d) =>
-        d ? { ...d, stale: false, written: true, docId: body.docId, docUrl: body.docUrl } : d,
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "The doc could not be written.");
-    } finally {
-      clearTimeout(slow);
-      setBuilding(false);
-    }
-  };
+  const test = FILTERS.find((f) => f.key === filter)!.test;
 
-  // Jobs grouped the way the doc groups them: by the customer heading the office
-  // set, falling back to JobTread's own customer name.
+  // Jobs grouped by the customer heading the office set, falling back to
+  // JobTread's own customer name.
   //
   // WHAT IS LEFT OUT SINKS. Ascent's own jobs — Office, Shop, Electrical — sit
   // under the customer "Ascent" and so sorted to the very top of a page about
@@ -277,7 +282,7 @@ export default function InvoicingSummaryPage() {
     if (!data) return [];
     const order: string[] = [];
     const byName = new Map<string, JobRow[]>();
-    for (const j of [...data.jobs].sort(
+    for (const j of [...data.jobs].filter(test).sort(
       (a, b) =>
         Number(b.include) - Number(a.include) ||
         a.customerLabel.localeCompare(b.customerLabel) ||
@@ -293,38 +298,41 @@ export default function InvoicingSummaryPage() {
     return order
       .map((name) => ({ name, jobs: byName.get(name)! }))
       .sort((a, b) => Number(b.jobs.some((j) => j.include)) - Number(a.jobs.some((j) => j.include)));
-  }, [data]);
+  }, [data, test]);
 
-  // Every headline figure is recomputed from the page's OWN state, not read off
-  // `data.totals`: leaving a job out has to move the total on the tap, and a
-  // whole-month refetch to learn that takes tens of seconds.
-  // When Apps Script last read the month from JobTread. The page serves that
-  // read from a cache, so it says how old it is rather than implying "now".
+  // When Apps Script last read the month's figures from JobTread. The page
+  // serves that read from a cache, so it says how old it is.
   const readAt = data?.computedAt
-    ? new Date(data.computedAt).toLocaleTimeString(undefined, {
-        hour: "numeric",
-        minute: "2-digit",
-      })
+    ? new Date(data.computedAt).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
     : "";
 
+  // Every headline figure is recomputed from the page's OWN state: leaving a
+  // job out has to move the total on the tap.
   const included = data?.jobs.filter((j) => j.include) ?? [];
+  const count = (f: Filter) => included.filter(FILTERS.find((x) => x.key === f)!.test).length;
   const live = {
     total: included.reduce((s, j) => s + j.total, 0),
     labor: included.reduce((s, j) => s + j.labor, 0),
     bills: included.reduce((s, j) => s + j.bills, 0),
     invoiced: included.filter((j) => j.invoiced).length,
     customers: new Set(included.map((j) => j.customerLabel)).size,
+    due: included.reduce(
+      (s, j) =>
+        s + (j.status && (j.status.payment === "open" || j.status.payment === "partPaid") ? j.status.balance : 0),
+      0,
+    ),
+    paid: included.reduce((s, j) => s + (j.status ? j.status.amountPaid : 0), 0),
   };
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
       <InvoicingTabs ym={ym} />
       <PageHeader
-        title="Invoicing Package"
+        title="Invoice Status"
         description={
           data
             ? `${data.monthLabel} billing · goes out as ${data.invoiceMonthLabel}`
-            : "The month's client billing, and the doc it writes."
+            : "Every job billed this month: paid or open, emailed or not."
         }
         actions={
           // Wrapped rather than sized: `inputCls` carries `w-full`, and Tailwind
@@ -335,7 +343,7 @@ export default function InvoicingSummaryPage() {
               aria-label="Billing month"
               value={ym}
               onChange={(e) => onPickMonth(e.target.value)}
-              disabled={loading || building}
+              disabled={loading}
             >
               {/* The pinned period can be older than the picker's 18 months. */}
               {ym && !months.some((m) => m.value === ym) && (
@@ -372,83 +380,36 @@ export default function InvoicingSummaryPage() {
             value={money(live.total)}
             sub={
               <>
-                Labor {money(live.labor)} · Bills {money(live.bills)} ·{" "}
-                {plural(included.length, "job")} · {plural(live.customers, "client")}
-                {readAt ? (
-                  <>
-                    {" "}
-                    · read {readAt}
-                    {data && data.readMs > 0 ? ` in ${Math.round(data.readMs / 1000)}s` : ""}
-                  </>
-                ) : null}
+                {plural(live.invoiced, "invoice")} of {plural(included.length, "job")} · {money(live.paid)} paid ·{" "}
+                {money(live.due)} due · {plural(live.customers, "client")}
               </>
             }
-            // Said on every month, not only on the ones with a job missing its
-            // invoice: a job's figure is BIGGER than its labor plus its bills
-            // whenever it is invoiced, and reading that as an error is the
-            // single most reported thing about this page.
+            // Said on every month: a job's figure is BIGGER than its labor
+            // plus its bills whenever it is invoiced, and reading that as an
+            // error is the single most reported thing about this page.
             footnote={
-              `An invoiced job shows what the client is billed — its cost plus P&O and sales tax, so it exceeds labor plus bills. ` +
+              `An invoiced job shows what the client is billed — its cost plus P&O and sales tax. ` +
               (live.invoiced < included.length
                 ? `${included.length - live.invoiced} job(s) have no client invoice yet and show cost instead.`
                 : `Every job here is invoiced.`)
             }
           />
 
-          {/* The doc itself: where it is, and whether it still matches. */}
-          <Card>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{data.docTitle}</p>
-                <MetaLine
-                  items={[
-                    data.written ? "written" : "not written yet",
-                    data.stale ? (
-                      <Chip key="stale" tone="warning">
-                        Out of date
-                      </Chip>
-                    ) : (
-                      "up to date"
-                    ),
-                  ]}
-                  className="mt-1"
-                />
-              </div>
-              {data.docUrl && (
-                <a
-                  className={btn("secondary", "sm")}
-                  href={data.docUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open doc ↗
-                </a>
-              )}
-            </div>
-            {buildNote && <p className="mt-2 text-xs text-neutral-500">{buildNote}</p>}
-          </Card>
-
-          {/* The wording the office owns. */}
-          <section className="space-y-2">
-            <SectionHeading
-              trailing={savingField === "headline" ? <span className="text-[11px] text-neutral-500">saving…</span> : undefined}
-            >
-              Headline
-            </SectionHeading>
-            <Textarea
-              rows={2}
-              value={data.headline}
-              placeholder={data.defaultHeadline}
-              onChange={(e) => setData((d) => (d ? { ...d, headline: e.target.value } : d))}
-              onBlur={(e) => void save("headline", { headline: e.target.value })}
-            />
-            <p className="text-[11px] text-neutral-500">
-              Leave it empty and the doc writes the sentence above.
-            </p>
-          </section>
+          <ChipScroller>
+            {FILTERS.map((f) => (
+              <FilterChip key={f.key} on={filter === f.key} onClick={() => setFilter(f.key)}>
+                {f.label}
+                {f.key !== "all" && <span className="tabular-nums opacity-70">{count(f.key)}</span>}
+              </FilterChip>
+            ))}
+          </ChipScroller>
 
           {customers.length === 0 && (
-            <EmptyState>Nothing was billed in {monthLabel(data.periodKey)}.</EmptyState>
+            <EmptyState>
+              {data.jobs.length === 0
+                ? `Nothing was billed in ${monthLabel(data.periodKey)}.`
+                : "No job matches this filter."}
+            </EmptyState>
           )}
 
           {customers.map((cust) => (
@@ -462,47 +423,41 @@ export default function InvoicingSummaryPage() {
               >
                 {cust.name}
               </SectionHeading>
-
-              {cust.jobs.map((j) => (
-                <JobCard
-                  key={j.jtJobId}
-                  job={j}
-                  saving={savingField.startsWith(j.jtJobId)}
-                  onPatch={(patch) => patchJob(j.jtJobId, patch)}
-                  onSave={(field, patch) =>
-                    void save(`${j.jtJobId}:${field}`, { jobId: j.jtJobId, ...patch })
-                  }
-                />
-              ))}
+              <Card pad={false} className="divide-y divide-line-soft overflow-hidden">
+                {cust.jobs.map((j) => (
+                  <JobItem
+                    key={j.jtJobId}
+                    job={j}
+                    saving={savingField.startsWith(j.jtJobId)}
+                    onPatch={(patch) => patchJob(j.jtJobId, patch)}
+                    onSave={(field, patch) =>
+                      void save(`${j.jtJobId}:${field}`, { jobId: j.jtJobId, ...patch })
+                    }
+                  />
+                ))}
+              </Card>
             </section>
           ))}
 
-          <section className="space-y-2">
-            <SectionHeading>Closing note</SectionHeading>
-            <Textarea
-              rows={3}
-              value={data.closing}
-              placeholder="Anything that should follow the last job. Optional."
-              onChange={(e) => setData((d) => (d ? { ...d, closing: e.target.value } : d))}
-              onBlur={(e) => void save("closing", { closing: e.target.value })}
-            />
-          </section>
+          <MetaLine
+            items={[
+              readAt ? `Figures read ${readAt}${data.readMs > 0 ? ` in ${Math.round(data.readMs / 1000)}s` : ""}` : null,
+              "status read live from JobTread",
+              data.docUrl ? (
+                <a key="doc" className="underline" href={data.docUrl} target="_blank" rel="noreferrer">
+                  Package doc ↗
+                </a>
+              ) : null,
+            ]}
+          />
 
           {saveError && <Banner tone="error">{saveError}</Banner>}
 
           <PackageEmailResult email={email} />
 
           <StickyActionBar>
-            <Button onClick={() => void build()} disabled={building}>
-              {building ? "Writing the doc…" : data.written ? "Rewrite the doc" : "Write the doc"}
-            </Button>
             <PackageEmailButton email={email} ym={ym} />
-            <button
-              type="button"
-              className={btn("ghost", "md")}
-              onClick={() => void load(ym, true)}
-              disabled={building}
-            >
+            <button type="button" className={btn("ghost", "md")} onClick={() => void load(ym, true)}>
               Refresh figures
             </button>
           </StickyActionBar>
@@ -512,15 +467,73 @@ export default function InvoicingSummaryPage() {
   );
 }
 
+const PAYMENT_TONE: Record<PaymentState, string> = {
+  draft: "text-warn",
+  open: "text-neutral-800 dark:text-neutral-100",
+  partPaid: "text-warn",
+  paid: "text-ok",
+  void: "text-danger",
+};
+
+/** Where the money is: Draft / Open / Part paid / Paid / Void, or Not invoiced. */
+function PaymentMark({ job }: { job: JobRow }) {
+  if (!job.invoiced) {
+    return (
+      <Chip tone="warning" title="No client invoice in JobTread for this month yet">
+        Not invoiced
+      </Chip>
+    );
+  }
+  const s = job.status;
+  if (!s) return <span>Invoice status unknown</span>;
+  return (
+    <span className={`font-semibold ${PAYMENT_TONE[s.payment]}`}>
+      {PAYMENT_LABEL[s.payment]}
+      {s.payment === "partPaid" ? ` · ${money(s.balance)} due` : ""}
+    </span>
+  );
+}
+
+/** Where the email is: JobTread's own record of sending the invoice. */
+function DeliveryMark({ status }: { status: InvoiceStatus }) {
+  const who = status.sentTo.length ? `Emailed to ${status.sentTo.join(", ")}` : undefined;
+  if (status.bounced && status.delivery !== "opened") {
+    return (
+      <Chip tone="danger" title={who}>
+        Email bounced
+      </Chip>
+    );
+  }
+  switch (status.delivery) {
+    case "opened":
+      return (
+        <span className="text-ok" title={who}>
+          Opened{status.viewedAt ? ` ${day(status.viewedAt)}` : ""}
+        </span>
+      );
+    case "delivered":
+      return (
+        <span title={who}>
+          Emailed, not opened{status.deliveryAt ? ` · ${day(status.deliveryAt)}` : ""}
+        </span>
+      );
+    case "sending":
+      return <span title={who}>Sending</span>;
+    default:
+      return (
+        <span title="JobTread has no record of emailing this invoice. It may have gone out from QuickBooks.">
+          {DELIVERY_LABEL.notSent}
+          {status.inQbo ? " · in QuickBooks" : ""}
+        </span>
+      );
+  }
+}
+
 /**
- * One job: its figures, the links the doc prints, and the three things the
- * office can change about it.
- *
- * The editable block is folded away by default. Nine jobs each showing four
- * inputs is a wall of form; the money and the links are what the page is read
- * for, and the wording is what it is occasionally opened to fix.
+ * One job: its status, its figures, its links, and — folded away — the three
+ * things the office can change for the invoicing email.
  */
-function JobCard({
+function JobItem({
   job,
   saving,
   onPatch,
@@ -532,62 +545,54 @@ function JobCard({
   onSave: (field: string, patch: Record<string, unknown>) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const s = job.status;
 
   return (
-    <Card className={job.include ? "" : "opacity-60"}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className={`px-4 py-3 ${job.include ? "" : "opacity-60"}`}>
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{job.jobLabel}</p>
           <MetaLine
-            items={[
-              job.invoiced ? (
-                <span key="inv">
-                  Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} · {job.invoiceStatus}
-                </span>
-              ) : (
-                <Chip key="nyi" tone="warning">
-                  Not invoiced
-                </Chip>
-              ),
-              // The figure above is the client INVOICE on an invoiced job, so
-              // it is bigger than labor plus bills by the markup and the tax.
-              // Printing the cost beside it is what stops that reading as a
-              // wrong total.
-              job.invoiced ? <span key="cost">{money(job.cost)} cost + P&amp;O and tax</span> : null,
-              job.include ? null : (
-                <Chip key="out" tone="neutral">
-                  Left out
-                </Chip>
-              ),
-              saving ? "saving…" : null,
-            ]}
             className="mt-1"
+            items={[
+              <PaymentMark key="pay" job={job} />,
+              s && s.payment !== "draft" && s.payment !== "void" ? <DeliveryMark key="mail" status={s} /> : null,
+            ]}
           />
         </div>
-        <p className="shrink-0 text-lg font-bold tabular-nums">{money(job.total)}</p>
-      </div>
-
-      <div className="mt-2.5 grid grid-cols-2 gap-2 text-sm">
-        <FigureCell
-          label="Labor"
-          value={money(job.labor)}
-          meta={job.laborHours ? `${job.laborHours} hrs · ${plural(job.laborPeople, "person", "people")}` : "no time logged"}
-          href={job.links.jtLabor}
-        />
-        <FigureCell
-          label="Bills"
-          value={money(job.bills)}
-          meta={
-            job.billCount
-              ? `${plural(job.billCount, "bill")} · ${plural(job.vendorCount, "vendor")}`
-              : "no bills"
-          }
-          href={job.links.jtDocuments}
-        />
+        <div className="shrink-0 text-right">
+          <p className="text-base font-bold tabular-nums">{money(job.total)}</p>
+          {s && s.payment === "open" && s.balance > 0 && s.balance < job.total - 0.005 ? (
+            <p className="text-[11px] tabular-nums text-neutral-500">{money(s.balance)} due</p>
+          ) : null}
+        </div>
       </div>
 
       <MetaLine
-        className="mt-2.5"
+        className="mt-1.5"
+        items={[
+          job.invoiced ? (
+            <a key="inv" className="underline" href={job.links.jtInvoice} target="_blank" rel="noreferrer">
+              Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
+            </a>
+          ) : null,
+          // The total is the client INVOICE on an invoiced job, so it is bigger
+          // than labor plus bills by the markup and the tax. Printing the cost
+          // beside it is what stops that reading as a wrong total.
+          job.invoiced ? <span key="cost">{money(job.cost)} cost</span> : null,
+          <a key="labor" className="underline" href={job.links.jtLabor} target="_blank" rel="noreferrer">
+            Labor {money(job.labor)}
+            {job.laborHours ? ` · ${job.laborHours} hrs` : ""}
+          </a>,
+          <a key="bills" className="underline" href={job.links.jtDocuments} target="_blank" rel="noreferrer">
+            Bills {money(job.bills)}
+            {job.billCount ? ` · ${plural(job.billCount, "bill")}` : ""}
+          </a>,
+        ]}
+      />
+
+      <MetaLine
+        className="mt-1"
         items={[
           <a key="app" className="underline" href={job.links.appTracking}>
             Tracking Sheets
@@ -604,18 +609,15 @@ function JobCard({
           ) : (
             <span key="nofolder">No billing folder</span>
           ),
-          <a
-            key="jt"
-            className="underline"
-            href={job.invoiced ? job.links.jtInvoice : job.links.jtDocuments}
-            target="_blank"
-            rel="noreferrer"
-          >
-            {job.invoiced ? "Invoice ↗" : "JobTread ↗"}
-          </a>,
-          <a key="labor" className="underline" href={job.links.appLabor}>
+          <a key="review" className="underline" href={job.links.appLabor}>
             Labor Review
           </a>,
+          job.include ? null : (
+            <Chip key="out" tone="neutral">
+              Left out
+            </Chip>
+          ),
+          saving ? "saving…" : null,
         ]}
       />
 
@@ -629,16 +631,16 @@ function JobCard({
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="mt-2 text-[12px] text-neutral-500 underline dark:text-neutral-400"
+        className="mt-1.5 text-[12px] text-neutral-500 underline dark:text-neutral-400"
       >
-        {open ? "Done editing" : "Edit wording"}
+        {open ? "Done" : "Edit for the email"}
       </button>
 
       {open && (
         <div className="mt-3 space-y-2.5 border-t border-line-soft pt-3">
           <Toggle
             checked={job.include}
-            label="Include this job in the package"
+            label="Include this job in the invoicing email"
             onChange={(next) => {
               onPatch({ include: next });
               onSave("include", { include: next });
@@ -675,32 +677,6 @@ function JobCard({
           </label>
         </div>
       )}
-    </Card>
-  );
-}
-
-/** One figure and where it came from. The whole cell is the link. */
-function FigureCell({
-  label,
-  value,
-  meta,
-  href,
-}: {
-  label: string;
-  value: string;
-  meta: string;
-  href: string;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="block rounded-lg border border-line-soft px-2.5 py-2 transition hover:border-line"
-    >
-      <span className="text-[11px] uppercase tracking-wide text-neutral-500">{label}</span>
-      <span className="block text-base font-semibold tabular-nums">{value}</span>
-      <span className="block text-[11px] text-neutral-500">{meta}</span>
-    </a>
+    </div>
   );
 }
