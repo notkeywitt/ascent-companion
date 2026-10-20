@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-19T18:49:28Z",
+  "generatedAt": "2026-10-20T14:50:09Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "jobtread-email-records",
+      "file": "2026-10-20-jobtread-email-records.md",
+      "branch": "claude/jobtread-email-records-zug7um",
+      "status": "shipped",
+      "started": "2026-10-20T14:49:50Z",
+      "updated": "2026-10-20T14:50:09Z",
+      "goal": "",
+      "next": "check Invoice Status on a live month; if QBO-sent invoices dominate, consider reading QuickBooks email status",
+      "commits": [
+        {
+          "date": "2026-10-20",
+          "time": "14:49",
+          "sha": "d8e4a9f",
+          "subject": "companion: turn the invoicing package page into invoice status",
+          "files": "CODEBASE_MAP.md, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/components/InvoicingTabs.tsx, src/lib/invoiceStatus.test.ts, src/lib/invoiceStatus.ts, +3 more"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",

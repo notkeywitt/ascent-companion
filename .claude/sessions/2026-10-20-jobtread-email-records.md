@@ -2,9 +2,9 @@
 slug: jobtread-email-records
 repo: ascent-companion
 branch: claude/jobtread-email-records-zug7um
-status: in-progress
+status: shipped
 started: 2026-10-20T14:49:50Z
-updated: 2026-10-20T14:49:54Z
+updated: 2026-10-20T14:50:09Z
 goal: 
 next: check Invoice Status on a live month; if QBO-sent invoices dominate, consider reading QuickBooks email status
 ---
