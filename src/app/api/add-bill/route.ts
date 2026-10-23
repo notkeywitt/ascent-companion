@@ -12,6 +12,7 @@ import {
   getJobBudget,
   getJobHeaderInfo,
   getVendorDetail,
+  isSunsetVendor,
   getVendors,
   replaceBillLines,
   type BillType,
@@ -65,7 +66,8 @@ import { setVendorBillType } from "@/lib/clientDirectory";
  *               Number for everyone else
  *   vendorId    optional JT account override (skip/replace the model's match)
  *   billType    "Bill" | "Expense" (already paid) — omitted = the vendor's
- *               "Bill Type" custom field, else Bill. Sunset is always a Bill.
+ *               "Bill Type" custom field, else Bill. Sunset is always an Expense
+ *               (a Sunset credit stays a Bill), whatever this says.
  *   replaceDocId  the operator's "replace the original" answer to a dedup hit
  *                 whose amount had changed — the doc id they were shown
  */
@@ -326,13 +328,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ---- 4. dates + Vendor Bill Number — both anchored to the upload moment ---
-    const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
-    const isSunset =
-      (sunsetId !== "" && vendor.id === sunsetId) || /sunset builders/i.test(vendor.name);
+    const isSunset = isSunsetVendor(vendor);
     // Bill or Expense: the upload's pick, else the vendor's default. Sunset is
-    // always a Bill — the statement flow pays it on terms (appscript enforces the same).
-    // A pick that differs from the default becomes the new default, after the create.
-    let billType: BillType = "Bill";
+    // always an Expense paid from Banner Bank — the monthly statement pays it in
+    // bulk (appscript enforces the same). A Sunset credit stays a Bill, which
+    // JobTread files as a vendor credit. A pick that differs from the default
+    // becomes the new default, after the create.
+    let billType: BillType = isSunset && (Number(extracted.Amount) || 0) >= 0 ? "Expense" : "Bill";
     let vendorDefault: BillType | null = null;
     if (!isSunset) {
       try {

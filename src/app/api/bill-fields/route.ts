@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  expenseAccountFor,
   getBillJournalSnapshot,
   getVendorDetail,
   qboDocumentTypeFor,
@@ -74,7 +75,10 @@ export async function POST(req: NextRequest) {
     beforeSource: (prior ? "read" : "none") as "read" | "none",
   };
   try {
-    const { saved, accountId } = await setBillFields(cfg, docId, fields);
+    // Sunset pays from Banner Bank, everyone else from the card.
+    const { saved, accountId } = await setBillFields(cfg, docId, fields, {
+      expenseAccountId: expenseAccountFor({ id: prior?.accountId, name: prior?.accountName }),
+    });
     await j.record(diffFields(prior ?? undefined, { ...saved }, base));
     // The vendor's default follows the last assignment. A failure here leaves the
     // bill right and only the default stale, so it warns rather than fails.

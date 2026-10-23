@@ -3,6 +3,7 @@ import {
   clearJobCostCaches,
   getBillJournalSnapshot,
   isExpenseDoc,
+  expenseAccountFor,
   setBillFields,
   setBillStatus,
 } from "@/lib/jobtread";
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest) {
                 snap.qboDocumentType === "purchase"
                   ? { name: "Expense" }
                   : { name: "Expense", qboDocumentType: "purchase" },
+                { expenseAccountId: expenseAccountFor({ id: snap.accountId, name: snap.accountName }) },
               )
             ).saved,
           after: (saved) => saved.qboDocumentType,

@@ -10,8 +10,11 @@ import {
   pageAll,
   pageEach,
   pave,
+  expenseAccountFor,
   QBO_EXPENSE_ACCOUNT_ID,
+  QBO_SUNSET_EXPENSE_ACCOUNT_ID,
   setBillFields,
+  sunsetExpenseBlocker,
   type PageWalk,
   type PaveConfig,
 } from "./jobtread";
@@ -639,9 +642,39 @@ describe("pageAll / pageEach", () => {
  * "bill" and answers 200 — which is how Expenses kept reaching QuickBooks as
  * payable Bills.
  */
+describe("expenseAccountFor", () => {
+  it("pays Sunset from Banner Bank and everyone else from the card", () => {
+    expect(expenseAccountFor({ name: "Sunset Builders Supply" })).toBe(QBO_SUNSET_EXPENSE_ACCOUNT_ID);
+    expect(expenseAccountFor({ name: "Lowe's" })).toBe(QBO_EXPENSE_ACCOUNT_ID);
+    expect(expenseAccountFor({})).toBe(QBO_EXPENSE_ACCOUNT_ID);
+  });
+});
+
+describe("sunsetExpenseBlocker", () => {
+  const draft = { status: "draft", cost: 42, name: "Bill", qboDocumentType: "bill", qboId: "" };
+  it("lets a draft Sunset Bill through", () => {
+    expect(sunsetExpenseBlocker(draft)).toBe("");
+  });
+  it("leaves credits, non-drafts, QuickBooks docs and Expenses alone", () => {
+    expect(sunsetExpenseBlocker({ ...draft, cost: -13.99 })).toBe("credit");
+    expect(sunsetExpenseBlocker({ ...draft, status: "pending" })).toBe("not draft");
+    expect(sunsetExpenseBlocker({ ...draft, qboId: "bill:123" })).toBe("in QuickBooks");
+    expect(sunsetExpenseBlocker({ ...draft, name: "Expense", qboDocumentType: "purchase" })).toBe(
+      "already an Expense",
+    );
+  });
+  it("still switches a bill named Expense that pushes as a Bill", () => {
+    expect(sunsetExpenseBlocker({ ...draft, name: "Expense" })).toBe("");
+  });
+});
+
 describe("setBillFields — Push as", () => {
   /** The updateDocument `$` it sent, answering with `stored` as JobTread's type. */
-  async function write(fields: Parameters<typeof setBillFields>[2], stored: string | null) {
+  async function write(
+    fields: Parameters<typeof setBillFields>[2],
+    stored: string | null,
+    opts?: Parameters<typeof setBillFields>[3],
+  ) {
     let sent: Record<string, unknown> = {};
     vi.stubGlobal(
       "fetch",
@@ -650,13 +683,20 @@ describe("setBillFields — Push as", () => {
         return reply(200, okBody({ updateDocument: { document: { id: "doc1", qboDocumentType: stored } } }));
       }),
     );
-    await setBillFields(cfg, "doc1", fields);
+    await setBillFields(cfg, "doc1", fields, opts);
     return sent;
   }
 
   it("sends the paid-from account with Push as Expense", async () => {
     const sent = await write({ name: "Expense", qboDocumentType: "purchase" }, "purchase");
     expect(sent.qboAccountId).toBe(QBO_EXPENSE_ACCOUNT_ID);
+  });
+
+  it("sends the caller's paid-from account when one is given", async () => {
+    const sent = await write({ name: "Expense", qboDocumentType: "purchase" }, "purchase", {
+      expenseAccountId: QBO_SUNSET_EXPENSE_ACCOUNT_ID,
+    });
+    expect(sent.qboAccountId).toBe(QBO_SUNSET_EXPENSE_ACCOUNT_ID);
   });
 
   it("clears the account with Push as Bill", async () => {

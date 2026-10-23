@@ -445,7 +445,7 @@ Grouped by domain; each folder is `…/route.ts`.
   client-invoice review, or `?format=brief` for the paste-into-Claude version;
   POST records or lifts one standing ruling), `lswdd`,
   `amazon-import/*`,
-  `sunset-statements/*`, `sunset-duplicates`, `buyback`,
+  `sunset-statements/*`, `sunset-duplicates`, `sunset-expense`, `buyback`,
   `invoicing-summary` (GET reads a billing month — every job billed, its labor,
   bills and total, the office's edits and where the doc is, all from appscript;
   then adds each invoice's live payment + email `status` from JobTread. POST
@@ -522,7 +522,7 @@ Grouped by domain; each folder is `…/route.ts`.
   doing, which is what lets a background tab raise a DESKTOP TOAST for a notice
   that arrives while the reader is elsewhere), `NoticesAdmin` (the authoring panel — what it says, banner or popup,
   the schedule window, and the groups/people it targets; rendered by both
-  `/notices`), `SunsetDuplicateScan`, `TrackingSheetSync`,
+  `/notices`), `SunsetDuplicateScan`, `SunsetExpenseSwitch`, `TrackingSheetSync`,
   `TrackingSheetRisks`, `TimeEntryList` (**the month's time entries, rendered by
   BOTH Labor Review and the board's Time & labor panel** — the list, its filters,
   its grouping, the selection and the recode drawer, in one place so the two

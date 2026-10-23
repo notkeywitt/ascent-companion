@@ -90,6 +90,10 @@ export const VIEWS: ViewDef[] = [
       "/api/code",
       "/api/coding-draft",
       "/api/bill-fields",
+      // The bulk Bill → Expense switch for draft Sunset bills. Its panel sits
+      // on Sunset Statements, which a lead also holds, so the route rides THIS
+      // gate and the panel only shows to a role that has it.
+      "/api/sunset-expense",
       "/api/bill-number",
       "/api/bill-issuedate",
       "/api/bill-duedate",

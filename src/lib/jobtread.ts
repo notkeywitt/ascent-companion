@@ -712,6 +712,9 @@ export async function getBillJournalSnapshot(
   qboIsIgnored?: boolean;
   qboDocumentType?: string;
   jobId: string;
+  /** The vendor account — what picks an Expense's paid-from account. */
+  accountId?: string;
+  accountName?: string;
 } | null> {
   try {
     const r: any = await pave(cfg, {
@@ -728,6 +731,7 @@ export async function getBillJournalSnapshot(
         qboIsIgnored: {},
         qboDocumentType: {},
         job: { id: {} },
+        account: { id: {}, name: {} },
       },
     });
     const d = r?.document;
@@ -743,6 +747,8 @@ export async function getBillJournalSnapshot(
       qboIsIgnored: typeof d.qboIsIgnored === "boolean" ? d.qboIsIgnored : undefined,
       qboDocumentType: d.qboDocumentType ?? undefined,
       jobId: d.job?.id ?? "",
+      accountId: d.account?.id ?? undefined,
+      accountName: d.account?.name ?? undefined,
     };
   } catch {
     return null;
@@ -756,21 +762,24 @@ export async function getBillJournalSnapshot(
  * Bill/Expense toggle sets both. `qboIsIgnored` controls Push to QuickBooks
  * (ignored = NOT pushed, so Push-to-QB = !qboIsIgnored). Never touches lineItems.
  *
- * A `qboDocumentType` write carries its paid-from account (QBO_EXPENSE_ACCOUNT_ID
- * for "purchase", none for "bill"), and throws if JobTread does not keep the
- * type — it drops an unusable one without an error.
+ * A `qboDocumentType` write carries its paid-from account (`expenseAccountId`,
+ * default QBO_EXPENSE_ACCOUNT_ID, for "purchase"; none for "bill"), and throws
+ * if JobTread does not keep the type — it drops an unusable one without an
+ * error. Pass `expenseAccountFor(vendor)` so a Sunset bill pays from Banner.
  */
 export async function setBillFields(
   cfg: PaveConfig,
   docId: string,
   fields: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string },
+  opts: { expenseAccountId?: string } = {},
 ): Promise<{
   saved: { name?: string; qboIsIgnored?: boolean; qboDocumentType?: string };
   accountId: string;
 }> {
   const $: Record<string, unknown> = { id: docId, ...fields };
   if (fields.qboDocumentType) {
-    $.qboAccountId = fields.qboDocumentType === "purchase" ? QBO_EXPENSE_ACCOUNT_ID : null;
+    $.qboAccountId =
+      fields.qboDocumentType === "purchase" ? (opts.expenseAccountId ?? QBO_EXPENSE_ACCOUNT_ID) : null;
   }
   const r = await pave(cfg, {
     updateDocument: {
@@ -4618,6 +4627,116 @@ export const qboDocumentTypeFor = (t: BillType) => (t === "Expense" ? "purchase"
  */
 export const QBO_EXPENSE_ACCOUNT_ID = "271";
 
+/**
+ * Sunset Builders Supply is paid in bulk off its monthly statement, from the
+ * bank — so a Sunset Expense is paid from "Checking - Banner Bank" (owner,
+ * 2026-10-23), never the card above. Same id as
+ * CONFIG.JOBTREAD.QBO_SUNSET_EXPENSE_ACCOUNT_ID in ascent-appscript; keep the
+ * two in sync.
+ */
+export const QBO_SUNSET_EXPENSE_ACCOUNT_ID = "56";
+
+/** Sunset Builders Supply, by its JT account id when the env names it, else by name. */
+export function isSunsetVendor(v: { id?: string | null; name?: string | null }): boolean {
+  const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
+  return (sunsetId !== "" && v.id === sunsetId) || /sunset builders/i.test(v.name ?? "");
+}
+
+/** The QuickBooks paid-from account for this vendor's Expenses. */
+export function expenseAccountFor(v: { id?: string | null; name?: string | null }): string {
+  return isSunsetVendor(v) ? QBO_SUNSET_EXPENSE_ACCOUNT_ID : QBO_EXPENSE_ACCOUNT_ID;
+}
+
+/** A draft Sunset bill, as the bulk Bill → Expense switch lists it. */
+export interface DraftSunsetBill {
+  id: string;
+  jobId: string;
+  jobName: string;
+  externalId: string;
+  issueDate: string;
+  cost: number;
+  name: string;
+  qboDocumentType: string;
+}
+
+/**
+ * Is this Sunset bill one the bulk switch may turn into an Expense? A credit
+ * (negative cost) is not: JobTread files it as a vendor credit, and QuickBooks
+ * has no negative expense. Neither is one already in QuickBooks, nor one that
+ * is already an Expense on both fields.
+ */
+export function sunsetExpenseBlocker(d: {
+  status?: string | null;
+  cost?: number | null;
+  name?: string | null;
+  qboDocumentType?: string | null;
+  qboId?: string | null;
+}): "" | "not draft" | "credit" | "in QuickBooks" | "already an Expense" {
+  if (d.status && d.status !== "draft") return "not draft";
+  if ((d.cost ?? 0) < 0) return "credit";
+  if (d.qboId) return "in QuickBooks";
+  if (d.name === "Expense" && d.qboDocumentType === "purchase") return "already an Expense";
+  return "";
+}
+
+/**
+ * Every DRAFT Sunset vendor bill in the org that is not yet an Expense, plus
+ * the count of draft Sunset credits left alone. Read-only.
+ */
+export async function getDraftSunsetBills(
+  cfg: PaveConfig,
+): Promise<{ bills: DraftSunsetBill[]; credits: number }> {
+  const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
+  const vendor = sunsetId
+    ? [["account", "id"], sunsetId]
+    : [["account", "name"], "like", "%Sunset Builders%"];
+  const rows = await pageAll<any>(cfg, {
+    label: "organization.documents (draft Sunset bills)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        documents: {
+          $: { where: { and: [["type", "vendorBill"], ["status", "draft"], vendor] }, ...args },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            externalId: {},
+            issueDate: {},
+            cost: {},
+            qboDocumentType: {},
+            qboId: {},
+            account: { id: {}, name: {} },
+            job: { id: {}, name: {} },
+          },
+        },
+      },
+    }),
+    pick: (a) => a?.organization?.documents,
+  });
+  const bills: DraftSunsetBill[] = [];
+  let credits = 0;
+  for (const d of rows) {
+    if (!isSunsetVendor({ id: d.account?.id, name: d.account?.name })) continue;
+    const blocker = sunsetExpenseBlocker({ ...d, status: "draft" });
+    if (blocker === "credit") credits++;
+    if (blocker) continue;
+    bills.push({
+      id: d.id,
+      jobId: d.job?.id ?? "",
+      jobName: d.job?.name ?? "",
+      externalId: d.externalId ?? "",
+      issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : "",
+      cost: typeof d.cost === "number" ? d.cost : 0,
+      name: d.name ?? "",
+      qboDocumentType: d.qboDocumentType ?? "",
+    });
+  }
+  bills.sort((a, b) => a.issueDate.localeCompare(b.issueDate) || a.externalId.localeCompare(b.externalId));
+  return { bills, credits };
+}
+
 export function isExpenseDoc(d: { name?: string | null; qboDocumentType?: string | null }): boolean {
   return d.qboDocumentType === "purchase" || d.name === "Expense";
 }
@@ -4674,7 +4793,9 @@ export async function createVendorBill(
     accountId: args.accountId,
     name: args.billType ?? "Bill",
     qboDocumentType: qboDocumentTypeFor(args.billType ?? "Bill"),
-    ...(args.billType === "Expense" ? { qboAccountId: QBO_EXPENSE_ACCOUNT_ID } : {}),
+    ...(args.billType === "Expense"
+      ? { qboAccountId: expenseAccountFor({ id: args.accountId, name: args.vendorName }) }
+      : {}),
     subject: args.subject,
     externalId: args.externalId,
     issueDate: args.issueDate,

@@ -7,6 +7,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
+import { SunsetExpenseSwitch } from "@/components/SunsetExpenseSwitch";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { reconcileState } from "@/lib/sunsetReconcile";
@@ -461,6 +462,9 @@ export default function PaymentsPage() {
       <BankRow />
 
       <SunsetDuplicateScan />
+
+      {/* A bill write — office/admin only (its route rides the "recode" gate). */}
+      {canOpenBill && <SunsetExpenseSwitch />}
 
       <div className="mb-4 flex items-center gap-1.5">
         {FILTERS.map((f) => (
