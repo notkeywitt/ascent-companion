@@ -2,9 +2,9 @@
 slug: wizardly-goodall
 repo: ascent-companion
 branch: claude/wizardly-goodall-399znh
-status: in-progress
+status: shipped
 started: 2026-10-23T16:30:26Z
-updated: 2026-10-23T16:30:34Z
+updated: 2026-10-23T16:30:42Z
 goal: New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Drive forms (W-4, I-9, Direct Deposit) in the app; the office downloads the packet for the bookkeeper
 next: Upload the current W-4 (irs.gov) and I-9 (uscis.gov) on New Hires, check their field setup in Fields, then invite a test hire end to end
 ---

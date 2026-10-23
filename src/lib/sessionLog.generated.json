@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-20T15:05:10Z",
+  "generatedAt": "2026-10-23T16:30:42Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "wizardly-goodall",
+      "file": "2026-10-23-wizardly-goodall.md",
+      "branch": "claude/wizardly-goodall-399znh",
+      "status": "shipped",
+      "started": "2026-10-23T16:30:26Z",
+      "updated": "2026-10-23T16:30:42Z",
+      "goal": "New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Drive forms (W-4, I-9, Direct Deposit) in the app; the office downloads the packet for the bookkeeper",
+      "next": "Upload the current W-4 (irs.gov) and I-9 (uscis.gov) on New Hires, check their field setup in Fields, then invite a test hire end to end",
+      "commits": [
+        {
+          "date": "2026-10-23",
+          "time": "16:30",
+          "sha": "4c7d6c0",
+          "subject": "companion: add new-hire paperwork — invite, profile, sign the forms in the app",
+          "files": "CODEBASE_MAP.md, package-lock.json, package.json, src/app/api/onboarding/me/forms/[id]/route.ts, src/app/api/onboarding/me/route.ts, src/app/api/onboarding/office/file/route.ts, +18 more"
+        }
+      ]
+    },
     {
       "slug": "jobtread-email-records",
       "file": "2026-10-20-jobtread-email-records.md",
