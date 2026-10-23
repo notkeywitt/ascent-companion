@@ -12,7 +12,10 @@ import {
   getJobBudget,
   getJobHeaderInfo,
   getVendorDetail,
+  createSunsetCredit,
   isSunsetVendor,
+  splitSunsetLines,
+  sunsetCreditExternalId,
   sunsetDocName,
   getVendors,
   replaceBillLines,
@@ -335,7 +338,7 @@ export async function POST(req: NextRequest) {
     // bulk — and a Sunset credit is a JobTread Credit (appscript enforces the
     // same). A pick that differs from the default becomes the new default,
     // after the create.
-    const sunsetCredit = isSunset && sunsetDocName(Number(extracted.Amount) || 0) === "Credit";
+    let sunsetCredit = isSunset && sunsetDocName(Number(extracted.Amount) || 0) === "Credit";
     let billType: BillType = isSunset && !sunsetCredit ? "Expense" : "Bill";
     let vendorDefault: BillType | null = null;
     if (!isSunset) {
@@ -517,6 +520,25 @@ export async function POST(req: NextRequest) {
 
     const reconcile = taxReconcileWarning(extracted);
     if (reconcile) warnings.push(reconcile);
+
+    // ---- 5c. a Sunset return rides on its own Credit -------------------------
+    // QuickBooks reads a credit's amounts as positive, so a purchase and a
+    // return on one document push the return inverted. The returns go on a
+    // Credit "<number>-CR" (created after this bill, below); the purchases stay
+    // here as an Expense. See splitSunsetLines.
+    const sunsetSplit = isSunset
+      ? splitSunsetLines(lines, (l) => (Number(l.unitCost) || 0) * (Number(l.quantity) || 0))
+      : null;
+    const returnLines = sunsetSplit?.mixed ? sunsetSplit.returns : [];
+    if (sunsetSplit?.mixed) {
+      lines = sunsetSplit.purchases;
+      billType = "Expense";
+      sunsetCredit = false;
+      warnings.push(
+        `${returnLines.length} return line${returnLines.length === 1 ? "" : "s"} split onto ` +
+          `their own Credit (${sunsetCreditExternalId(billNumber)}).`,
+      );
+    }
 
     const codes = [...new Set(lines.map((l) => l.costCode).filter(Boolean))].join(", ");
     const billArgs = {
@@ -736,6 +758,19 @@ export async function POST(req: NextRequest) {
       }
 
       // ---- 7c. replace the existing bill's lines with this upload's ---------
+      // A split Sunset invoice (5c) is two documents; a replace rewrites one,
+      // and would drop the returns. Refuse rather than lose them.
+      if (returnLines.length) {
+        return NextResponse.json(
+          {
+            error:
+              "This Sunset invoice carries a return, which is filed as its own Credit. A replace " +
+              "would rewrite only the purchases and drop the return. Nothing was changed. Revise " +
+              "the bill and its Credit in JobTread.",
+          },
+          { status: 409 },
+        );
+      }
       if (!replaceable) {
         const why = truncated
           ? `That bill carries 100 lines or more, past what this page can read, so a replace would ` +
@@ -928,27 +963,75 @@ export async function POST(req: NextRequest) {
       },
     ]);
 
-    let fileAttached = true;
-    try {
-      const ext = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
-      const name = madeFile
-        ? madeFile.name
-        : upload?.name && upload.name.includes(".")
-          ? upload.name
-          : `${billNumber}.${ext}`;
-      await attachFileToDocument(
+    const fileExt = mime === "application/pdf" ? "pdf" : mime.split("/")[1] || "bin";
+    const attachTo = (targetId: string, fallbackBase: string) =>
+      attachFileToDocument(
         cfg,
-        docId,
+        targetId,
         madeFile ? madeFile.bytes : bytes,
         madeFile ? madeFile.mime : mime,
-        name,
+        madeFile
+          ? madeFile.name
+          : upload?.name && upload.name.includes(".")
+            ? upload.name
+            : `${fallbackBase}.${fileExt}`,
       );
+
+    let fileAttached = true;
+    try {
+      await attachTo(docId, billNumber);
     } catch (e) {
       fileAttached = false;
       warnings.push(
         `Bill created but the file attach failed (${e instanceof Error ? e.message : "unknown"}) — ` +
           `attach it manually in JobTread.`,
       );
+    }
+
+    // The split-off returns (5c): their own Credit, with the same file.
+    let creditDocId = "";
+    if (returnLines.length) {
+      try {
+        const credit = await createSunsetCredit(cfg, {
+          jobId,
+          accountId: vendor.id,
+          subject: billArgs.subject,
+          externalId: billNumber,
+          issueDate: dates.issueDate,
+          jobLocationName: billArgs.jobLocationName,
+          jobLocationAddress: billArgs.jobLocationAddress,
+          lines: returnLines,
+        });
+        creditDocId = credit.id;
+        await j.record([
+          {
+            action: "bill.create",
+            entity: "bill",
+            entityId: creditDocId,
+            docId: creditDocId,
+            jobId,
+            after: { vendor: "Sunset Builders Supply", externalId: credit.externalId, lines: returnLines.length },
+            beforeSource: "none",
+            amount: returnLines.reduce((s, l) => s + (Number(l.unitCost) || 0) * (Number(l.quantity) || 0), 0),
+            meta: { source: "sunset-return-split", splitFrom: docId },
+          },
+        ]);
+        try {
+          await attachTo(creditDocId, credit.externalId);
+        } catch (e) {
+          warnings.push(
+            `The returns' Credit was created but its file attach failed (${
+              e instanceof Error ? e.message : "unknown"
+            }) — attach it in JobTread.`,
+          );
+        }
+      } catch (e) {
+        warnings.push(
+          `The purchases were filed, but the returns' Credit was not (${
+            e instanceof Error ? e.message : "unknown"
+          }) — add the returns as a Credit in JobTread.`,
+        );
+      }
     }
 
     // ---- 9. nudge the Apps Script full sync (fire-and-forget, FAIL-SAFE) -----
@@ -969,6 +1052,7 @@ export async function POST(req: NextRequest) {
       previewed: false,
       wrote: true,
       docId,
+      creditDocId: creditDocId || undefined,
       fileAttached,
       syncKicked,
       ...summary,

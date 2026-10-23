@@ -14,6 +14,8 @@ import {
   QBO_EXPENSE_ACCOUNT_ID,
   QBO_SUNSET_EXPENSE_ACCOUNT_ID,
   setBillFields,
+  splitSunsetLines,
+  sunsetCreditExternalId,
   sunsetSwitchBlocker,
   type PageWalk,
   type PaveConfig,
@@ -667,6 +669,38 @@ describe("sunsetSwitchBlocker", () => {
   });
   it("still switches a bill named Expense that pushes as a Bill", () => {
     expect(sunsetSwitchBlocker({ ...draft, name: "Expense" })).toBe("");
+  });
+});
+
+describe("splitSunsetLines", () => {
+  type L = { cost: number; tax?: boolean };
+  const amt = (l: L) => l.cost;
+  const tax = (l: L) => !!l.tax;
+  it("splits a purchase and a return", () => {
+    const buy = { cost: 174.38 };
+    const ret = { cost: -159 };
+    expect(splitSunsetLines([buy, ret], amt, tax)).toEqual({ purchases: [buy], returns: [ret], mixed: true });
+  });
+  it("leaves a bill of one sign alone", () => {
+    expect(splitSunsetLines([{ cost: 5 }, { cost: 7 }], amt, tax).mixed).toBe(false);
+    expect(splitSunsetLines([{ cost: -5 }, { cost: -7 }], amt, tax).mixed).toBe(false);
+  });
+  it("keeps the sales-tax line with the purchases and never counts it as a side", () => {
+    const t = { cost: 4, tax: true };
+    const ret = { cost: -10 };
+    const r = splitSunsetLines([t, ret], amt, tax);
+    expect(r.mixed).toBe(false);
+    const buy = { cost: 20 };
+    expect(splitSunsetLines([buy, t, ret], amt, tax).purchases).toEqual([buy, t]);
+  });
+  it("lets a mixed bill through the switch even when it already reads as done", () => {
+    expect(
+      sunsetSwitchBlocker({ status: "draft", cost: 15.38, name: "Expense", qboDocumentType: "purchase", mixed: true }),
+    ).toBe("");
+  });
+  it("numbers the Credit after the invoice, inside 32 characters", () => {
+    expect(sunsetCreditExternalId("719582")).toBe("719582-CR");
+    expect(sunsetCreditExternalId("x".repeat(40))).toHaveLength(32);
   });
 });
 

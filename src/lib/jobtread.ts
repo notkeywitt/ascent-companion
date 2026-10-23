@@ -4661,6 +4661,74 @@ export type SunsetDocName = "Expense" | "Credit";
 export const sunsetDocName = (cost: number | null | undefined): SunsetDocName =>
   (cost ?? 0) < 0 ? "Credit" : "Expense";
 
+/**
+ * SUNSET RETURNS RIDE ON THEIR OWN CREDIT. QuickBooks reads a credit's amounts
+ * as positive, so one document carrying a purchase AND a return pushes the
+ * return inverted. A Sunset invoice with both is split: its returns (the
+ * negative lines) go on a Credit numbered "<invoice #>-CR", and its purchases
+ * stay on the original as an Expense. The sales-tax line counts as neither and
+ * stays with the purchases. Same rule as `_jtSplitSunsetReturns` in
+ * ascent-appscript, which splits a captured invoice before its first push.
+ *
+ * `mixed` is true only when each side has a real line.
+ */
+export function splitSunsetLines<T>(
+  lines: T[],
+  amountOf: (l: T) => number,
+  isTax: (l: T) => boolean = () => false,
+): { purchases: T[]; returns: T[]; mixed: boolean } {
+  const returns = lines.filter((l) => !isTax(l) && amountOf(l) < 0);
+  const purchases = lines.filter((l) => !returns.includes(l));
+  const mixed = returns.length > 0 && purchases.some((l) => !isTax(l) && amountOf(l) > 0);
+  return { purchases, returns, mixed };
+}
+
+/** The externalId of a split invoice's Credit: "<invoice #>-CR", inside JT's 32. */
+export const sunsetCreditExternalId = (externalId: string) => `${externalId.trim().slice(0, 29)}-CR`;
+
+/**
+ * WRITE — create a split invoice's Credit: a draft Sunset document named
+ * "Credit", due on issue, carrying only the returns. Push as stays "bill" —
+ * JobTread files a negative bill as a vendor credit itself. No tax line.
+ */
+export async function createSunsetCredit(
+  cfg: PaveConfig,
+  args: {
+    jobId: string;
+    accountId: string;
+    subject: string;
+    /** The ORIGINAL invoice's externalId; the Credit's is derived from it. */
+    externalId: string;
+    issueDate: string;
+    jobLocationName?: string;
+    jobLocationAddress?: string;
+    pushToQuickBooks?: boolean;
+    lines: NewBillLine[];
+  },
+): Promise<{ id: string; externalId: string }> {
+  const externalId = sunsetCreditExternalId(args.externalId);
+  const { id } = await createVendorBill(cfg, {
+    jobId: args.jobId,
+    accountId: args.accountId,
+    vendorName: "Sunset Builders Supply",
+    subject: `${args.subject} (returns)`.slice(0, 128),
+    externalId,
+    issueDate: args.issueDate,
+    dueDate: args.issueDate,
+    taxAmount: 0,
+    jobLocationName: args.jobLocationName,
+    jobLocationAddress: args.jobLocationAddress,
+    pushToQuickBooks: args.pushToQuickBooks,
+    billType: "Bill",
+    docName: "Credit",
+    lines: args.lines,
+  });
+  return { id, externalId };
+}
+
+/** What the bulk switch will do to a draft Sunset bill. */
+export type SunsetSwitchTarget = SunsetDocName | "Split";
+
 /** A draft Sunset bill, as the bulk switch lists it. */
 export interface DraftSunsetBill {
   id: string;
@@ -4671,14 +4739,15 @@ export interface DraftSunsetBill {
   cost: number;
   name: string;
   qboDocumentType: string;
-  /** What the switch will make it. */
-  target: SunsetDocName;
+  /** "Split" = it carries a purchase and a return (see splitSunsetLines). */
+  target: SunsetSwitchTarget;
 }
 
 /**
- * Why the bulk switch must leave this Sunset bill alone, or "" when it may
- * switch it to its `sunsetDocName`. Not a draft, or already in QuickBooks, or
- * already that type: an Expense on both fields, or a document named Credit.
+ * Why the bulk switch must leave this Sunset bill alone, or "" when it may act
+ * on it. Not a draft, or already in QuickBooks, or already done: an Expense on
+ * both fields, or a document named Credit. A `mixed` bill always has work left —
+ * its returns still have to come off.
  */
 export function sunsetSwitchBlocker(d: {
   status?: string | null;
@@ -4686,54 +4755,98 @@ export function sunsetSwitchBlocker(d: {
   name?: string | null;
   qboDocumentType?: string | null;
   qboId?: string | null;
+  mixed?: boolean;
 }): "" | "not draft" | "in QuickBooks" | "already an Expense" | "already a Credit" {
   if (d.status && d.status !== "draft") return "not draft";
   if (d.qboId) return "in QuickBooks";
+  if (d.mixed) return "";
   if (sunsetDocName(d.cost) === "Credit") return d.name === "Credit" ? "already a Credit" : "";
   if (d.name === "Expense" && d.qboDocumentType === "purchase") return "already an Expense";
   return "";
 }
 
 /**
- * Every DRAFT Sunset vendor bill in the org not yet filed as its
- * `sunsetDocName`. Read-only.
+ * Every DRAFT Sunset vendor bill in the org that still needs the switch.
+ * Read-only. Lines come from a second, org-wide cost-item read joined by
+ * document id — nesting them in the paged documents read would 413.
  */
-export async function getDraftSunsetBills(
-  cfg: PaveConfig,
-): Promise<DraftSunsetBill[]> {
+export async function getDraftSunsetBills(cfg: PaveConfig): Promise<DraftSunsetBill[]> {
   const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
   const vendor = sunsetId
     ? [["account", "id"], sunsetId]
     : [["account", "name"], "like", "%Sunset Builders%"];
-  const rows = await pageAll<any>(cfg, {
-    label: "organization.documents (draft Sunset bills)",
-    query: (args) => ({
-      organization: {
-        $: { id: cfg.orgId },
-        id: {},
-        documents: {
-          $: { where: { and: [["type", "vendorBill"], ["status", "draft"], vendor] }, ...args },
-          nextPage: {},
-          nodes: {
-            id: {},
-            name: {},
-            externalId: {},
-            issueDate: {},
-            cost: {},
-            qboDocumentType: {},
-            qboId: {},
-            account: { id: {}, name: {} },
-            job: { id: {}, name: {} },
+  const lineVendor = sunsetId
+    ? [["document", "account", "id"], sunsetId]
+    : [["document", "account", "name"], "like", "%Sunset Builders%"];
+  const [rows, lines] = await Promise.all([
+    pageAll<any>(cfg, {
+      label: "organization.documents (draft Sunset bills)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          documents: {
+            $: { where: { and: [["type", "vendorBill"], ["status", "draft"], vendor] }, ...args },
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              externalId: {},
+              issueDate: {},
+              cost: {},
+              qboDocumentType: {},
+              qboId: {},
+              account: { id: {}, name: {} },
+              job: { id: {}, name: {} },
+            },
           },
         },
-      },
+      }),
+      pick: (a) => a?.organization?.documents,
     }),
-    pick: (a) => a?.organization?.documents,
-  });
+    pageAll<any>(cfg, {
+      label: "organization.costItems (draft Sunset bill lines)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          costItems: {
+            $: {
+              where: {
+                and: [
+                  [["document", "type"], "vendorBill"],
+                  [["document", "status"], "draft"],
+                  lineVendor,
+                ],
+              },
+              ...args,
+            },
+            nextPage: {},
+            nodes: {
+              id: {},
+              name: {},
+              description: {},
+              cost: {},
+              costCode: { number: {} },
+              document: { id: {} },
+            },
+          },
+        },
+      }),
+      pick: (a) => a?.organization?.costItems,
+    }),
+  ]);
+  const linesByDoc = new Map<string, any[]>();
+  for (const l of lines) {
+    const id = l.document?.id;
+    if (!id) continue;
+    (linesByDoc.get(id) ?? linesByDoc.set(id, []).get(id)!).push(l);
+  }
   const bills: DraftSunsetBill[] = [];
   for (const d of rows) {
     if (!isSunsetVendor({ id: d.account?.id, name: d.account?.name })) continue;
-    if (sunsetSwitchBlocker({ ...d, status: "draft" })) continue;
+    const { mixed } = splitSunsetLines<any>(linesByDoc.get(d.id) ?? [], (l) => Number(l.cost) || 0, isSalesTaxLine);
+    if (sunsetSwitchBlocker({ ...d, status: "draft", mixed })) continue;
     bills.push({
       id: d.id,
       jobId: d.job?.id ?? "",
@@ -4743,7 +4856,7 @@ export async function getDraftSunsetBills(
       cost: typeof d.cost === "number" ? d.cost : 0,
       name: d.name ?? "",
       qboDocumentType: d.qboDocumentType ?? "",
-      target: sunsetDocName(d.cost),
+      target: mixed ? "Split" : sunsetDocName(d.cost),
     });
   }
   bills.sort((a, b) => a.issueDate.localeCompare(b.issueDate) || a.externalId.localeCompare(b.externalId));
