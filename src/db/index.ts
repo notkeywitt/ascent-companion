@@ -1104,6 +1104,50 @@ async function applySchema() {
       PRIMARY KEY (action, scope, ym)
     )
   `);
+  // New-hire paperwork (see schema.ts onboardingForms).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS onboarding_forms (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      file_name TEXT NOT NULL DEFAULT '',
+      bytes BLOB NOT NULL,
+      fields TEXT NOT NULL DEFAULT '[]',
+      pages INTEGER NOT NULL DEFAULT 0,
+      sort INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      created_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS onboarding_intakes (
+      email TEXT PRIMARY KEY,
+      first_name TEXT NOT NULL DEFAULT '',
+      last_name TEXT NOT NULL DEFAULT '',
+      position TEXT NOT NULL DEFAULT '',
+      hire_date TEXT NOT NULL DEFAULT '',
+      employee_id TEXT NOT NULL DEFAULT '',
+      profile TEXT NOT NULL DEFAULT '{}',
+      profile_at TEXT,
+      invited_at TEXT NOT NULL,
+      invited_by TEXT NOT NULL DEFAULT '',
+      sent_at TEXT,
+      sent_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS onboarding_submissions (
+      email TEXT NOT NULL,
+      form_id INTEGER NOT NULL,
+      form_name TEXT NOT NULL DEFAULT '',
+      bytes BLOB NOT NULL,
+      signed_name TEXT NOT NULL DEFAULT '',
+      submitted_at TEXT NOT NULL,
+      ip TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (email, form_id)
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

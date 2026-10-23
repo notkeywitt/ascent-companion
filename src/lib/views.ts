@@ -342,6 +342,16 @@ export const VIEWS: ViewDef[] = [
     group: "Office",
     paths: ["/employees", "/api/employees/email", "/api/employees/jt-members", "/api/employees/job-access"],
   },
+  // New Hires — the office side of new-hire paperwork: invite a hire, upload
+  // the blank forms, download the signed packet for the bookkeeper. Office +
+  // admin; the invite itself (it adds a sign-in) is admin-only, checked in
+  // /api/onboarding/office. The filled forms hold SSNs and bank numbers.
+  {
+    id: "new-hires",
+    label: "New Hires",
+    group: "Office",
+    paths: ["/onboarding/office", "/api/onboarding/office"],
+  },
   // Lead pipeline — JobTread's "New Lead" customers plus the Companion's
   // follow-up tracking. The API prefix is listed alongside the page so a role
   // without the view can't read customer contact details via the route directly.
@@ -450,6 +460,12 @@ export const VIEWS: ViewDef[] = [
   // there is no API prefix to gate alongside it. The gate exists at all because
   // the launcher and the header's search filter their rows by a view id.
   { id: "help", label: "Help", group: "System", paths: ["/help"] },
+  // A new hire's OWN paperwork — /onboarding: the profile, then each form to
+  // fill and sign. EVERY role holds it (FIELD_VIEWS below) because a new hire
+  // signs in as field; the route answers only for the signed-in email, and
+  // someone with no invite sees "nothing waiting". The office side is
+  // "new-hires" (a longer prefix, so it wins for /onboarding/office).
+  { id: "onboarding", label: "New Hire Paperwork", group: "Field", paths: ["/onboarding", "/api/onboarding/me"] },
   // LopezRocks — Lopez Island's community board (lopezrocks.org), re-drawn for
   // a phone. EVERY role holds it (FIELD_VIEWS below), at the owner's request,
   // and the link to it is at the bottom of the home page. Read-only: it reads
@@ -529,6 +545,7 @@ const FIELD_VIEWS: string[] = [
   "time-off",
   "help",
   "lopezrocks",
+  "onboarding",
   // App Feedback, for every role since 2026-09-29 (owner decision 8): Help
   // already told field and leads to send it. Changing a request's status stays
   // office/admin, checked in /api/feature-requests/[id].

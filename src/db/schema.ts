@@ -1500,3 +1500,61 @@ export const aiUsage = sqliteTable("ai_usage", {
   cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
   costUsd: real("cost_usd"),
 });
+
+/**
+ * NEW-HIRE PAPERWORK — /onboarding (the new hire) and /onboarding/office (the
+ * office). See src/lib/onboarding/store.ts.
+ *
+ * onboarding_forms        one row per blank form the office uploaded (W-4,
+ *                         I-9, Direct Deposit…): the PDF, and the field setup
+ *                         as JSON (src/lib/onboarding/fields.ts FieldConfig[]).
+ * onboarding_intakes      one row per invited new hire, keyed on the sign-in
+ *                         email. `profile` is the profile step's answers as
+ *                         JSON; the roster row (Employee tab) gets the same
+ *                         values. No Social Security number is ever stored.
+ * onboarding_submissions  one FILLED, signed PDF per hire per form. These hold
+ *                         SSNs and bank numbers, so "Sent to bookkeeper" on the
+ *                         office page deletes them.
+ */
+export const onboardingForms = sqliteTable("onboarding_forms", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  fileName: text("file_name").notNull().default(""),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  fields: text("fields").notNull().default("[]"),
+  pages: integer("pages").notNull().default(0),
+  sort: integer("sort").notNull().default(0),
+  active: integer("active").notNull().default(1),
+  createdAt: text("created_at").notNull(),
+  createdBy: text("created_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const onboardingIntakes = sqliteTable("onboarding_intakes", {
+  email: text("email").primaryKey(), // lower-cased sign-in email
+  firstName: text("first_name").notNull().default(""),
+  lastName: text("last_name").notNull().default(""),
+  position: text("position").notNull().default(""),
+  hireDate: text("hire_date").notNull().default(""), // YYYY-MM-DD or ""
+  employeeId: text("employee_id").notNull().default(""), // the Employee tab row
+  profile: text("profile").notNull().default("{}"),
+  profileAt: text("profile_at"),
+  invitedAt: text("invited_at").notNull(),
+  invitedBy: text("invited_by").notNull().default(""),
+  sentAt: text("sent_at"),
+  sentBy: text("sent_by").notNull().default(""),
+});
+
+export const onboardingSubmissions = sqliteTable(
+  "onboarding_submissions",
+  {
+    email: text("email").notNull(),
+    formId: integer("form_id").notNull(),
+    formName: text("form_name").notNull().default(""),
+    bytes: blob("bytes", { mode: "buffer" }).notNull(),
+    signedName: text("signed_name").notNull().default(""),
+    submittedAt: text("submitted_at").notNull(),
+    ip: text("ip").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.email, t.formId] })],
+);

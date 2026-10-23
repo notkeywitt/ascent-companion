@@ -46,7 +46,17 @@ function Home() {
     } catch {
       return; // storage blocked — leave them here rather than loop.
     }
-    router.replace("/employee-time");
+    // A new hire with paperwork still open lands on it instead (field is the
+    // role an invite gives). A 403 — a token minted before the view existed —
+    // or any failure just means "no paperwork": go to Time as before.
+    fetch("/api/onboarding/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j: { intake?: { profileAt: string | null; sentAt: string | null } | null; forms?: { submitted: unknown }[] } | null) => {
+        const i = j?.intake;
+        const open = !!i && !i.sentAt && (!i.profileAt || (j?.forms ?? []).some((f) => !f.submitted));
+        router.replace(open ? "/onboarding" : "/employee-time");
+      })
+      .catch(() => router.replace("/employee-time"));
   }, [access.role, router]);
   const needsProject = useNeedsProjectCount();
 

@@ -61,6 +61,7 @@ export const WORKSPACES: Workspace[] = [
     desc: "The roster — details, JobTread jobs and pay types.",
     tabs: [
       tab("employees", "/employees", "Employees", "The Project Database roster"),
+      tab("new-hires", "/onboarding/office", "New Hires", "Invite a new hire, collect their signed forms"),
       tab("labor-rates", "/labor-rates", "Pay Rates", "Per-project pay rates & who has them"),
       tab("safety-meeting", "/safety-meeting", "Safety Meeting", "Pass the iPad and collect sign-ins"),
     ],
@@ -183,6 +184,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
   "ai-cost": "Audit's AI Cost tab (PageTabs on /logs)",
   actions: "retired 2026-10-18; its buttons are on Inbox (email scans) and Tracking Sheets' Company tools (syncs); /actions redirects",
+  onboarding: "a new hire's own paperwork, reached from the invite link and the field landing redirect on Today (src/app/page.tsx)",
   "time-off-admin": "a section of Payroll (/payroll?section=timeoff); /time-off/office redirects",
   "labor-import": "a section of Payroll (/payroll?section=labor); /labor-import redirects",
   clients: "Customers' All customers section (/leads?section=all), and a job's Record tab (/clients?jobId)",

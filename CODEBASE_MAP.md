@@ -90,6 +90,7 @@ matching row here.
 | **Org-timezone wall clocks in the browser** | `src/lib/orgTime.ts` (read half; the server's is in `src/lib/jobtread.ts`) |
 | **A single bill page** | `src/app/bill/[docId]/page.tsx` + `src/app/api/bill/*` |
 | **PTO / sick accrual** | pure math `src/lib/leave.ts`; server orchestration `src/lib/leaveService.ts`; UI `src/app/time-off/` + `src/app/api/time-off/*` |
+| **New-hire paperwork** (invite a hire, their profile, the W-4 / I-9 / Direct Deposit filled and signed in the app, the packet for the bookkeeper) | the hire's page `src/app/onboarding/` → `/api/onboarding/me` (+ `me/forms/[id]`, every read keyed on the signed-in email); the office's page `src/app/onboarding/office/` (`OnboardingOffice.tsx`, `FormEditor.tsx`) → `/api/onboarding/office` (+ `forms`, `file`). Field rules `src/lib/onboarding/fields.ts` (pure — the guess, the presets, the prefills), the PDF fill `pdf.ts` (pdf-lib), the DB and roster calls `store.ts`. An invite adds the Employee tab row (appscript `Employees.js` `addEmployee`), a `field` sign-in and the paperwork; the profile step writes back with `updateEmployee`. No SSN is stored; "Sent to bookkeeper" deletes the signed PDFs |
 | **Employee time / clock** | `src/app/employee-time/` + `src/app/api/employee-time/*`; back end is appscript `EmployeeTime.js` |
 | **Which jobs the time clock offers** (jobs the employee is added to in JobTread, phase Active / PreCon / Ascent) | rule `src/lib/timeClockJobs.ts`; membership read `getUserJobIds` (`src/lib/jobtread.ts`); joined in `getTimeClockJobs` (`src/lib/jobsCache.ts`); shell preload `src/app/employee-time/page.tsx`, reload for act-as `/api/employee-time/jobs`. Split View keeps every open job |
 | **The pay-period time entries email** (every employee's half month as JobTread's CSV, drafted to Casey, Ty and Sara) | button `src/app/employee-time/TimeEntriesEmailButton.tsx` (Timesheets tab, admin + office) → `/api/employee-time/email`; read `getTimeEntriesForExport` (`src/lib/jobtread.ts`); CSV + wording `src/lib/timeEntriesEmail.ts`; draft appscript `EmployeeTime.js` `_companionDraftTimeEntriesEmail` |
@@ -281,6 +282,15 @@ suppression scope reaches, and where it must stop).
 Skill: `.claude/skills/invoice-review/SKILL.md` drives the same review from a
 Claude Code session. Drive half: `ascent-appscript/ClientInvoiceReview.js`.
 
+### `src/lib/onboarding/` — new-hire paperwork
+
+| File | Role |
+|---|---|
+| `fields.ts` ⟂ | How a fillable PDF's fields become questions on a phone: who fills each field (hire / office / fixed / hidden), the first guess from its name and tooltip, the presets for known forms (the office's Direct Deposit form, whose fields are named "1", "2", "undefined"), the profile and its prefills. Pinned by `fields.test.ts`. |
+| `pdf.ts` | Read a PDF's fields, fill one from the answers (hire fields made read-only, office fields left open, signature painted, XFA removed), append the signature record page, build the bookkeeper's packet. Pinned by `pdf.test.ts`. |
+| `store.ts` | The three `onboarding_*` tables, plus the Employee tab calls over Apps Script. |
+| `respond.ts` | Route helpers: the signed-in email, the caller's IP, a `no-store` PDF response. |
+
 ### `src/lib/digest/` — the Admin Daily Digest
 
 The morning report on the home launcher: independent "checks" over the
@@ -366,7 +376,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `tool-tracker`, `rfis` (on no workspace since 2026-09-29 — nobody logs RFIs),
   `time-off` (self-service; `/time-off/office` is the office console under the
   `time-off-admin` view — both pages render `TimeOffView` in `TimeOff.tsx`),
-  `requisitions`. (`/more`, "The Rest", redirects home.)
+  `requisitions`, `onboarding` (a new hire's own profile and forms; every
+  role, and Today sends a field login with open paperwork here instead of
+  Time). (`/more`, "The Rest", redirects home.)
 - **Assistant:** `chat`.
 - **Office:** `office` (the Office dashboard — the "Office" JobTread job's open
   to-dos and its Files tab as a `?folder=` browser, read server-side via
@@ -374,6 +386,8 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   via `currentBillingPeriod` + `getJobBillsForMonth` + `resolveShopJobId`; the to-dos are editable — `OfficeTodos.tsx` →
   `/api/office/todos`; images show as a thumbnail grid,
   `OfficeImages.tsx`, opening in the bill scans' `InvoiceLightbox`), `employees`, `leads`,
+  `onboarding/office` (New Hires — invite a hire, the blank forms and their
+  field setup, the signed packet; office + admin, the invite admin-only),
   `job-board` (Jobs — Active jobs, PreCon jobs and leads as kanban rows; the
   route is `/job-board` because `/jobs` is Job Cost), `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
@@ -440,7 +454,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `labor-report` (the month's company-wide Drive sheet),
   `time-entry` (one entry, edited in place — gated under `recode`),
   `time-off/*`, `time-sync/*`, `expenditure-history`.
-- **HR / field ops:** `employees/*`, `team/*`, `mileage/*`, `tools`,
+- **HR / field ops:** `onboarding/me` (+ `me/forms/[id]` — the new hire's
+  own, by session email), `onboarding/office` (+ `forms`, `file` — the office's,
+  under `new-hires`), `employees/*`, `team/*`, `mileage/*`, `tools`,
   `tool-tracker`, `safety-meeting`, `requisitions`, `rfis/*`,
   `feature-requests/*`.
 - **Leads:** `leads/*`.
@@ -561,7 +577,12 @@ rule; see `src/lib/depositLinks.ts`),
 `financial_events` (**the financial journal** — every write the app makes to a
 money record: actor from the session, field, before, after, and which of
 read/client/none that before-value is. Append-only, never trimmed; see
-`src/lib/financialJournal.ts`). Access via `src/db/index.ts`.
+`src/lib/financialJournal.ts`),
+`onboarding_forms` (the blank forms new hires fill — the PDF and its field
+setup), `onboarding_intakes` (one row per invited new hire, keyed on the
+sign-in email — the profile, and when it went to the bookkeeper),
+`onboarding_submissions` (one filled, signed PDF per hire per form — they hold
+SSNs and bank numbers, so "Sent to bookkeeper" deletes them). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed
