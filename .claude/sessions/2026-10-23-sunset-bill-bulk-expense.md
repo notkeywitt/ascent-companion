@@ -2,9 +2,9 @@
 slug: sunset-bill-bulk-expense
 repo: ascent-companion
 branch: claude/sunset-bill-bulk-expense-n6i0bh
-status: in-progress
+status: shipped
 started: 2026-10-23T17:06:32Z
-updated: 2026-10-23T17:06:32Z
+updated: 2026-10-23T17:06:36Z
 goal: 
 next: owner runs the Sunset Statements 'Draft bills to expenses' switch; spot-check one switched bill reads purchase / qboAccountId 56
 ---

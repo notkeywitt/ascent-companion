@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-23T16:30:42Z",
+  "generatedAt": "2026-10-23T17:06:36Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "sunset-bill-bulk-expense",
+      "file": "2026-10-23-sunset-bill-bulk-expense.md",
+      "branch": "claude/sunset-bill-bulk-expense-n6i0bh",
+      "status": "shipped",
+      "started": "2026-10-23T17:06:32Z",
+      "updated": "2026-10-23T17:06:36Z",
+      "goal": "",
+      "next": "owner runs the Sunset Statements 'Draft bills to expenses' switch; spot-check one switched bill reads purchase / qboAccountId 56",
+      "commits": [
+        {
+          "date": "2026-10-23",
+          "time": "17:06",
+          "sha": "94a271b",
+          "subject": "companion: file sunset bills as expenses paid from banner bank, add bulk switch for drafts",
+          "files": "CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-status/route.ts, src/app/api/sunset-expense/route.ts, src/app/payments/page.tsx, +4 more"
+        }
+      ]
+    },
     {
       "slug": "wizardly-goodall",
       "file": "2026-10-23-wizardly-goodall.md",
