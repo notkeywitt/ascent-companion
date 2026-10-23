@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/sunset-bill-bulk-expense-n6i0bh
 status: shipped
 started: 2026-10-23T17:06:32Z
-updated: 2026-10-23T21:12:15Z
+updated: 2026-10-23T21:12:16Z
 goal: 
 next: owner runs the Sunset Statements switch on the ~5 mixed drafts (717076, 719582, 719377, …); confirm each gets a <inv>-CR Credit with the PDF and the reconcile reads the net
 ---
