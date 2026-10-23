@@ -13,6 +13,7 @@ import {
   getJobHeaderInfo,
   getVendorDetail,
   isSunsetVendor,
+  sunsetDocName,
   getVendors,
   replaceBillLines,
   type BillType,
@@ -67,7 +68,7 @@ import { setVendorBillType } from "@/lib/clientDirectory";
  *   vendorId    optional JT account override (skip/replace the model's match)
  *   billType    "Bill" | "Expense" (already paid) — omitted = the vendor's
  *               "Bill Type" custom field, else Bill. Sunset is always an Expense
- *               (a Sunset credit stays a Bill), whatever this says.
+ *               (a Sunset credit is a Credit), whatever this says.
  *   replaceDocId  the operator's "replace the original" answer to a dedup hit
  *                 whose amount had changed — the doc id they were shown
  */
@@ -331,10 +332,11 @@ export async function POST(req: NextRequest) {
     const isSunset = isSunsetVendor(vendor);
     // Bill or Expense: the upload's pick, else the vendor's default. Sunset is
     // always an Expense paid from Banner Bank — the monthly statement pays it in
-    // bulk (appscript enforces the same). A Sunset credit stays a Bill, which
-    // JobTread files as a vendor credit. A pick that differs from the default
-    // becomes the new default, after the create.
-    let billType: BillType = isSunset && (Number(extracted.Amount) || 0) >= 0 ? "Expense" : "Bill";
+    // bulk — and a Sunset credit is a JobTread Credit (appscript enforces the
+    // same). A pick that differs from the default becomes the new default,
+    // after the create.
+    const sunsetCredit = isSunset && sunsetDocName(Number(extracted.Amount) || 0) === "Credit";
+    let billType: BillType = isSunset && !sunsetCredit ? "Expense" : "Bill";
     let vendorDefault: BillType | null = null;
     if (!isSunset) {
       try {
@@ -524,10 +526,12 @@ export async function POST(req: NextRequest) {
       subject: `${jobInfo.name} - ${vendor.name}${codes ? ` - ${codes}` : ""}`,
       externalId: billNumber,
       issueDate: dates.issueDate,
-      // An Expense is already paid — due the day it is issued, no terms.
-      dueDate: billType === "Expense" ? dates.issueDate : dates.dueDate,
+      // An Expense is already paid and a Credit has no terms — each is due the
+      // day it is issued.
+      dueDate: billType === "Expense" || sunsetCredit ? dates.issueDate : dates.dueDate,
       dueDays: dates.dueDays,
       billType,
+      docName: sunsetCredit ? "Credit" : undefined,
       taxAmount,
       // The budget leaf the sales-tax line codes to. Undefined when this job's
       // budget has no 88 80 00 leaf — the line then lands uncoded on purpose.

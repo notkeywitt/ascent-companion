@@ -4602,6 +4602,10 @@ export interface CreateVendorBillArgs {
    *  "Expense", due the day it is issued (no payment terms) — the appscript push
    *  does the same. The bill page then offers "Record payment" instead of approve. */
   billType?: BillType;
+  /** The document name, when it is not `billType` — "Credit" for a Sunset
+   *  credit (JobTread's Credit template; no terms, so due on issue). Push as
+   *  stays "bill": JobTread files a negative bill as a vendor credit itself. */
+  docName?: string;
   lines: NewBillLine[];
 }
 
@@ -4647,7 +4651,17 @@ export function expenseAccountFor(v: { id?: string | null; name?: string | null 
   return isSunsetVendor(v) ? QBO_SUNSET_EXPENSE_ACCOUNT_ID : QBO_EXPENSE_ACCOUNT_ID;
 }
 
-/** A draft Sunset bill, as the bulk Bill → Expense switch lists it. */
+/**
+ * What a Sunset vendorBill should be: an "Expense" paid from Banner Bank, or —
+ * for a credit (negative cost) — a "Credit", JobTread's own template for one.
+ * QuickBooks has no negative expense; JT sends a negative document as a vendor
+ * credit. Same rule as `_jtSunsetDocName` in ascent-appscript.
+ */
+export type SunsetDocName = "Expense" | "Credit";
+export const sunsetDocName = (cost: number | null | undefined): SunsetDocName =>
+  (cost ?? 0) < 0 ? "Credit" : "Expense";
+
+/** A draft Sunset bill, as the bulk switch lists it. */
 export interface DraftSunsetBill {
   id: string;
   jobId: string;
@@ -4657,35 +4671,36 @@ export interface DraftSunsetBill {
   cost: number;
   name: string;
   qboDocumentType: string;
+  /** What the switch will make it. */
+  target: SunsetDocName;
 }
 
 /**
- * Is this Sunset bill one the bulk switch may turn into an Expense? A credit
- * (negative cost) is not: JobTread files it as a vendor credit, and QuickBooks
- * has no negative expense. Neither is one already in QuickBooks, nor one that
- * is already an Expense on both fields.
+ * Why the bulk switch must leave this Sunset bill alone, or "" when it may
+ * switch it to its `sunsetDocName`. Not a draft, or already in QuickBooks, or
+ * already that type: an Expense on both fields, or a document named Credit.
  */
-export function sunsetExpenseBlocker(d: {
+export function sunsetSwitchBlocker(d: {
   status?: string | null;
   cost?: number | null;
   name?: string | null;
   qboDocumentType?: string | null;
   qboId?: string | null;
-}): "" | "not draft" | "credit" | "in QuickBooks" | "already an Expense" {
+}): "" | "not draft" | "in QuickBooks" | "already an Expense" | "already a Credit" {
   if (d.status && d.status !== "draft") return "not draft";
-  if ((d.cost ?? 0) < 0) return "credit";
   if (d.qboId) return "in QuickBooks";
+  if (sunsetDocName(d.cost) === "Credit") return d.name === "Credit" ? "already a Credit" : "";
   if (d.name === "Expense" && d.qboDocumentType === "purchase") return "already an Expense";
   return "";
 }
 
 /**
- * Every DRAFT Sunset vendor bill in the org that is not yet an Expense, plus
- * the count of draft Sunset credits left alone. Read-only.
+ * Every DRAFT Sunset vendor bill in the org not yet filed as its
+ * `sunsetDocName`. Read-only.
  */
 export async function getDraftSunsetBills(
   cfg: PaveConfig,
-): Promise<{ bills: DraftSunsetBill[]; credits: number }> {
+): Promise<DraftSunsetBill[]> {
   const sunsetId = (process.env.JT_SUNSET_VENDOR_ID ?? "").trim();
   const vendor = sunsetId
     ? [["account", "id"], sunsetId]
@@ -4716,12 +4731,9 @@ export async function getDraftSunsetBills(
     pick: (a) => a?.organization?.documents,
   });
   const bills: DraftSunsetBill[] = [];
-  let credits = 0;
   for (const d of rows) {
     if (!isSunsetVendor({ id: d.account?.id, name: d.account?.name })) continue;
-    const blocker = sunsetExpenseBlocker({ ...d, status: "draft" });
-    if (blocker === "credit") credits++;
-    if (blocker) continue;
+    if (sunsetSwitchBlocker({ ...d, status: "draft" })) continue;
     bills.push({
       id: d.id,
       jobId: d.job?.id ?? "",
@@ -4731,10 +4743,11 @@ export async function getDraftSunsetBills(
       cost: typeof d.cost === "number" ? d.cost : 0,
       name: d.name ?? "",
       qboDocumentType: d.qboDocumentType ?? "",
+      target: sunsetDocName(d.cost),
     });
   }
   bills.sort((a, b) => a.issueDate.localeCompare(b.issueDate) || a.externalId.localeCompare(b.externalId));
-  return { bills, credits };
+  return bills;
 }
 
 export function isExpenseDoc(d: { name?: string | null; qboDocumentType?: string | null }): boolean {
@@ -4791,7 +4804,7 @@ export async function createVendorBill(
     type: "vendorBill",
     jobId: args.jobId,
     accountId: args.accountId,
-    name: args.billType ?? "Bill",
+    name: args.docName ?? args.billType ?? "Bill",
     qboDocumentType: qboDocumentTypeFor(args.billType ?? "Bill"),
     ...(args.billType === "Expense"
       ? { qboAccountId: expenseAccountFor({ id: args.accountId, name: args.vendorName }) }
@@ -4813,7 +4826,7 @@ export async function createVendorBill(
   };
   if (args.jobLocationName) docArgs.jobLocationName = args.jobLocationName;
   if (args.jobLocationAddress) docArgs.jobLocationAddress = args.jobLocationAddress;
-  if (args.billType === "Expense") docArgs.dueDate = args.issueDate;
+  if (args.billType === "Expense" || args.docName === "Credit") docArgs.dueDate = args.issueDate;
   else if (args.dueDate) docArgs.dueDate = args.dueDate;
   else docArgs.dueDays = args.dueDays ?? 30;
 

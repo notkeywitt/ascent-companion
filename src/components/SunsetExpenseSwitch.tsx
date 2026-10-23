@@ -6,12 +6,11 @@ import { JtLink } from "./JtLink";
 import { Banner, Button, Card, Checkbox, MetaLine, Spinner } from "./ui";
 import { money as moneyN } from "@/lib/money";
 
-// The bulk Bill → Expense switch for the Sunset Statements page. Sunset is paid
-// in bulk off its statement, from Banner Bank, so its bills are Expenses paid
-// from "Checking - Banner Bank". The intake files new ones that way; this lists
-// the DRAFT Sunset bills still filed as a Bill and switches the ones ticked
-// (GET / POST /api/sunset-expense). Credits stay Bills — JobTread files them
-// as vendor credits.
+// The bulk switch for the Sunset Statements page. Sunset is paid in bulk off
+// its statement, from Banner Bank, so its bills are Expenses paid from
+// "Checking - Banner Bank" and its credits are JobTread Credits. The intake
+// files new ones that way; this lists the DRAFT Sunset bills not yet filed
+// that way and switches the ones ticked (GET / POST /api/sunset-expense).
 
 interface Bill {
   id: string;
@@ -20,6 +19,7 @@ interface Bill {
   externalId: string;
   issueDate: string;
   cost: number;
+  target: "Expense" | "Credit";
 }
 interface Outcome {
   docId: string;
@@ -47,7 +47,6 @@ const fmtDate = (d: string) =>
 export function SunsetExpenseSwitch() {
   const [state, setState] = useState<"idle" | "loading" | "ready" | "saving">("idle");
   const [bills, setBills] = useState<Bill[]>([]);
-  const [credits, setCredits] = useState(0);
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [progress, setProgress] = useState(0);
   const [failed, setFailed] = useState<Outcome[]>([]);
@@ -66,7 +65,6 @@ export function SunsetExpenseSwitch() {
         return;
       }
       setBills(json.bills);
-      setCredits(json.credits ?? 0);
       setPicked(new Set((json.bills as Bill[]).map((b) => b.id)));
       setState("ready");
     } catch (e) {
@@ -121,6 +119,7 @@ export function SunsetExpenseSwitch() {
 
   const pickedCount = bills.filter((b) => picked.has(b.id)).length;
   const pickedTotal = bills.filter((b) => picked.has(b.id)).reduce((s, b) => s + b.cost, 0);
+  const creditCount = bills.filter((b) => picked.has(b.id) && b.target === "Credit").length;
   const allPicked = bills.length > 0 && pickedCount === bills.length;
   const byId = new Map(bills.map((b) => [b.id, b]));
 
@@ -130,8 +129,8 @@ export function SunsetExpenseSwitch() {
         <div className="min-w-0">
           <div className="font-semibold">Draft bills to expenses</div>
           <div className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-            Sunset is paid from Banner Bank off the statement. Switch draft Sunset bills still filed as a Bill to an
-            Expense paid from Checking - Banner Bank.
+            Sunset is paid from Banner Bank off the statement. Switch draft Sunset bills to an Expense paid from
+            Checking - Banner Bank, and draft Sunset credits to a Credit.
           </div>
         </div>
         {state !== "ready" && state !== "saving" && (
@@ -155,7 +154,7 @@ export function SunsetExpenseSwitch() {
 
       {done !== null && (
         <div className="mt-3 text-xs font-semibold text-ok">
-          ✓ {done} bill{done === 1 ? "" : "s"} switched to Expense.
+          ✓ {done} bill{done === 1 ? "" : "s"} switched.
         </div>
       )}
 
@@ -178,7 +177,9 @@ export function SunsetExpenseSwitch() {
       {(state === "ready" || state === "saving") && (
         <div className="mt-3">
           {bills.length === 0 ? (
-            <div className="text-xs font-semibold text-ok">✓ Every draft Sunset bill is already an Expense.</div>
+            <div className="text-xs font-semibold text-ok">
+              ✓ Every draft Sunset bill is already an Expense, and every credit a Credit.
+            </div>
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -192,7 +193,7 @@ export function SunsetExpenseSwitch() {
                   items={[
                     `${pickedCount} of ${bills.length} picked`,
                     moneyN(pickedTotal),
-                    credits > 0 ? `${credits} credit${credits === 1 ? "" : "s"} stay Bills` : null,
+                    creditCount > 0 ? `${creditCount} credit${creditCount === 1 ? "" : "s"}` : null,
                   ]}
                 />
               </div>
@@ -221,6 +222,7 @@ export function SunsetExpenseSwitch() {
                         <span className="truncate text-neutral-500 dark:text-neutral-400">
                           {b.jobName}
                           {b.issueDate && ` · ${fmtDate(b.issueDate)}`}
+                          {b.target === "Credit" && " · to Credit"}
                         </span>
                       </span>
                       <span>{moneyN(b.cost)}</span>
@@ -235,7 +237,7 @@ export function SunsetExpenseSwitch() {
                   </span>
                 )}
                 <Button size="sm" disabled={state === "saving" || pickedCount === 0} onClick={save}>
-                  Make {pickedCount} expense{pickedCount === 1 ? "" : "s"}
+                  Switch {pickedCount} bill{pickedCount === 1 ? "" : "s"}
                 </Button>
               </div>
             </>

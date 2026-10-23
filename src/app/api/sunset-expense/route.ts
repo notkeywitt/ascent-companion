@@ -5,23 +5,26 @@ import {
   isSunsetVendor,
   QBO_SUNSET_EXPENSE_ACCOUNT_ID,
   setBillFields,
-  sunsetExpenseBlocker,
+  sunsetDocName,
+  sunsetSwitchBlocker,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { diffFields, openJournal } from "@/lib/financialJournal";
 import { readQboState } from "@/lib/qboLock";
 
-// The bulk Bill → Expense switch for draft Sunset bills (Sunset Statements page).
+// The bulk switch for draft Sunset bills (Sunset Statements page).
 //
 // Sunset is paid in bulk off its monthly statement, from Banner Bank, so its
-// bills are Expenses paid from "Checking - Banner Bank" (owner, 2026-10-23).
-// The intake now files them that way; this turns the drafts filed before that
-// into the same thing.
+// bills are Expenses paid from "Checking - Banner Bank", and its credits are
+// JobTread Credits (owner, 2026-10-23). The intake now files them that way;
+// this turns the drafts filed before that into the same thing.
 //
-//   GET   → the draft Sunset bills that are not yet an Expense. Read-only.
+//   GET   → the draft Sunset bills not yet filed that way. Read-only.
 //   POST  { docIds } → switch each one. Each bill is re-read first and skipped
-//         unless it is still a draft Sunset bill, not a credit, and not in
-//         QuickBooks. Every change is journalled. Never touches lines or dates.
+//         unless it is still a draft Sunset bill not in QuickBooks. A bill gets
+//         name Expense + Push as Expense + Banner Bank; a credit gets name
+//         Credit only, so JobTread's vendor-credit push is left as it is.
+//         Every change is journalled. Never touches lines or dates.
 //
 // The page sends the ids in small batches, so one call stays well inside the
 // function's time limit.
@@ -34,8 +37,8 @@ export async function GET() {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
   try {
-    const { bills, credits } = await getDraftSunsetBills(getPaveConfig());
-    return NextResponse.json({ ok: true, bills, credits });
+    const bills = await getDraftSunsetBills(getPaveConfig());
+    return NextResponse.json({ ok: true, bills });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Unknown error" },
@@ -93,13 +96,16 @@ export async function POST(req: NextRequest) {
       results.push({ docId, ok: false, reason: "could not check QuickBooks" });
       continue;
     }
-    const blocker = sunsetExpenseBlocker({ ...prior, qboId: qbo.qboId });
+    const blocker = sunsetSwitchBlocker({ ...prior, qboId: qbo.qboId });
     if (blocker) {
       results.push({ docId, ok: false, reason: blocker });
       continue;
     }
 
-    const fields = { name: "Expense", qboDocumentType: "purchase" };
+    const fields: { name: string; qboDocumentType?: string } =
+      sunsetDocName(prior.cost) === "Credit"
+        ? { name: "Credit" }
+        : { name: "Expense", qboDocumentType: "purchase" };
     const base = {
       action: "bill.fields.set",
       entity: "bill",

@@ -14,7 +14,7 @@ import {
   QBO_EXPENSE_ACCOUNT_ID,
   QBO_SUNSET_EXPENSE_ACCOUNT_ID,
   setBillFields,
-  sunsetExpenseBlocker,
+  sunsetSwitchBlocker,
   type PageWalk,
   type PaveConfig,
 } from "./jobtread";
@@ -650,21 +650,23 @@ describe("expenseAccountFor", () => {
   });
 });
 
-describe("sunsetExpenseBlocker", () => {
+describe("sunsetSwitchBlocker", () => {
   const draft = { status: "draft", cost: 42, name: "Bill", qboDocumentType: "bill", qboId: "" };
-  it("lets a draft Sunset Bill through", () => {
-    expect(sunsetExpenseBlocker(draft)).toBe("");
+  const credit = { ...draft, cost: -13.99, qboDocumentType: "vendorCredit" };
+  it("lets a draft Sunset Bill and a draft Sunset credit through", () => {
+    expect(sunsetSwitchBlocker(draft)).toBe("");
+    expect(sunsetSwitchBlocker(credit)).toBe("");
   });
-  it("leaves credits, non-drafts, QuickBooks docs and Expenses alone", () => {
-    expect(sunsetExpenseBlocker({ ...draft, cost: -13.99 })).toBe("credit");
-    expect(sunsetExpenseBlocker({ ...draft, status: "pending" })).toBe("not draft");
-    expect(sunsetExpenseBlocker({ ...draft, qboId: "bill:123" })).toBe("in QuickBooks");
-    expect(sunsetExpenseBlocker({ ...draft, name: "Expense", qboDocumentType: "purchase" })).toBe(
+  it("leaves non-drafts, QuickBooks docs and finished ones alone", () => {
+    expect(sunsetSwitchBlocker({ ...draft, status: "pending" })).toBe("not draft");
+    expect(sunsetSwitchBlocker({ ...draft, qboId: "bill:123" })).toBe("in QuickBooks");
+    expect(sunsetSwitchBlocker({ ...draft, name: "Expense", qboDocumentType: "purchase" })).toBe(
       "already an Expense",
     );
+    expect(sunsetSwitchBlocker({ ...credit, name: "Credit" })).toBe("already a Credit");
   });
   it("still switches a bill named Expense that pushes as a Bill", () => {
-    expect(sunsetExpenseBlocker({ ...draft, name: "Expense" })).toBe("");
+    expect(sunsetSwitchBlocker({ ...draft, name: "Expense" })).toBe("");
   });
 });
 
