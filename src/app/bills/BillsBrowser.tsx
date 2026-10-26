@@ -11,8 +11,11 @@ import {
   Loading,
   PageHeader,
   SectionHeading,
+  Segmented,
   SplitView,
+  Toggle,
 } from "@/components/ui";
+import { groupBills, type BillGroupBy, type BillSort } from "./billGroups";
 import { money } from "@/lib/money";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
@@ -39,6 +42,8 @@ interface Draft {
   externalId?: string;
   cost?: number;
   issueDate?: string;
+  /** Marked reviewed in the coding card (companion-local, /api/coding-queue). */
+  reviewed?: boolean;
 }
 
 /** "2026-10-19" → "Oct 19, 2026". */
@@ -58,6 +63,9 @@ export function BillsBrowser() {
   const [bills, setBills] = useState<Draft[] | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<BillSort>("date");
+  const [groupBy, setGroupBy] = useState<BillGroupBy>("none");
+  const [showReviewed, setShowReviewed] = useState(true);
 
   // Re-read the list when a bill was written in the panel (saved, approved,
   // voided) — an approved bill is no longer a draft and leaves the list.
@@ -82,22 +90,23 @@ export function BillsBrowser() {
     () =>
       (bills ?? []).filter(
         (b) =>
-          !q ||
-          [b.fromName, b.jobName, b.externalId, b.number].some((s) =>
-            (s ?? "").toLowerCase().includes(q),
-          ),
+          (showReviewed || !b.reviewed) &&
+          (!q ||
+            [b.fromName, b.jobName, b.externalId, b.number].some((s) =>
+              (s ?? "").toLowerCase().includes(q),
+            )),
       ),
-    [bills, q],
+    [bills, q, showReviewed],
   );
+  const groups = useMemo(() => groupBills(shown, sort, groupBy), [shown, sort, groupBy]);
 
   // The selection lives in the URL, so Back closes the panel on a phone.
   const select = (id: string) =>
-    confirmLeaveIfDirty() &&
-    router.push(id ? `/bills?docId=${encodeURIComponent(id)}` : "/bills");
+    confirmLeaveIfDirty() && router.push(id ? `/bills?docId=${encodeURIComponent(id)}` : "/bills");
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-[96rem] pb-24 pt-6">
-      <PageHeader title="Bills" description="Draft bills waiting to be coded, newest first." />
+      <PageHeader title="Bills" description="Draft bills waiting to be coded." />
 
       <SplitView
         onClose={() => select("")}
@@ -114,36 +123,79 @@ export function BillsBrowser() {
               placeholder="Vendor, job or invoice #"
               aria-label="Search bills"
             />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Segmented<BillSort>
+                label="Sort bills"
+                value={sort}
+                onChange={setSort}
+                options={[
+                  { value: "date", label: "Date" },
+                  { value: "name", label: "Name" },
+                ]}
+              />
+              <Segmented<BillGroupBy>
+                label="Group bills"
+                value={groupBy}
+                onChange={setGroupBy}
+                options={[
+                  { value: "none", label: "All" },
+                  { value: "job", label: "Job" },
+                  { value: "vendor", label: "Vendor" },
+                ]}
+              />
+              <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
+            </div>
             {error && <p className="text-sm text-danger">{error}</p>}
             {!bills && !error && <Loading label="Loading bills…" />}
             {bills && (
-              <div className="space-y-2 pt-2">
-                <SectionHeading>{`To code · ${shown.length}`}</SectionHeading>
+              <div className="space-y-4 pt-2">
                 {shown.length === 0 ? (
                   <EmptyState>
-                    {q ? `Nothing matches “${query.trim()}”.` : "No bills waiting to be coded."}
+                    {q
+                      ? `Nothing matches “${query.trim()}”.`
+                      : bills.length > 0
+                        ? "Every bill here is reviewed. Turn on Show reviewed to see them."
+                        : "No bills waiting to be coded."}
                   </EmptyState>
                 ) : (
-                  <ListCard>
-                    {shown.map((b) => (
-                      <ListRow
-                        key={b.id}
-                        onClick={() => select(b.id)}
-                        selected={b.id === openId}
-                        label={b.fromName || "Unknown vendor"}
-                        desc={[b.jobName || "No job", dateLabel(b.issueDate)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                        trailing={
-                          typeof b.cost === "number" ? (
-                            <span className="text-sm font-semibold tabular-nums">
-                              {money(b.cost)}
-                            </span>
-                          ) : undefined
-                        }
-                      />
-                    ))}
-                  </ListCard>
+                  // Sunset bills are always one group, at the foot (billGroups.ts).
+                  groups.map((g) => (
+                    <div key={g.key} className="space-y-2">
+                      <SectionHeading>{`${g.title} · ${g.bills.length}`}</SectionHeading>
+                      <ListCard>
+                        {g.bills.map((b) => (
+                          <ListRow
+                            key={b.id}
+                            onClick={() => select(b.id)}
+                            selected={b.id === openId}
+                            label={b.fromName || "Unknown vendor"}
+                            desc={[
+                              groupBy === "job" && g.title !== "Sunset"
+                                ? ""
+                                : b.jobName || "No job",
+                              dateLabel(b.issueDate),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
+                            trailing={
+                              <span className="text-right">
+                                {typeof b.cost === "number" && (
+                                  <span className="block text-sm font-semibold tabular-nums">
+                                    {money(b.cost)}
+                                  </span>
+                                )}
+                                {b.reviewed && (
+                                  <span className="block text-[11px] font-semibold text-ok">
+                                    ✓ Reviewed
+                                  </span>
+                                )}
+                              </span>
+                            }
+                          />
+                        ))}
+                      </ListCard>
+                    </div>
+                  ))
                 )}
               </div>
             )}
