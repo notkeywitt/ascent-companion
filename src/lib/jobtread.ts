@@ -14,6 +14,7 @@ import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
 import { splitAddresses } from "@/lib/vendorMail";
 import type { UntaxedLine } from "@/lib/taxableLines";
+import type { JobVendor, JtSpec } from "@/lib/houseManual";
 import type { InvoiceRaw } from "@/lib/invoiceStatus";
 import {
   byWindow,
@@ -3836,6 +3837,71 @@ export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promi
       };
     }),
   };
+}
+
+/**
+ * The vendors who billed a job, each with the cost code it billed most to (its
+ * trade, as a homeowner would read it) — the contact picker on /house-manual.
+ * Same approved+pending bill lines as the job's cost totals; `account` and
+ * `costCode` are plain references, so nothing heavy rides the paged walk.
+ */
+export async function getJobVendors(cfg: PaveConfig, jobId: string): Promise<JobVendor[]> {
+  const nodes = await pageAll<any>(cfg, {
+    label: "job.costItems (job vendors)",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: { where: CTC_ACTUAL_WHERE, ...args },
+          nextPage: {},
+          nodes: { cost: {}, costCode: { name: {} }, document: { account: { id: {}, name: {} } } },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
+  const byVendor = new Map<string, { name: string; cost: number; byCode: Map<string, number> }>();
+  for (const n of nodes) {
+    const acct = n?.document?.account;
+    if (!acct?.id) continue;
+    const v = byVendor.get(acct.id) ?? { name: String(acct.name ?? ""), cost: 0, byCode: new Map() };
+    const cost = typeof n.cost === "number" ? n.cost : 0;
+    const code = String(n?.costCode?.name ?? "").replace(/^Uncategorized\s*/i, "");
+    v.cost += cost;
+    v.byCode.set(code, (v.byCode.get(code) ?? 0) + cost);
+    byVendor.set(acct.id, v);
+  }
+  return [...byVendor]
+    .map(([id, v]) => ({
+      id,
+      name: v.name,
+      trade: [...v.byCode].sort((a, b) => b[1] - a[1])[0]?.[0] ?? "",
+      cost: v.cost,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** A job's budget lines flagged as JobTread Specifications, with their descriptions. */
+export async function getJobSpecifications(cfg: PaveConfig, jobId: string): Promise<JtSpec[]> {
+  const nodes = await pageAll<any>(cfg, {
+    label: "job.costItems (specifications)",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: { where: { "=": [{ field: ["document", "id"] }, { value: null }] }, ...args },
+          nextPage: {},
+          nodes: { name: {}, description: {}, isSpecification: {}, costGroup: { name: {} } },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
+  return nodes
+    .filter((n) => n?.isSpecification)
+    .map((n) => ({ group: String(n?.costGroup?.name ?? ""), name: String(n?.name ?? ""), description: String(n?.description ?? "") }));
 }
 
 /** A recent vendor bill, org-wide, with enough to answer "was this paid?". */

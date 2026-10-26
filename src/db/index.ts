@@ -1047,6 +1047,15 @@ async function applySchema() {
       bytes BLOB NOT NULL
     )
   `);
+  // A job's homeowner's manual (see schema.ts houseManuals).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS house_manuals (
+      job_id TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // Job deposits entered by hand (see schema.ts depositLinks).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS deposit_links (

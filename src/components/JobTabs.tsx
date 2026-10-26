@@ -16,6 +16,7 @@ const TABS = [
   { view: "jobs", href: "/jobs", label: "Job Cost" },
   { view: "budget-import", href: "/budget-import", label: "Budget Import" },
   { view: "specs", href: "/specs", label: "Specifications" },
+  { view: "house-manual", href: "/house-manual", label: "House Manual" },
   { view: "unbilled", href: "/unbilled", label: "Unbilled" },
   { view: "recode", href: "/trackingsheet", label: "This month" },
 ];

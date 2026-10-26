@@ -178,6 +178,7 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("jobs", "/jobs", "Job Cost", "A job's budget against what it has spent"),
   tab("budget-import", "/budget-import", "Budget Import", "A tracking sheet's estimate as a JobTread budget"),
   tab("specs", "/specs", "Specifications", "An architect's spec selection list, with its product links"),
+  tab("house-manual", "/house-manual", "House Manual", "A homeowner's manual to paste into Squarespace"),
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
@@ -193,6 +194,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   jobs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   "budget-import": "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   specs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
+  "house-manual": "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   unbilled: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   chat: "menu footer (EXTRA_LINKS)",
   lopezrocks: "menu footer (EXTRA_LINKS) and the home page",

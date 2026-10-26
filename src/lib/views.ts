@@ -156,6 +156,14 @@ export const VIEWS: ViewDef[] = [
   // line (description + specification flags), behind writesEnabled(). That
   // write is why this view must stay off lead and field.
   { id: "specs", label: "Specifications", group: "Financials", paths: ["/specs", "/api/specs"] },
+  // A job's homeowner's manual, pasted into Squarespace. Reads JobTread and
+  // writes only the companion DB (house_manuals).
+  {
+    id: "house-manual",
+    label: "House Manual",
+    group: "Financials",
+    paths: ["/house-manual", "/api/house-manual"],
+  },
   // The month's Invoicing Package doc — the client-billing summary the office
   // reads and edits, written to Drive by Apps Script. The API prefix rides the
   // same gate as the page: the route writes a Google Doc and edits the

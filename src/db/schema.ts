@@ -1433,6 +1433,18 @@ export const specFiles = sqliteTable("spec_files", {
 });
 
 /**
+ * A job's homeowner's manual, as the office edited it on /house-manual. One
+ * row per job; `value` is a HouseManual (src/lib/houseManual.ts) as JSON. No
+ * row means the page shows a fresh draft built from JobTread and the spec list.
+ */
+export const houseManuals = sqliteTable("house_manuals", {
+  jobId: text("job_id").primaryKey(), // JobTread job id
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+/**
  * JOB DEPOSITS — the deposit the office enters by hand, for a deposit taken
  * before JobTread (Berger). One row per job; see src/lib/depositLinks.ts.
  *
