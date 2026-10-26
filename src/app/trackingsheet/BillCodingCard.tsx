@@ -853,7 +853,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             not, and Filing is the block that gets read that way. */}
             <div
               className={
-                standalone ? "" : boxed ? "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3" : "px-3 pb-3 pt-3"
+                // Standalone on a desktop, the scan and the bill sit side by side:
+                // the scan pinned on the left, the lines and Filing scrolling on
+                // the right. A phone keeps the one column.
+                standalone
+                  ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6"
+                  : boxed
+                    ? "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3"
+                    : "px-3 pb-3 pt-3"
               }
             >
               {/* The scanned invoice, FIRST — the coding decision is read off it,
@@ -868,7 +875,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               strands its bottom, so the invoice is not allowed to set the
               card's height. Reading it properly is the lightbox's job, not
               this thumbnail's. */}
-              <div className="mb-3 border-b border-line-soft pb-3 dark:border-neutral-800">
+              <div
+                className={
+                  "mb-3 border-b border-line-soft pb-3 dark:border-neutral-800" +
+                  (standalone ? " sticky-below-header lg:sticky lg:mb-0 lg:border-0 lg:pb-0" : "")
+                }
+              >
                 <SectionLabel className="mb-1.5">Invoice</SectionLabel>
                 {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
                 {/* NO FILE. A bill with no document never reaches Drive, so the
@@ -903,6 +915,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </div>
               </div>
 
+              {/* Everything under the scan, as ONE grid cell — the right-hand
+                  column when standalone on a desktop, a plain block otherwise. */}
+              <div className="min-w-0">
               {bill.invoiced && (
                 <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
                   Already on a customer invoice — coding is read-only here so recoding can&apos;t
@@ -1531,6 +1546,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   )}
                 </div>
               )}
+              </div>
             </div>
           </Card>
         )}
