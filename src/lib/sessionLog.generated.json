@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:18:09Z",
+  "generatedAt": "2026-10-26T13:21:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T13:18:09Z",
+      "updated": "2026-10-26T13:21:04Z",
       "goal": "",
       "next": "Open a bill on desktop and check the scan sits left of the lines, pinned while the lines scroll.",
       "commits": [
@@ -361,6 +361,13 @@
           "sha": "f6c2642",
           "subject": "companion: bill page puts the scan beside the details on desktop",
           "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:20",
+          "sha": "0bddede",
+          "subject": "companion: open a vendor in a panel beside the list",
+          "files": "src/app/globals.css, src/app/vendors/page.tsx, src/components/ui.tsx"
         }
       ]
     },
