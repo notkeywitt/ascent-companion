@@ -457,8 +457,9 @@ export function ListRow({
  * A list with the open record's detail in a panel beside it — the layout for
  * any page that is "pick one, see it" (Vendors first).
  *
- * From `lg` up the two sit side by side: the list scrolls with the page, the
- * panel sticks below the header and scrolls on its own. Below `lg` there is
+ * From `lg` up the two sit side by side: the list sticks below the header and
+ * scrolls on its own, and the panel scrolls with the page — so a long record,
+ * and anything sticky inside it, behaves as it would on its own page. Below `lg` there is
  * no room for both, so an open record takes the screen and a Back link returns
  * to the list. Both columns stay mounted, so the list keeps its search text
  * and scroll position while a record is open.
@@ -466,7 +467,7 @@ export function ListRow({
  * The page owns the selection: pass `detail` while a record is open and null
  * otherwise, and clear it in `onClose`. Mark the open row with
  * <ListRow selected>. The page's <main> needs `lg:max-w-6xl` to give the panel
- * its width.
+ * its width. `cols` sets the two column widths from `lg` up.
  */
 export function SplitView({
   list,
@@ -474,6 +475,7 @@ export function SplitView({
   onClose,
   empty = "Pick one from the list to see it here.",
   backLabel = "Back",
+  cols = "lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
 }: {
   list: React.ReactNode;
   /** The open record's panel, or null when none is open. */
@@ -482,15 +484,16 @@ export function SplitView({
   /** What the panel says on a wide screen while nothing is open. */
   empty?: React.ReactNode;
   backLabel?: string;
+  /** A literal Tailwind class, so the build sees it. */
+  cols?: string;
 }) {
   const open = detail != null;
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8">
-      <div className={open ? "hidden lg:block" : ""}>{list}</div>
-      <section
-        aria-label="Details"
-        className={`${open ? "" : "hidden lg:block"} sticky-below-header split-panel lg:sticky`}
-      >
+    <div className={`lg:grid ${cols} lg:items-start lg:gap-8`}>
+      <div className={`${open ? "hidden lg:block" : ""} sticky-below-header split-panel lg:sticky`}>
+        {list}
+      </div>
+      <section aria-label="Details" className={`${open ? "" : "hidden lg:block"} min-w-0`}>
         {open ? (
           <div className="space-y-4">
             <button

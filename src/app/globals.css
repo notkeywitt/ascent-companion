@@ -417,7 +417,7 @@ html .group:hover .group-hover\:text-accent {
     100dvh - var(--appheader-h) - var(--tabbar-h) - var(--actionbar-h, 0px) - 1.5rem
   );
 }
-/* <SplitView>'s detail panel (components/ui.tsx). Beside the list (lg up) it is
+/* <SplitView>'s list column (components/ui.tsx). Beside the detail (lg up) it is
    capped like .max-h-below-header and scrolls on its own; below lg it is the
    whole page, so no cap — a cap there would clip it with nowhere to scroll. */
 @media (min-width: 1024px) {
