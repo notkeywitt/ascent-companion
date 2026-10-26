@@ -372,6 +372,7 @@ export function ListRow({
   chevron,
   wrap = false,
   external = false,
+  selected = false,
   className = "",
 }: {
   href?: string;
@@ -384,6 +385,8 @@ export function ListRow({
   chevron?: boolean;
   wrap?: boolean;
   external?: boolean;
+  /** The row whose record is open beside the list (<SplitView>). */
+  selected?: boolean;
   className?: string;
 }) {
   const interactive = !!href || !!onClick;
@@ -421,7 +424,7 @@ export function ListRow({
   // caller having to know whether its row is the last one.
   const base = `group flex min-h-[56px] w-full items-center gap-3 border-b border-line-soft px-3 py-2.5 text-left last:border-b-0 ${
     interactive ? "transition hover:bg-accent/5 dark:hover:bg-white/5" : ""
-  } ${className}`;
+  } ${selected ? "bg-accent/10 dark:bg-white/10" : ""} ${className}`;
 
   if (href && external) {
     return (
@@ -440,12 +443,71 @@ export function ListRow({
   }
   if (onClick) {
     return (
-      <button type="button" onClick={onClick} className={base}>
+      <button type="button" onClick={onClick} aria-current={selected || undefined} className={base}>
         {inner}
       </button>
     );
   }
   return <div className={base}>{inner}</div>;
+}
+
+/* -------------------------------------------------------------- split view */
+
+/**
+ * A list with the open record's detail in a panel beside it — the layout for
+ * any page that is "pick one, see it" (Vendors first).
+ *
+ * From `lg` up the two sit side by side: the list scrolls with the page, the
+ * panel sticks below the header and scrolls on its own. Below `lg` there is
+ * no room for both, so an open record takes the screen and a Back link returns
+ * to the list. Both columns stay mounted, so the list keeps its search text
+ * and scroll position while a record is open.
+ *
+ * The page owns the selection: pass `detail` while a record is open and null
+ * otherwise, and clear it in `onClose`. Mark the open row with
+ * <ListRow selected>. The page's <main> needs `lg:max-w-6xl` to give the panel
+ * its width.
+ */
+export function SplitView({
+  list,
+  detail,
+  onClose,
+  empty = "Pick one from the list to see it here.",
+  backLabel = "Back",
+}: {
+  list: React.ReactNode;
+  /** The open record's panel, or null when none is open. */
+  detail: React.ReactNode | null;
+  onClose: () => void;
+  /** What the panel says on a wide screen while nothing is open. */
+  empty?: React.ReactNode;
+  backLabel?: string;
+}) {
+  const open = detail != null;
+  return (
+    <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-8">
+      <div className={open ? "hidden lg:block" : ""}>{list}</div>
+      <section
+        aria-label="Details"
+        className={`${open ? "" : "hidden lg:block"} sticky-below-header split-panel lg:sticky`}
+      >
+        {open ? (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm font-semibold text-accent hover:underline lg:hidden"
+            >
+              ‹ {backLabel}
+            </button>
+            {detail}
+          </div>
+        ) : (
+          <EmptyState>{empty}</EmptyState>
+        )}
+      </section>
+    </div>
+  );
 }
 
 /* -------------------------------------------------------------- statement */

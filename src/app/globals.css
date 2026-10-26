@@ -417,6 +417,17 @@ html .group:hover .group-hover\:text-accent {
     100dvh - var(--appheader-h) - var(--tabbar-h) - var(--actionbar-h, 0px) - 1.5rem
   );
 }
+/* <SplitView>'s detail panel (components/ui.tsx). Beside the list (lg up) it is
+   capped like .max-h-below-header and scrolls on its own; below lg it is the
+   whole page, so no cap — a cap there would clip it with nowhere to scroll. */
+@media (min-width: 1024px) {
+  .split-panel {
+    max-height: calc(
+      100dvh - var(--appheader-h) - var(--tabbar-h) - var(--actionbar-h, 0px) - 1.5rem
+    );
+    overflow-y: auto;
+  }
+}
 /* For an element scrollIntoView() must land BELOW the sticky header — without
    this it stops with the element's top at viewport 0, i.e. hidden under the
    chrome. Reads the same measured number as the two rules above. Used by the

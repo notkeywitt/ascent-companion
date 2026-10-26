@@ -16,6 +16,7 @@ import {
   PageHeader,
   QuietInput,
   SectionHeading,
+  SplitView,
   btn,
 } from "@/components/ui";
 import { money } from "@/lib/money";
@@ -326,39 +327,38 @@ function AddVendorDialog({
         </>
       }
     >
-        <div className="space-y-4">
-
-          <div className="space-y-1">
-            <Label htmlFor="add-vendor-name">Vendor name</Label>
-            <Input
-              id="add-vendor-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Acme Supply"
-              autoFocus
-              disabled={busy}
-            />
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="add-vendor-email">Email (optional)</Label>
-            <Input
-              id="add-vendor-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="billing@acmesupply.com"
-              disabled={busy}
-            />
-            <p className="text-xs text-neutral-500">
-              The address their invoices arrive from. Phone, address and bill type come next, on the
-              vendor&apos;s own card.
-            </p>
-          </div>
-
-          {error && <Banner tone="error">{error}</Banner>}
-          {warned && <Banner tone="warning">{warned.warning}</Banner>}
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <Label htmlFor="add-vendor-name">Vendor name</Label>
+          <Input
+            id="add-vendor-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Acme Supply"
+            autoFocus
+            disabled={busy}
+          />
         </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="add-vendor-email">Email (optional)</Label>
+          <Input
+            id="add-vendor-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="billing@acmesupply.com"
+            disabled={busy}
+          />
+          <p className="text-xs text-neutral-500">
+            The address their invoices arrive from. Phone, address and bill type come next, on the
+            vendor&apos;s own card.
+          </p>
+        </div>
+
+        {error && <Banner tone="error">{error}</Banner>}
+        {warned && <Banner tone="warning">{warned.warning}</Banner>}
+      </div>
     </Dialog>
   );
 }
@@ -486,6 +486,13 @@ function Vendors() {
 
   const total = bills.reduce((s, b) => s + b.cost, 0);
 
+  function closeVendor() {
+    setSelected(null);
+    setBills([]);
+    setDetail(null);
+    setBillsError("");
+  }
+
   /** A new vendor joins the list and opens straight away, so its email, phone,
    *  address and bill type can be filled in on its own card. */
   function vendorCreated(v: VendorRef) {
@@ -496,7 +503,7 @@ function Vendors() {
   }
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-6xl pb-24 pt-6">
       <PageHeader
         title="Vendors"
         description="Pick a vendor to see every bill — job, date, amount, status."
@@ -509,146 +516,148 @@ function Vendors() {
 
       {adding && <AddVendorDialog onClose={() => setAdding(false)} onCreated={vendorCreated} />}
 
-      {selected ? (
-        <div className="space-y-4">
-          <button
-            type="button"
-            onClick={() => {
-              setSelected(null);
-              setBills([]);
-              setDetail(null);
-              setBillsError("");
-            }}
-            className="text-sm font-semibold text-accent hover:underline"
-          >
-            ‹ Back to search
-          </button>
-
-          <SectionHeading
-            trailing={
-              !billsLoading && !billsError ? (
-                <span className="text-[11px] tabular-nums text-neutral-500">
-                  {bills.length} bill{bills.length === 1 ? "" : "s"} · {money(total)}
-                </span>
-              ) : undefined
-            }
-          >
-            {selected.name}
-          </SectionHeading>
-
-          {detail && <VendorDetailCard detail={detail} onSaved={setDetail} />}
-
-          {billsError && <p className="text-sm text-danger">{billsError}</p>}
-          {billsLoading && <Loading label="Loading bills…" />}
-          {!billsLoading && !billsError && bills.length === 0 && (
-            <EmptyState>No bills for {selected.name}.</EmptyState>
-          )}
-          {!billsLoading && !billsError && bills.length > 0 && (
-            <ListCard>
-              {bills.map((b) => (
-                <ListRow
-                  key={b.id}
-                  href={billHref(b)}
-                  label={b.number != null ? `#${b.number} · ${b.jobName}` : b.jobName}
-                  desc={dateLabel(b.issueDate)}
-                  trailing={<BillTrailing cost={b.cost} status={b.status} />}
-                />
-              ))}
-            </ListCard>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <SectionHeading>Look up a bill by number</SectionHeading>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                runNumberLookup(numberQuery);
-              }}
-              className="flex gap-2"
-            >
-              <Input
-                type="text"
-                inputMode="numeric"
-                value={numberQuery}
-                onChange={(e) => setNumberQuery(e.target.value)}
-                placeholder="Bill #"
-                aria-label="Bill number"
-              />
-              <button
-                type="submit"
-                className={btn("secondary", "md")}
-                disabled={!isDigits(numberQuery) || numberLoading}
+      <SplitView
+        onClose={closeVendor}
+        backLabel="Back to search"
+        empty="Pick a vendor to see its details and bills."
+        detail={
+          selected && (
+            <div className="space-y-4">
+              <SectionHeading
+                trailing={
+                  !billsLoading && !billsError ? (
+                    <span className="text-[11px] tabular-nums text-neutral-500">
+                      {bills.length} bill{bills.length === 1 ? "" : "s"} · {money(total)}
+                    </span>
+                  ) : undefined
+                }
               >
-                Go
-              </button>
-            </form>
-            <p className="text-xs text-neutral-500">
-              Org-wide, not per vendor — bill numbers repeat, so this can return more than one.
-            </p>
+                {selected.name}
+              </SectionHeading>
 
-            {numberError && <p className="text-sm text-danger">{numberError}</p>}
-            {numberLoading && <Loading label="Looking up bill…" />}
-            {numberMatches && (
-              <div className="space-y-2 pt-2">
-                <SectionHeading>
-                  {numberMatches.length === 0
-                    ? `No bills numbered #${numberQuery.trim()}`
-                    : `${numberMatches.length} bill${numberMatches.length === 1 ? "" : "s"} numbered #${numberQuery.trim()}`}
-                </SectionHeading>
-                {numberMatches.length > 0 && (
-                  <ListCard>
-                    {numberMatches.map((b) => (
-                      <ListRow
-                        key={b.id}
-                        href={billHref(b)}
-                        label={b.vendorName}
-                        desc={`${b.jobName} · ${dateLabel(b.issueDate)}`}
-                        trailing={<BillTrailing cost={b.cost} status={b.status} />}
-                      />
-                    ))}
-                  </ListCard>
-                )}
-              </div>
-            )}
-          </div>
-          <div className="space-y-2 border-t border-line pt-5">
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={vendorsLoading ? "Loading vendors…" : `Search ${vendors.length} vendors`}
-              aria-label="Search vendors"
-              autoFocus
-            />
-            {vendorsError && <p className="text-sm text-danger">{vendorsError}</p>}
+              {detail && <VendorDetailCard detail={detail} onSaved={setDetail} />}
 
-            {!vendorsLoading && !vendorsError && (
-              <div className="space-y-2 pt-2">
-                <SectionHeading>
-                  {!q
-                    ? `All vendors · ${matches.length}`
-                    : matches.length === 1
-                      ? "1 match"
-                      : `${matches.length} matches`}
-                </SectionHeading>
-                {matches.length === 0 ? (
-                  <EmptyState>
-                    {q ? `Nothing matches “${query.trim()}”.` : "No vendors in JobTread."}
-                  </EmptyState>
-                ) : (
-                  <ListCard>
-                    {matches.map((v) => (
-                      <ListRow key={v.id} onClick={() => loadVendorBills(v)} label={v.name} />
-                    ))}
-                  </ListCard>
-                )}
-              </div>
-            )}
+              {billsError && <p className="text-sm text-danger">{billsError}</p>}
+              {billsLoading && <Loading label="Loading bills…" />}
+              {!billsLoading && !billsError && bills.length === 0 && (
+                <EmptyState>No bills for {selected.name}.</EmptyState>
+              )}
+              {!billsLoading && !billsError && bills.length > 0 && (
+                <ListCard>
+                  {bills.map((b) => (
+                    <ListRow
+                      key={b.id}
+                      href={billHref(b)}
+                      label={b.number != null ? `#${b.number} · ${b.jobName}` : b.jobName}
+                      desc={dateLabel(b.issueDate)}
+                      trailing={<BillTrailing cost={b.cost} status={b.status} />}
+                    />
+                  ))}
+                </ListCard>
+              )}
+            </div>
+          )
+        }
+        list={
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <SectionHeading>Look up a bill by number</SectionHeading>
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  runNumberLookup(numberQuery);
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  value={numberQuery}
+                  onChange={(e) => setNumberQuery(e.target.value)}
+                  placeholder="Bill #"
+                  aria-label="Bill number"
+                />
+                <button
+                  type="submit"
+                  className={btn("secondary", "md")}
+                  disabled={!isDigits(numberQuery) || numberLoading}
+                >
+                  Go
+                </button>
+              </form>
+              <p className="text-xs text-neutral-500">
+                Org-wide, not per vendor — bill numbers repeat, so this can return more than one.
+              </p>
+
+              {numberError && <p className="text-sm text-danger">{numberError}</p>}
+              {numberLoading && <Loading label="Looking up bill…" />}
+              {numberMatches && (
+                <div className="space-y-2 pt-2">
+                  <SectionHeading>
+                    {numberMatches.length === 0
+                      ? `No bills numbered #${numberQuery.trim()}`
+                      : `${numberMatches.length} bill${numberMatches.length === 1 ? "" : "s"} numbered #${numberQuery.trim()}`}
+                  </SectionHeading>
+                  {numberMatches.length > 0 && (
+                    <ListCard>
+                      {numberMatches.map((b) => (
+                        <ListRow
+                          key={b.id}
+                          href={billHref(b)}
+                          label={b.vendorName}
+                          desc={`${b.jobName} · ${dateLabel(b.issueDate)}`}
+                          trailing={<BillTrailing cost={b.cost} status={b.status} />}
+                        />
+                      ))}
+                    </ListCard>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="space-y-2 border-t border-line pt-5">
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={
+                  vendorsLoading ? "Loading vendors…" : `Search ${vendors.length} vendors`
+                }
+                aria-label="Search vendors"
+                autoFocus
+              />
+              {vendorsError && <p className="text-sm text-danger">{vendorsError}</p>}
+
+              {!vendorsLoading && !vendorsError && (
+                <div className="space-y-2 pt-2">
+                  <SectionHeading>
+                    {!q
+                      ? `All vendors · ${matches.length}`
+                      : matches.length === 1
+                        ? "1 match"
+                        : `${matches.length} matches`}
+                  </SectionHeading>
+                  {matches.length === 0 ? (
+                    <EmptyState>
+                      {q ? `Nothing matches “${query.trim()}”.` : "No vendors in JobTread."}
+                    </EmptyState>
+                  ) : (
+                    <ListCard>
+                      {matches.map((v) => (
+                        <ListRow
+                          key={v.id}
+                          onClick={() => loadVendorBills(v)}
+                          label={v.name}
+                          selected={selected?.id === v.id}
+                        />
+                      ))}
+                    </ListCard>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        }
+      />
     </main>
   );
 }
