@@ -26,13 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 42d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 43d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-26 | 63 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-26 | 64 | — |
 | [sunset-bill-bulk-expense](.claude/sessions/2026-10-23-sunset-bill-bulk-expense.md) | 2026-10-23 | 3 | — |
 | [wizardly-goodall](.claude/sessions/2026-10-23-wizardly-goodall.md) | 2026-10-23 | 1 | New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Dr… |
 | [jobtread-email-records](.claude/sessions/2026-10-20-jobtread-email-records.md) | 2026-10-20 | 2 | — |
