@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:54:18Z",
+  "generatedAt": "2026-10-26T19:00:01Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T18:54:18Z",
+      "updated": "2026-10-26T19:00:00Z",
       "goal": "",
-      "next": "Open House Manual on a job with a spec list import, add contacts, paste the block into a Squarespace Code Block and check it in the site theme.",
+      "next": "Owner checks /vendors?accountId=22PXYcExddiT lists the same Rendon bills header search finds; if not, the extras are line-text matches on other vendors' bills.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -480,6 +480,13 @@
           "sha": "06774f3",
           "subject": "companion: add house manual creator for squarespace",
           "files": "CODEBASE_MAP.md, src/app/api/house-manual/route.ts, src/app/house-manual/page.tsx, src/components/JobTabs.tsx, src/db/index.ts, src/db/schema.ts, +5 more"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "11:59",
+          "sha": "f5393a9",
+          "subject": "companion: list a vendor's pre-jobtread bills on the vendors page",
+          "files": "src/app/api/vendor-bills/[id]/route.ts, src/app/vendors/page.tsx, src/lib/billSearch.ts"
         }
       ]
     },
