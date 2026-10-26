@@ -26,13 +26,15 @@ import {
   asManual,
   manualHtml,
   mergeSections,
+  photoUrl,
   type HouseManual,
   type JobVendor,
   type ManualContact,
+  type ManualGallery,
   type ManualItem,
   type TitleStyle,
 } from "@/lib/houseManual";
-import { JobFiles } from "./JobFiles";
+import { JobFiles, fetchGallery } from "./JobFiles";
 
 /**
  * House Manual — a job's homeowner's manual, built from what the app already
@@ -212,6 +214,86 @@ function TitleStyleEditor({
         </Button>
       </div>
     </details>
+  );
+}
+
+/**
+ * One gallery: its title, its photos, and which of them the public cannot see.
+ * Only shared photos reach the page; Drive sharing is the office's call, so
+ * the app never changes it.
+ */
+function GalleryEditor({
+  gallery: g,
+  onChange,
+  onRemove,
+  onError,
+}: {
+  gallery: ManualGallery;
+  onChange: (g: ManualGallery) => void;
+  onRemove: () => void;
+  onError: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const hidden = g.photos.filter((p) => !p.shared).length;
+  return (
+    <Card className="space-y-2">
+      <div className="flex items-center gap-1">
+        <QuietInput aria-label="Gallery title" placeholder="Gallery title" value={g.title} onChange={(e) => onChange({ ...g, title: e.target.value })} />
+        <RemoveButton label={`Remove ${g.title || "gallery"}`} onClick={onRemove} />
+      </div>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {g.photos.slice(0, 12).map((p) => (
+          // eslint-disable-next-line @next/next/no-img-element -- a Drive photo, not a bundled asset
+          <img
+            key={p.id}
+            src={photoUrl(p.id, 200)}
+            alt={p.name}
+            loading="lazy"
+            className={`h-16 w-20 shrink-0 rounded object-cover ${p.shared ? "" : "opacity-40"}`}
+          />
+        ))}
+      </div>
+      <MetaLine
+        items={[
+          `${g.photos.length} photo${g.photos.length === 1 ? "" : "s"}`,
+          hidden > 0 && `${hidden} not shared`,
+        ]}
+      />
+      {hidden > 0 && (
+        <Banner tone="warning">
+          {hidden === g.photos.length ? "None of these photos are" : `${hidden} of these photos are not`} shared, so the
+          page leaves them out. In Drive, share the folder as &ldquo;Anyone with the link&rdquo; (Viewer), then press
+          Refresh.
+        </Banner>
+      )}
+      <div className="flex gap-3">
+        <button
+          type="button"
+          disabled={busy}
+          className="text-[12px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
+          onClick={async () => {
+            setBusy(true);
+            try {
+              onChange(await fetchGallery(g.folderId, g.title));
+            } catch (e) {
+              onError(e instanceof Error ? e.message : String(e));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Refreshing…" : "Refresh"}
+        </button>
+        <a
+          href={g.folderUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
+        >
+          Open folder ↗
+        </a>
+      </div>
+    </Card>
   );
 }
 
@@ -403,7 +485,7 @@ function HouseManualPage() {
         />
       )}
 
-      {!jobId && <EmptyState>Choose a job. The manual starts from the job's vendors and spec list.</EmptyState>}
+      {!jobId && <EmptyState>Choose a job. The manual starts from the job&apos;s vendors and spec list.</EmptyState>}
       {loading && <Loading />}
 
       {manual && !loading && (
@@ -415,6 +497,7 @@ function HouseManualPage() {
               onSources={(sources) => edit((m) => ({ ...m, sources }))}
               onImport={(sections) => edit((m) => ({ ...m, sections: mergeSections(m.sections, sections) }))}
               onAddLink={(l) => edit((m) => ({ ...m, links: [...m.links, l] }))}
+              onAddGallery={(g) => edit((m) => ({ ...m, galleries: [...m.galleries.filter((x) => x.folderId !== g.folderId), g] }))}
               onError={setError}
             />
 
@@ -581,6 +664,24 @@ function HouseManualPage() {
             >
               + Section
             </Button>
+
+            <section className="space-y-2">
+              <SectionHeading>Photos</SectionHeading>
+              {manual.galleries.length === 0 && (
+                <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+                  Link a Drive folder of photos under Job files, then choose Add as photos.
+                </p>
+              )}
+              {manual.galleries.map((g, i) => (
+                <GalleryEditor
+                  key={g.folderId}
+                  gallery={g}
+                  onChange={(next) => edit((m) => ({ ...m, galleries: m.galleries.map((x, k) => (k === i ? next : x)) }))}
+                  onRemove={() => edit((m) => ({ ...m, galleries: m.galleries.filter((_, k) => k !== i) }))}
+                  onError={setError}
+                />
+              ))}
+            </section>
 
             <section className="space-y-2">
               <SectionHeading>Links</SectionHeading>

@@ -2,19 +2,28 @@
 
 import { useState } from "react";
 import { Button, Card, Input, MetaLine, SectionHeading } from "@/components/ui";
-import { isReadable, type DriveItem, type ManualSection, type ManualSource } from "@/lib/houseManual";
+import { galleryFrom, isReadable, type DriveItem, type ManualGallery, type ManualSection, type ManualSource } from "@/lib/houseManual";
 
 /**
  * The job's Drive files and folders, linked to the manual. Paste a link to add
  * one; open a folder to browse it. A PDF or Google file can be read in as
  * selections (the Specifications reader, so /specs gets the import too) or
- * added to the manual's Links. All reads go through /api/house-manual/drive.
+ * added to the manual's Links; a folder of photos can become a gallery. All
+ * reads go through /api/house-manual/drive.
  */
 
 async function readJson(r: Response) {
   const b = await r.json().catch(() => ({}));
   if (!r.ok || b.error) throw new Error(b.error || `HTTP ${r.status}`);
   return b;
+}
+
+/** Read a Drive folder as a gallery of its photos. Throws when it holds none. */
+export async function fetchGallery(folderId: string, title?: string): Promise<ManualGallery> {
+  const b = await readJson(await fetch(`/api/house-manual/drive?id=${encodeURIComponent(folderId)}`, { cache: "no-store" }));
+  const g = galleryFrom(b.item, b.children, title);
+  if (g.photos.length === 0) throw new Error(`No photos in ${b.item.name}.`);
+  return g;
 }
 
 const when = (iso: string) =>
@@ -28,7 +37,40 @@ interface Props {
   onSources: (next: ManualSource[]) => void;
   onImport: (sections: ManualSection[]) => void;
   onAddLink: (link: { text: string; url: string }) => void;
+  onAddGallery: (gallery: ManualGallery) => void;
   onError: (message: string) => void;
+}
+
+/** A folder's "Add as photos" action. */
+function AddPhotos({
+  folder,
+  onAddGallery,
+  onError,
+}: {
+  folder: { id: string };
+  onAddGallery: (g: ManualGallery) => void;
+  onError: (message: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <button
+      type="button"
+      className={textLink}
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        try {
+          onAddGallery(await fetchGallery(folder.id));
+        } catch (e) {
+          onError(e instanceof Error ? e.message : String(e));
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      {busy ? "Reading…" : "Add as photos"}
+    </button>
+  );
 }
 
 /** One file's two actions. */
@@ -63,12 +105,14 @@ function FolderBrowser({
   importing,
   onImport,
   onAddLink,
+  onAddGallery,
   onError,
 }: {
   root: ManualSource;
   importing: string;
   onImport: (id: string, name: string) => void;
   onAddLink: (link: { text: string; url: string }) => void;
+  onAddGallery: (g: ManualGallery) => void;
   onError: (message: string) => void;
 }) {
   const [trail, setTrail] = useState<{ id: string; name: string }[]>([]);
@@ -127,6 +171,7 @@ function FolderBrowser({
               </a>
             )}
             <span className="text-[11px] text-neutral-500">{when(c.modified)}</span>
+            {c.isFolder && <AddPhotos folder={c} onAddGallery={onAddGallery} onError={onError} />}
             {!c.isFolder && (
               <FileActions item={c} importing={importing} onImport={onImport} onAddLink={() => onAddLink({ text: c.name, url: c.url })} />
             )}
@@ -138,7 +183,7 @@ function FolderBrowser({
   );
 }
 
-export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onError }: Props) {
+export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onAddGallery, onError }: Props) {
   const [link, setLink] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState("");
@@ -195,7 +240,17 @@ export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onErr
                 {s.name} ↗
               </a>
               {s.isFolder ? (
-                <FolderBrowser root={s} importing={importing} onImport={importFile} onAddLink={onAddLink} onError={onError} />
+                <>
+                  <AddPhotos folder={s} onAddGallery={onAddGallery} onError={onError} />
+                  <FolderBrowser
+                    root={s}
+                    importing={importing}
+                    onImport={importFile}
+                    onAddLink={onAddLink}
+                    onAddGallery={onAddGallery}
+                    onError={onError}
+                  />
+                </>
               ) : (
                 <FileActions item={s} importing={importing} onImport={importFile} onAddLink={() => onAddLink({ text: s.name, url: s.url })} />
               )}

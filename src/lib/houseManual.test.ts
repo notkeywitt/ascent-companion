@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TITLE_STYLE, asManual, draftManual, driveIdFromLink, manualHtml, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
+import { DEFAULT_TITLE_STYLE, galleryFrom, asManual, draftManual, driveIdFromLink, manualHtml, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
 import type { SpecList, SpecRow } from "@/lib/specList";
 
 const row = (over: Partial<SpecRow>): SpecRow => ({
@@ -51,6 +51,14 @@ describe("manualHtml", () => {
       },
       { title: "Empty", items: [], subsections: [] },
     ],
+    galleries: [
+      galleryFrom({ id: "folder1", name: "Pre-cover", url: "https://drive.google.com/f" }, [
+        { id: "photo00001", name: "kitchen.jpg", url: "", isFolder: false, mimeType: "image/jpeg", modified: "", shared: true },
+        { id: "photo00002", name: "private.jpg", url: "", isFolder: false, mimeType: "image/jpeg", modified: "", shared: false },
+        { id: "doc0000001", name: "notes.pdf", url: "", isFolder: false, mimeType: "application/pdf", modified: "", shared: true },
+      ]),
+      { title: "Nobody shared", folderId: "f2", folderUrl: "", photos: [{ id: "photo00003", name: "x.jpg", shared: false }] },
+    ],
     links: [{ text: "Pre-cover photos", url: "https://photos.example.com/x" }],
     sources: [{ id: "abc", name: "Spec Selections", url: "https://drive.google.com/x", isFolder: true }],
   };
@@ -75,6 +83,15 @@ describe("manualHtml", () => {
     expect(html).not.toContain("Blank");
   });
 
+  it("shows a gallery's shared photos only, and leaves out a gallery with none", () => {
+    expect(html).toContain("<summary>Pre-cover</summary>");
+    expect(html).toContain('src="https://lh3.googleusercontent.com/d/photo00001=w800"');
+    expect(html).toContain('alt="kitchen"');
+    expect(html).not.toContain("photo00002");
+    expect(html).not.toContain("notes");
+    expect(html).not.toContain("Nobody shared");
+  });
+
   it("never prints the linked Drive sources", () => {
     expect(html).not.toContain("Spec Selections");
   });
@@ -84,7 +101,7 @@ describe("asManual", () => {
   it("drops malformed fields", () => {
     expect(asManual({ sections: [{ title: "Old", items: [] }] })?.sections).toEqual([{ title: "Old", items: [], subsections: [] }]);
     expect(asManual({ title: 5, contacts: [{ name: "A", vendorId: "" }, null], sections: "x" })).toEqual({
-      title: "", titleStyle: DEFAULT_TITLE_STYLE, intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], links: [], sources: [],
+      title: "", titleStyle: DEFAULT_TITLE_STYLE, intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], galleries: [], links: [], sources: [],
     });
     expect(asManual(null)).toBeNull();
   });

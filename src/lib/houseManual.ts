@@ -56,6 +56,37 @@ export interface DriveItem {
   isFolder: boolean;
   mimeType: string;
   modified: string;
+  /** Anyone can view it — itself, or through a folder above it. */
+  shared?: boolean;
+}
+
+export const isImage = (mimeType: string) => /^image\//.test(mimeType);
+
+/** A Drive photo as an image URL. Loads for the public only when the photo is shared. */
+export const photoUrl = (id: string, width: number) => `https://lh3.googleusercontent.com/d/${encodeURIComponent(id)}=w${width}`;
+
+export interface ManualPhoto {
+  id: string;
+  name: string;
+  shared: boolean;
+}
+
+/** A Drive folder of photos, shown on the page as a grid. A snapshot: Refresh re-reads the folder. */
+export interface ManualGallery {
+  title: string;
+  folderId: string;
+  folderUrl: string;
+  photos: ManualPhoto[];
+}
+
+/** A folder listing as a gallery: its images, in the folder's order. */
+export function galleryFrom(folder: { id: string; name: string; url: string }, children: DriveItem[], title = folder.name): ManualGallery {
+  return {
+    title,
+    folderId: folder.id,
+    folderUrl: folder.url,
+    photos: children.filter((c) => !c.isFolder && isImage(c.mimeType)).map((c) => ({ id: c.id, name: c.name, shared: !!c.shared })),
+  };
 }
 
 /** What the spec reader takes: a PDF, or a Google file Drive exports to PDF. */
@@ -111,6 +142,7 @@ export interface HouseManual {
   intro: string;
   contacts: ManualContact[];
   sections: ManualSection[];
+  galleries: ManualGallery[];
   links: ManualLink[];
   sources: ManualSource[];
 }
@@ -147,7 +179,7 @@ export function draftManual(jobName: string, specs: SpecList | null, jtSpecs: Jt
           items: [{ label: s.name, value: s.description.trim(), url: "" }],
         })),
       );
-  return { title: jobName, titleStyle: DEFAULT_TITLE_STYLE, intro: "", contacts: [], sections, links: [], sources: [] };
+  return { title: jobName, titleStyle: DEFAULT_TITLE_STYLE, intro: "", contacts: [], sections, galleries: [], links: [], sources: [] };
 }
 
 /** A spec list as manual sections: one per room, only the rows with a spec. */
@@ -222,6 +254,16 @@ export function asManual(v: unknown): HouseManual | null {
       items: items(x.items),
       subsections: arr(x.subsections).map((y) => ({ title: s(y.title), items: items(y.items) })),
     })),
+    galleries: arr(o.galleries)
+      .filter((g) => s(g.folderId))
+      .map((g) => ({
+        title: s(g.title),
+        folderId: s(g.folderId),
+        folderUrl: s(g.folderUrl),
+        photos: arr(g.photos)
+          .filter((p) => /^[\w-]{10,}$/.test(s(p.id)))
+          .map((p) => ({ id: s(p.id), name: s(p.name), shared: p.shared === true })),
+      })),
     links: arr(o.links).map((l) => ({ text: s(l.text), url: s(l.url) })),
     sources: arr(o.sources)
       .filter((x) => s(x.id))
@@ -276,6 +318,9 @@ const CSS = `
 .am dd span{display:block}
 .am h4.am-sub{margin:.4em 0 .8em;font-size:.9em;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
 .am a{color:inherit;text-decoration:underline;text-underline-offset:2px}
+.am .am-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:0 0 1.5em}
+.am .am-photos a{display:block;text-decoration:none}
+.am .am-photos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
 .am .am-links{text-align:center;margin:2em 0 0}
 .am .am-links a{margin:0 .75em}
 @media (max-width:600px){.am dl{grid-template-columns:1fr;gap:.2em}.am dd{margin-bottom:.9em}}
@@ -335,6 +380,16 @@ export function manualHtml(m: HouseManual): string {
           .join(""),
     ),
   );
+  // Only shared photos: an unshared one is a broken image to every visitor.
+  const galleries = m.galleries.map((g) => {
+    const imgs = g.photos
+      .filter((p) => p.shared)
+      .map(
+        (p) =>
+          `<a href="${esc(photoUrl(p.id, 2400))}" target="_blank" rel="noopener"><img src="${esc(photoUrl(p.id, 800))}" alt="${esc(p.name.replace(/\.\w+$/, ""))}" loading="lazy"></a>`,
+      );
+    return details(g.title || "Photos", imgs.length ? `<div class="am-photos">${imgs.join("")}</div>` : "");
+  });
   const links = m.links.filter((l) => l.text.trim() && safeUrl(l.url)).map((l) => link(l.text, l.url));
   return [
     `<style>${CSS}</style>`,
@@ -343,6 +398,7 @@ export function manualHtml(m: HouseManual): string {
     m.intro.trim() && `<p class="am-intro">${esc(m.intro)}</p>`,
     details("Contacts", dl(contacts)),
     ...sections,
+    ...galleries,
     links.length > 0 && `<p class="am-links">${links.join("")}</p>`,
     `</div>`,
   ]
