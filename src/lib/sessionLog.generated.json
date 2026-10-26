@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:40:03Z",
+  "generatedAt": "2026-10-26T13:44:48Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T13:40:03Z",
+      "updated": "2026-10-26T13:44:48Z",
       "goal": "",
-      "next": "Check a bill on desktop and on Tracking Sheets: Actions holds JT, History, file, note, Drive, client access, Void; title reads Vendor · Customer - Job.",
+      "next": "Check /bills on desktop and iPad: bill panel layout, drawer docking, Save, and that /bill/<id> still behaves as before.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -389,6 +389,13 @@
           "sha": "83c8011",
           "subject": "companion: bill actions move to the bottom actions menu, title names customer and job",
           "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/components/InvoiceViewer.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:44",
+          "sha": "b9e6d73",
+          "subject": "companion: open the full bill page beside the bills list",
+          "files": "src/app/bill/[docId]/BillView.tsx, src/app/bill/[docId]/page.tsx, src/app/bills/BillsBrowser.tsx, src/app/globals.css, src/components/ui.tsx"
         }
       ]
     },
