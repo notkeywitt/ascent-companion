@@ -449,6 +449,18 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   const boxed = !standalone && !scrollWithPage;
   /** The zoomed scan opens to the left of this, so the lines stay beside it. */
   const cardRef = useRef<HTMLDivElement>(null);
+  /** Docked (Tracking Sheets, the popup), the scan goes beside the lines once
+      the card BODY is wide enough for both — its own width, not the screen's,
+      because the board's columns are dragged to any size. 44rem is two
+      phone-width columns: the lines need no less than a phone gives them. */
+  const [bodyEl, setBodyEl] = useState<HTMLDivElement | null>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    if (!bodyEl || standalone) return;
+    const ro = new ResizeObserver(([e]) => setWide(e.contentRect.width >= 704));
+    ro.observe(bodyEl);
+    return () => ro.disconnect();
+  }, [bodyEl, standalone]);
   // Either field can say Expense — "Push as Expense" may be set in JobTread alone.
   const isExpense = bill?.qboDocumentType === "purchase" || bill?.name === "Expense";
 
@@ -1061,15 +1073,16 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             flush with its own bottom edge reads as cut off whether it is or
             not, and Filing is the block that gets read that way. */}
             <div
+              ref={setBodyEl}
               className={
-                // Standalone on a desktop, the scan and the bill sit side by side:
-                // the scan pinned on the left, the lines scrolling on
-                // the right. A phone keeps the one column.
-                standalone
+                // Side by side on a desktop: the scan pinned on the left, the
+                // lines scrolling on the right. Standalone by screen width;
+                // docked by the card's own width (`wide`). A phone keeps one column.
+                (standalone
                   ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6"
                   : boxed
                     ? "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3"
-                    : "px-3 pb-3 pt-3"
+                    : "px-3 pb-3 pt-3") + (wide ? " grid grid-cols-2 items-start gap-4" : "")
               }
             >
               {/* The scanned invoice, FIRST — the coding decision is read off it,
@@ -1087,7 +1100,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               <div
                 className={
                   "mb-3 border-b border-line-soft pb-3 dark:border-neutral-800" +
-                  (standalone ? " sticky-below-header lg:sticky lg:mb-0 lg:border-0 lg:pb-0" : "")
+                  (standalone ? " sticky-below-header lg:sticky lg:mb-0 lg:border-0 lg:pb-0" : "") +
+                  // Docked, the scroller is the card body, so pin to its top.
+                  (wide ? " sticky top-0 !mb-0 !border-0 !pb-0" : "")
                 }
               >
                 <SectionLabel className="mb-1.5">Invoice</SectionLabel>
