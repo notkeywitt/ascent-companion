@@ -3,9 +3,8 @@ import { desc, eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
 import { specFiles, specLists } from "@/db/schema";
-import { extractSpecListWithClaude } from "@/lib/claudeExtract";
-import { extractPdfLinks } from "@/lib/pdfLinks";
-import { resolveSpecList, type RawSpecList, type SpecList } from "@/lib/specList";
+import { importSpecPdf, SPEC_PDF_MAX } from "@/lib/specImport";
+import type { SpecList } from "@/lib/specList";
 
 /**
  * Specifications — a job's spec selection list, read out of the architect's PDF.
@@ -14,7 +13,7 @@ import { resolveSpecList, type RawSpecList, type SpecList } from "@/lib/specList
  *   POST  multipart { jobId, file }     → read the PDF, store it as a new import
  *   PATCH { id, index, status }         → mark one row open or decided
  *
- * The PDF itself is kept too (spec_files, up to PDF_KEEP_MAX) and served by
+ * The PDF itself is kept too (spec_files, see lib/specImport) and served by
  * /api/specs/pdf, so the page can show the architect's own document.
  *
  * Gated by the "specs" view (lib/views). Companion DB only: nothing here writes
@@ -24,9 +23,6 @@ import { resolveSpecList, type RawSpecList, type SpecList } from "@/lib/specList
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const MAX_BYTES = 20 * 1024 * 1024;
-/** The largest PDF kept for the PDF view. Bigger files keep their rows only. */
-const PDF_KEEP_MAX = 8 * 1024 * 1024;
 const JOB_ID = /^[A-Za-z0-9]{6,32}$/;
 
 async function newest(jobId: string, pick = 0) {
@@ -83,34 +79,18 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  if (file.size > MAX_BYTES) return NextResponse.json({ error: "The PDF is over 20 MB." }, { status: 400 });
-
-  const bytes = Buffer.from(await file.arrayBuffer());
-  let list: SpecList;
-  try {
-    const links = await extractPdfLinks(new Uint8Array(bytes));
-    const raw = await extractSpecListWithClaude(bytes, links);
-    if (!raw || typeof raw !== "object") throw new Error("The reader could not read this PDF as a schedule.");
-    list = resolveSpecList(raw as RawSpecList, links);
-    if (list.rows.length === 0) throw new Error("No rows were found in this PDF.");
-  } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
-  }
+  if (file.size > SPEC_PDF_MAX) return NextResponse.json({ error: "The PDF is over 20 MB." }, { status: 400 });
 
   const session = await auth();
-  await ensureDb();
-  const [saved] = await db
-    .insert(specLists)
-    .values({
+  try {
+    await importSpecPdf({
       jobId,
-      fileName: file.name.slice(0, 200),
-      value: JSON.stringify(list),
-      importedAt: new Date().toISOString(),
+      fileName: file.name,
+      bytes: Buffer.from(await file.arrayBuffer()),
       importedBy: session?.user?.email ?? "",
-    })
-    .returning({ id: specLists.id });
-  if (saved && bytes.length <= PDF_KEEP_MAX) {
-    await db.insert(specFiles).values({ listId: saved.id, name: file.name.slice(0, 200), bytes });
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
   return NextResponse.json(await newest(jobId));
 }

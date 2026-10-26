@@ -18,14 +18,16 @@ import {
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { manualHtml, type HouseManual, type JobVendor, type ManualContact } from "@/lib/houseManual";
+import { manualHtml, mergeSections, type HouseManual, type JobVendor, type ManualContact } from "@/lib/houseManual";
+import { JobFiles } from "./JobFiles";
 
 /**
  * House Manual — a job's homeowner's manual, built from what the app already
  * knows and pasted into Squarespace.
  *
  * The first draft comes from /api/house-manual: one section per room of the
- * job's imported spec list (or its JobTread Specifications). The office picks
+ * job's imported spec list (or its JobTread Specifications). Job files links the
+ * job's Drive folders and reads a file in as more selections. The office picks
  * which of the job's vendors go under Contacts, edits anything, saves, and
  * copies the block into a Squarespace Code Block. Squarespace has no API for
  * page content, so the paste is the hand-off.
@@ -224,6 +226,15 @@ function HouseManualPage() {
       {manual && !loading && (
         <div className="grid gap-6 lg:grid-cols-2">
           <div className="min-w-0 space-y-6">
+            <JobFiles
+              jobId={jobId}
+              sources={manual.sources}
+              onSources={(sources) => edit((m) => ({ ...m, sources }))}
+              onImport={(sections) => edit((m) => ({ ...m, sections: mergeSections(m.sections, sections) }))}
+              onAddLink={(l) => edit((m) => ({ ...m, links: [...m.links, l] }))}
+              onError={setError}
+            />
+
             <section className="space-y-2">
               <SectionHeading>Heading</SectionHeading>
               <Input

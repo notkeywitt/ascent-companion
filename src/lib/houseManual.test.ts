@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asManual, draftManual, manualHtml, type HouseManual } from "@/lib/houseManual";
+import { asManual, draftManual, driveIdFromLink, manualHtml, mergeSections, type HouseManual } from "@/lib/houseManual";
 import type { SpecList, SpecRow } from "@/lib/specList";
 
 const row = (over: Partial<SpecRow>): SpecRow => ({
@@ -44,6 +44,7 @@ describe("manualHtml", () => {
       { title: "Empty", items: [] },
     ],
     links: [{ text: "Pre-cover photos", url: "https://photos.example.com/x" }],
+    sources: [{ id: "abc", name: "Spec Selections", url: "https://drive.google.com/x", isFolder: true }],
   };
   const html = manualHtml(m);
 
@@ -60,13 +61,42 @@ describe("manualHtml", () => {
     expect(html).not.toContain("<summary>Empty</summary>");
     expect(html).toContain("Pre-cover photos</a>");
   });
+
+  it("never prints the linked Drive sources", () => {
+    expect(html).not.toContain("Spec Selections");
+  });
 });
 
 describe("asManual", () => {
   it("drops malformed fields", () => {
     expect(asManual({ title: 5, contacts: [{ name: "A", vendorId: "" }, null], sections: "x" })).toEqual({
-      title: "", intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], links: [],
+      title: "", intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], links: [], sources: [],
     });
     expect(asManual(null)).toBeNull();
+  });
+});
+
+describe("mergeSections", () => {
+  it("adds new items to a same-named section, skips repeats, keeps edits", () => {
+    const mine = [{ title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "edited" }] }];
+    const out = mergeSections(mine, [
+      { title: "kitchen ", items: [{ label: "range", value: "BOSCH 800", url: "" }, { label: "Hood", value: "Zephyr", url: "" }] },
+      { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }] },
+    ]);
+    expect(out).toEqual([
+      { title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "edited" }, { label: "Hood", value: "Zephyr", url: "" }] },
+      { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }] },
+    ]);
+    expect(mine[0].items).toHaveLength(1);
+  });
+});
+
+describe("driveIdFromLink", () => {
+  it("reads folder, file and open links, and a bare id", () => {
+    expect(driveIdFromLink("https://drive.google.com/drive/u/0/folders/16Dfxhkm6EOze0THWFmS5pONrZ8vwi1ML")).toBe("16Dfxhkm6EOze0THWFmS5pONrZ8vwi1ML");
+    expect(driveIdFromLink("https://drive.google.com/file/d/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL/view?usp=drivesdk")).toBe("1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL");
+    expect(driveIdFromLink("https://docs.google.com/document/d/1knkfLrf7ne2epoetKL4lWyFgolrjoQN4ztFb1T5YQvU/edit")).toBe("1knkfLrf7ne2epoetKL4lWyFgolrjoQN4ztFb1T5YQvU");
+    expect(driveIdFromLink("https://drive.google.com/open?id=16Dfxhkm6EOze0THWFmS5pONrZ8vwi1ML")).toBe("16Dfxhkm6EOze0THWFmS5pONrZ8vwi1ML");
+    expect(driveIdFromLink("not a link")).toBe("");
   });
 });

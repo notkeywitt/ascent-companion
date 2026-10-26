@@ -8,7 +8,11 @@
  * `manualHtml` turns it into ONE self-contained block for a Squarespace Code
  * Block. Squarespace has no API for page content, so copy and paste is the
  * hand-off. The block carries no script: `<details>` gives the accordion.
+ *
+ * `sources` are the job's Drive files and folders linked to the manual. They
+ * stay in the editor: `manualHtml` never prints them.
  */
+
 import type { SpecList } from "@/lib/specList";
 
 export interface ManualContact {
@@ -37,12 +41,35 @@ export interface ManualLink {
   url: string;
 }
 
+/** One Drive file or folder, as the bridge lists it (appscript JobFiles.js). */
+export interface DriveItem {
+  id: string;
+  name: string;
+  url: string;
+  isFolder: boolean;
+  mimeType: string;
+  modified: string;
+}
+
+/** What the spec reader takes: a PDF, or a Google file Drive exports to PDF. */
+export const isReadable = (mimeType: string) =>
+  mimeType === "application/pdf" || /^application\/vnd\.google-apps\.(document|spreadsheet|presentation)$/.test(mimeType);
+
+/** A Drive file or folder linked to the manual — the office's working files, never printed. */
+export interface ManualSource {
+  id: string;
+  name: string;
+  url: string;
+  isFolder: boolean;
+}
+
 export interface HouseManual {
   title: string;
   intro: string;
   contacts: ManualContact[];
   sections: ManualSection[];
   links: ManualLink[];
+  sources: ManualSource[];
 }
 
 /** A job's vendor in JobTread, offered for the contact list. */
@@ -68,24 +95,46 @@ export interface JtSpec {
  * empty: the office picks which of the job's vendors the homeowner should call.
  */
 export function draftManual(jobName: string, specs: SpecList | null, jtSpecs: JtSpec[]): HouseManual {
-  const sections: ManualSection[] = [];
-  const section = (title: string) => {
-    let s = sections.find((x) => x.title === title);
-    if (!s) sections.push((s = { title, items: [] }));
-    return s;
-  };
-  if (specs?.rows.length) {
-    for (const r of specs.rows) {
-      const value = r.spec || r.specLinks[0]?.text || "";
-      if (!value) continue;
-      section(r.room || "Other").items.push({ label: r.item, value, url: r.specLinks[0]?.url ?? "" });
-    }
-  } else {
-    for (const s of jtSpecs) {
-      section(s.group || "Selections").items.push({ label: s.name, value: s.description.trim(), url: "" });
+  const sections = specs?.rows.length
+    ? specSections(specs)
+    : mergeSections(
+        [],
+        jtSpecs.map((s) => ({
+          title: s.group || "Selections",
+          items: [{ label: s.name, value: s.description.trim(), url: "" }],
+        })),
+      );
+  return { title: jobName, intro: "", contacts: [], sections, links: [], sources: [] };
+}
+
+/** A spec list as manual sections: one per room, only the rows with a spec. */
+export function specSections(specs: SpecList): ManualSection[] {
+  return mergeSections(
+    [],
+    specs.rows
+      .map((r) => ({ room: r.room, label: r.item, value: r.spec || r.specLinks[0]?.text || "", url: r.specLinks[0]?.url ?? "" }))
+      .filter((r) => r.value)
+      .map(({ room, ...item }) => ({ title: room || "Other", items: [item] })),
+  );
+}
+
+/**
+ * Add `incoming` to `sections`: a section with the same title (any case) takes
+ * the new items, a new title is added at the end, and an item already there
+ * (same item and product) is not repeated. Nothing in `sections` is changed or
+ * removed, so an import never undoes the office's edits.
+ */
+export function mergeSections(sections: ManualSection[], incoming: ManualSection[]): ManualSection[] {
+  const out = sections.map((s) => ({ ...s, items: [...s.items] }));
+  const key = (t: string) => t.trim().toLowerCase();
+  for (const s of incoming) {
+    let target = out.find((x) => key(x.title) === key(s.title));
+    if (!target) out.push((target = { title: s.title, items: [] }));
+    for (const it of s.items) {
+      if (!target.items.some((x) => key(x.label) === key(it.label) && key(x.value) === key(it.value))) target.items.push(it);
     }
   }
-  return { title: jobName, intro: "", contacts: [], sections, links: [] };
+  return out;
 }
 
 /** Coerce a stored or posted value into a manual, dropping anything malformed. */
@@ -110,7 +159,17 @@ export function asManual(v: unknown): HouseManual | null {
       items: arr(x.items).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url) })),
     })),
     links: arr(o.links).map((l) => ({ text: s(l.text), url: s(l.url) })),
+    sources: arr(o.sources)
+      .filter((x) => s(x.id))
+      .map((x) => ({ id: s(x.id), name: s(x.name), url: s(x.url), isFolder: x.isFolder === true })),
   };
+}
+
+/** A Drive file or folder id out of a pasted link (or a bare id). */
+export function driveIdFromLink(link: string): string {
+  const t = link.trim();
+  const m = t.match(/\/(?:folders|d)\/([\w-]{10,})/) ?? t.match(/[?&]id=([\w-]{10,})/) ?? t.match(/^([\w-]{20,})$/);
+  return m?.[1] ?? "";
 }
 
 /* ------------------------------------------------------------- the block */
