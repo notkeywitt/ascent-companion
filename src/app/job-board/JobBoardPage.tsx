@@ -23,7 +23,8 @@ import {
 
 /**
  * The Jobs page — every job the office is carrying, as kanban rows: Active
- * jobs, then PreCon jobs, then the leads. A job card answers three questions
+ * jobs, then PreCon jobs, then the leads, then Complete jobs (folded, since the
+ * row only grows). A job card answers three questions
  * without opening JobTread: whose job and where, what is on the schedule now,
  * and the three newest open to-dos. Every line links into JobTread. Nothing
  * here writes.
@@ -35,6 +36,7 @@ import {
 interface Board {
   active: JobsPageCard[];
   precon: JobsPageCard[];
+  complete: JobsPageCard[];
 }
 
 /** A small caption over a card's block. */
@@ -144,15 +146,29 @@ function JobCard({ c }: { c: JobsPageCard }) {
 }
 
 /** One titled row of job cards. */
-function JobRow({ title, cards, empty }: { title: string; cards: JobsPageCard[]; empty: string }) {
+function JobRow({
+  title,
+  cards,
+  empty,
+  foldable = false,
+}: {
+  title: string;
+  cards: JobsPageCard[];
+  empty: string;
+  /** Starts folded; the heading shows and hides the row. */
+  foldable?: boolean;
+}) {
+  const [open, setOpen] = useState(!foldable);
   return (
     <section className="mb-6 space-y-2">
       <SectionHeading
         trailing={<span className="text-[11px] tabular-nums text-neutral-500">{cards.length}</span>}
+        onToggle={foldable ? () => setOpen((o) => !o) : undefined}
+        open={open}
       >
         {title}
       </SectionHeading>
-      {cards.length === 0 ? (
+      {!open ? null : cards.length === 0 ? (
         <EmptyState>{empty}</EmptyState>
       ) : (
         // Phone: a sideways row that bleeds to the screen edges, so the next
@@ -179,7 +195,7 @@ export function JobBoardPage() {
       .then((j) => {
         if (cancelled) return;
         if (j.error) setError(j.error);
-        else setBoard({ active: j.active ?? [], precon: j.precon ?? [] });
+        else setBoard({ active: j.active ?? [], precon: j.precon ?? [], complete: j.complete ?? [] });
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not load the jobs.");
@@ -193,7 +209,7 @@ export function JobBoardPage() {
     <main className="w-full max-w-2xl px-4 pb-10 pt-5 pad:max-w-none pad:px-7">
       <PageHeader
         title="Job Board"
-        description="Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos."
+        description="Active jobs, PreCon jobs, leads and complete jobs — the schedule now and the newest to-dos."
       />
 
       {error && (
@@ -227,6 +243,15 @@ export function JobBoardPage() {
       {/* Self-gating on the `leads` view; folds and orders per device, kept
           apart from the home page's copy by `storeAs`. */}
       <HomeLeadBoard storeAs="jobs" />
+
+      {board && (
+        <JobRow
+          title="Complete"
+          cards={board.complete}
+          empty="No job has Phase set to Complete."
+          foldable
+        />
+      )}
     </main>
   );
 }

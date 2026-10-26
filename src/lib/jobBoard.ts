@@ -62,6 +62,9 @@ export const ACTIVE_PHASE = "Active";
  */
 export const PRECON_PHASES: readonly string[] = ["PreCon", "PreCon Budget"];
 
+/** The Phase value for finished work — the Jobs page's Complete row. */
+export const COMPLETE_PHASE = "Complete";
+
 /* ---------------------------------------------------------------- jobs page */
 
 /** One open JobTread to-do, as a line on a Jobs page card. */

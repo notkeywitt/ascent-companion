@@ -3,6 +3,7 @@ import { getJobBoard, getJobs, getRecentJobToDos } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import {
   ACTIVE_PHASE,
+  COMPLETE_PHASE,
   PRECON_PHASES,
   sortJobsPageCards,
   type JobBoardCard,
@@ -10,7 +11,7 @@ import {
 } from "@/lib/jobBoard";
 
 /**
- * Read-only: the Jobs page's two job rows — Active and PreCon — each card with
+ * Read-only: the Jobs page's three job rows — Active, PreCon and Complete — each card with
  * its customer, its place on the JobTread schedule and its three newest open
  * to-dos. Gated by the "job-board" view (src/lib/views.ts), so a role without
  * the page cannot read every job's to-dos by calling this directly.
@@ -48,6 +49,7 @@ export async function GET() {
     return NextResponse.json({
       active: inPhase((p) => p === ACTIVE_PHASE),
       precon: inPhase((p) => PRECON_PHASES.includes(p)),
+      complete: inPhase((p) => p === COMPLETE_PHASE),
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
