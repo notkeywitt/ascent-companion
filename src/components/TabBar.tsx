@@ -171,6 +171,13 @@ const HammerIcon = () => (
   </IconBase>
 );
 
+/** A storefront — the Vendors page. */
+const StoreIcon = () => (
+  <IconBase>
+    <path d="M3 9l1.5-5h15L21 9M3 9h18M3 9v0a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0M5 12v8h14v-8M10 20v-5h4v5" />
+  </IconBase>
+);
+
 /** A slot's icon, by its key (a workspace id, a view id, or "today"). */
 const ICONS: Record<string, () => React.ReactNode> = {
   today: HomeIcon,
@@ -190,6 +197,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   tools: WrenchIcon,
   requisitions: ClipboardIcon,
   "job-board": HammerIcon,
+  vendors: StoreIcon,
   "time-off": CalendarIcon,
 };
 
