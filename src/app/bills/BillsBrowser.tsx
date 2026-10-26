@@ -9,7 +9,6 @@ import {
   ListCard,
   ListRow,
   Loading,
-  PageHeader,
   SectionHeading,
   Segmented,
   SplitView,
@@ -114,10 +113,9 @@ export function BillsBrowser() {
         cols="lg:grid-cols-[18rem_minmax(0,1fr)]"
         detail={openId ? <BillView key={openId} docId={openId} embedded /> : null}
         list={
-          // The header rides in the list column, so the bill panel starts at
-          // the top of the page instead of under a full-width title.
+          // No page header: the open bill's title is the page's title.
           <div className="space-y-2">
-            <PageHeader title="Bills" description="Draft bills waiting to be coded." />
+            {!openId && <h1 className="sr-only">Bills</h1>}
             <Input
               type="search"
               value={query}

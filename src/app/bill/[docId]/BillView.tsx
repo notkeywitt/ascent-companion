@@ -467,6 +467,16 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
   const title = [isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor, job]
     .filter(Boolean)
     .join(" \u00b7 ");
+  // The browser tab names the bill too, and gives the old name back on leave.
+  const loaded = Boolean(header);
+  useEffect(() => {
+    if (!loaded) return;
+    const prev = document.title;
+    document.title = title;
+    return () => {
+      document.title = prev;
+    };
+  }, [loaded, title]);
 
   // The de-tax / pre-tax-edit / gross-up model lives in src/lib/billLineMath.ts,
   // shared with Tracking Sheets (/trackingsheet) so the two pages can never disagree
