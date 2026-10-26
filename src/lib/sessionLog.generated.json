@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T17:05:02Z",
+  "generatedAt": "2026-10-26T17:07:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T17:05:02Z",
+      "updated": "2026-10-26T17:07:09Z",
       "goal": "",
-      "next": "Owner uploads one COI on /vendors; confirm '<Vendor> COI - 2026' lands in the Vendor COIs Drive folder and the row links to it.",
+      "next": "Check /bills sort, group, Sunset group and Show reviewed; check Filing works inside Actions on Bill and Tracking Sheets.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -410,6 +410,13 @@
           "sha": "7292787",
           "subject": "companion: bills list sorts by date or name, groups by job or vendor, keeps sunset together, shows reviewed",
           "files": "src/app/bills/BillsBrowser.tsx, src/app/bills/billGroups.test.ts, src/app/bills/billGroups.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "10:07",
+          "sha": "522a8b1",
+          "subject": "companion: filing moves into the bill actions panel",
+          "files": "src/app/bill/[docId]/BillView.tsx, src/app/trackingsheet/BillCodingCard.tsx"
         }
       ]
     },
