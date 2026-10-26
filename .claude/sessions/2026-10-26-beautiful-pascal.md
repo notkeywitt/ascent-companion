@@ -2,9 +2,9 @@
 slug: beautiful-pascal
 repo: ascent-companion
 branch: claude/beautiful-pascal-y6qqa6
-status: in-progress
+status: shipped
 started: 2026-10-26T21:51:47Z
-updated: 2026-10-26T21:51:48Z
+updated: 2026-10-26T22:10:23Z
 goal: 
 next: owner ok to push to main (JobTread write path: createFile, createPayment, createDocumentPayment); after appscript ./deploy.sh, first real deposit is the probe
 ---

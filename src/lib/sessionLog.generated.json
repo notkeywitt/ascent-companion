@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-26T19:56:13Z",
+  "generatedAt": "2026-10-26T22:10:23Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "beautiful-pascal",
+      "file": "2026-10-26-beautiful-pascal.md",
+      "branch": "claude/beautiful-pascal-y6qqa6",
+      "status": "shipped",
+      "started": "2026-10-26T21:51:47Z",
+      "updated": "2026-10-26T22:10:23Z",
+      "goal": "",
+      "next": "owner ok to push to main (JobTread write path: createFile, createPayment, createDocumentPayment); after appscript ./deploy.sh, first real deposit is the probe",
+      "commits": [
+        {
+          "date": "2026-10-26",
+          "time": "21:51",
+          "sha": "98aaf31",
+          "subject": "companion: add home actions panel and deposit checks button",
+          "files": "CODEBASE_MAP.md, src/app/api/deposit-tracker/email/route.ts, src/app/api/deposit-tracker/invoices/route.ts, src/app/api/deposit-tracker/photo/route.ts, src/app/api/deposit-tracker/record/route.ts, src/app/deposit-tracker/DepositTracker.tsx, +11 more"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
