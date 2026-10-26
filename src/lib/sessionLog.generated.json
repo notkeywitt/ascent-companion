@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T19:21:40Z",
+  "generatedAt": "2026-10-26T19:49:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T19:21:40Z",
+      "updated": "2026-10-26T19:49:31Z",
       "goal": "",
       "next": "Owner runs ./deploy.sh in ascent-appscript (JobFiles.js); then link the Seely Spec Selections folder on House Manual and import the finish schedule.",
       "commits": [
@@ -501,6 +501,13 @@
           "sha": "99cc176",
           "subject": "companion: link drive files to the house manual and import selections from them",
           "files": "CODEBASE_MAP.md, src/app/api/house-manual/drive/route.ts, src/app/api/specs/route.ts, src/app/house-manual/JobFiles.tsx, src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, +2 more"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "12:49",
+          "sha": "b2c9dea",
+          "subject": "companion: house manual selections as growing paragraphs, and sub-sections",
+          "files": "src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
         }
       ]
     },
