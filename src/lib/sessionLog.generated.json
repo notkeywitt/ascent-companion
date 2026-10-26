@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:09:24Z",
+  "generatedAt": "2026-10-26T18:54:18Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T18:09:24Z",
+      "updated": "2026-10-26T18:54:18Z",
       "goal": "",
-      "next": "Open a bill on Tracking Sheets at 1440px and 1920px: coding column widens and the scan sits beside the lines.",
+      "next": "Open House Manual on a job with a spec list import, add contacts, paste the block into a Squarespace Code Block and check it in the site theme.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -473,6 +473,13 @@
           "sha": "025808d",
           "subject": "companion: tracking sheets widens the coding column while a bill is open",
           "files": "src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "11:54",
+          "sha": "06774f3",
+          "subject": "companion: add house manual creator for squarespace",
+          "files": "CODEBASE_MAP.md, src/app/api/house-manual/route.ts, src/app/house-manual/page.tsx, src/components/JobTabs.tsx, src/db/index.ts, src/db/schema.ts, +5 more"
         }
       ]
     },
