@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T17:17:10Z",
+  "generatedAt": "2026-10-26T17:20:18Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T17:17:10Z",
+      "updated": "2026-10-26T17:20:18Z",
       "goal": "",
-      "next": "Check /bills sort, group, Sunset group and Show reviewed; check Filing works inside Actions on Bill and Tracking Sheets.",
+      "next": "Check the Actions panel on /bills, /bill and Tracking Sheets: Open rows, Filing fields, note, client access, tracking push, Void.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -438,6 +438,13 @@
           "sha": "927348a",
           "subject": "companion: bills list opens bills without a route change, preloads the next ones, scan opens full screen",
           "files": "src/app/bill/[docId]/BillView.tsx, src/app/bills/BillsBrowser.tsx, src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "10:20",
+          "sha": "e002732",
+          "subject": "companion: bill actions panel gets one layout, links as rows and full-width buttons",
+          "files": "src/app/bill/[docId]/BillView.tsx, src/app/trackingsheet/BillCodingCard.tsx"
         }
       ]
     },
