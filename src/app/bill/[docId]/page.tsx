@@ -57,6 +57,8 @@ interface Header {
   name?: string;
   subject?: string;
   fromName?: string;
+  /** The bill's own job. */
+  jobName?: string;
   number?: string;
   externalId?: string;
   status?: string;
@@ -451,7 +453,9 @@ function BillDetail() {
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor \u00b7 Invoice ID"; every other vendor shows just its name.
   const isSunsetBill = /sunset/i.test(vendor);
-  const title = isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor;
+  const title = [isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor, header?.jobName]
+    .filter(Boolean)
+    .join(" \u00b7 ");
 
   // The de-tax / pre-tax-edit / gross-up model lives in src/lib/billLineMath.ts,
   // shared with Tracking Sheets (/trackingsheet) so the two pages can never disagree

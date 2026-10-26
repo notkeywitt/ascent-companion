@@ -554,6 +554,8 @@ export interface BillDetail {
      *  in by hand shows the OFFICE'S name there, not the vendor's — a real bug
      *  this field exists to fix. Prefer this everywhere a vendor is displayed. */
     vendorName?: string;
+    /** The bill's own job, for the bill page's title. */
+    jobName?: string;
     number?: string;
     externalId?: string;
     status?: string;
@@ -633,7 +635,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       qboDocumentType: {},
       nonRecoverableTax: {},
       nonRecoverableTaxName: {},
-      job: { id: {} }, // the bill's own job — lets /api/bill work without ?jobId
+      job: { id: {}, name: {} }, // the bill's own job — lets /api/bill work without ?jobId
       account: { name: {} }, // the actual vendor — see BillDetail.header.vendorName
       ...lineSel,
     },
@@ -650,7 +652,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       dueDays: {},
       nonRecoverableTax: {},
       nonRecoverableTaxName: {},
-      job: { id: {} },
+      job: { id: {}, name: {} },
       account: { name: {} },
       ...lineSel,
     },
@@ -669,6 +671,7 @@ export async function getBillDetail(cfg: PaveConfig, docId: string): Promise<Bil
       subject: d.subject,
       fromName: d.fromName,
       vendorName: d.account?.name,
+      jobName: d.job?.name,
       number: d.number,
       externalId: d.externalId,
       status: d.status,
