@@ -1439,7 +1439,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
         </nav>
       )}
 
-      <header className="mb-5 mt-4">
+      <header className="mb-5 mt-1">
         <PageTitle>{title}</PageTitle>
         {/* Status, the saved marker and the document's own identifiers are all
             metadata about the same thing, so they share one wrapping strip

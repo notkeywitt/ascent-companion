@@ -106,7 +106,6 @@ export function BillsBrowser() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-[96rem] pb-24 pt-6">
-      <PageHeader title="Bills" description="Draft bills waiting to be coded." />
 
       <SplitView
         onClose={() => select("")}
@@ -115,7 +114,10 @@ export function BillsBrowser() {
         cols="lg:grid-cols-[18rem_minmax(0,1fr)]"
         detail={openId ? <BillView key={openId} docId={openId} embedded /> : null}
         list={
+          // The header rides in the list column, so the bill panel starts at
+          // the top of the page instead of under a full-width title.
           <div className="space-y-2">
+            <PageHeader title="Bills" description="Draft bills waiting to be coded." />
             <Input
               type="search"
               value={query}
