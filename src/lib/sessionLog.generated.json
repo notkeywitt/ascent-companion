@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:44:48Z",
+  "generatedAt": "2026-10-26T16:30:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T13:44:48Z",
+      "updated": "2026-10-26T16:30:31Z",
       "goal": "",
-      "next": "Check /bills on desktop and iPad: bill panel layout, drawer docking, Save, and that /bill/<id> still behaves as before.",
+      "next": "Owner runs ./deploy.sh in ascent-appscript, then uploads one COI on /vendors and checks the file lands in the Vendor COIs folder.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -396,6 +396,13 @@
           "sha": "b9e6d73",
           "subject": "companion: open the full bill page beside the bills list",
           "files": "src/app/bill/[docId]/BillView.tsx, src/app/bill/[docId]/page.tsx, src/app/bills/BillsBrowser.tsx, src/app/globals.css, src/components/ui.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "09:30",
+          "sha": "837f90e",
+          "subject": "companion: edit vendor details in place, file a COI PDF per vendor",
+          "files": "src/app/api/vendor-coi/route.ts, src/app/vendors/page.tsx, src/lib/views.ts"
         }
       ]
     },

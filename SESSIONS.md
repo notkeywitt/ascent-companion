@@ -9,7 +9,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
-| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 14d ago | 2 | — |
+| [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 15d ago | 2 | — |
 | [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 24d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 33d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 41d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-26 | 55 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-26 | 56 | — |
 | [sunset-bill-bulk-expense](.claude/sessions/2026-10-23-sunset-bill-bulk-expense.md) | 2026-10-23 | 3 | — |
 | [wizardly-goodall](.claude/sessions/2026-10-23-wizardly-goodall.md) | 2026-10-23 | 1 | New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Dr… |
 | [jobtread-email-records](.claude/sessions/2026-10-20-jobtread-email-records.md) | 2026-10-20 | 2 | — |
