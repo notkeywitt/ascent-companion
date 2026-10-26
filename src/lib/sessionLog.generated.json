@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T17:07:09Z",
+  "generatedAt": "2026-10-26T17:09:20Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T17:07:09Z",
+      "updated": "2026-10-26T17:09:20Z",
       "goal": "",
       "next": "Check /bills sort, group, Sunset group and Show reviewed; check Filing works inside Actions on Bill and Tracking Sheets.",
       "commits": [
@@ -417,6 +417,13 @@
           "sha": "522a8b1",
           "subject": "companion: filing moves into the bill actions panel",
           "files": "src/app/bill/[docId]/BillView.tsx, src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "10:09",
+          "sha": "8d3589e",
+          "subject": "companion: bills panel starts at the top, tighter gap above the bill title",
+          "files": "src/app/bill/[docId]/BillView.tsx, src/app/bills/BillsBrowser.tsx"
         }
       ]
     },
