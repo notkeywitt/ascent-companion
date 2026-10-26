@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T19:53:19Z",
+  "generatedAt": "2026-10-26T19:56:13Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T19:53:19Z",
+      "updated": "2026-10-26T19:56:13Z",
       "goal": "",
-      "next": "Owner runs ./deploy.sh in ascent-appscript (JobFiles.js); then link the Seely Spec Selections folder on House Manual and import the finish schedule.",
+      "next": "Owner runs ./deploy.sh in ascent-appscript (JobFiles.js: drive listing, pdf fetch, sharing flag); then add a shared photo folder on House Manual and confirm the photos load in the preview.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -515,6 +515,13 @@
           "sha": "e231a0b",
           "subject": "companion: house manual title style - font, size, weight, spacing, wrapping, line breaks",
           "files": "src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "12:56",
+          "sha": "415b944",
+          "subject": "companion: house manual photo galleries from drive folders",
+          "files": "src/app/house-manual/JobFiles.tsx, src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
         }
       ]
     },
