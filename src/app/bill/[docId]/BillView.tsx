@@ -1688,7 +1688,14 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
               ? { bottom: "var(--tabbar-h, 0px)" }
               : { bottom: "var(--tabbar-h, 0px)", left: "var(--rail-w, 0px)" }
           }
-          className={`${embedded ? "sticky mt-4" : "fixed inset-x-0"} z-30 border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden`}
+          className={`${embedded ? "sticky mt-4" : "fixed inset-x-0"} z-30 print:hidden ${
+            // Open, it reads as a sheet over the bill: a full edge, a shadow,
+            // and a see-through ground blurring what is behind it. Closed, it
+            // is the quiet strip it always was.
+            drawerOpen
+              ? "rounded-t-xl border border-b-0 border-line-strong bg-cream/70 shadow-lg backdrop-blur-xl dark:bg-ink/70"
+              : "border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95"
+          }`}
         >
           <div className={embedded ? "px-3" : "max-w-2xl px-4 pad:px-7 lg:max-w-6xl"}>
             {/* Drawer handle. The bill's secondary actions — open in JobTread,
