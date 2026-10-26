@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T16:30:31Z",
+  "generatedAt": "2026-10-26T17:05:02Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T16:30:31Z",
+      "updated": "2026-10-26T17:05:02Z",
       "goal": "",
-      "next": "Owner runs ./deploy.sh in ascent-appscript, then uploads one COI on /vendors and checks the file lands in the Vendor COIs folder.",
+      "next": "Owner uploads one COI on /vendors; confirm '<Vendor> COI - 2026' lands in the Vendor COIs Drive folder and the row links to it.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -403,6 +403,13 @@
           "sha": "837f90e",
           "subject": "companion: edit vendor details in place, file a COI PDF per vendor",
           "files": "src/app/api/vendor-coi/route.ts, src/app/vendors/page.tsx, src/lib/views.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "10:04",
+          "sha": "7292787",
+          "subject": "companion: bills list sorts by date or name, groups by job or vendor, keeps sunset together, shows reviewed",
+          "files": "src/app/bills/BillsBrowser.tsx, src/app/bills/billGroups.test.ts, src/app/bills/billGroups.ts"
         }
       ]
     },
