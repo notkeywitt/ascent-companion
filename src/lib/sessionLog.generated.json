@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:03:21Z",
+  "generatedAt": "2026-10-26T18:05:13Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T18:03:21Z",
+      "updated": "2026-10-26T18:05:13Z",
       "goal": "",
       "next": "Check the Actions panel on /bills, /bill and Tracking Sheets: Open rows, Filing fields, note, client access, tracking push, Void.",
       "commits": [
@@ -459,6 +459,13 @@
           "sha": "fd76299",
           "subject": "companion: cost code list opens in flow inside dialogs so it is not clipped",
           "files": "src/app/time-sync/TimeSyncEditor.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/components/CostCodeSelect.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "11:05",
+          "sha": "0e815be",
+          "subject": "companion: tracking sheets coding card puts the scan beside the lines when wide enough",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx"
         }
       ]
     },
