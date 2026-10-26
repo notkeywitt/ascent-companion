@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:21:04Z",
+  "generatedAt": "2026-10-26T13:27:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T13:21:04Z",
+      "updated": "2026-10-26T13:27:31Z",
       "goal": "",
-      "next": "Open a bill on desktop and check the scan sits left of the lines, pinned while the lines scroll.",
+      "next": "Open a bill and check the title reads Vendor · Job.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -368,6 +368,20 @@
           "sha": "0bddede",
           "subject": "companion: open a vendor in a panel beside the list",
           "files": "src/app/globals.css, src/app/vendors/page.tsx, src/components/ui.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:26",
+          "sha": "dc808e8",
+          "subject": "companion: rename incoming bills to bills, add bills list page",
+          "files": "src/app/bills/BillsBrowser.tsx, src/app/bills/page.tsx, src/lib/views.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:27",
+          "sha": "abde139",
+          "subject": "companion: bill page title names the bill's job",
+          "files": "src/app/bill/[docId]/page.tsx, src/lib/jobtread.ts"
         }
       ]
     },
