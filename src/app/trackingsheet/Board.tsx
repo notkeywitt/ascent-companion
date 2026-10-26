@@ -2186,6 +2186,7 @@ export function Board() {
             railHidden ? "lg:grid-cols-[3.5rem_minmax(0,1fr)]" : "lg:grid-cols-2"
           }`}
           hideFirst={railHidden}
+          thirdOpen={Boolean(openDocId)}
         >
           <BudgetRail
             budgetByCode={budgetByCode}

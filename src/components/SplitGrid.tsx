@@ -38,6 +38,15 @@ const HANDLE_PX = 20;
 const CLOSED_PX = 56;
 const MIN_FR = 0.4;
 const KEY = "ts.cols";
+/**
+ * With a record open in the third panel, the split is a SECOND layout, kept
+ * under its own key: the coding panel wants room for the scan beside the lines
+ * (BillCodingCard's `wide`), the list beside it needs little. Dragging while
+ * one is open changes only this layout, so closing it gives the old one back.
+ */
+const KEY_OPEN = "ts.cols.open";
+const DEFAULT: Cols = [1, 1, 1];
+const DEFAULT_OPEN: Cols = [0.7, 0.6, 1.7];
 
 type Cols = [number, number, number];
 
@@ -75,17 +84,23 @@ function ColHandle({
 export function SplitGrid({
   className = "",
   hideFirst = false,
+  thirdOpen = false,
   children,
 }: {
   /** Grid classes for the breakpoints below xl (e.g. `lg:grid-cols-2`). */
   className?: string;
   /** Shrink the first panel's track to its content — see the note above. */
   hideFirst?: boolean;
+  /** A record is open in the third panel — use the wide-third layout. */
+  thirdOpen?: boolean;
   /** Exactly three panels, in column order. */
   children: ReactNode;
 }) {
   const kids = Array.isArray(children) ? children : [children];
-  const [cols, setCols] = useState<Cols>([1, 1, 1]);
+  const key = thirdOpen ? KEY_OPEN : KEY;
+  const [saved, setSaved] = useState<Partial<Record<string, Cols>>>({});
+  const cols = saved[key] ?? (thirdOpen ? DEFAULT_OPEN : DEFAULT);
+  const setCols = useCallback((c: Cols) => setSaved((p) => ({ ...p, [key]: c })), [key]);
   const gridRef = useRef<HTMLDivElement | null>(null);
   // A drag reads the widths at pointerdown; a state updater would not run until
   // the next render, so the live value is mirrored here.
@@ -93,13 +108,17 @@ export function SplitGrid({
   colsRef.current = cols;
 
   useEffect(() => {
-    try {
-      const v = JSON.parse(localStorage.getItem(KEY) ?? "null");
-      if (Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && n > 0))
-        setCols(v as Cols);
-    } catch {
-      /* a bad or blocked value just leaves the even split */
+    const next: Partial<Record<string, Cols>> = {};
+    for (const k of [KEY, KEY_OPEN]) {
+      try {
+        const v = JSON.parse(localStorage.getItem(k) ?? "null");
+        if (Array.isArray(v) && v.length === 3 && v.every((n) => typeof n === "number" && n > 0))
+          next[k] = v as Cols;
+      } catch {
+        /* a bad or blocked value just leaves the default split */
+      }
     }
+    setSaved(next);
   }, []);
 
   const apply = useCallback((start: Cols, i: 0 | 1, delta: number): Cols => {
@@ -110,13 +129,16 @@ export function SplitGrid({
     return next;
   }, []);
 
-  const remember = useCallback((c: Cols) => {
-    try {
-      localStorage.setItem(KEY, JSON.stringify(c));
-    } catch {
-      /* private mode — the split is just per-session then */
-    }
-  }, []);
+  const remember = useCallback(
+    (c: Cols) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(c));
+      } catch {
+        /* private mode — the split is just per-session then */
+      }
+    },
+    [key],
+  );
 
   const startDrag = useCallback(
     (i: 0 | 1) => (e: React.PointerEvent<HTMLDivElement>) => {
@@ -140,7 +162,7 @@ export function SplitGrid({
       el.addEventListener("pointermove", move);
       el.addEventListener("pointerup", up);
     },
-    [apply, remember],
+    [apply, remember, setCols],
   );
 
   const nudge = useCallback(
@@ -149,7 +171,7 @@ export function SplitGrid({
       setCols(next);
       remember(next);
     },
-    [apply, remember],
+    [apply, remember, setCols],
   );
 
   return (
