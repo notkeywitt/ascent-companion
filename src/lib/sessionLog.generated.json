@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T19:49:31Z",
+  "generatedAt": "2026-10-26T19:53:19Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T19:49:31Z",
+      "updated": "2026-10-26T19:53:19Z",
       "goal": "",
       "next": "Owner runs ./deploy.sh in ascent-appscript (JobFiles.js); then link the Seely Spec Selections folder on House Manual and import the finish schedule.",
       "commits": [
@@ -507,6 +507,13 @@
           "time": "12:49",
           "sha": "b2c9dea",
           "subject": "companion: house manual selections as growing paragraphs, and sub-sections",
+          "files": "src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "12:53",
+          "sha": "e231a0b",
+          "subject": "companion: house manual title style - font, size, weight, spacing, wrapping, line breaks",
           "files": "src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
         }
       ]
