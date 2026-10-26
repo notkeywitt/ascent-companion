@@ -12,6 +12,8 @@ import {
   PageHeader,
   QuietInput,
   quietInputCls,
+  Checkbox,
+  Segmented,
   SectionHeading,
   Select,
   Textarea,
@@ -19,7 +21,17 @@ import {
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { manualHtml, mergeSections, type HouseManual, type JobVendor, type ManualContact, type ManualItem } from "@/lib/houseManual";
+import {
+  DEFAULT_TITLE_STYLE,
+  asManual,
+  manualHtml,
+  mergeSections,
+  type HouseManual,
+  type JobVendor,
+  type ManualContact,
+  type ManualItem,
+  type TitleStyle,
+} from "@/lib/houseManual";
 import { JobFiles } from "./JobFiles";
 
 /**
@@ -70,6 +82,136 @@ function RemoveButton({ onClick, label }: { onClick: () => void; label: string }
     >
       ✕
     </button>
+  );
+}
+
+const FONT_SUGGESTIONS = [
+  "Helvetica Neue, Helvetica, Arial, sans-serif",
+  "Georgia, serif",
+  "Times New Roman, serif",
+  "Futura, Century Gothic, sans-serif",
+  "Gill Sans, Gill Sans MT, sans-serif",
+];
+
+const WEIGHTS = [
+  ["", "Site weight"],
+  ["300", "Light"],
+  ["400", "Regular"],
+  ["500", "Medium"],
+  ["600", "Semibold"],
+  ["700", "Bold"],
+  ["800", "Heavy"],
+] as const;
+
+/** A number field where blank means 0 ("the site's value"). */
+function NumberField({
+  label,
+  value,
+  onChange,
+  step,
+  placeholder,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  step: number;
+  placeholder?: string;
+}) {
+  return (
+    <label className="block text-[12px] text-neutral-500 dark:text-neutral-400">
+      {label}
+      <QuietInput
+        type="number"
+        inputMode="decimal"
+        step={step}
+        placeholder={placeholder}
+        value={value || ""}
+        onChange={(e) => onChange(Number(e.target.value) || 0)}
+        className="mt-0.5"
+      />
+    </label>
+  );
+}
+
+/**
+ * The title's look. A blank field follows the Squarespace site; a font only
+ * shows if the site loads it.
+ */
+function TitleStyleEditor({
+  value: t,
+  onChange,
+  onReset,
+}: {
+  value: TitleStyle;
+  onChange: (patch: Partial<TitleStyle>) => void;
+  onReset: () => void;
+}) {
+  return (
+    <details className="rounded-lg border border-line px-3 py-2">
+      <summary className="cursor-pointer text-sm font-semibold">Title style</summary>
+      <div className="mt-3 space-y-3">
+        <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+          Press Enter in the title to break the line where you want it. A blank field uses the site&apos;s own style.
+        </p>
+        <label className="block text-[12px] text-neutral-500 dark:text-neutral-400">
+          Font
+          <QuietInput
+            list="title-fonts"
+            placeholder="Site heading font"
+            value={t.font}
+            onChange={(e) => onChange({ font: e.target.value })}
+            className="mt-0.5"
+          />
+          <datalist id="title-fonts">
+            {FONT_SUGGESTIONS.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <NumberField label="Size (px)" value={t.size} step={1} placeholder="Site" onChange={(size) => onChange({ size })} />
+          <label className="block text-[12px] text-neutral-500 dark:text-neutral-400">
+            Weight
+            <Select value={t.weight} onChange={(e) => onChange({ weight: e.target.value })} className="mt-0.5">
+              {WEIGHTS.map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <NumberField label="Letter spacing (em)" value={t.spacing} step={0.01} placeholder="0" onChange={(spacing) => onChange({ spacing })} />
+          <NumberField label="Line height" value={t.lineHeight} step={0.05} placeholder="Site" onChange={(lineHeight) => onChange({ lineHeight })} />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <Segmented
+            label="Wrapping"
+            value={t.wrap}
+            onChange={(wrap) => onChange({ wrap })}
+            options={[
+              { value: "balance", label: "Even lines" },
+              { value: "normal", label: "Normal" },
+              { value: "nowrap", label: "One line" },
+            ]}
+          />
+          <Segmented
+            label="Alignment"
+            value={t.align}
+            onChange={(align) => onChange({ align })}
+            options={[
+              { value: "left", label: "Left" },
+              { value: "center", label: "Center" },
+              { value: "right", label: "Right" },
+            ]}
+          />
+          <Checkbox label="Uppercase" checked={t.upper} onChange={(e) => onChange({ upper: e.target.checked })} />
+          <Checkbox label="Italic" checked={t.italic} onChange={(e) => onChange({ italic: e.target.checked })} />
+        </div>
+        <Button size="xs" variant="ghost" onClick={onReset}>
+          Reset title style
+        </Button>
+      </div>
+    </details>
   );
 }
 
@@ -159,7 +301,8 @@ function HouseManualPage() {
       .catch(() => {});
   }, []);
 
-  const html = useMemo(() => (manual ? manualHtml(manual) : ""), [manual]);
+  // Through asManual first, so the preview and the copy are exactly what Save stores.
+  const html = useMemo(() => (manual ? manualHtml(asManual(manual)!) : ""), [manual]);
 
   const edit = (fn: (m: HouseManual) => HouseManual) => {
     setManual((m) => (m ? fn(m) : m));
@@ -277,11 +420,18 @@ function HouseManualPage() {
 
             <section className="space-y-2">
               <SectionHeading>Heading</SectionHeading>
-              <Input
+              <Textarea
                 aria-label="Title"
                 placeholder="Title"
+                rows={1}
                 value={manual.title}
                 onChange={(e) => edit((m) => ({ ...m, title: e.target.value }))}
+                className="resize-y [field-sizing:content]"
+              />
+              <TitleStyleEditor
+                value={manual.titleStyle}
+                onChange={(patch) => edit((m) => ({ ...m, titleStyle: { ...m.titleStyle, ...patch } }))}
+                onReset={() => edit((m) => ({ ...m, titleStyle: DEFAULT_TITLE_STYLE }))}
               />
               <Textarea
                 aria-label="Introduction"

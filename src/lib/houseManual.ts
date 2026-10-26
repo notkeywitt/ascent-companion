@@ -70,8 +70,44 @@ export interface ManualSource {
   isFolder: boolean;
 }
 
+/**
+ * How the manual's title is set. Zero or blank means "the site's own value",
+ * so a title left alone follows the Squarespace theme. The defaults are the
+ * look the first manuals shipped with: uppercase, spaced, centred.
+ */
+export interface TitleStyle {
+  /** A CSS font-family the Squarespace site loads; blank = the site's heading font. */
+  font: string;
+  /** px; 0 = the site's h2 size. */
+  size: number;
+  /** "" = the site's weight. */
+  weight: string;
+  italic: boolean;
+  upper: boolean;
+  /** Letter spacing in em. */
+  spacing: number;
+  /** Unitless; 0 = the site's. */
+  lineHeight: number;
+  align: "left" | "center" | "right";
+  /** normal = the browser's; balance = even line lengths; nowrap = one line (until a typed break). */
+  wrap: "normal" | "balance" | "nowrap";
+}
+
+export const DEFAULT_TITLE_STYLE: TitleStyle = {
+  font: "",
+  size: 0,
+  weight: "",
+  italic: false,
+  upper: true,
+  spacing: 0.08,
+  lineHeight: 0,
+  align: "center",
+  wrap: "balance",
+};
+
 export interface HouseManual {
   title: string;
+  titleStyle: TitleStyle;
   intro: string;
   contacts: ManualContact[];
   sections: ManualSection[];
@@ -111,7 +147,7 @@ export function draftManual(jobName: string, specs: SpecList | null, jtSpecs: Jt
           items: [{ label: s.name, value: s.description.trim(), url: "" }],
         })),
       );
-  return { title: jobName, intro: "", contacts: [], sections, links: [], sources: [] };
+  return { title: jobName, titleStyle: DEFAULT_TITLE_STYLE, intro: "", contacts: [], sections, links: [], sources: [] };
 }
 
 /** A spec list as manual sections: one per room, only the rows with a spec. */
@@ -154,8 +190,24 @@ export function asManual(v: unknown): HouseManual | null {
   const s = (x: unknown) => (typeof x === "string" ? x : "");
   const arr = (x: unknown) => (Array.isArray(x) ? (x as Record<string, unknown>[]).filter((y) => y && typeof y === "object") : []);
   const items = (x: unknown) => arr(x).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url) }));
+  const t = (o.titleStyle && typeof o.titleStyle === "object" ? o.titleStyle : {}) as Record<string, unknown>;
+  const d = DEFAULT_TITLE_STYLE;
+  const num = (x: unknown, fallback: number, min: number, max: number) =>
+    typeof x === "number" && Number.isFinite(x) ? Math.min(max, Math.max(min, x)) : fallback;
+  const pick = <T extends string>(x: unknown, ok: readonly T[], fallback: T) => (ok.includes(x as T) ? (x as T) : fallback);
   return {
     title: s(o.title),
+    titleStyle: {
+      font: s(t.font).replace(/[^\w\s,'"-]/g, "").slice(0, 120),
+      size: num(t.size, d.size, 0, 200),
+      weight: pick(String(t.weight ?? ""), ["", "300", "400", "500", "600", "700", "800"], d.weight),
+      italic: typeof t.italic === "boolean" ? t.italic : d.italic,
+      upper: typeof t.upper === "boolean" ? t.upper : d.upper,
+      spacing: num(t.spacing, d.spacing, -0.1, 1),
+      lineHeight: num(t.lineHeight, d.lineHeight, 0, 3),
+      align: pick(t.align, ["left", "center", "right"] as const, d.align),
+      wrap: pick(t.wrap, ["normal", "balance", "nowrap"] as const, d.wrap),
+    },
     intro: s(o.intro),
     contacts: arr(o.contacts).map((c) => ({
       ...(s(c.vendorId) ? { vendorId: s(c.vendorId) } : {}),
@@ -210,7 +262,7 @@ const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
 /** Inherits the site's fonts and colours, so it sits in any Squarespace theme. */
 const CSS = `
 .am{max-width:760px;margin:0 auto;color:inherit;font:inherit}
-.am h2{text-transform:uppercase;letter-spacing:.08em;text-align:center;margin:0 0 1.5em}
+.am h2{margin:0 0 1.5em}
 .am .am-intro{text-align:center;margin:0 0 2em}
 .am details{border-top:1px solid currentColor}
 .am details:last-of-type{border-bottom:1px solid currentColor}
@@ -240,6 +292,27 @@ const itemRows = (items: ManualItem[]) =>
     .filter((i) => i.label.trim() || i.value.trim())
     .map((i) => `<dt>${esc(i.label)}</dt><dd>${link(i.value, i.url)}</dd>`);
 
+/**
+ * The title's inline style. Every value has already been through `asManual`,
+ * so a font name carries no character that could close the attribute.
+ * A large size is capped by the screen width so a one-line title still fits
+ * on a phone.
+ */
+export function titleCss(t: TitleStyle): string {
+  const css = [
+    t.font.trim() && `font-family:${t.font.trim()}`,
+    t.size > 0 && `font-size:min(${t.size}px,${Math.round(t.size / 4)}vw)`,
+    t.weight && `font-weight:${t.weight}`,
+    t.italic && "font-style:italic",
+    `text-transform:${t.upper ? "uppercase" : "none"}`,
+    `letter-spacing:${t.spacing}em`,
+    t.lineHeight > 0 && `line-height:${t.lineHeight}`,
+    `text-align:${t.align}`,
+    t.wrap === "nowrap" ? "white-space:nowrap" : t.wrap === "balance" ? "text-wrap:balance" : "",
+  ];
+  return css.filter(Boolean).join(";");
+}
+
 /** The manual as one paste-ready HTML block (scoped styles + content). */
 export function manualHtml(m: HouseManual): string {
   const contacts = m.contacts
@@ -266,7 +339,7 @@ export function manualHtml(m: HouseManual): string {
   return [
     `<style>${CSS}</style>`,
     `<div class="am">`,
-    m.title.trim() && `<h2>${esc(m.title)}</h2>`,
+    m.title.trim() && `<h2 style="${esc(titleCss(m.titleStyle))}">${escLines(m.title)}</h2>`,
     m.intro.trim() && `<p class="am-intro">${esc(m.intro)}</p>`,
     details("Contacts", dl(contacts)),
     ...sections,

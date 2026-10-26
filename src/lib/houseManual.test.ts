@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asManual, draftManual, driveIdFromLink, manualHtml, mergeSections, type HouseManual } from "@/lib/houseManual";
+import { DEFAULT_TITLE_STYLE, asManual, draftManual, driveIdFromLink, manualHtml, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
 import type { SpecList, SpecRow } from "@/lib/specList";
 
 const row = (over: Partial<SpecRow>): SpecRow => ({
@@ -34,6 +34,7 @@ describe("draftManual", () => {
 describe("manualHtml", () => {
   const m: HouseManual = {
     title: "Cherry <Tree>",
+    titleStyle: DEFAULT_TITLE_STYLE,
     intro: "",
     contacts: [
       { trade: "HVAC", name: "Barron", phone: "360 685-9618", email: "", url: "barronheating.com" },
@@ -56,7 +57,7 @@ describe("manualHtml", () => {
   const html = manualHtml(m);
 
   it("escapes text and drops unsafe links", () => {
-    expect(html).toContain("<h2>Cherry &lt;Tree&gt;</h2>");
+    expect(html).toContain(">Cherry &lt;Tree&gt;</h2>");
     expect(html).not.toContain("javascript:");
     expect(html).toContain("<dd>Bosch</dd>");
   });
@@ -83,7 +84,7 @@ describe("asManual", () => {
   it("drops malformed fields", () => {
     expect(asManual({ sections: [{ title: "Old", items: [] }] })?.sections).toEqual([{ title: "Old", items: [], subsections: [] }]);
     expect(asManual({ title: 5, contacts: [{ name: "A", vendorId: "" }, null], sections: "x" })).toEqual({
-      title: "", intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], links: [], sources: [],
+      title: "", titleStyle: DEFAULT_TITLE_STYLE, intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], links: [], sources: [],
     });
     expect(asManual(null)).toBeNull();
   });
@@ -112,5 +113,31 @@ describe("driveIdFromLink", () => {
     expect(driveIdFromLink("https://docs.google.com/document/d/1knkfLrf7ne2epoetKL4lWyFgolrjoQN4ztFb1T5YQvU/edit")).toBe("1knkfLrf7ne2epoetKL4lWyFgolrjoQN4ztFb1T5YQvU");
     expect(driveIdFromLink("https://drive.google.com/open?id=16Dfxhkm6EOze0THWFmS5pONrZ8vwi1ML")).toBe("16Dfxhkm6EOze0THWFmS5pONrZ8vwi1ML");
     expect(driveIdFromLink("not a link")).toBe("");
+  });
+});
+
+describe("title style", () => {
+  it("defaults to the shipped look, and an old manual keeps it", () => {
+    expect(asManual({ title: "A" })?.titleStyle).toEqual(DEFAULT_TITLE_STYLE);
+    expect(titleCss(DEFAULT_TITLE_STYLE)).toBe("text-transform:uppercase;letter-spacing:0.08em;text-align:center;text-wrap:balance");
+  });
+
+  it("writes the chosen font, size, weight and wrap, and keeps typed line breaks", () => {
+    const m = asManual({
+      title: "Cherry\nTree",
+      titleStyle: { font: "Georgia, serif", size: 64, weight: "300", italic: true, upper: false, spacing: 0, lineHeight: 1.1, align: "left", wrap: "nowrap" },
+    })!;
+    expect(titleCss(m.titleStyle)).toBe(
+      "font-family:Georgia, serif;font-size:min(64px,16vw);font-weight:300;font-style:italic;text-transform:none;letter-spacing:0em;line-height:1.1;text-align:left;white-space:nowrap",
+    );
+    expect(manualHtml(m)).toContain(">Cherry<br>Tree</h2>");
+  });
+
+  it("strips anything from a font name that could break out of the style", () => {
+    const m = asManual({ titleStyle: { font: 'x;}" onload="alert(1)<>', size: 9999, weight: "bold" } })!;
+    expect(m.titleStyle.font).not.toMatch(/[;<>(){}]/);
+    expect(m.titleStyle.size).toBe(200);
+    expect(m.titleStyle.weight).toBe("");
+    expect(manualHtml({ ...m, title: "T" })).not.toContain('" onload');
   });
 });
