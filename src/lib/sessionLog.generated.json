@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T19:15:44Z",
+  "generatedAt": "2026-10-26T19:21:40Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T19:15:44Z",
+      "updated": "2026-10-26T19:21:40Z",
       "goal": "",
-      "next": "Open Job Board, unfold Complete, confirm the Phase=Complete jobs show.",
+      "next": "Owner runs ./deploy.sh in ascent-appscript (JobFiles.js); then link the Seely Spec Selections folder on House Manual and import the finish schedule.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -494,6 +494,13 @@
           "sha": "10f74e1",
           "subject": "companion: add a complete row to the job board",
           "files": "src/app/api/job-board/route.ts, src/app/job-board/JobBoardPage.tsx, src/lib/jobBoard.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "12:21",
+          "sha": "99cc176",
+          "subject": "companion: link drive files to the house manual and import selections from them",
+          "files": "CODEBASE_MAP.md, src/app/api/house-manual/drive/route.ts, src/app/api/specs/route.ts, src/app/house-manual/JobFiles.tsx, src/app/house-manual/page.tsx, src/lib/houseManual.test.ts, +2 more"
         }
       ]
     },
