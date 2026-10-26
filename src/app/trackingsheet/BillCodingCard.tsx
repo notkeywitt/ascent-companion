@@ -1733,7 +1733,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             </>
           }
         >
-          <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} />
+          <CostCodeSelect options={codeOptions} value={bulkCode} onChange={setBulkCode} inline />
         </Dialog>
       )}
 

@@ -221,7 +221,7 @@ export function TimeSyncEditor({
             {costsLoading ? (
               <p className="text-sm text-neutral-500">Loading cost codes…</p>
             ) : costItems.length ? (
-              <CostCodeSelect options={costItems} value={costItemId} onChange={setCostItemId} />
+              <CostCodeSelect options={costItems} value={costItemId} onChange={setCostItemId} inline />
             ) : (
               <p className="text-sm text-neutral-500">{jobId ? "This job has no line that takes time." : "Pick a job first."}</p>
             )}

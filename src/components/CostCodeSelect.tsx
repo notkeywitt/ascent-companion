@@ -149,10 +149,14 @@ export function CostCodeSelect({
   options,
   value,
   onChange,
+  inline = false,
 }: {
   options: Option[];
   value: string;
   onChange: (id: string) => void;
+  /** Open the list in the flow, pushing what follows down, instead of floating
+      over it — for a scrolling container (a Dialog) that would clip it. */
+  inline?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -216,7 +220,7 @@ export function CostCodeSelect({
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay">
+        <div className={`${inline ? "relative" : "absolute z-20"} mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay`}>
           <input
             autoFocus
             value={query}
