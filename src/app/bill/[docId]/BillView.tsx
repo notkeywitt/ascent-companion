@@ -1691,7 +1691,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             <div
               id="bill-actions"
               hidden={!drawerOpen}
-              className="max-h-[45dvh] overflow-y-auto border-t border-line py-3 dark:border-white/10"
+              className="max-h-[70dvh] overflow-y-auto border-t border-line py-3 dark:border-white/10"
             >
               {/* The bill's actions — JobTread, History, the file, the
                   needs-review note, Drive, client access, Void. The coding card

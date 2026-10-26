@@ -684,8 +684,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     }
   };
 
-  // THE BILL'S ACTIONS — the things you open or do ONCE to a bill, kept off
-  // the coding surface so the lines and Filing read without them. One list for
+  // THE BILL'S ACTIONS — the things you open or do ONCE to a bill, Filing
+  // included, kept off the coding surface so the lines read without them. One list for
   // every host: the bill page puts it in its bottom Actions drawer
   // (`actionsSlot`); the Tracking Sheets column and the popup show it in the
   // card's own Actions footer.
@@ -804,6 +804,80 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             <div className="mt-2">
               <DocumentAccess docId={bill.id} scopeLabel="this bill" />
             </div>
+          )}
+        </div>
+      )}
+
+      {/* Filing — bill number, billing month and job. Writes-gated like the
+          rest of the card, and hidden on an invoiced bill, whose month and
+          job are fixed by what the client was already sent. */}
+      {writes && !bill.invoiced && (
+        <div>
+          <SectionLabel className="mb-1.5">Filing</SectionLabel>
+          {/* Vendor Bill Number (JobTread externalId) — the invoice/bill
+        number, editable here; commits on blur. JobTread's own
+        document number shows as the placeholder when it's unset. */}
+          <Label htmlFor="filing-bill-number">Bill number</Label>
+          <input
+            id="filing-bill-number"
+            type="text"
+            value={billNumberDraft}
+            maxLength={32}
+            disabled={billNumberSaving || monthSaving || reassigning}
+            onChange={(e) => setBillNumberDraft(e.target.value)}
+            onBlur={saveBillNumber}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") e.currentTarget.blur();
+            }}
+            placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
+            className={`${quietSm} mb-3 h-9 w-full px-2.5 font-mono`}
+          />
+          <Label htmlFor="filing-billing-month">Billing month</Label>
+          <Select
+            id="filing-billing-month"
+            className="!py-1.5 !text-xs"
+            disabled={monthSaving || reassigning}
+            value={(bill.issueDate ?? "").slice(0, 7)}
+            onChange={(e) => setBillingMonth(e.target.value)}
+          >
+            <option value="">— set billing month —</option>
+            {monthOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+
+          {/* Draft-only, like the bill page: JobTread locks a
+        committed bill, and the move is a delete+recreate. */}
+          {math.isDraft && (
+            <div className="mt-3">
+              <Label>Move to job</Label>
+              {/* The picker is an action here, not a selection — what
+            it displays stays this board's job — so the move runs
+            off onSelect, which also hands back the label the
+            confirm and the banner name. */}
+              <JobPicker
+                value={jobId}
+                includeAll={false}
+                placeholder={c("recode.placeholder.chooseJob")}
+                onChange={() => {}}
+                onSelect={(j) => {
+                  if (j) reassignJob(j);
+                }}
+              />
+            </div>
+          )}
+
+          {(monthSaving || reassigning) && (
+            <p className="mt-1.5 text-[11px] text-neutral-400">
+              {reassigning ? "Moving…" : "Saving…"}
+            </p>
+          )}
+          {filingMsg && (
+            <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+              {filingMsg}
+            </Banner>
           )}
         </div>
       )}
@@ -980,7 +1054,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             <div
               className={
                 // Standalone on a desktop, the scan and the bill sit side by side:
-                // the scan pinned on the left, the lines and Filing scrolling on
+                // the scan pinned on the left, the lines scrolling on
                 // the right. A phone keeps the one column.
                 standalone
                   ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6"
@@ -1486,82 +1560,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </div>
               )}
 
-              {/* Filing — the bill page's Filing card, in the panel where the
-            invoice is already on screen: both answers are read off the
-            document, so they sit AFTER it, same as on /bill. Writes-
-            gated like the rest of the card, and hidden on an invoiced
-            bill, whose month and job are fixed by what the client was
-            already sent. */}
-              {writes && !bill.invoiced && (
-                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                  <SectionLabel className="mb-1.5">Filing</SectionLabel>
-                  {/* Vendor Bill Number (JobTread externalId) — the invoice/bill
-                number, editable here; commits on blur. JobTread's own
-                document number shows as the placeholder when it's unset. */}
-                  <Label htmlFor="filing-bill-number">Bill number</Label>
-                  <input
-                    id="filing-bill-number"
-                    type="text"
-                    value={billNumberDraft}
-                    maxLength={32}
-                    disabled={billNumberSaving || monthSaving || reassigning}
-                    onChange={(e) => setBillNumberDraft(e.target.value)}
-                    onBlur={saveBillNumber}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") e.currentTarget.blur();
-                    }}
-                    placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
-                    className={`${quietSm} mb-3 h-9 w-full px-2.5 font-mono`}
-                  />
-                  <Label htmlFor="filing-billing-month">Billing month</Label>
-                  <Select
-                    id="filing-billing-month"
-                    className="!py-1.5 !text-xs"
-                    disabled={monthSaving || reassigning}
-                    value={(bill.issueDate ?? "").slice(0, 7)}
-                    onChange={(e) => setBillingMonth(e.target.value)}
-                  >
-                    <option value="">— set billing month —</option>
-                    {monthOptions.map((o) => (
-                      <option key={o.value} value={o.value}>
-                        {o.label}
-                      </option>
-                    ))}
-                  </Select>
-
-                  {/* Draft-only, like the bill page: JobTread locks a
-                committed bill, and the move is a delete+recreate. */}
-                  {math.isDraft && (
-                    <div className="mt-3">
-                      <Label>Move to job</Label>
-                      {/* The picker is an action here, not a selection — what
-                    it displays stays this board's job — so the move runs
-                    off onSelect, which also hands back the label the
-                    confirm and the banner name. */}
-                      <JobPicker
-                        value={jobId}
-                        includeAll={false}
-                        placeholder={c("recode.placeholder.chooseJob")}
-                        onChange={() => {}}
-                        onSelect={(j) => {
-                          if (j) reassignJob(j);
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {(monthSaving || reassigning) && (
-                    <p className="mt-1.5 text-[11px] text-neutral-400">
-                      {reassigning ? "Moving…" : "Saving…"}
-                    </p>
-                  )}
-                  {filingMsg && (
-                    <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
-                      {filingMsg}
-                    </Banner>
-                  )}
-                </div>
-              )}
               </div>
             </div>
 
@@ -1584,7 +1582,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   </span>
                   {footerOpen ? "Hide actions" : "Actions"}
                 </button>
-                <div hidden={!footerOpen} className="max-h-[45dvh] overflow-y-auto px-3 pb-3">
+                <div hidden={!footerOpen} className="max-h-[70dvh] overflow-y-auto px-3 pb-3">
                   {billActions}
                 </div>
               </div>
