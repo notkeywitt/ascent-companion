@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-26 | 62 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-26 | 63 | — |
 | [sunset-bill-bulk-expense](.claude/sessions/2026-10-23-sunset-bill-bulk-expense.md) | 2026-10-23 | 3 | — |
 | [wizardly-goodall](.claude/sessions/2026-10-23-wizardly-goodall.md) | 2026-10-23 | 1 | New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Dr… |
 | [jobtread-email-records](.claude/sessions/2026-10-20-jobtread-email-records.md) | 2026-10-20 | 2 | — |
