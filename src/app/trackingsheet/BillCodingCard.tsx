@@ -5,17 +5,19 @@ import { createPortal } from "react-dom";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
-import { JtLink } from "@/components/JtLink";
 import { useAccess } from "@/components/AccessProvider";
 import {
   Banner,
   Button,
   Card,
   Checkbox,
+  Chip,
   Dialog,
   EmptyState,
   Input,
   Label,
+  ListCard,
+  ListRow,
   SectionLabel,
   Select,
   Spinner,
@@ -351,6 +353,8 @@ export interface CodingCardCtl {
       way the markup is this card's, so every host shows the same list.
       `null` means the host's menu has not mounted yet — render nothing. */
   actionsSlot?: HTMLElement | null;
+  /** A host's own action, shown in the actions list above Void. */
+  extraActions?: React.ReactNode;
 
   /* ---- filing ---- */
   billNumberDraft: string;
@@ -429,6 +433,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     scrollWithPage = false,
     scanMaxHClass = "max-h-[32rem]",
     actionsSlot,
+    extraActions,
     billNumberDraft,
     setBillNumberDraft,
     saveBillNumber,
@@ -684,179 +689,110 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     }
   };
 
-  // THE BILL'S ACTIONS — the things you open or do ONCE to a bill, Filing
-  // included, kept off the coding surface so the lines read without them. One list for
-  // every host: the bill page puts it in its bottom Actions drawer
-  // (`actionsSlot`); the Tracking Sheets column and the popup show it in the
-  // card's own Actions footer.
-  const linkCls = "text-xs font-semibold text-accent dark:text-accent-soft";
+  // THE BILL'S ACTIONS — the things you open or do ONCE to a bill, kept off the
+  // coding surface so the lines read without them. One list for every host:
+  // the bill page puts it in its bottom Actions drawer (`actionsSlot`); the
+  // Tracking Sheets column and the popup show it in the card's own footer.
+  //
+  // One layout rule throughout: every section is a caption, a quiet line
+  // saying what it is for, then its control. Places to GO are rows in one
+  // list (↗ leaves the app, › stays in it). Things to DO are full-width
+  // buttons — secondary, except Void, which is last and the only red one.
   const actionFiles = shownFiles.filter((f) => f.url);
+  const actionNote = "mb-2 text-[11px] text-neutral-500 dark:text-neutral-400";
+  const actionBtn = "w-full";
   const billActions = bill ? (
-    <div className="space-y-4 divide-y divide-line-soft text-left [&>*+*]:pt-4">
-      <div className="flex flex-col gap-1">
-        <JtLink href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`} className={linkCls}>
-          Open in JobTread ↗
-        </JtLink>
-        {/* Every write the app made to this bill, from the Financial Journal —
-            only for someone who can open it (admin by default). */}
-        {canJournal && (
-          <a href={`/journal?docId=${encodeURIComponent(bill.id)}`} className={linkCls}>
-            History
-          </a>
-        )}
-        {actionFiles.map((f) => (
-          <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className={`${linkCls} break-all`}>
-            Open {f.name || "the file"} ↗
-          </a>
-        ))}
-      </div>
-
-      {/* Needs review — the note on a flagged bill: a correction this app cannot
-          make itself (a paid, invoiced or QuickBooks-pushed bill). Companion-
-          local, NOT a JobTread write, so an invoiced bill still gets it. The
-          flag itself is the button on the bill. */}
-      {review && (
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <SectionLabel>Needs review</SectionLabel>
-            {review.flagged && (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                ⚑ Flagged
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-            For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed bill that
-            needs work in JobTread or QuickBooks.
-          </p>
-          <Textarea
-            value={review.note}
-            onChange={(e) => review.setNote(e.target.value)}
-            placeholder="What needs fixing?"
-            rows={2}
-            className="mt-2"
+    <div className="divide-y divide-line-soft text-left [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0">
+      <section>
+        <SectionLabel className="mb-2">Open</SectionLabel>
+        <ListCard>
+          <ListRow
+            href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`}
+            external
+            label="JobTread"
+            desc="This bill in JobTread"
           />
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={review.saving}
-              onClick={() => review.save(true)}
-              title="Saves the note and flags the bill"
-            >
-              {review.saving ? <Spinner className="mr-1.5" /> : null}
-              {review.flagged ? "Save note" : "Save note and flag"}
-            </Button>
-            {review.msg && (
-              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">{review.msg}</span>
-            )}
-          </div>
-          {review.flagged && review.by && (
-            <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-              Flagged by {review.by}
-              {review.at
-                ? ` · ${new Date(review.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
-                : ""}
-            </p>
+          {actionFiles.map((f) => (
+            <ListRow key={f.id} href={f.url} external label="Invoice" desc={f.name || "The attached file"} />
+          ))}
+          {/* The Drive backup the hourly mirror keeps. Its filename is the one
+              the re-file pipeline rewrites from this bill's coding, so it is
+              where you check that a recode reached the filed backup. */}
+          {drive?.fileUrl && (
+            <ListRow
+              href={drive.fileUrl}
+              external
+              label="Drive backup"
+              desc={drive.fileName || "The filed PDF"}
+            />
           )}
-        </div>
-      )}
-
-      {/* In Google Drive — the durable backup the hourly mirror keeps. The
-          filename is the one the re-file pipeline rewrites from this bill's
-          coding, so it is where you check that a recode reached the filed
-          backup. Read-only, so NOT writes-gated. */}
-      {drive && (drive.fileUrl || drive.folderUrl) && (
-        <div>
-          <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
-          {drive.fileName && (
-            <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
-              {drive.fileName}
-            </p>
+          {drive?.folderUrl && (
+            <ListRow
+              href={drive.folderUrl}
+              external
+              label="Drive folder"
+              desc={drive.folderName || "Where the backup is filed"}
+            />
           )}
-          <div className="flex flex-col gap-1">
-            {drive.fileUrl && (
-              <a href={drive.fileUrl} target="_blank" rel="noreferrer" className={linkCls}>
-                Open the file in Drive ↗
-              </a>
-            )}
-            {drive.folderUrl && (
-              <a href={drive.folderUrl} target="_blank" rel="noreferrer" className={linkCls}>
-                Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
-              </a>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Client access — this bill on the client's "Document Access" list in
-          JobTread. Not hidden on an invoiced bill: that is exactly the one a
-          client asks to see. */}
-      {writes && (
-        <div>
-          <div className="flex items-center justify-between gap-2">
-            <SectionLabel>Client access</SectionLabel>
-            <Button variant="outline" size="sm" onClick={() => setAccessOpen((o) => !o)}>
-              {accessOpen ? "Hide" : "Share this bill"}
-            </Button>
-          </div>
-          {accessOpen && (
-            <div className="mt-2">
-              <DocumentAccess docId={bill.id} scopeLabel="this bill" />
-            </div>
+          {/* Every write the app made to this bill, from the Financial Journal —
+              only for someone who can open it (admin by default). */}
+          {canJournal && (
+            <ListRow
+              href={`/journal?docId=${encodeURIComponent(bill.id)}`}
+              label="History"
+              desc="Every change the app made to this bill"
+            />
           )}
-        </div>
-      )}
+        </ListCard>
+      </section>
 
       {/* Filing — bill number, billing month and job. Writes-gated like the
           rest of the card, and hidden on an invoiced bill, whose month and
           job are fixed by what the client was already sent. */}
       {writes && !bill.invoiced && (
-        <div>
-          <SectionLabel className="mb-1.5">Filing</SectionLabel>
-          {/* Vendor Bill Number (JobTread externalId) — the invoice/bill
-        number, editable here; commits on blur. JobTread's own
-        document number shows as the placeholder when it's unset. */}
-          <Label htmlFor="filing-bill-number">Bill number</Label>
-          <input
-            id="filing-bill-number"
-            type="text"
-            value={billNumberDraft}
-            maxLength={32}
-            disabled={billNumberSaving || monthSaving || reassigning}
-            onChange={(e) => setBillNumberDraft(e.target.value)}
-            onBlur={saveBillNumber}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") e.currentTarget.blur();
-            }}
-            placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
-            className={`${quietSm} mb-3 h-9 w-full px-2.5 font-mono`}
-          />
-          <Label htmlFor="filing-billing-month">Billing month</Label>
-          <Select
-            id="filing-billing-month"
-            className="!py-1.5 !text-xs"
-            disabled={monthSaving || reassigning}
-            value={(bill.issueDate ?? "").slice(0, 7)}
-            onChange={(e) => setBillingMonth(e.target.value)}
-          >
-            <option value="">— set billing month —</option>
-            {monthOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-
-          {/* Draft-only, like the bill page: JobTread locks a
-        committed bill, and the move is a delete+recreate. */}
+        <section className="space-y-3">
+          <SectionLabel>Filing</SectionLabel>
+          {/* Vendor Bill Number (JobTread externalId); commits on blur.
+              JobTread's own document number is the placeholder when unset. */}
+          <div>
+            <Label htmlFor="filing-bill-number">Bill number</Label>
+            <Input
+              id="filing-bill-number"
+              type="text"
+              value={billNumberDraft}
+              maxLength={32}
+              disabled={billNumberSaving || monthSaving || reassigning}
+              onChange={(e) => setBillNumberDraft(e.target.value)}
+              onBlur={saveBillNumber}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+              }}
+              placeholder={bill.number ? `#${bill.number}` : "Invoice / bill number"}
+              className="font-mono"
+            />
+          </div>
+          <div>
+            <Label htmlFor="filing-billing-month">Billing month</Label>
+            <Select
+              id="filing-billing-month"
+              disabled={monthSaving || reassigning}
+              value={(bill.issueDate ?? "").slice(0, 7)}
+              onChange={(e) => setBillingMonth(e.target.value)}
+            >
+              <option value="">— set billing month —</option>
+              {monthOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          {/* Draft-only: JobTread locks a committed bill, and the move is a
+              delete+recreate. The picker is an action, not a selection — what
+              it displays stays this bill's job — so the move runs off onSelect. */}
           {math.isDraft && (
-            <div className="mt-3">
+            <div>
               <Label>Move to job</Label>
-              {/* The picker is an action here, not a selection — what
-            it displays stays this board's job — so the move runs
-            off onSelect, which also hands back the label the
-            confirm and the banner name. */}
               <JobPicker
                 value={jobId}
                 includeAll={false}
@@ -868,36 +804,109 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               />
             </div>
           )}
-
           {(monthSaving || reassigning) && (
-            <p className="mt-1.5 text-[11px] text-neutral-400">
+            <p className="text-[11px] text-neutral-500 dark:text-neutral-400">
               {reassigning ? "Moving…" : "Saving…"}
             </p>
           )}
           {filingMsg && (
-            <Banner tone="neutral" className="mt-1.5 !px-2 !py-1.5 !text-[11px]">
+            <Banner tone="neutral" className="!px-2 !py-1.5 !text-[11px]">
               {filingMsg}
             </Banner>
           )}
-        </div>
+        </section>
       )}
+
+      {/* Needs review — the note on a flagged bill: a correction this app cannot
+          make itself. Companion-local, NOT a JobTread write, so an invoiced
+          bill still gets it. The flag itself is the button on the bill. */}
+      {review && (
+        <section>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <SectionLabel>Needs review</SectionLabel>
+            {review.flagged && <Chip tone="warning">⚑ Flagged</Chip>}
+          </div>
+          <p className={actionNote}>
+            For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed bill that
+            needs work in JobTread or QuickBooks.
+          </p>
+          <Textarea
+            value={review.note}
+            onChange={(e) => review.setNote(e.target.value)}
+            placeholder="What needs fixing?"
+            rows={2}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            className={`mt-2 ${actionBtn}`}
+            disabled={review.saving}
+            onClick={() => review.save(true)}
+            title="Saves the note and flags the bill"
+          >
+            {review.saving ? <Spinner className="mr-1.5" /> : null}
+            {review.flagged ? "Save note" : "Save note and flag"}
+          </Button>
+          {(review.msg || (review.flagged && review.by)) && (
+            <p className="mt-1.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+              {review.msg ||
+                `Flagged by ${review.by}${
+                  review.at
+                    ? ` · ${new Date(review.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                    : ""
+                }`}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Client access — this bill on the client's "Document Access" list in
+          JobTread. Not hidden on an invoiced bill: that is exactly the one a
+          client asks to see. */}
+      {writes && (
+        <section>
+          <SectionLabel className="mb-2">Client access</SectionLabel>
+          <p className={actionNote}>Let the client open this vendor invoice in JobTread.</p>
+          <Button
+            variant="secondary"
+            size="sm"
+            className={actionBtn}
+            onClick={() => setAccessOpen((o) => !o)}
+          >
+            {accessOpen ? "Hide client access" : "Share this bill"}
+          </Button>
+          {accessOpen && (
+            <div className="mt-2">
+              <DocumentAccess docId={bill.id} scopeLabel="this bill" />
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* The host's own actions (the bill page's tracking-sheet push). */}
+      {/* `empty:hidden`: the push renders nothing for a job with no sheet. */}
+      {extraActions && <section className="empty:hidden">{extraActions}</section>}
 
       {/* Delete = VOID. Not offered on an invoiced bill: its figures are
           already on the client's invoice. Last, so it is never the first
           thing a thumb lands on. */}
       {onVoided && writes && !bill.invoiced && (
-        <div>
+        <section>
+          <SectionLabel className="mb-2">Void</SectionLabel>
+          <p className={actionNote}>
+            Voids it in JobTread, removes it from the tracking sheet and bins its PDF.
+          </p>
           <Button
             variant="danger"
             size="sm"
+            className={actionBtn}
             onClick={() => void voidBill()}
             disabled={voiding}
-            title="Void in JobTread, remove from the tracking sheet, bin the PDF"
           >
             {voiding ? "Voiding…" : "Void this bill"}
           </Button>
-          {voidMsg && <p className="mt-1 text-[11px] text-danger">{voidMsg}</p>}
-        </div>
+          {voidMsg && <p className="mt-1.5 text-[11px] text-danger">{voidMsg}</p>}
+        </section>
       )}
     </div>
   ) : null;

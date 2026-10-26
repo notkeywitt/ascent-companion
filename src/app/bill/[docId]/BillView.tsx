@@ -1353,6 +1353,17 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
     // Not a sticky column here — the scan can be as tall as it wants.
     scanMaxHClass: "max-h-[70dvh]",
     actionsSlot,
+    // Push this bill's billing month into the job's tracking sheet — the month
+    // of its Invoice Date, which IS its billing month. Renders nothing if the
+    // job has no tracking sheet.
+    extraActions:
+      jobId && header?.issueDate ? (
+        <TrackingSheetSyncFor
+          jtJobId={jobId}
+          ym={header.issueDate.slice(0, 7)}
+          monthLabel={monthLabel(header.issueDate.slice(0, 7))}
+        />
+      ) : null,
 
     billNumberDraft: billNumber,
     setBillNumberDraft: setBillNumber,
@@ -1711,26 +1722,11 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
               hidden={!drawerOpen}
               className="max-h-[70dvh] overflow-y-auto border-t border-line py-3 dark:border-white/10"
             >
-              {/* The bill's actions — JobTread, History, the file, the
-                  needs-review note, Drive, client access, Void. The coding card
-                  renders them here (`actionsSlot`), the same list the Tracking
-                  Sheets column shows in its Actions footer. */}
+              {/* The bill's actions — the coding card renders them here
+                  (`actionsSlot`), the same list the Tracking Sheets column
+                  shows in its Actions footer, plus this page's tracking-sheet
+                  push (`extraActions`). */}
               <div ref={setActionsSlot} />
-
-              {/* Push this bill's billing month into the job's tracking sheet.
-                  The sheet reads costCode off each bill line, so it belongs
-                  with the actions you reach for once the coding is settled.
-                  The month comes from the bill's own Invoice Date, which IS
-                  its billing month. Renders nothing if the job has no
-                  tracking sheet. */}
-              {jobId && header?.issueDate && (
-                <TrackingSheetSyncFor
-                  jtJobId={jobId}
-                  ym={header.issueDate.slice(0, 7)}
-                  monthLabel={monthLabel(header.issueDate.slice(0, 7))}
-                  className="mt-4"
-                />
-              )}
             </div>
 
             <div
