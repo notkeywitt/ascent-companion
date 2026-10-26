@@ -4,7 +4,6 @@ import { Suspense, useEffect, useRef, useState, type MouseEvent } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { type Option } from "@/components/CostCodeSelect";
-import { JtLink } from "@/components/JtLink";
 import { jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
 import { PageTitle } from "@/components/PageTitle";
@@ -18,7 +17,6 @@ import {
   MetaLine,
   SectionHeading,
   StatementBlock,
-  btn,
 } from "@/components/ui";
 import { TrackingSheetSyncFor } from "@/components/TrackingSheetSync";
 import { billLineMath, recodeLog } from "@/lib/billLineMath";
@@ -57,8 +55,9 @@ interface Header {
   name?: string;
   subject?: string;
   fromName?: string;
-  /** The bill's own job. */
+  /** The bill's own job and its customer. */
   jobName?: string;
+  customerName?: string;
   number?: string;
   externalId?: string;
   status?: string;
@@ -286,6 +285,8 @@ function BillDetail() {
   // reviewed, tracking-sheet sync). Collapsed by default so the save row and
   // the bill itself keep the screen; the panel is hidden, not unmounted.
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // The coding card renders the bill's actions into this, inside the drawer.
+  const [actionsSlot, setActionsSlot] = useState<HTMLElement | null>(null);
   // Bumped whenever the cache is dropped, so the prefetch effect re-warms the
   // neighbours after a write instead of leaving them cold until you navigate.
   const [cacheEpoch, setCacheEpoch] = useState(0);
@@ -453,7 +454,9 @@ function BillDetail() {
   const vendor = header?.fromName || header?.subject || header?.name || "Vendor bill";
   // Sunset keeps "Vendor \u00b7 Invoice ID"; every other vendor shows just its name.
   const isSunsetBill = /sunset/i.test(vendor);
-  const title = [isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor, header?.jobName]
+  // "Customer - Job" after the vendor, so the title says whose bill it is.
+  const job = [header?.customerName, header?.jobName].filter(Boolean).join(" - ");
+  const title = [isSunsetBill && invId ? `${vendor} \u00b7 ${invId}` : vendor, job]
     .filter(Boolean)
     .join(" \u00b7 ");
 
@@ -1323,6 +1326,7 @@ function BillDetail() {
     standalone: true,
     // Not a sticky column here — the scan can be as tall as it wants.
     scanMaxHClass: "max-h-[70dvh]",
+    actionsSlot,
 
     billNumberDraft: billNumber,
     setBillNumberDraft: setBillNumber,
@@ -1668,22 +1672,11 @@ function BillDetail() {
               hidden={!drawerOpen}
               className="max-h-[45dvh] overflow-y-auto border-t border-line py-3 dark:border-white/10"
             >
-              <div className="grid grid-cols-2 gap-2">
-                {jobId && (
-                  <JtLink
-                    href={`https://app.jobtread.com/jobs/${jobId}/documents/${docId}`}
-                    className={btn("outline", "md", "min-h-11 w-full")}
-                  >
-                    Open in JobTread ↗
-                  </JtLink>
-                )}
-              </div>
-
-              {/* "Mark reviewed" and the "Needs review" flag both used to sit here
-                  as well as in the coding panel. They are the panel's now — one
-                  bill, one place to say something about it — and this drawer
-                  keeps only what is genuinely the PAGE's: the way out to
-                  JobTread, the tracking-sheet push, and Save. */}
+              {/* The bill's actions — JobTread, History, the file, the
+                  needs-review note, Drive, client access, Void. The coding card
+                  renders them here (`actionsSlot`), the same list the Tracking
+                  Sheets column shows in its Actions footer. */}
+              <div ref={setActionsSlot} />
 
               {/* Push this bill's billing month into the job's tracking sheet.
                   The sheet reads costCode off each bill line, so it belongs
@@ -1696,7 +1689,7 @@ function BillDetail() {
                   jtJobId={jobId}
                   ym={header.issueDate.slice(0, 7)}
                   monthLabel={monthLabel(header.issueDate.slice(0, 7))}
-                  className="mt-2"
+                  className="mt-4"
                 />
               )}
             </div>

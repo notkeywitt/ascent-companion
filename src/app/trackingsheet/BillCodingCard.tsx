@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
@@ -343,6 +344,14 @@ export interface CodingCardCtl {
       a taller one, because there it costs nothing. */
   scanMaxHClass?: string;
 
+  /** Where the bill's actions render (the JobTread link, History, the file
+      links, the needs-review note, Drive, client access, Void). A host with
+      its own bottom actions menu (the bill page) passes an element in it;
+      without one the card shows them in an Actions footer of its own. Either
+      way the markup is this card's, so every host shows the same list.
+      `null` means the host's menu has not mounted yet — render nothing. */
+  actionsSlot?: HTMLElement | null;
+
   /* ---- filing ---- */
   billNumberDraft: string;
   setBillNumberDraft: (v: string) => void;
@@ -419,6 +428,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     standalone = false,
     scrollWithPage = false,
     scanMaxHClass = "max-h-[32rem]",
+    actionsSlot,
     billNumberDraft,
     setBillNumberDraft,
     saveBillNumber,
@@ -674,6 +684,152 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     }
   };
 
+  // THE BILL'S ACTIONS — the things you open or do ONCE to a bill, kept off
+  // the coding surface so the lines and Filing read without them. One list for
+  // every host: the bill page puts it in its bottom Actions drawer
+  // (`actionsSlot`); the Tracking Sheets column and the popup show it in the
+  // card's own Actions footer.
+  const linkCls = "text-xs font-semibold text-accent dark:text-accent-soft";
+  const actionFiles = shownFiles.filter((f) => f.url);
+  const billActions = bill ? (
+    <div className="space-y-4 divide-y divide-line-soft text-left [&>*+*]:pt-4">
+      <div className="flex flex-col gap-1">
+        <JtLink href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`} className={linkCls}>
+          Open in JobTread ↗
+        </JtLink>
+        {/* Every write the app made to this bill, from the Financial Journal —
+            only for someone who can open it (admin by default). */}
+        {canJournal && (
+          <a href={`/journal?docId=${encodeURIComponent(bill.id)}`} className={linkCls}>
+            History
+          </a>
+        )}
+        {actionFiles.map((f) => (
+          <a key={f.id} href={f.url} target="_blank" rel="noreferrer" className={`${linkCls} break-all`}>
+            Open {f.name || "the file"} ↗
+          </a>
+        ))}
+      </div>
+
+      {/* Needs review — the note on a flagged bill: a correction this app cannot
+          make itself (a paid, invoiced or QuickBooks-pushed bill). Companion-
+          local, NOT a JobTread write, so an invoiced bill still gets it. The
+          flag itself is the button on the bill. */}
+      {review && (
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel>Needs review</SectionLabel>
+            {review.flagged && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
+                ⚑ Flagged
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+            For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed bill that
+            needs work in JobTread or QuickBooks.
+          </p>
+          <Textarea
+            value={review.note}
+            onChange={(e) => review.setNote(e.target.value)}
+            placeholder="What needs fixing?"
+            rows={2}
+            className="mt-2"
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={review.saving}
+              onClick={() => review.save(true)}
+              title="Saves the note and flags the bill"
+            >
+              {review.saving ? <Spinner className="mr-1.5" /> : null}
+              {review.flagged ? "Save note" : "Save note and flag"}
+            </Button>
+            {review.msg && (
+              <span className="text-[11px] text-neutral-500 dark:text-neutral-400">{review.msg}</span>
+            )}
+          </div>
+          {review.flagged && review.by && (
+            <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
+              Flagged by {review.by}
+              {review.at
+                ? ` · ${new Date(review.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`
+                : ""}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* In Google Drive — the durable backup the hourly mirror keeps. The
+          filename is the one the re-file pipeline rewrites from this bill's
+          coding, so it is where you check that a recode reached the filed
+          backup. Read-only, so NOT writes-gated. */}
+      {drive && (drive.fileUrl || drive.folderUrl) && (
+        <div>
+          <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
+          {drive.fileName && (
+            <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
+              {drive.fileName}
+            </p>
+          )}
+          <div className="flex flex-col gap-1">
+            {drive.fileUrl && (
+              <a href={drive.fileUrl} target="_blank" rel="noreferrer" className={linkCls}>
+                Open the file in Drive ↗
+              </a>
+            )}
+            {drive.folderUrl && (
+              <a href={drive.folderUrl} target="_blank" rel="noreferrer" className={linkCls}>
+                Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Client access — this bill on the client's "Document Access" list in
+          JobTread. Not hidden on an invoiced bill: that is exactly the one a
+          client asks to see. */}
+      {writes && (
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <SectionLabel>Client access</SectionLabel>
+            <Button variant="outline" size="sm" onClick={() => setAccessOpen((o) => !o)}>
+              {accessOpen ? "Hide" : "Share this bill"}
+            </Button>
+          </div>
+          {accessOpen && (
+            <div className="mt-2">
+              <DocumentAccess docId={bill.id} scopeLabel="this bill" />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Delete = VOID. Not offered on an invoiced bill: its figures are
+          already on the client's invoice. Last, so it is never the first
+          thing a thumb lands on. */}
+      {onVoided && writes && !bill.invoiced && (
+        <div>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => void voidBill()}
+            disabled={voiding}
+            title="Void in JobTread, remove from the tracking sheet, bin the PDF"
+          >
+            {voiding ? "Voiding…" : "Void this bill"}
+          </Button>
+          {voidMsg && <p className="mt-1 text-[11px] text-danger">{voidMsg}</p>}
+        </div>
+      )}
+    </div>
+  ) : null;
+  /** The card's own Actions footer, for a host with no actions menu. */
+  const [footerOpen, setFooterOpen] = useState(false);
+
   return (
     <>
       {/* THE HEIGHT CAP GOES ON THIS WRAPPER, not on the Card, and that is the
@@ -720,22 +876,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 <p className="shrink-0 text-sm font-semibold tabular-nums">
                   {money(math.isDraft ? math.total : bill.cost)}
                 </p>
-                <JtLink
-                  href={`https://app.jobtread.com/jobs/${jobId}/documents/${bill.id}`}
-                  className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
-                >
-                  JT ↗
-                </JtLink>
-                {/* Every write the app made to this bill, from the Financial
-                    Journal — only for someone who can open it (admin by default). */}
-                {canJournal && (
-                  <a
-                    href={`/journal?docId=${encodeURIComponent(bill.id)}`}
-                    className="shrink-0 text-xs font-semibold text-neutral-400 transition hover:text-accent"
-                  >
-                    History
-                  </a>
-                )}
               </div>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
                 {/* Line count, status and the payment due date: all three answer
@@ -829,22 +969,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       {approvingBill ? "Approving…" : "Approve this bill"}
                     </Button>
                   )}
-                  {/* Delete = VOID. Not offered on an invoiced bill: its figures
-                are already on the client's invoice. */}
-                  {onVoided && writes && !bill.invoiced && (
-                    <Button
-                      variant="danger"
-                      size="xs"
-                      onClick={() => void voidBill()}
-                      disabled={voiding}
-                      title="Void in JobTread, remove from the tracking sheet, bin the PDF"
-                    >
-                      {voiding ? "Voiding…" : "Void"}
-                    </Button>
-                  )}
                 </div>
               </div>
-              {voidMsg && <p className="mt-1 text-[11px] text-danger">{voidMsg}</p>}
             </div>
 
             {/* pb-8, not pb-3: the card now ENDS above the commit bar, so this is
@@ -910,7 +1036,13 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 )}
                 <div className="space-y-2">
                   {shownFiles.map((f) => (
-                    <InvoiceAttachment key={f.id} file={f} maxHClass={scanMaxHClass} dockLeftOf={cardRef} />
+                    <InvoiceAttachment
+                      key={f.id}
+                      file={f}
+                      maxHClass={scanMaxHClass}
+                      dockLeftOf={cardRef}
+                      hideLink
+                    />
                   ))}
                 </div>
               </div>
@@ -1334,139 +1466,23 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </div>
               )}
 
-              {/* Needs review — flag a bill for a correction this app cannot make
-            itself (a paid, invoiced or QuickBooks-pushed bill), with a note
-            saying what. Companion-local, NOT a JobTread write, which is why it
-            is the one block here that an invoiced bill still gets: an invoiced
-            bill is exactly the kind that needs flagging rather than editing. */}
-              {review && (
-                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <SectionLabel>Needs review</SectionLabel>
-                    {review.flagged && (
-                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
-                        ⚑ Flagged
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                    For a fix this app can&rsquo;t make — a paid, invoiced, or QuickBooks-pushed
-                    bill that needs work in JobTread or QuickBooks.
-                  </p>
-                  <Textarea
-                    value={review.note}
-                    onChange={(e) => review.setNote(e.target.value)}
-                    placeholder="What needs fixing?"
-                    rows={2}
-                    className="mt-2"
-                  />
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
+              {/* Flag and Buy back stay on the bill: they are what you do to it.
+            The needs-review note, Drive, client access and Void are in the
+            bill's actions (`billActions` below). */}
+              {(review || buybackButton) && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3 dark:border-neutral-800">
+                  {review && (
                     <Button
                       variant={review.flagged ? "primary" : "outline"}
                       size="sm"
                       disabled={review.saving}
-                      onClick={() => review.save(true)}
-                      className={review.flagged ? "!bg-amber-600 hover:!bg-amber-700" : ""}
+                      onClick={() => review.save(!review.flagged)}
                     >
                       {review.saving ? <Spinner className="mr-1.5" /> : null}
-                      {review.flagged ? "Save note" : "⚑ Flag for review"}
+                      {review.flagged ? "Clear flag" : "⚑ Flag for review"}
                     </Button>
-                    {review.flagged && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={review.saving}
-                        onClick={() => review.save(false)}
-                      >
-                        Clear flag
-                      </Button>
-                    )}
-                    {buybackButton}
-                    {review.msg && (
-                      <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                        {review.msg}
-                      </span>
-                    )}
-                  </div>
-                  {review.flagged && review.by && (
-                    <p className="mt-2 text-[11px] text-neutral-400 dark:text-neutral-500">
-                      Flagged by {review.by}
-                      {review.at ? ` · ${new Date(review.at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}
-                    </p>
                   )}
-                </div>
-              )}
-
-              {/* No review block on this host — buyback still needs a home, in the
-            same place and the same style it has when there is one. */}
-              {!review && buybackButton && (
-                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
                   {buybackButton}
-                </div>
-              )}
-
-              {/* In Google Drive — the durable backup the hourly mirror keeps: the
-            bill's own PDF and the Customer/Job/month folder it's filed in.
-            Read-only, so it is NOT writes-gated. It sits BELOW Needs review:
-            the links are a reference you open once, and putting them above a
-            block with a text field and two buttons pushed the thing you act on
-            further down a card that is already tall. The filename is the one
-            the re-file pipeline
-            rewrites from this bill's coding, so it is where you check that a
-            recode reached the filed backup — JobTread's attachment name above
-            is set once at upload and only follows on the next sync. */}
-              {drive && (drive.fileUrl || drive.folderUrl) && (
-                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                  <SectionLabel className="mb-1.5">In Google Drive</SectionLabel>
-                  {drive.fileName && (
-                    <p className="mb-1 break-all text-[11px] text-neutral-500 dark:text-neutral-400">
-                      {drive.fileName}
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-0.5">
-                    {drive.fileUrl && (
-                      <a
-                        href={drive.fileUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-semibold text-accent"
-                      >
-                        Open the file in Drive ↗
-                      </a>
-                    )}
-                    {drive.folderUrl && (
-                      <a
-                        href={drive.folderUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-xs font-semibold text-accent"
-                      >
-                        Open {drive.folderName ? `“${drive.folderName}”` : "the folder"} in Drive ↗
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Client access — this bill on the client's "Document Access"
-            list in JobTread, so they can open the vendor invoice behind the
-            line they are asking about. NOT hidden on an invoiced bill, unlike
-            Filing below: an invoiced bill is exactly the one a client asks to
-            see. The whole month at once is the same control on the Tracking
-            Sheets closing row. */}
-              {writes && (
-                <div className="mt-4 border-t border-line-soft pt-3 dark:border-neutral-800">
-                  <div className="flex items-center justify-between gap-2">
-                    <SectionLabel>Client access</SectionLabel>
-                    <Button variant="outline" size="sm" onClick={() => setAccessOpen((o) => !o)}>
-                      {accessOpen ? "Hide" : "Share this bill"}
-                    </Button>
-                  </div>
-                  {accessOpen && (
-                    <div className="mt-2">
-                      <DocumentAccess docId={bill.id} scopeLabel="this bill" />
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -1548,9 +1564,35 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               )}
               </div>
             </div>
+
+            {/* No host menu: the actions fold into a footer, docked at the
+                card's foot like the bill page's drawer. `hidden`, not
+                unmounted, so an open client-access list survives a collapse. */}
+            {actionsSlot === undefined && (
+              <div className="shrink-0 border-t border-line-soft dark:border-neutral-800">
+                <button
+                  type="button"
+                  onClick={() => setFooterOpen((v) => !v)}
+                  aria-expanded={footerOpen}
+                  className="flex min-h-9 w-full items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                >
+                  <span
+                    aria-hidden
+                    className={`inline-block text-[9px] transition-transform ${footerOpen ? "rotate-180" : ""}`}
+                  >
+                    ▲
+                  </span>
+                  {footerOpen ? "Hide actions" : "Actions"}
+                </button>
+                <div hidden={!footerOpen} className="max-h-[45dvh] overflow-y-auto px-3 pb-3">
+                  {billActions}
+                </div>
+              </div>
+            )}
           </Card>
         )}
       </div>
+      {actionsSlot && billActions && createPortal(billActions, actionsSlot)}
 
       {/* Buy back — pick the lines. A Dialog, like Recode All. The tick boxes
         are the whole point; nothing writes until the button at the foot is

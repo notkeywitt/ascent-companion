@@ -291,12 +291,15 @@ export function InvoiceAttachment({
   maxHClass = "max-h-[32rem]",
   radiusClass = "rounded-lg",
   dockLeftOf,
+  hideLink = false,
 }: {
   file: InvoiceFile;
   maxHClass?: string;
   radiusClass?: string;
   /** Open the lightbox beside this element instead of over it. See InvoiceLightbox. */
   dockLeftOf?: RefObject<HTMLElement | null>;
+  /** Drop the "Open <file> ↗" link — for a host that offers it elsewhere. */
+  hideLink?: boolean;
 }) {
   /** The page the lightbox opens on, or 0 for closed — pages are 1-based. */
   const [open, setOpen] = useState(0);
@@ -348,7 +351,7 @@ export function InvoiceAttachment({
           )}
         </>
       ) : null}
-      {isPdf && (
+      {isPdf && !hideLink && (
         <a
           href={file.url}
           target="_blank"
