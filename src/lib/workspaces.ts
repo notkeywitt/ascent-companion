@@ -96,9 +96,11 @@ export const WORKSPACES: Workspace[] = [
   },
   {
     id: "incoming",
-    title: "Incoming Bills",
-    desc: "Bills arriving from the inbox, the mail and the monthly statements.",
+    // "Bills" since 2026-10-26 (owner), and it opens on the Bills list.
+    title: "Bills",
+    desc: "Bills to code, and bills arriving from the inbox, the mail and the monthly statements.",
     tabs: [
+      tab("bills", "/bills", "Bills", "Draft bills to code, with the open bill beside the list"),
       // One inbox since 2026-10-18 (CONSOLIDATION_PLAN.md stage 3): To log,
       // Stuck (was Not in JobTread) and Check mail (was Mail Check) are its
       // sections; /needs-project and /vendor-mail redirect.

@@ -221,6 +221,10 @@ export const VIEWS: ViewDef[] = [
   // and Amazon Import all read it regardless of who has this view).
   // /api/vendor-details is the WRITE (a vendor's email, phone and address), so
   // it must ride the same gate as the page — office + admin, never a field role.
+  // Bills — the draft bills with the open one beside the list (2026-10-26,
+  // owner). It reads /api/coding-queue, which stays on "recode" because the
+  // bill page's pager reads it too, and /api/bill, which is ungated on purpose.
+  { id: "bills", label: "Bills", group: "Financials", paths: ["/bills"] },
   {
     id: "vendors",
     label: "Vendors",
