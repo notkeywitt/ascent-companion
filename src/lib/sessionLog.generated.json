@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:14:38Z",
+  "generatedAt": "2026-10-26T13:18:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T13:14:38Z",
+      "updated": "2026-10-26T13:18:09Z",
       "goal": "",
-      "next": "Check the Vendors rail link lights on /vendors on desktop.",
+      "next": "Open a bill on desktop and check the scan sits left of the lines, pinned while the lines scroll.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -354,6 +354,13 @@
           "sha": "21c2ddc",
           "subject": "companion: add vendors to the desk rail under jobs",
           "files": "src/components/TabBar.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:18",
+          "sha": "f6c2642",
+          "subject": "companion: bill page puts the scan beside the details on desktop",
+          "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx"
         }
       ]
     },
