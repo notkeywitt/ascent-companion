@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T13:27:31Z",
+  "generatedAt": "2026-10-26T13:40:03Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T13:27:31Z",
+      "updated": "2026-10-26T13:40:03Z",
       "goal": "",
-      "next": "Open a bill and check the title reads Vendor · Job.",
+      "next": "Check a bill on desktop and on Tracking Sheets: Actions holds JT, History, file, note, Drive, client access, Void; title reads Vendor · Customer - Job.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -382,6 +382,13 @@
           "sha": "abde139",
           "subject": "companion: bill page title names the bill's job",
           "files": "src/app/bill/[docId]/page.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:40",
+          "sha": "83c8011",
+          "subject": "companion: bill actions move to the bottom actions menu, title names customer and job",
+          "files": "src/app/bill/[docId]/page.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/components/InvoiceViewer.tsx, src/lib/jobtread.ts"
         }
       ]
     },
