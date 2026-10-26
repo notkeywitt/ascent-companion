@@ -20,14 +20,14 @@ describe("draftManual", () => {
     const m = draftManual("Cherry Tree", specs, [{ group: "X", name: "ignored", description: "" }]);
     expect(m.title).toBe("Cherry Tree");
     expect(m.sections).toEqual([
-      { title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "https://bosch.com/r" }] },
-      { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }] },
+      { title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "https://bosch.com/r" }], subsections: [] },
+      { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }], subsections: [] },
     ]);
   });
 
   it("falls back to JobTread specifications when no list was imported", () => {
     const m = draftManual("J", null, [{ group: "Appliances", name: "Dishwasher", description: " Bosch 500 " }]);
-    expect(m.sections).toEqual([{ title: "Appliances", items: [{ label: "Dishwasher", value: "Bosch 500", url: "" }] }]);
+    expect(m.sections).toEqual([{ title: "Appliances", items: [{ label: "Dishwasher", value: "Bosch 500", url: "" }], subsections: [] }]);
   });
 });
 
@@ -40,8 +40,15 @@ describe("manualHtml", () => {
       { trade: "Empty", name: " ", phone: "", email: "", url: "" },
     ],
     sections: [
-      { title: "Appliances", items: [{ label: "Range", value: "Bosch", url: "javascript:alert(1)" }] },
-      { title: "Empty", items: [] },
+      {
+        title: "Appliances",
+        items: [{ label: "Range", value: "Bosch", url: "javascript:alert(1)" }],
+        subsections: [
+          { title: "Laundry", items: [{ label: "Washer", value: "LG WM3400CW\nFront load, white", url: "" }] },
+          { title: "Blank", items: [] },
+        ],
+      },
+      { title: "Empty", items: [], subsections: [] },
     ],
     links: [{ text: "Pre-cover photos", url: "https://photos.example.com/x" }],
     sources: [{ id: "abc", name: "Spec Selections", url: "https://drive.google.com/x", isFolder: true }],
@@ -62,6 +69,11 @@ describe("manualHtml", () => {
     expect(html).toContain("Pre-cover photos</a>");
   });
 
+  it("prints sub-sections under their section, keeps line breaks, skips empty ones", () => {
+    expect(html).toContain('<h4 class="am-sub">Laundry</h4><dl><dt>Washer</dt><dd>LG WM3400CW<br>Front load, white</dd></dl>');
+    expect(html).not.toContain("Blank");
+  });
+
   it("never prints the linked Drive sources", () => {
     expect(html).not.toContain("Spec Selections");
   });
@@ -69,6 +81,7 @@ describe("manualHtml", () => {
 
 describe("asManual", () => {
   it("drops malformed fields", () => {
+    expect(asManual({ sections: [{ title: "Old", items: [] }] })?.sections).toEqual([{ title: "Old", items: [], subsections: [] }]);
     expect(asManual({ title: 5, contacts: [{ name: "A", vendorId: "" }, null], sections: "x" })).toEqual({
       title: "", intro: "", contacts: [{ trade: "", name: "A", phone: "", email: "", url: "" }], sections: [], links: [], sources: [],
     });
@@ -78,14 +91,15 @@ describe("asManual", () => {
 
 describe("mergeSections", () => {
   it("adds new items to a same-named section, skips repeats, keeps edits", () => {
-    const mine = [{ title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "edited" }] }];
+    const sub = { title: "Pantry", items: [] };
+    const mine = [{ title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "edited" }], subsections: [sub] }];
     const out = mergeSections(mine, [
       { title: "kitchen ", items: [{ label: "range", value: "BOSCH 800", url: "" }, { label: "Hood", value: "Zephyr", url: "" }] },
       { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }] },
     ]);
     expect(out).toEqual([
-      { title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "edited" }, { label: "Hood", value: "Zephyr", url: "" }] },
-      { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }] },
+      { title: "Kitchen", items: [{ label: "Range", value: "Bosch 800", url: "edited" }, { label: "Hood", value: "Zephyr", url: "" }], subsections: [sub] },
+      { title: "Bath", items: [{ label: "Tile", value: "Daltile", url: "" }], subsections: [] },
     ]);
     expect(mine[0].items).toHaveLength(1);
   });

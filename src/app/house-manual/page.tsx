@@ -11,6 +11,7 @@ import {
   MetaLine,
   PageHeader,
   QuietInput,
+  quietInputCls,
   SectionHeading,
   Select,
   Textarea,
@@ -18,7 +19,7 @@ import {
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { manualHtml, mergeSections, type HouseManual, type JobVendor, type ManualContact } from "@/lib/houseManual";
+import { manualHtml, mergeSections, type HouseManual, type JobVendor, type ManualContact, type ManualItem } from "@/lib/houseManual";
 import { JobFiles } from "./JobFiles";
 
 /**
@@ -56,6 +57,7 @@ const move = <T,>(xs: T[], i: number, d: number) => {
 };
 
 const blankContact: ManualContact = { trade: "", name: "", phone: "", email: "", url: "" };
+const blankItem: ManualItem = { label: "", value: "", url: "" };
 
 function RemoveButton({ onClick, label }: { onClick: () => void; label: string }) {
   return (
@@ -68,6 +70,44 @@ function RemoveButton({ onClick, label }: { onClick: () => void; label: string }
     >
       ✕
     </button>
+  );
+}
+
+/**
+ * A list of items: the item's name, its selection as a paragraph that grows
+ * with its text (and drags taller), and the product link.
+ */
+function ItemsEditor({ items, onChange }: { items: ManualItem[]; onChange: (items: ManualItem[]) => void }) {
+  return (
+    <>
+      {items.length > 0 && (
+        <Card pad={false} className="divide-y divide-line-soft">
+          {items.map((it, j) => {
+            const setItem = (patch: Partial<ManualItem>) => onChange(items.map((x, k) => (k === j ? { ...x, ...patch } : x)));
+            return (
+              <div key={j} className="flex items-start gap-2 p-2">
+                <div className="grid min-w-0 flex-1 gap-1.5 sm:grid-cols-2">
+                  <QuietInput aria-label="Item" placeholder="Item (e.g. Dishwasher)" value={it.label} onChange={(e) => setItem({ label: e.target.value })} />
+                  <QuietInput aria-label="Link" placeholder="Product link" value={it.url} onChange={(e) => setItem({ url: e.target.value })} />
+                  <textarea
+                    aria-label="Selection"
+                    placeholder="Selection: product, finish, color, notes…"
+                    rows={3}
+                    value={it.value}
+                    onChange={(e) => setItem({ value: e.target.value })}
+                    className={`${quietInputCls} min-h-[4.5rem] w-full resize-y [field-sizing:content] sm:col-span-2`}
+                  />
+                </div>
+                <RemoveButton label={`Remove ${it.label || "item"}`} onClick={() => onChange(items.filter((_, k) => k !== j))} />
+              </div>
+            );
+          })}
+        </Card>
+      )}
+      <Button size="xs" variant="ghost" onClick={() => onChange([...items, blankItem])}>
+        + Item
+      </Button>
+    </>
   );
 }
 
@@ -333,26 +373,53 @@ function HouseManualPage() {
                       onClick={() => edit((m) => ({ ...m, sections: m.sections.filter((_, k) => k !== i) }))}
                     />
                   </div>
-                  {s.items.length > 0 && (
-                    <Card pad={false} className="divide-y divide-line-soft">
-                      {s.items.map((it, j) => {
-                        const setItem = (patch: Partial<typeof it>) =>
-                          setSection({ items: s.items.map((x, k) => (k === j ? { ...x, ...patch } : x)) });
-                        return (
-                          <div key={j} className="flex items-start gap-2 p-2">
-                            <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
-                              <QuietInput aria-label="Item" placeholder="Item (e.g. Dishwasher)" value={it.label} onChange={(e) => setItem({ label: e.target.value })} />
-                              <QuietInput aria-label="Product" placeholder="Product / finish" value={it.value} onChange={(e) => setItem({ value: e.target.value })} />
-                              <QuietInput aria-label="Link" placeholder="Product link" value={it.url} onChange={(e) => setItem({ url: e.target.value })} className="col-span-2" />
-                            </div>
-                            <RemoveButton label={`Remove ${it.label || "item"}`} onClick={() => setSection({ items: s.items.filter((_, k) => k !== j) })} />
-                          </div>
-                        );
-                      })}
-                    </Card>
-                  )}
-                  <Button size="xs" variant="ghost" onClick={() => setSection({ items: [...s.items, { label: "", value: "", url: "" }] })}>
-                    + Item
+                  <ItemsEditor items={s.items} onChange={(items) => setSection({ items })} />
+                  {s.subsections.map((sub, j) => {
+                    const setSub = (patch: Partial<typeof sub>) =>
+                      setSection({ subsections: s.subsections.map((x, k) => (k === j ? { ...x, ...patch } : x)) });
+                    return (
+                      <div key={j} className="ml-3 space-y-2 border-l-2 border-line-soft pl-3">
+                        <div className="flex items-center gap-1">
+                          <Input
+                            aria-label="Sub-section title"
+                            placeholder="Sub-section title (e.g. Laundry)"
+                            value={sub.title}
+                            onChange={(e) => setSub({ title: e.target.value })}
+                            className="font-semibold"
+                          />
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            aria-label="Move up"
+                            disabled={j === 0}
+                            onClick={() => setSection({ subsections: move(s.subsections, j, -1) })}
+                          >
+                            ↑
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            aria-label="Move down"
+                            disabled={j === s.subsections.length - 1}
+                            onClick={() => setSection({ subsections: move(s.subsections, j, 1) })}
+                          >
+                            ↓
+                          </Button>
+                          <RemoveButton
+                            label={`Remove sub-section ${sub.title}`}
+                            onClick={() => setSection({ subsections: s.subsections.filter((_, k) => k !== j) })}
+                          />
+                        </div>
+                        <ItemsEditor items={sub.items} onChange={(items) => setSub({ items })} />
+                      </div>
+                    );
+                  })}
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => setSection({ subsections: [...s.subsections, { title: "", items: [blankItem] }] })}
+                  >
+                    + Sub-section
                   </Button>
                 </section>
               );
@@ -360,7 +427,7 @@ function HouseManualPage() {
             <Button
               size="sm"
               variant="secondary"
-              onClick={() => edit((m) => ({ ...m, sections: [...m.sections, { title: "", items: [{ label: "", value: "", url: "" }] }] }))}
+              onClick={() => edit((m) => ({ ...m, sections: [...m.sections, { title: "", items: [blankItem], subsections: [] }] }))}
             >
               + Section
             </Button>

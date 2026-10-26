@@ -31,9 +31,16 @@ export interface ManualItem {
   url: string;
 }
 
+/** A titled group of items inside a section (e.g. Appliances › Laundry). */
+export interface ManualSubsection {
+  title: string;
+  items: ManualItem[];
+}
+
 export interface ManualSection {
   title: string;
   items: ManualItem[];
+  subsections: ManualSubsection[];
 }
 
 export interface ManualLink {
@@ -124,12 +131,15 @@ export function specSections(specs: SpecList): ManualSection[] {
  * (same item and product) is not repeated. Nothing in `sections` is changed or
  * removed, so an import never undoes the office's edits.
  */
-export function mergeSections(sections: ManualSection[], incoming: ManualSection[]): ManualSection[] {
+export function mergeSections(
+  sections: ManualSection[],
+  incoming: { title: string; items: ManualItem[] }[],
+): ManualSection[] {
   const out = sections.map((s) => ({ ...s, items: [...s.items] }));
   const key = (t: string) => t.trim().toLowerCase();
   for (const s of incoming) {
     let target = out.find((x) => key(x.title) === key(s.title));
-    if (!target) out.push((target = { title: s.title, items: [] }));
+    if (!target) out.push((target = { title: s.title, items: [], subsections: [] }));
     for (const it of s.items) {
       if (!target.items.some((x) => key(x.label) === key(it.label) && key(x.value) === key(it.value))) target.items.push(it);
     }
@@ -143,6 +153,7 @@ export function asManual(v: unknown): HouseManual | null {
   const o = v as Record<string, unknown>;
   const s = (x: unknown) => (typeof x === "string" ? x : "");
   const arr = (x: unknown) => (Array.isArray(x) ? (x as Record<string, unknown>[]).filter((y) => y && typeof y === "object") : []);
+  const items = (x: unknown) => arr(x).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url) }));
   return {
     title: s(o.title),
     intro: s(o.intro),
@@ -156,7 +167,8 @@ export function asManual(v: unknown): HouseManual | null {
     })),
     sections: arr(o.sections).map((x) => ({
       title: s(x.title),
-      items: arr(x.items).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url) })),
+      items: items(x.items),
+      subsections: arr(x.subsections).map((y) => ({ title: s(y.title), items: items(y.items) })),
     })),
     links: arr(o.links).map((l) => ({ text: s(l.text), url: s(l.url) })),
     sources: arr(o.sources)
@@ -185,9 +197,12 @@ function safeUrl(u: string): string {
   return "";
 }
 
+/** Text with its line breaks kept — a selection can run to a paragraph. */
+const escLines = (t: string) => esc(t.trim()).replace(/\r?\n/g, "<br>");
+
 function link(text: string, url: string): string {
   const href = safeUrl(url);
-  return href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>` : esc(text);
+  return href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${escLines(text)}</a>` : escLines(text);
 }
 
 const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, "")}`;
@@ -207,15 +222,23 @@ const CSS = `
 .am dt{opacity:.7}
 .am dd{margin:0}
 .am dd span{display:block}
+.am h4.am-sub{margin:.4em 0 .8em;font-size:.9em;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.85}
 .am a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 .am .am-links{text-align:center;margin:2em 0 0}
 .am .am-links a{margin:0 .75em}
 @media (max-width:600px){.am dl{grid-template-columns:1fr;gap:.2em}.am dd{margin-bottom:.9em}}
 `.trim();
 
-function details(title: string, rows: string[]): string {
-  return rows.length ? `<details><summary>${esc(title)}</summary><dl>${rows.join("")}</dl></details>` : "";
+const dl = (rows: string[]) => (rows.length ? `<dl>${rows.join("")}</dl>` : "");
+
+function details(title: string, body: string): string {
+  return body ? `<details><summary>${esc(title)}</summary>${body}</details>` : "";
 }
+
+const itemRows = (items: ManualItem[]) =>
+  items
+    .filter((i) => i.label.trim() || i.value.trim())
+    .map((i) => `<dt>${esc(i.label)}</dt><dd>${link(i.value, i.url)}</dd>`);
 
 /** The manual as one paste-ready HTML block (scoped styles + content). */
 export function manualHtml(m: HouseManual): string {
@@ -230,9 +253,13 @@ export function manualHtml(m: HouseManual): string {
   const sections = m.sections.map((s) =>
     details(
       s.title,
-      s.items
-        .filter((i) => i.label.trim() || i.value.trim())
-        .map((i) => `<dt>${esc(i.label)}</dt><dd>${link(i.value, i.url)}</dd>`),
+      dl(itemRows(s.items)) +
+        s.subsections
+          .map((sub) => {
+            const rows = itemRows(sub.items);
+            return rows.length ? `<h4 class="am-sub">${esc(sub.title)}</h4>${dl(rows)}` : "";
+          })
+          .join(""),
     ),
   );
   const links = m.links.filter((l) => l.text.trim() && safeUrl(l.url)).map((l) => link(l.text, l.url));
@@ -241,7 +268,7 @@ export function manualHtml(m: HouseManual): string {
     `<div class="am">`,
     m.title.trim() && `<h2>${esc(m.title)}</h2>`,
     m.intro.trim() && `<p class="am-intro">${esc(m.intro)}</p>`,
-    details("Contacts", contacts),
+    details("Contacts", dl(contacts)),
     ...sections,
     links.length > 0 && `<p class="am-links">${links.join("")}</p>`,
     `</div>`,
