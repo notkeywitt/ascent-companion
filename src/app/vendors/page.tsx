@@ -50,6 +50,16 @@ interface VendorBillRow {
   status: string;
   issueDate: string | null;
 }
+/** A pre-JobTread bill from the Expenditure sheet, via the bill search index. */
+interface ArchiveBill {
+  id: number;
+  invoiceId: string;
+  jobName: string;
+  amount: number;
+  status: string;
+  issueDate: string;
+  pdfFileId: string;
+}
 interface VendorBillMatch extends VendorBillRow {
   vendorName: string;
 }
@@ -524,6 +534,7 @@ function Vendors() {
 
   const [selected, setSelected] = useState<VendorRef | null>(null);
   const [bills, setBills] = useState<VendorBillRow[]>([]);
+  const [archive, setArchive] = useState<ArchiveBill[]>([]);
   const [detail, setDetail] = useState<VendorDetail | null>(null);
   const [billsLoading, setBillsLoading] = useState(false);
   const [billsError, setBillsError] = useState("");
@@ -560,6 +571,7 @@ function Vendors() {
     setSelected(v);
     setNumberMatches(null);
     setBills([]);
+    setArchive([]);
     setDetail(null);
     setBillsLoading(true);
     setBillsError("");
@@ -571,6 +583,7 @@ function Vendors() {
           return;
         }
         setBills(Array.isArray(j.bills) ? j.bills : []);
+        setArchive(Array.isArray(j.archive) ? j.archive : []);
         setDetail(j.detail ?? null);
       })
       .catch((e) => setBillsError(e instanceof Error ? e.message : "Network error"))
@@ -674,7 +687,7 @@ function Vendors() {
 
               {billsError && <p className="text-sm text-danger">{billsError}</p>}
               {billsLoading && <Loading label="Loading bills…" />}
-              {!billsLoading && !billsError && bills.length === 0 && (
+              {!billsLoading && !billsError && bills.length === 0 && archive.length === 0 && (
                 <EmptyState>No bills for {selected.name}.</EmptyState>
               )}
               {!billsLoading && !billsError && bills.length > 0 && (
@@ -689,6 +702,42 @@ function Vendors() {
                     />
                   ))}
                 </ListCard>
+              )}
+              {/* Pre-JobTread bills have no bill page; each opens its filed PDF. */}
+              {!billsLoading && archive.length > 0 && (
+                <div className="space-y-2 pt-2">
+                  <SectionHeading
+                    trailing={
+                      <span className="text-[11px] tabular-nums text-neutral-500">
+                        {money(archive.reduce((s, b) => s + b.amount, 0))}
+                      </span>
+                    }
+                  >
+                    {`Before JobTread · ${archive.length}`}
+                  </SectionHeading>
+                  <ListCard>
+                    {archive.map((b) => (
+                      <ListRow
+                        key={b.id}
+                        href={
+                          b.pdfFileId
+                            ? `https://drive.google.com/file/d/${b.pdfFileId}/view`
+                            : undefined
+                        }
+                        external={!!b.pdfFileId}
+                        label={[b.invoiceId && `#${b.invoiceId}`, b.jobName || "No job"]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        desc={dateLabel(b.issueDate || null)}
+                        trailing={
+                          <span className="text-sm font-semibold tabular-nums">
+                            {money(b.amount)}
+                          </span>
+                        }
+                      />
+                    ))}
+                  </ListCard>
+                </div>
               )}
             </div>
           )

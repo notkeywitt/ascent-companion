@@ -691,6 +691,25 @@ export async function searchBills(query: string): Promise<BillSearchResult[]> {
   });
 }
 
+/**
+ * One vendor's pre-JobTread bills (source='sheet'), newest first — what the
+ * /vendors page adds under the vendor's JobTread bills, so it lists everything
+ * the header search finds for that vendor. Matched by NAME: the sheet keys a
+ * vendor by its own id, not the JobTread account.
+ */
+export async function getArchiveBillsForVendor(
+  name: string,
+): Promise<Omit<BillSearchResult, "lines" | "matchedLines">[]> {
+  await ensureDb();
+  const r = await rawDb().execute({
+    sql: `SELECT * FROM bill_index
+           WHERE source = 'sheet' AND lower(trim(vendor)) = lower(trim(?))
+           ORDER BY issue_date DESC`,
+    args: [name],
+  });
+  return (r.rows as unknown as Record<string, unknown>[]).map(rowToResult);
+}
+
 /** LIKE fallback (no FTS5): match the whole phrase across vendor / invoice / line. */
 async function likeSearch(q: string): Promise<Record<string, unknown>[]> {
   const like = `%${q.replace(/[%_]/g, (c) => `\\${c}`)}%`;
