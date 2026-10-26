@@ -11,6 +11,7 @@ import { HomeTodos } from "@/components/HomeTodos";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead } from "@/components/HomeMasthead";
+import { HomeActions } from "@/components/HomeActions";
 import { TodayQueue } from "@/components/TodayQueue";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 
@@ -24,6 +25,9 @@ import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
  * queue (TodayQueue — a row and a count per thing waiting), the stuck and
  * unassigned bills, the job and lead boards, and the to-dos. Appearance,
  * desktop alerts and Sign out live in the ☰ menu.
+ *
+ * The one exception is the Actions panel (HomeActions, 2026-10-26, owner): a
+ * few big buttons for jobs done from a phone in the field, not page launchers.
  */
 
 function Home() {
@@ -69,6 +73,11 @@ function Home() {
           below draws the heading — and stands the billing month on it, which is
           the fact this office checks before it opens anything. */}
       <HomeMasthead />
+
+      {/* The button panel — one big tap per thing done from a phone (Deposit
+          checks first). Self-hiding: each button rides its own view, and the
+          deposit view is admin-only by default. */}
+      <HomeActions />
 
       {/* What needs this person — one row per queue, each with its count. */}
       <TodayQueue />

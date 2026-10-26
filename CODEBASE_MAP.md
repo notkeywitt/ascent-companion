@@ -122,6 +122,7 @@ matching row here.
 | **Checking one job before its invoice goes out** | the "Before you send" card on `/trackingsheet?jobId=…` → `src/app/trackingsheet/PreSendCheck.tsx` → `GET /api/invoice-review/job` → `src/lib/invoiceReview/preSend.ts` |
 | **The same vendor bill captured twice** | `checks/duplicateDraft.ts` (a draft copying another bill — runs in "Check this job") vs `checks/duplicateBill.ts` (one finalized bill on two client invoices) vs `checks/duplicateWide.ts` (two bills for one vendor invoice, across months, finalized or not). Different questions; none sees the others' case |
 | **A job's deposit and client payments** (the balance, what drew it down, which payments paid which invoices) | Deposit left = Deposit − Previously applied − Draws. Rules `src/lib/deposits.ts` (pure, pinned to real jobs by `deposits.test.ts`), JobTread read `getJobDepositInputs` in `src/lib/jobtread.ts` (CD lines + client payments), the deposit entered by hand for a pre-JobTread deposit in table `deposit_links` (`src/lib/depositLinks.ts`), route `/api/deposits` (shared read `src/lib/depositRead.ts`), card `src/app/trackingsheet/DepositCard.tsx` beside the board's invoice panel. THE one JobTread write: `/api/deposits/apply` sets a DRAFT invoice's single Deposit line (rules `planDepositDraw`, write `writeDepositDraw` — verified, undone on a mismatch, journalled). Deposit lines are kept out of every work total: the review's cost and markup figures (`depositPart` in `invoiceReview/checks/shared.ts`), the job board (`NOT_DEPOSIT_LINE`) and the board rail. The write's probe is `scripts/probe-deposit-line.mjs` (dry by default); the staged plan is `DEPOSITS_PLAN.md` |
+| **Deposit checks** (Home's Actions button: photograph the checks, file them on the Office job in folder Deposits, mark the client invoices paid, draft the email to Sara and Casey) | button `src/components/HomeActions.tsx` (the Actions panel on Today; opens the camera from the tap) → page `src/app/deposit-tracker/` (`DepositTracker.tsx`; `pendingPhotos.ts` carries Home's photos across and shrinks each to a JPEG) → routes `/api/deposit-tracker/photo` (`uploadFileToJobFolder`), `/invoices` (`getOpenCustomerInvoices`), `/record` (`getInvoicesForPayment` + `recordInvoicePayments` — one payment per customer account, idempotent on the deposit key, journalled), `/email` → appscript `DepositEmail.js` (`draftDepositEmail`). Rules + email wording `src/lib/depositTracker.ts` (pure, tested). View `deposit-tracker`, admin-only |
 | **What a client owes, and how late** | `src/lib/arAging.ts` (the buckets, pure + tested), route `/api/ar-aging` (one org-wide `getOpenCustomerInvoices` walk), page `/ar-aging` |
 | **Who changed this bill / line / time entry** | `src/lib/financialJournal.ts` (the recorder + reader), `src/lib/billJournal.ts` (the bill-header wrapper), page `/journal`, route `/api/journal`, table `financial_events`. Append-only and never trimmed |
 | **A captured cost that never reached QuickBooks** | `checks/qboPush.ts` — QBO is the general ledger, and `qboIsIgnored` turns the push off in one tap. Also runs in "Check this job", which is the useful moment: the fix is one tap before the invoice goes out |
@@ -166,6 +167,8 @@ including edge middleware.
 | `billingMonth.ts` | The DB half of the billing month — the ONE `billing_month_setting` row, and `currentBillingPeriod()`, which every "current billing month" server read should use. Server-only, which is why the rule stays in `billing.ts`. No row means the automatic cutoff. `mirrorBillingMonth()` PUSHES the value into the appscript project (action `setBillingMonth`), which is what carries it to the bills captured there — the `_JT Invoice` Gmail scan, the LSWDD split and the uncaptured push. |
 | `taxableLines.ts` ⟂ | **The stray `isTaxable: false` worklist** behind `/taxable-lines`, in TWO lists because the fix is: the CLIENT INVOICE line is what actually bills the client (and the only side reachable once the bill behind it is pushed or paid — a bill with `amountPaid > 0` is marked `locked`), the VENDOR BILL line is the source that stops the next invoice inheriting it. Create Invoice COPIES the flag, so the two are separate records and clearing one never moves the other. An invoice figure is EXACT (`price × rate`); a bill has no price, so its figure adds the markup and is flagged `estimated`. READ-ONLY by design — a bulk update across live documents is the wrong shape for a tax decision. Two exclusions carry the risk: overhead jobs (58 of August's 75 bill lines) and sales-tax lines matched MORE strictly than `isSalesTaxLine` matches them, because that helper checks the code first and a line named "Sales Tax" coded `01 00 00` would otherwise read as ordinary and get taxed. Pure; the JobTread walk is `getUntaxedLines`, which finds bills by date and invoices by the month's bills they CARRY (a draft invoice has no issue date). Unit-tested. |
 | `arAging.ts` ⟂ | **Accounts receivable ageing** — the buckets behind `/ar-aging`. Pure arithmetic over rows the caller fetched; every money figure is JobTread's own (it derives `balance`/`amountPaid` from QuickBooks) and nothing here recomputes one. The rule worth knowing: an invoice ages from its DUE date where it has one and its ISSUE date where it does not — never whichever is later — and each row carries `basis` so the page can say which it used. An invoice with no usable date counts toward what is OUTSTANDING and never toward what is OVERDUE. |
+| `emailSignature.ts` ⟂ | Keillor's Gmail signature (HTML + text), shared by the drafts the app saves (time entries, deposit checks). |
+| `depositTracker.ts` ⟂ | **Deposit checks** — the rules behind Home's Deposit checks button: checking the selected invoices and grouping them into one payment per customer account (`planDepositPayments`), the payment's externalId (the retry guard), the photo names, and the email to Sara and Casey. No I/O. |
 | `deposits.ts` ⟂ | **Job deposits** — one balance per job: Deposit − Previously applied − Draws. The deposit is the paid part of the job's deposit invoices (a positive CD line), or the figure the office entered by hand for a deposit taken before JobTread, which replaces it. Draws are negative CD lines on client invoices (drafts shown, not counted). Rules only; `deposits.test.ts` pins them to Berger, Studio and Ferron. |
 | `depositRead.ts` | The one read both deposit routes answer with: the ledger, the deposit entered by hand, the client payments. |
 | `depositLinks.ts` | The DB half of job deposits — the `deposit_links` row per job: the deposit entered by hand and what was previously applied before JobTread. |
@@ -362,7 +365,9 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   (a month's client invoices checked against the bills and the Drive backup),
   `jobs`, `clients` (Directory — the customer/job directory, and the one
   page that EDITS a JobTread record), `unbilled`, `ar-aging` (Receivables — unpaid
-  client invoices, aged),
+  client invoices, aged), `deposit-tracker` (Deposit checks — photos of the
+  checks to the Office job's Deposits folder, the invoices they pay marked
+  paid, the email to Sara and Casey drafted; admin-only),
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
   live JobTread plus seeded pre-JobTread history), `email`, `needs-review` (the
   queue of bills flagged "Needs review" — corrections the app can't make itself),
@@ -442,6 +447,11 @@ Grouped by domain; each folder is `…/route.ts`.
   payments; POST edits only the companion's `deposit_links` row, never JobTread),
   `deposits/apply` (POST — the one JobTread write: a DRAFT invoice's Deposit
   line, checked against a fresh ledger, verified, journalled),
+  `deposit-tracker/*` (`photo` POST — one check photo onto the Office job,
+  folder Deposits; `invoices` GET — open client invoices with a balance;
+  `record` POST — the payments, one per customer account, re-checked against
+  JobTread first and safe to press twice; `email` POST — the Gmail draft via
+  Apps Script `draftDepositEmail`),
   `ar-aging` (GET — every open client invoice, bucketed
   by age; "today" is resolved in the ORG timezone, because a UTC lambda would
   age a boundary invoice a day early), `stage/*`, `invoice-review` (GET runs a month's
@@ -494,6 +504,9 @@ Grouped by domain; each folder is `…/route.ts`.
   row — pages + vendors + bills + line items, from any
   page — hidden for the FIELD role), `TabBar` (the bottom bar — each role's
   slots from `BARS` in `src/lib/workspaces.ts`),
+  `HomeActions` (the Actions button panel on Today — one big button per job
+  done from a phone, each on its own view; Deposit checks first, which opens
+  the camera from the tap and hands the photo to `/deposit-tracker`),
   `HomeMasthead` (the iPad home's head — the date, and the BILLING MONTH as a
   dropdown: office/admin set the month every non-Sunset bill files into, a lead
   only reads it. It goes RED past the 10th while still behind the calendar

@@ -10,6 +10,7 @@
  * Gmail draft. The office reads and sends the draft by hand.
  */
 import { JT_ORG_TZ, jtIsoToOrgLocal, orgLocalToJtIso, type ExportTimeEntry } from "./jobtread";
+import { SIGNATURE_HTML, SIGNATURE_TEXT } from "./emailSignature";
 
 /** The same three addresses, in the same order, as the email it replaces. */
 export const TIME_ENTRIES_EMAIL_TO = [
@@ -160,18 +161,6 @@ export function timeEntriesCsv(entries: ExportTimeEntry[], tz: string = JT_ORG_T
 
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/** The signature the office mailbox sends with, as Gmail wrote it into the Oct 1-15 email. */
-const SIGNATURE_HTML =
-  `<div dir="ltr" class="gmail_signature" data-smartmail="gmail_signature"><div dir="ltr">` +
-  `<div>-Keillor</div>` +
-  `<div><br><img width="96" height="96" src="https://ci3.googleusercontent.com/mail-sig/AIorK4yOt8-R_IzfAwVs4Un2oUCzHRPv1SmL1yYlpSZb3Ujq2gJzKbmWvit6lUPf4lH_GqC3S49A8aaRMv7n">` +
-  `<i><br>Office &amp; Administration</i></div>` +
-  `<div><b>Ascent Building Co. LLC</b></div><div>PO Box 664</div>` +
-  `<div>Lopez Island, WA 98261</div><div>(360) 209 4033</div></div></div>`;
-
-const SIGNATURE_TEXT =
-  "-Keillor\n\nOffice & Administration\nAscent Building Co. LLC\nPO Box 664\nLopez Island, WA 98261\n(360) 209 4033";
 
 /**
  * The email around the CSV, in the words of the one it replaces:

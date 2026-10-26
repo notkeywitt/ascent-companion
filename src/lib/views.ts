@@ -210,6 +210,17 @@ export const VIEWS: ViewDef[] = [
     group: "Financials",
     paths: ["/ar-aging", "/api/ar-aging"],
   },
+  // Deposit checks — photograph the checks, file the photos on the Office job,
+  // mark the client invoices they pay as paid, and draft the email to Sara and
+  // Casey. Home's button panel opens it. Its routes WRITE to JobTread
+  // (createFile, createPayment, createDocumentPayment), so they ride the page's
+  // gate. Admin-only by default (owner, 2026-10-26): see ADMIN_MENU.
+  {
+    id: "deposit-tracker",
+    label: "Deposit Checks",
+    group: "Financials",
+    paths: ["/deposit-tracker", "/api/deposit-tracker"],
+  },
   // The monthly client-invoice review — a month's client invoices cross-checked
   // against the vendor bills behind them and the backup PDFs in the Drive
   // invoicing tree. The API prefix rides the same gate as the page: the route
@@ -585,6 +596,9 @@ const ADMIN_MENU: string[] = [
   // The morning report on "/". Admin-only since 2026-09-08 — see the view's own
   // note above for why dropping the view is what removes the card.
   "digest",
+  // Deposit checks — the owner asked for it on the ADMIN home screen. A
+  // per-user grant in /admin hands it to an office user.
+  "deposit-tracker",
 ];
 // Office gets Financials, Office (was HR), and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
