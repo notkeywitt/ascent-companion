@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T19:00:01Z",
+  "generatedAt": "2026-10-26T19:15:44Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T19:00:00Z",
+      "updated": "2026-10-26T19:15:44Z",
       "goal": "",
-      "next": "Owner checks /vendors?accountId=22PXYcExddiT lists the same Rendon bills header search finds; if not, the extras are line-text matches on other vendors' bills.",
+      "next": "Open Job Board, unfold Complete, confirm the Phase=Complete jobs show.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -487,6 +487,13 @@
           "sha": "f5393a9",
           "subject": "companion: list a vendor's pre-jobtread bills on the vendors page",
           "files": "src/app/api/vendor-bills/[id]/route.ts, src/app/vendors/page.tsx, src/lib/billSearch.ts"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "12:15",
+          "sha": "10f74e1",
+          "subject": "companion: add a complete row to the job board",
+          "files": "src/app/api/job-board/route.ts, src/app/job-board/JobBoardPage.tsx, src/lib/jobBoard.ts"
         }
       ]
     },
