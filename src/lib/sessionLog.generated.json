@@ -1,94 +1,16 @@
 {
-  "generatedAt": "2026-10-23T21:12:16Z",
+  "generatedAt": "2026-10-26T13:14:38Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "sunset-bill-bulk-expense",
-      "file": "2026-10-23-sunset-bill-bulk-expense.md",
-      "branch": "claude/sunset-bill-bulk-expense-n6i0bh",
-      "status": "shipped",
-      "started": "2026-10-23T17:06:32Z",
-      "updated": "2026-10-23T21:12:16Z",
-      "goal": "",
-      "next": "owner runs the Sunset Statements switch on the ~5 mixed drafts (717076, 719582, 719377, …); confirm each gets a <inv>-CR Credit with the PDF and the reconcile reads the net",
-      "commits": [
-        {
-          "date": "2026-10-23",
-          "time": "17:06",
-          "sha": "94a271b",
-          "subject": "companion: file sunset bills as expenses paid from banner bank, add bulk switch for drafts",
-          "files": "CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-status/route.ts, src/app/api/sunset-expense/route.ts, src/app/payments/page.tsx, +4 more"
-        },
-        {
-          "date": "2026-10-23",
-          "time": "20:45",
-          "sha": "f50c790",
-          "subject": "companion: file sunset credits as jobtread credits, in add-bill and the bulk switch",
-          "files": "src/app/api/add-bill/route.ts, src/app/api/sunset-expense/route.ts, src/components/SunsetExpenseSwitch.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
-        },
-        {
-          "date": "2026-10-23",
-          "time": "21:12",
-          "sha": "c3f3454",
-          "subject": "companion: split sunset returns onto their own credit, in add-bill and the bulk switch",
-          "files": "src/app/api/add-bill/route.ts, src/app/api/sunset-expense/route.ts, src/components/SunsetExpenseSwitch.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
-        }
-      ]
-    },
-    {
-      "slug": "wizardly-goodall",
-      "file": "2026-10-23-wizardly-goodall.md",
-      "branch": "claude/wizardly-goodall-399znh",
-      "status": "shipped",
-      "started": "2026-10-23T16:30:26Z",
-      "updated": "2026-10-23T16:30:42Z",
-      "goal": "New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Drive forms (W-4, I-9, Direct Deposit) in the app; the office downloads the packet for the bookkeeper",
-      "next": "Upload the current W-4 (irs.gov) and I-9 (uscis.gov) on New Hires, check their field setup in Fields, then invite a test hire end to end",
-      "commits": [
-        {
-          "date": "2026-10-23",
-          "time": "16:30",
-          "sha": "4c7d6c0",
-          "subject": "companion: add new-hire paperwork — invite, profile, sign the forms in the app",
-          "files": "CODEBASE_MAP.md, package-lock.json, package.json, src/app/api/onboarding/me/forms/[id]/route.ts, src/app/api/onboarding/me/route.ts, src/app/api/onboarding/office/file/route.ts, +18 more"
-        }
-      ]
-    },
-    {
-      "slug": "jobtread-email-records",
-      "file": "2026-10-20-jobtread-email-records.md",
-      "branch": "claude/jobtread-email-records-zug7um",
-      "status": "shipped",
-      "started": "2026-10-20T14:49:50Z",
-      "updated": "2026-10-20T15:05:10Z",
-      "goal": "",
-      "next": "confirm Invoice Status marks load on phone; find the trigger for the bottom bar drifting on iOS",
-      "commits": [
-        {
-          "date": "2026-10-20",
-          "time": "14:49",
-          "sha": "d8e4a9f",
-          "subject": "companion: turn the invoicing package page into invoice status",
-          "files": "CODEBASE_MAP.md, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/components/InvoicingTabs.tsx, src/lib/invoiceStatus.test.ts, src/lib/invoiceStatus.ts, +3 more"
-        },
-        {
-          "date": "2026-10-20",
-          "time": "15:05",
-          "sha": "5b7ea71",
-          "subject": "companion: read invoice recipients in a second phase to stop the 413",
-          "files": "src/app/api/invoicing-summary/route.ts, src/lib/jobtread.ts"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-19T18:49:27Z",
+      "updated": "2026-10-26T13:14:38Z",
       "goal": "",
-      "next": "Confirm header search finds bill 682089 after the stale-index refresh; if not, check /api/bill-search/refresh for a failing sweep.",
+      "next": "Check the Vendors rail link lights on /vendors on desktop.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -425,6 +347,91 @@
           "sha": "41f176f",
           "subject": "companion: refresh stale bill index from header search",
           "files": "src/components/GlobalSearch.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "06:14",
+          "sha": "21c2ddc",
+          "subject": "companion: add vendors to the desk rail under jobs",
+          "files": "src/components/TabBar.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        }
+      ]
+    },
+    {
+      "slug": "sunset-bill-bulk-expense",
+      "file": "2026-10-23-sunset-bill-bulk-expense.md",
+      "branch": "claude/sunset-bill-bulk-expense-n6i0bh",
+      "status": "shipped",
+      "started": "2026-10-23T17:06:32Z",
+      "updated": "2026-10-23T21:12:16Z",
+      "goal": "",
+      "next": "owner runs the Sunset Statements switch on the ~5 mixed drafts (717076, 719582, 719377, …); confirm each gets a <inv>-CR Credit with the PDF and the reconcile reads the net",
+      "commits": [
+        {
+          "date": "2026-10-23",
+          "time": "17:06",
+          "sha": "94a271b",
+          "subject": "companion: file sunset bills as expenses paid from banner bank, add bulk switch for drafts",
+          "files": "CODEBASE_MAP.md, src/app/api/add-bill/route.ts, src/app/api/bill-fields/route.ts, src/app/api/bill-status/route.ts, src/app/api/sunset-expense/route.ts, src/app/payments/page.tsx, +4 more"
+        },
+        {
+          "date": "2026-10-23",
+          "time": "20:45",
+          "sha": "f50c790",
+          "subject": "companion: file sunset credits as jobtread credits, in add-bill and the bulk switch",
+          "files": "src/app/api/add-bill/route.ts, src/app/api/sunset-expense/route.ts, src/components/SunsetExpenseSwitch.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-23",
+          "time": "21:12",
+          "sha": "c3f3454",
+          "subject": "companion: split sunset returns onto their own credit, in add-bill and the bulk switch",
+          "files": "src/app/api/add-bill/route.ts, src/app/api/sunset-expense/route.ts, src/components/SunsetExpenseSwitch.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        }
+      ]
+    },
+    {
+      "slug": "wizardly-goodall",
+      "file": "2026-10-23-wizardly-goodall.md",
+      "branch": "claude/wizardly-goodall-399znh",
+      "status": "shipped",
+      "started": "2026-10-23T16:30:26Z",
+      "updated": "2026-10-23T16:30:42Z",
+      "goal": "New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Drive forms (W-4, I-9, Direct Deposit) in the app; the office downloads the packet for the bookkeeper",
+      "next": "Upload the current W-4 (irs.gov) and I-9 (uscis.gov) on New Hires, check their field setup in Fields, then invite a test hire end to end",
+      "commits": [
+        {
+          "date": "2026-10-23",
+          "time": "16:30",
+          "sha": "4c7d6c0",
+          "subject": "companion: add new-hire paperwork — invite, profile, sign the forms in the app",
+          "files": "CODEBASE_MAP.md, package-lock.json, package.json, src/app/api/onboarding/me/forms/[id]/route.ts, src/app/api/onboarding/me/route.ts, src/app/api/onboarding/office/file/route.ts, +18 more"
+        }
+      ]
+    },
+    {
+      "slug": "jobtread-email-records",
+      "file": "2026-10-20-jobtread-email-records.md",
+      "branch": "claude/jobtread-email-records-zug7um",
+      "status": "shipped",
+      "started": "2026-10-20T14:49:50Z",
+      "updated": "2026-10-20T15:05:10Z",
+      "goal": "",
+      "next": "confirm Invoice Status marks load on phone; find the trigger for the bottom bar drifting on iOS",
+      "commits": [
+        {
+          "date": "2026-10-20",
+          "time": "14:49",
+          "sha": "d8e4a9f",
+          "subject": "companion: turn the invoicing package page into invoice status",
+          "files": "CODEBASE_MAP.md, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/components/InvoicingTabs.tsx, src/lib/invoiceStatus.test.ts, src/lib/invoiceStatus.ts, +3 more"
+        },
+        {
+          "date": "2026-10-20",
+          "time": "15:05",
+          "sha": "5b7ea71",
+          "subject": "companion: read invoice recipients in a second phase to stop the 413",
+          "files": "src/app/api/invoicing-summary/route.ts, src/lib/jobtread.ts"
         }
       ]
     },
