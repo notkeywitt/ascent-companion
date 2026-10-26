@@ -229,7 +229,7 @@ export const VIEWS: ViewDef[] = [
     id: "vendors",
     label: "Vendors",
     group: "Financials",
-    paths: ["/vendors", "/api/vendor-bills", "/api/vendor-details"],
+    paths: ["/vendors", "/api/vendor-bills", "/api/vendor-details", "/api/vendor-coi"],
   },
   // The stuck-vendor alert (popup + home banner) rides on this gate: its API
   // route is listed here so a non-billing user can neither see the warning nor

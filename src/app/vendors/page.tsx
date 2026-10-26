@@ -7,6 +7,7 @@ import {
   Banner,
   Dialog,
   EmptyState,
+  FileDrop,
   FilterChip,
   Input,
   Label,
@@ -85,15 +86,26 @@ const phoneLabel = (p: string) => {
 };
 
 /**
- * Email, phone and address for one vendor.
+ * Email, phone, address, bill type and COI for one vendor — every field is an
+ * input, filled or not.
  *
- * JobTread keeps each as a custom field — on the account ("vendor") or on a
- * contact ("vendorContact") — and most of the 235 vendor accounts carry none of
- * them. So a field that is MISSING renders as an input rather than not at all:
- * the office fills it in where the gap shows up, which is here, instead of
- * opening JobTread. A field already on file stays a plain row that dials or
- * mails; changing one is still JobTread's job.
+ * JobTread keeps email and phone as custom fields on the account ("vendor") and
+ * the address on its first location; most of the 235 vendor accounts carry none
+ * of them. The office fills or corrects them here instead of opening JobTread.
+ * Save sends only the fields that changed; an emptied field clears it. A
+ * contact's own details are JobTread's job — they stay read-only.
  */
+const FIELD_DEFS = [
+  { key: "email", label: "Email", type: "email", placeholder: "name@vendor.com" },
+  { key: "phone", label: "Phone", type: "tel", placeholder: "(360) 555-0134" },
+  { key: "address", label: "Address", type: "text", placeholder: "Street, city, state ZIP" },
+] as const;
+
+const rowCls =
+  "flex min-h-[56px] items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0";
+const rowLabelCls =
+  "w-16 shrink-0 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
+
 function VendorDetailCard({
   detail,
   onSaved,
@@ -113,19 +125,20 @@ function VendorDetailCard({
   }, [detail.id]);
 
   const contacts = detail.contacts.filter((c) => c.name || c.email || c.phone);
-  const address = detail.addresses[0] ?? "";
-  const missing = [
-    { key: "email", label: "Email", type: "email", placeholder: "name@vendor.com" },
-    { key: "phone", label: "Phone", type: "tel", placeholder: "(360) 555-0134" },
-    { key: "address", label: "Address", type: "text", placeholder: "Street, city, state ZIP" },
-  ].filter(
-    (f) =>
-      !({ email: detail.email, phone: detail.phone, address } as Record<string, string>)[f.key],
+  const stored: Record<string, string> = {
+    email: detail.email,
+    phone: detail.phone,
+    address: detail.addresses[0] ?? "",
+  };
+  const valueOf = (k: string) => draft[k] ?? stored[k];
+  const changed = Object.fromEntries(
+    FIELD_DEFS.map((f) => f.key)
+      .filter((k) => draft[k] !== undefined && draft[k].trim() !== stored[k])
+      .map((k) => [k, draft[k].trim()]),
   );
+  const changedCount = Object.keys(changed).length;
 
-  const typed = Object.entries(draft).filter(([, v]) => v.trim());
-
-  function save(fields: Record<string, string> = Object.fromEntries(typed)) {
+  function save(fields: Record<string, string> = changed) {
     if (Object.keys(fields).length === 0) return;
     setSaving(true);
     setError("");
@@ -154,44 +167,50 @@ function VendorDetailCard({
   return (
     <div className="space-y-2">
       <ListCard>
-        {detail.email && (
-          <ListRow href={`mailto:${detail.email}`} label={detail.email} desc="Email" />
-        )}
-        {detail.phone && (
-          <ListRow href={`tel:${detail.phone}`} label={phoneLabel(detail.phone)} desc="Phone" />
-        )}
-        {detail.addresses.map((a) => (
+        {FIELD_DEFS.map((f) => {
+          const v = stored[f.key];
+          // A filled email or phone keeps its one-tap way out.
+          const out = !v
+            ? ""
+            : f.key === "email"
+              ? `mailto:${v}`
+              : f.key === "phone"
+                ? `tel:${v}`
+                : "";
+          return (
+            <div key={f.key} className={rowCls}>
+              <label htmlFor={`vendor-${f.key}`} className={rowLabelCls}>
+                {f.label}
+              </label>
+              <QuietInput
+                id={`vendor-${f.key}`}
+                type={f.type}
+                value={
+                  f.key === "phone" && draft.phone === undefined ? phoneLabel(v) : valueOf(f.key)
+                }
+                onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                placeholder={f.placeholder}
+                disabled={saving}
+              />
+              {out && (
+                <a
+                  href={out}
+                  className="shrink-0 text-xs font-semibold text-accent hover:underline"
+                >
+                  {f.key === "email" ? "Email" : "Call"}
+                </a>
+              )}
+            </div>
+          );
+        })}
+        {/* Only the first address is editable — it is the one the route writes. */}
+        {detail.addresses.slice(1).map((a) => (
           <ListRow key={a} label={a} desc="Address" />
         ))}
 
-        {/* Nothing on file for this one — the row IS the input. */}
-        {missing.map((f) => (
-          <div
-            key={f.key}
-            className="flex min-h-[56px] items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0"
-          >
-            <label
-              htmlFor={`vendor-${f.key}`}
-              className="w-16 shrink-0 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400"
-            >
-              {f.label}
-            </label>
-            <QuietInput
-              id={`vendor-${f.key}`}
-              type={f.type}
-              value={draft[f.key] ?? ""}
-              onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-              placeholder={f.placeholder}
-              disabled={saving}
-            />
-          </div>
-        ))}
-
         {/* What /add-bill files this vendor's bills as. Saves on tap. */}
-        <div className="flex min-h-[56px] items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0">
-          <span className="w-16 shrink-0 text-[11px] uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            Bill type
-          </span>
+        <div className={rowCls}>
+          <span className={rowLabelCls}>Bill type</span>
           <div className="flex gap-2">
             {(["Bill", "Expense"] as const).map((t) => (
               <FilterChip
@@ -205,6 +224,8 @@ function VendorDetailCard({
             ))}
           </div>
         </div>
+
+        <VendorCoiRow vendor={detail.name} />
 
         {contacts.map((c) => (
           <ListRow
@@ -220,16 +241,130 @@ function VendorDetailCard({
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      {typed.length > 0 && (
-        <button
-          type="button"
-          className={btn("primary", "md")}
-          onClick={() => save()}
-          disabled={saving}
-        >
-          {saving ? "Saving…" : `Save to JobTread`}
-        </button>
+      {changedCount > 0 && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={btn("primary", "md")}
+            onClick={() => save()}
+            disabled={saving}
+          >
+            {saving ? "Saving…" : "Save to JobTread"}
+          </button>
+          <button
+            type="button"
+            className={btn("secondary", "md")}
+            onClick={() => setDraft({})}
+            disabled={saving}
+          >
+            Discard
+          </button>
+        </div>
       )}
+    </div>
+  );
+}
+
+interface CoiFile {
+  name: string;
+  url: string;
+  updated: string;
+}
+
+/**
+ * The vendor's certificate of insurance: the newest PDF on file in the Vendor
+ * COIs Drive folder, and a picker to file a new one as "<Vendor> COI - <year>".
+ * See /api/vendor-coi.
+ */
+function VendorCoiRow({ vendor }: { vendor: string }) {
+  const [file, setFile] = useState<CoiFile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    setFile(null);
+    setError("");
+    setLoading(true);
+    fetch(`/api/vendor-coi?vendor=${encodeURIComponent(vendor)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        if (j.error || j.ok === false) setError(String(j.error ?? "Could not check Drive."));
+        else setFile(j.file ?? null);
+      })
+      .catch((e) => alive && setError(e instanceof Error ? e.message : "Network error"))
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, [vendor]);
+
+  function upload(f: File | undefined) {
+    if (!f) return;
+    if (f.type !== "application/pdf") {
+      setError("Pick a PDF.");
+      return;
+    }
+    if (f.size > 3 * 1024 * 1024) {
+      setError("The PDF is over 3 MB.");
+      return;
+    }
+    setUploading(true);
+    setError("");
+    const reader = new FileReader();
+    reader.onerror = () => {
+      setError("Could not read the file.");
+      setUploading(false);
+    };
+    reader.onload = () => {
+      fetch("/api/vendor-coi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendor, pdfBase64: String(reader.result) }),
+      })
+        .then((r) => r.json())
+        .then((j) => {
+          if (j.error || j.ok === false) setError(String(j.error ?? "Upload failed."));
+          else setFile(j.file ?? null);
+        })
+        .catch((e) => setError(e instanceof Error ? e.message : "Network error"))
+        .finally(() => setUploading(false));
+    };
+    reader.readAsDataURL(f);
+  }
+
+  return (
+    <div className={`${rowCls} flex-wrap`}>
+      <span className={rowLabelCls}>COI</span>
+      <div className="min-w-0 flex-1 space-y-2">
+        {loading ? (
+          <span className="text-xs text-neutral-500">Checking Drive…</span>
+        ) : file ? (
+          <a
+            href={file.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block truncate text-sm font-semibold text-accent hover:underline"
+          >
+            {file.name} ↗
+          </a>
+        ) : (
+          <span className="text-sm text-neutral-500">None on file</span>
+        )}
+        <FileDrop
+          accept="application/pdf"
+          label={uploading ? "Uploading…" : file ? "Replace with a new PDF" : "Add the COI PDF"}
+          hint={`Filed in Drive as “${vendor} COI - ${new Date().getFullYear()}”`}
+          disabled={uploading}
+          onChange={(e) => {
+            upload(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
+        {error && <p className="text-xs text-danger">{error}</p>}
+      </div>
     </div>
   );
 }
