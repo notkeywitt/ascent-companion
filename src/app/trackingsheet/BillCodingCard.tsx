@@ -1114,7 +1114,10 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       key={f.id}
                       file={f}
                       maxHClass={scanMaxHClass}
-                      dockLeftOf={cardRef}
+                      // Docked beside the card only in the Tracking Sheets column.
+                      // Standalone (the bill page, /bills) the space to the left is
+                      // the scan column or the bill list, so it opens full screen.
+                      dockLeftOf={standalone ? undefined : cardRef}
                       hideLink
                     />
                   ))}

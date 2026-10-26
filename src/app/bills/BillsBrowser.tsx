@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { BillView } from "@/app/bill/[docId]/BillView";
+import { useSearchParams } from "next/navigation";
+import { BillView, prefetchBill } from "@/app/bill/[docId]/BillView";
 import {
   EmptyState,
   Input,
@@ -55,7 +55,6 @@ const dateLabel = (d?: string) => {
 };
 
 export function BillsBrowser() {
-  const router = useRouter();
   const search = useSearchParams();
   const openId = search.get("docId") ?? "";
 
@@ -99,9 +98,42 @@ export function BillsBrowser() {
   );
   const groups = useMemo(() => groupBills(shown, sort, groupBy), [shown, sort, groupBy]);
 
+  // Going down the list: warm the next few bills (and the one above) in the
+  // order shown, one at a time so they never crowd the open bill's own read.
+  // A click on one of them then renders from cache.
+  useEffect(() => {
+    const ordered = groups.flatMap((g) => g.bills);
+    const i = ordered.findIndex((b) => b.id === openId);
+    const ahead = [...ordered.slice(i + 1, i + 4), ...(i > 0 ? [ordered[i - 1]] : [])];
+    let alive = true;
+    const t = setTimeout(async () => {
+      for (const b of ahead) {
+        if (!alive) return;
+        await prefetchBill(b.id, b.jobId ?? "");
+      }
+    }, 400);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [groups, openId]);
+
   // The selection lives in the URL, so Back closes the panel on a phone.
   const select = (id: string) =>
-    confirmLeaveIfDirty() && router.push(id ? `/bills?docId=${encodeURIComponent(id)}` : "/bills");
+    confirmLeaveIfDirty() &&
+    // The browser's own pushState, not router.push: Next keeps useSearchParams
+    // in step with it, and it skips the server round trip a route change costs.
+    // ?jobId rides along so the panel reads the bill once, with its job, and
+    // hits what the prefetch below cached under the same key.
+    window.history.pushState(
+      null,
+      "",
+      id
+        ? `/bills?docId=${encodeURIComponent(id)}&jobId=${encodeURIComponent(
+            bills?.find((b) => b.id === id)?.jobId ?? "",
+          )}`
+        : "/bills",
+    );
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-[96rem] pb-24 pt-6">

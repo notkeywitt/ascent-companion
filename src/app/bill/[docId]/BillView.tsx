@@ -142,6 +142,14 @@ function cachedBillPayload(docId: string, jobId: string): BillPayload | null {
   return hit.payload;
 }
 
+/** Warm a bill into the cache ahead of a click — /bills does this down its list. */
+export function prefetchBill(docId: string, jobId: string): Promise<unknown> {
+  if (cachedBillPayload(docId, jobId)) return Promise.resolve();
+  return fetchBillPayload(docId, jobId).catch(() => {
+    /* best-effort; opening the bill retries and shows any error */
+  });
+}
+
 // In the side panel, ask the extension to open a bill in the docked JobTread
 // window (no-op on mobile / standalone).
 function driveMainWindowToDoc(jobId: string, docId: string) {
@@ -225,7 +233,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
   }
   const billLink = (id: string) =>
     embedded
-      ? `/bills?docId=${encodeURIComponent(id)}`
+      ? `/bills?docId=${encodeURIComponent(id)}&jobId=${encodeURIComponent(jobId)}`
       : `/bill/${id}?jobId=${encodeURIComponent(jobId)}${navContext}`;
   // Stepping ‹ prev / next › between bills must keep the SAME Back destination —
   // otherwise the neighbour loses ?from/?ym and Back falls back to the coding
