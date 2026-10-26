@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-26T18:05:13Z",
+  "generatedAt": "2026-10-26T18:09:24Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-26T18:05:13Z",
+      "updated": "2026-10-26T18:09:24Z",
       "goal": "",
-      "next": "Check the Actions panel on /bills, /bill and Tracking Sheets: Open rows, Filing fields, note, client access, tracking push, Void.",
+      "next": "Open a bill on Tracking Sheets at 1440px and 1920px: coding column widens and the scan sits beside the lines.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -466,6 +466,13 @@
           "sha": "0e815be",
           "subject": "companion: tracking sheets coding card puts the scan beside the lines when wide enough",
           "files": "src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-10-26",
+          "time": "11:09",
+          "sha": "025808d",
+          "subject": "companion: tracking sheets widens the coding column while a bill is open",
+          "files": "src/app/trackingsheet/Board.tsx, src/components/SplitGrid.tsx"
         }
       ]
     },
