@@ -62,3 +62,23 @@ describe("matchJobs", () => {
     expect(matchJobs(jobs, " ")).toEqual([]);
   });
 });
+
+describe("parseEvent, add-on app", () => {
+  const user = { email: "tommy@ascentbuildingco.com", displayName: "Tommy" };
+
+  it("reads a message, a command and being added", () => {
+    expect(parseEvent({ chat: { user, messagePayload: { message: { argumentText: " over budget?" } } } })).toEqual({
+      kind: "question",
+      email: "tommy@ascentbuildingco.com",
+      name: "Tommy",
+      text: "over budget?",
+    });
+    expect(
+      parseEvent({
+        chat: { user, appCommandPayload: { appCommandMetadata: { appCommandId: 2 }, message: { argumentText: "" } } },
+      }),
+    ).toMatchObject({ kind: "command", commandId: 2, arg: "" });
+    expect(parseEvent({ chat: { user, addedToSpacePayload: {} } }).kind).toBe("added");
+    expect(parseEvent({ chat: { user } }).kind).toBe("ignore");
+  });
+});

@@ -4,36 +4,52 @@ import { NextRequest, NextResponse } from "next/server";
 import { readUsageByMonth } from "@/lib/aiUsage";
 import { runChat } from "@/lib/anthropic";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { CHAT_SYSTEM, canAsk, helpText, parseEvent, runCommand } from "@/lib/googleChat";
+import { CHAT_SYSTEM, canAsk, helpText, parseEvent, runCommand, type GoogleChatEvent } from "@/lib/googleChat";
 
 // Google Chat posts every event in the bot's spaces here. It carries no Google
 // session, so src/middleware.ts lists this path as PUBLIC and the handler
 // authenticates the caller itself: a Google-signed token whose audience is this
-// endpoint's URL and whose subject is Google Chat's own service account.
+// endpoint's URL and whose subject is Google's own account for this Chat app.
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const GOOGLE_CERTS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
-const CHAT_ISSUER = "chat@system.gserviceaccount.com";
 
 /** Google drops a reply that takes longer than 30s; answer before that. */
 const DEADLINE_MS = 25_000;
 
-const reply = (text: string) => NextResponse.json({ text });
+/**
+ * The accounts Google signs Chat events as. A classic Chat app: Chat's one
+ * system account. An app built as a Workspace add-on: the add-on account of
+ * OUR Cloud project, so another project's app pointed at this URL is refused.
+ */
+function googleSenders(): string[] {
+  const project = process.env.GOOGLE_CHAT_PROJECT_NUMBER?.trim();
+  return [
+    "chat@system.gserviceaccount.com",
+    ...(project ? [`service-${project}@gcp-sa-gsuiteaddons.iam.gserviceaccount.com`] : []),
+  ];
+}
 
-async function fromGoogleChat(req: NextRequest): Promise<boolean> {
-  // The URL entered as the Chat app's "HTTP endpoint URL", with the console's
-  // authentication audience set to that URL. Unset = refuse every event.
+type Body = { chat?: unknown; authorizationEventObject?: { systemIdToken?: string } } | null;
+
+async function fromGoogleChat(req: NextRequest, body: Body): Promise<boolean> {
+  // The URL entered as the Chat app's HTTP endpoint. Unset = refuse every event.
   const audience = process.env.GOOGLE_CHAT_AUDIENCE?.trim();
-  const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
+  const token =
+    req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+    body?.authorizationEventObject?.systemIdToken;
   if (!audience || !token) return false;
   try {
     const { payload } = await jwtVerify(token, GOOGLE_CERTS, {
       issuer: ["https://accounts.google.com", "accounts.google.com"],
       audience,
     });
-    return payload.email === CHAT_ISSUER && payload.email_verified === true;
-  } catch {
+    const ok = payload.email_verified === true && googleSenders().includes(String(payload.email));
+    if (!ok) console.warn(`[google-chat] refused a token signed for ${payload.email}`);
+    return ok;
+  } catch (e) {
+    console.warn(`[google-chat] bad token: ${e instanceof Error ? e.message : e}`);
     return false;
   }
 }
@@ -69,11 +85,20 @@ async function askClaude(question: string, name: string): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await fromGoogleChat(req))) {
+  const body = (await req.json().catch(() => null)) as Body;
+  if (!(await fromGoogleChat(req, body))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const ask = parseEvent(await req.json().catch(() => null));
+  // An add-on app takes its reply wrapped in a create-message action.
+  const reply = (text: string) =>
+    NextResponse.json(
+      body?.chat
+        ? { hostAppDataAction: { chatDataAction: { createMessageAction: { message: { text } } } } }
+        : { text },
+    );
+
+  const ask = parseEvent(body as GoogleChatEvent);
   if (ask.kind === "ignore") return NextResponse.json({});
   if (ask.kind === "added") return reply(helpText());
 

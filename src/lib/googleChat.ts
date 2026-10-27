@@ -51,21 +51,48 @@ export type ChatAsk =
   | { kind: "question"; email: string; name: string; text: string }
   | { kind: "ignore" };
 
+type ChatUser = { email?: string; displayName?: string; type?: string };
+type ChatMessage = { text?: string; argumentText?: string; slashCommand?: { commandId?: string | number } };
+type CommandMeta = { appCommandId?: string | number };
+
+export interface GoogleChatEvent {
+  type?: string;
+  user?: ChatUser;
+  message?: ChatMessage;
+  appCommandMetadata?: CommandMeta;
+  chat?: {
+    user?: ChatUser;
+    messagePayload?: { message?: ChatMessage };
+    appCommandPayload?: { message?: ChatMessage; appCommandMetadata?: CommandMeta };
+    addedToSpacePayload?: unknown;
+  };
+}
+
+/** An add-on event, flattened to the classic shape. */
+function flatten(ev: GoogleChatEvent): GoogleChatEvent {
+  const c = ev.chat;
+  if (!c) return ev;
+  if (c.appCommandPayload) {
+    const p = c.appCommandPayload;
+    return { type: "APP_COMMAND", user: c.user, message: p.message, appCommandMetadata: p.appCommandMetadata };
+  }
+  if (c.messagePayload) return { type: "MESSAGE", user: c.user, message: c.messagePayload.message };
+  if (c.addedToSpacePayload) return { type: "ADDED_TO_SPACE", user: c.user };
+  return { type: "OTHER" };
+}
+
 /**
  * Read a Google Chat interaction event. Handles both slash-command shapes
  * Google sends: the older `message.slashCommand` and the newer APP_COMMAND.
+ * Accepts both app types too: a classic Chat app (flat event) and one built as
+ * a Workspace add-on (everything under `chat`, one `*Payload` per trigger).
  */
-export interface GoogleChatEvent {
-  type?: string;
-  user?: { email?: string; displayName?: string; type?: string };
-  message?: { text?: string; argumentText?: string; slashCommand?: { commandId?: string | number } };
-  appCommandMetadata?: { appCommandId?: string | number };
-}
-
-export function parseEvent(ev: GoogleChatEvent | null | undefined): ChatAsk {
-  if (ev?.type === "ADDED_TO_SPACE" && !ev?.message) return { kind: "added" };
-  if (ev?.type !== "MESSAGE" && ev?.type !== "APP_COMMAND") return { kind: "ignore" };
-  if (ev?.user?.type === "BOT") return { kind: "ignore" };
+export function parseEvent(raw: GoogleChatEvent | null | undefined): ChatAsk {
+  if (!raw) return { kind: "ignore" };
+  const ev = flatten(raw);
+  if (ev.type === "ADDED_TO_SPACE" && !ev.message) return { kind: "added" };
+  if (ev.type !== "MESSAGE" && ev.type !== "APP_COMMAND") return { kind: "ignore" };
+  if (ev.user?.type === "BOT") return { kind: "ignore" };
 
   const email = (ev.user?.email ?? "").trim().toLowerCase();
   const name = (ev.user?.displayName ?? "").trim();
