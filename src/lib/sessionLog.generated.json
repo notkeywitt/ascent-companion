@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T20:03:50Z",
+  "generatedAt": "2026-10-27T20:14:08Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-27T20:03:50Z",
+      "updated": "2026-10-27T20:14:08Z",
       "goal": "",
-      "next": "Open Tracking Sheets with All jobs; confirm the All jobs rings show one slice per job and the total equals the sum of the job cards.",
+      "next": "Compare Home's All jobs card with Tracking Sheets All jobs for the same month; totals and job lists should match.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -550,6 +550,13 @@
           "sha": "3a7fa82",
           "subject": "companion: label all-jobs ring slices customer - job",
           "files": "src/app/trackingsheet/MonthJobDonuts.tsx"
+        },
+        {
+          "date": "2026-10-27",
+          "time": "13:14",
+          "sha": "cbe2789",
+          "subject": "companion: home shows the tracking sheets all-jobs total, every job listed",
+          "files": "src/app/trackingsheet/MonthJobDonuts.tsx, src/components/HomeJobBoard.tsx"
         }
       ]
     },
