@@ -2,9 +2,9 @@
 slug: stoic-tesla
 repo: ascent-companion
 branch: claude/stoic-tesla-mh8m1e
-status: in-progress
+status: shipped
 started: 2026-10-27T04:09:10Z
-updated: 2026-10-27T04:09:45Z
+updated: 2026-10-27T04:24:57Z
 goal: 
 next: owner: publish one manual, paste the embed code into its Squarespace Code Block, confirm it loads
 ---

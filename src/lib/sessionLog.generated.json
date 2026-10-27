@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-26T22:10:23Z",
+  "generatedAt": "2026-10-27T04:24:57Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "stoic-tesla",
+      "file": "2026-10-27-stoic-tesla.md",
+      "branch": "claude/stoic-tesla-mh8m1e",
+      "status": "shipped",
+      "started": "2026-10-27T04:09:10Z",
+      "updated": "2026-10-27T04:24:57Z",
+      "goal": "",
+      "next": "owner: publish one manual, paste the embed code into its Squarespace Code Block, confirm it loads",
+      "commits": [
+        {
+          "date": "2026-10-27",
+          "time": "04:09",
+          "sha": "531401d",
+          "subject": "companion: publish house manual to a live url the squarespace page embeds",
+          "files": "CODEBASE_MAP.md, src/app/api/house-manual/route.ts, src/app/house-manual/page.tsx, src/app/m/[token]/route.ts, src/db/index.ts, src/db/schema.ts, +3 more"
+        },
+        {
+          "date": "2026-10-27",
+          "time": "04:09",
+          "sha": "32ded5d",
+          "subject": "companion: session ledger for 2026-10-27-stoic-tesla",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "beautiful-pascal",
       "file": "2026-10-26-beautiful-pascal.md",
