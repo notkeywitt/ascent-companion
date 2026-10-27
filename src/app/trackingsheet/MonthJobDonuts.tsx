@@ -71,6 +71,7 @@ export function MonthJobDonuts({
       >
         {`Jobs · ${monthLabel}`}
       </SectionHeading>
+      {jobs.length > 0 && <MonthTotalCard jobs={jobs} />}
       {/* The home board's row: sideways on a phone, bleeding to the screen edge
           so the next card shows cut off; a grid from `pad` up. */}
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 xl:grid-cols-3 2xl:grid-cols-4">
@@ -79,6 +80,51 @@ export function MonthJobDonuts({
         ))}
       </div>
     </section>
+  );
+}
+
+/**
+ * Every job's month added together: one Bills ring and one Labor ring, cut by
+ * cost code across all jobs. The job cards' cut and rules, run on every job's
+ * rows summed by code. Its colour map is its own, so a code's hue here can
+ * differ from a single card's. Idle jobs add nothing, so it reads `jobs` alone.
+ */
+function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
+  const byCode = new Map<string, MonthJobCost["rows"][number]>();
+  for (const j of jobs)
+    for (const r of j.rows) {
+      const t = byCode.get(r.code) ?? { code: r.code, name: r.name, bills: 0, labor: 0 };
+      t.bills += r.bills;
+      t.labor += r.labor;
+      byCode.set(r.code, t);
+    }
+  const rows = withoutSalesTax([...byCode.values()]);
+  const bills = rows.reduce((n, r) => n + r.bills, 0);
+  const labor = rows.reduce((n, r) => n + r.labor, 0);
+  const colorMap = buildColorMap(rows);
+  return (
+    <Card className="flex flex-col gap-3">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-semibold tracking-tight">All jobs</div>
+          <div className="text-[11px] text-neutral-500 dark:text-neutral-400">
+            {money0(bills)} bills · {money0(labor)} labor
+          </div>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-[13px] font-bold tabular-nums text-accent dark:text-accent-soft">
+            {money0(bills + labor)}
+          </div>
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            This month
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 pad:mx-auto pad:max-w-xl">
+        <Donut title="Bills" slices={buildSlices(rows, colorMap, "bills")} emptyLabel="No bills" />
+        <Donut title="Labor" slices={buildSlices(rows, colorMap, "labor")} emptyLabel="No labor" />
+      </div>
+    </Card>
   );
 }
 
