@@ -87,15 +87,16 @@ export function MonthJobDonuts({
  * Every job's month added together: one Bills ring and one Labor ring, one
  * slice per JOB. Each job's figures are its card's own (sales tax out of
  * bills), and the cards' slice rules apply: a job under a tenth of its ring
- * folds into "Other jobs" unless it is in the top three. A job's name stands
- * in for the cost code the helpers expect. Idle jobs add nothing, so it reads
- * `jobs` alone.
+ * folds into "Other jobs" unless it is in the top three. The slice label is
+ * "Customer - Job" (the job name alone without a customer), standing in for
+ * the cost code the helpers expect. Idle jobs add nothing, so it reads `jobs`
+ * alone.
  */
 function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
   const rows = jobs.map((j) => {
     const r = withoutSalesTax(j.rows);
     return {
-      code: j.jobName,
+      code: j.customerName ? `${j.customerName} - ${j.jobName}` : j.jobName,
       name: "",
       bills: r.reduce((n, x) => n + x.bills, 0),
       labor: r.reduce((n, x) => n + x.labor, 0),
