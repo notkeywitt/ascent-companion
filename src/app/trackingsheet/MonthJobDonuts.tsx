@@ -84,24 +84,30 @@ export function MonthJobDonuts({
 }
 
 /**
- * Every job's month added together: one Bills ring and one Labor ring, cut by
- * cost code across all jobs. The job cards' cut and rules, run on every job's
- * rows summed by code. Its colour map is its own, so a code's hue here can
- * differ from a single card's. Idle jobs add nothing, so it reads `jobs` alone.
+ * Every job's month added together: one Bills ring and one Labor ring, one
+ * slice per JOB. Each job's figures are its card's own (sales tax out of
+ * bills), and the cards' slice rules apply: a job under a tenth of its ring
+ * folds into "Other jobs" unless it is in the top three. A job's name stands
+ * in for the cost code the helpers expect. Idle jobs add nothing, so it reads
+ * `jobs` alone.
  */
 function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
-  const byCode = new Map<string, MonthJobCost["rows"][number]>();
-  for (const j of jobs)
-    for (const r of j.rows) {
-      const t = byCode.get(r.code) ?? { code: r.code, name: r.name, bills: 0, labor: 0 };
-      t.bills += r.bills;
-      t.labor += r.labor;
-      byCode.set(r.code, t);
-    }
-  const rows = withoutSalesTax([...byCode.values()]);
+  const rows = jobs.map((j) => {
+    const r = withoutSalesTax(j.rows);
+    return {
+      code: j.jobName,
+      name: "",
+      bills: r.reduce((n, x) => n + x.bills, 0),
+      labor: r.reduce((n, x) => n + x.labor, 0),
+    };
+  });
   const bills = rows.reduce((n, r) => n + r.bills, 0);
   const labor = rows.reduce((n, r) => n + r.labor, 0);
   const colorMap = buildColorMap(rows);
+  const slices = (field: "bills" | "labor") =>
+    buildSlices(rows, colorMap, field).map((x) =>
+      x.key === "__other" ? { ...x, label: "Other jobs" } : x,
+    );
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
@@ -121,8 +127,8 @@ function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 pad:mx-auto pad:max-w-xl">
-        <Donut title="Bills" slices={buildSlices(rows, colorMap, "bills")} emptyLabel="No bills" />
-        <Donut title="Labor" slices={buildSlices(rows, colorMap, "labor")} emptyLabel="No labor" />
+        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" />
+        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" />
       </div>
     </Card>
   );
