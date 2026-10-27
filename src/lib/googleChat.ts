@@ -26,6 +26,7 @@ import { money0 } from "@/lib/money";
 /** Who may ask, by Workspace email. Widen this when the pilot week goes well. */
 export const PILOT = [
   "keillor@ascentbuildingco.com",
+  "office@ascentbuildingco.com",
   "ty@ascentbuildingco.com",
   "tommy@ascentbuildingco.com",
   "casey@ascentbuildingco.com",
