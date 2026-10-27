@@ -42,6 +42,8 @@ function buildSystem(jobId?: string): string {
     "- When the user names a job in words (e.g. 'the Miller job'), call list_jobs to resolve",
     "  it to a job_id first, then call the job-scoped tool. If several jobs plausibly match,",
     "  ask the user which one rather than guessing.",
+    "- search_email reads the office mailbox and search_drive the job folders in Drive. Use",
+    "  them when the answer is in a vendor's email or a job document, not in JobTread.",
     "- Money values are US dollars. Amounts owed on a bill include document-level sales tax.",
     "- 'Unbilled' means approved vendor-bill cost not yet on an approved customer invoice.",
     "- You are READ-ONLY: you can look things up but cannot change, code, approve, or create",
