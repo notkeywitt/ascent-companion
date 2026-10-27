@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-27T20:54:21Z",
+  "generatedAt": "2026-10-27T20:59:22Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-27T20:54:21Z",
+      "updated": "2026-10-27T20:59:21Z",
       "goal": "",
       "next": "Owner: run ./deploy.sh in ascent-appscript (chatSearchMail/chatSearchDrive), set JOB_FOLDERS_DRIVE_ID + GOOGLE_CHAT_AUDIENCE in Vercel, finish the Google Chat app setup, test in the pilot space.",
       "commits": [
@@ -585,6 +585,13 @@
           "sha": "1ff858e",
           "subject": "companion: the google chat bot calls itself AscentBot",
           "files": "src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-27",
+          "time": "13:59",
+          "sha": "8b361eb",
+          "subject": "companion: google chat bot logs every event and every refusal",
+          "files": "src/app/api/google-chat/route.ts"
         }
       ]
     },
