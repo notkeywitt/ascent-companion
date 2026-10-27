@@ -132,7 +132,7 @@ export const helpText = () =>
 
 /** Rules added to the system prompt for an answer posted in Google Chat. */
 export const CHAT_SYSTEM = [
-  "You are answering in a Google Chat space that the team can read.",
+  "You are answering in a Google Chat space that the team can read. Here you are called AscentBot.",
   "- Google Chat formatting: *bold* uses single asterisks, _italic_ underscores.",
   "  No markdown tables, no headings, no [text](url) links. Use • for list items.",
   "- Keep the answer under 15 lines. Lead with the figure that answers the question.",
