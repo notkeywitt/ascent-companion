@@ -1056,6 +1056,21 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  for (const alter of [
+    "ALTER TABLE house_manuals ADD COLUMN published_html TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE house_manuals ADD COLUMN published_at TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE house_manuals ADD COLUMN published_by TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE house_manuals ADD COLUMN public_token TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(alter);
+    } catch {
+      /* column already exists */
+    }
+  }
+  await getClient().execute(
+    "CREATE INDEX IF NOT EXISTS house_manuals_public_token ON house_manuals (public_token)",
+  );
   // Job deposits entered by hand (see schema.ts depositLinks).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS deposit_links (

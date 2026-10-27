@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TITLE_STYLE, galleryFrom, asManual, draftManual, driveIdFromLink, manualHtml, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
+import { DEFAULT_TITLE_STYLE, galleryFrom, asManual, draftManual, driveIdFromLink, embedSnippet, manualHtml, PUBLIC_TOKEN, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
 import type { SpecList, SpecRow } from "@/lib/specList";
 
 const row = (over: Partial<SpecRow>): SpecRow => ({
@@ -156,5 +156,20 @@ describe("title style", () => {
     expect(m.titleStyle.size).toBe(200);
     expect(m.titleStyle.weight).toBe("");
     expect(manualHtml({ ...m, title: "T" })).not.toContain('" onload');
+  });
+});
+
+describe("embedSnippet", () => {
+  it("loads the published block from the app into its own div", () => {
+    const s = embedSnippet("https://app.example.com/", "abcdefgh12345678abcdefgh");
+    expect(s).toContain('<div id="am-abcdefgh"></div>');
+    expect(s).toContain('fetch("https://app.example.com/m/abcdefgh12345678abcdefgh")');
+    expect(s).toContain('getElementById("am-abcdefgh")');
+  });
+
+  it("accepts only long url-safe tokens", () => {
+    expect(PUBLIC_TOKEN.test("abcdefgh12345678abcd_-")).toBe(true);
+    expect(PUBLIC_TOKEN.test("short")).toBe(false);
+    expect(PUBLIC_TOKEN.test("abcdefgh12345678abcd/..")).toBe(false);
   });
 });

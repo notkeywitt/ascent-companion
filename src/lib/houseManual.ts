@@ -405,3 +405,28 @@ export function manualHtml(m: HouseManual): string {
     .filter(Boolean)
     .join("\n");
 }
+
+/* --------------------------------------------------------- the live page */
+
+/**
+ * A published manual is served at `/m/<token>` (src/app/m/[token]/route.ts),
+ * and the Squarespace page loads it from there. The token is the only key:
+ * random, unguessable, made once per job and kept, so the snippet pasted into
+ * Squarespace never goes stale. Publishing again changes what it shows.
+ */
+export const PUBLIC_TOKEN = /^[A-Za-z0-9_-]{20,64}$/;
+
+/**
+ * The one-time Squarespace Code Block. It fetches the published block and drops
+ * it into the page, where it takes the site's own fonts and colours. The block
+ * carries no script, and `innerHTML` would not run one if it did.
+ * JavaScript in a Code Block needs a Squarespace plan that allows it.
+ */
+export function embedSnippet(origin: string, token: string): string {
+  const id = `am-${token.slice(0, 8)}`;
+  const src = `${origin.replace(/\/+$/, "")}/m/${token}`;
+  return [
+    `<div id="${id}"></div>`,
+    `<script>fetch(${JSON.stringify(src)}).then(function(r){return r.ok?r.text():""}).then(function(h){document.getElementById(${JSON.stringify(id)}).innerHTML=h})</script>`,
+  ].join("\n");
+}

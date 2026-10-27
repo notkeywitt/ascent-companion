@@ -15,9 +15,15 @@ import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 // itself is not listed, so it stays behind the `invoice-review` view gate — a
 // prefix match here would have opened the whole month's billing to anyone.
 //
+// `/m` is the one exception to "authenticates itself": it serves a published
+// house manual to the Squarespace page (src/app/m/[token]/route.ts). It is
+// GET-only, read-only, and shows nothing but the html the office chose to
+// publish — the same content the public Squarespace page already shows. The
+// unguessable token is its key. Keep anything else out of `/m/`.
+//
 // This list does NOT skip the cross-site check below, which runs first. The
 // scheduler sends no Origin header, so it passes that check on its own.
-const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run"];
+const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run", "/m"];
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;

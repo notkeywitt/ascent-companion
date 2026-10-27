@@ -1442,6 +1442,12 @@ export const houseManuals = sqliteTable("house_manuals", {
   value: text("value").notNull(),
   updatedAt: text("updated_at").notNull(),
   updatedBy: text("updated_by").notNull().default(""), // signed-in email
+  // The live copy the Squarespace page loads from /m/<publicToken>. Saving does
+  // not touch it; only Publish does. Empty html = not published.
+  publishedHtml: text("published_html").notNull().default(""),
+  publishedAt: text("published_at").notNull().default(""),
+  publishedBy: text("published_by").notNull().default(""),
+  publicToken: text("public_token").notNull().default(""), // made once, kept through unpublish
 });
 
 /**

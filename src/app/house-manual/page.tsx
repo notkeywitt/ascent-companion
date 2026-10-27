@@ -24,6 +24,7 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
   DEFAULT_TITLE_STYLE,
   asManual,
+  embedSnippet,
   manualHtml,
   mergeSections,
   photoUrl,
@@ -38,19 +39,30 @@ import { JobFiles, fetchGallery } from "./JobFiles";
 
 /**
  * House Manual — a job's homeowner's manual, built from what the app already
- * knows and pasted into Squarespace.
+ * knows and published to Squarespace.
  *
  * The first draft comes from /api/house-manual: one section per room of the
  * job's imported spec list (or its JobTread Specifications). Job files links the
  * job's Drive folders and reads a file in as more selections. The office picks
- * which of the job's vendors go under Contacts, edits anything, saves, and
- * copies the block into a Squarespace Code Block. Squarespace has no API for
- * page content, so the paste is the hand-off.
+ * which of the job's vendors go under Contacts, edits anything, and saves.
+ *
+ * Squarespace has no API for page content, so the app cannot write the page.
+ * Instead the page reads the app: Publish puts the block at /m/<token>, and a
+ * one-time embed snippet in a Squarespace Code Block loads it on every visit.
+ * Save keeps a draft private; only Publish changes the live page. Copy HTML
+ * stays as the by-hand fallback.
  */
 
 interface Saved {
   updatedAt: string;
   updatedBy: string;
+}
+
+/** `at` is empty when unpublished; the token, and so the snippet, is kept. */
+interface Published {
+  token: string;
+  at: string;
+  by: string;
 }
 
 async function readJson(r: Response) {
@@ -345,7 +357,8 @@ function HouseManualPage() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<"" | "embed" | "html">("");
+  const [published, setPublished] = useState<Published | null>(null);
 
   useUnsavedChanges(dirty, "This house manual has unsaved changes. Leave without saving?");
 
@@ -360,6 +373,7 @@ function HouseManualPage() {
         setManual(b.manual);
         setVendors(b.vendors ?? []);
         if (!fresh) setSaved(b.saved);
+        setPublished(b.published ?? null);
         setDirty(fresh);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
@@ -373,6 +387,7 @@ function HouseManualPage() {
   useEffect(() => {
     setManual(null);
     setSaved(null);
+    setPublished(null);
     void load();
   }, [load]);
 
@@ -385,11 +400,14 @@ function HouseManualPage() {
 
   // Through asManual first, so the preview and the copy are exactly what Save stores.
   const html = useMemo(() => (manual ? manualHtml(asManual(manual)!) : ""), [manual]);
+  const snippet = published && typeof window !== "undefined" ? embedSnippet(window.location.origin, published.token) : "";
+  const live = !!published?.at;
+  const behind = live && !!saved && saved.updatedAt > published!.at;
 
   const edit = (fn: (m: HouseManual) => HouseManual) => {
     setManual((m) => (m ? fn(m) : m));
     setDirty(true);
-    setCopied(false);
+    setCopied("");
   };
 
   async function addVendor(vendorId: string) {
@@ -425,10 +443,46 @@ function HouseManualPage() {
     }
   }
 
-  async function copy() {
+  async function publish() {
+    if (!manual) return;
+    setBusy(true);
+    setError("");
     try {
-      await navigator.clipboard.writeText(html);
-      setCopied(true);
+      const b = await readJson(
+        await fetch("/api/house-manual", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId, manual }),
+        }),
+      );
+      setSaved(b.saved);
+      setPublished(b.published);
+      setDirty(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function unpublish() {
+    if (!window.confirm("Take the manual off the live Squarespace page? The embed code stays, so Publish puts it back.")) return;
+    setBusy(true);
+    setError("");
+    try {
+      const b = await readJson(await fetch(`/api/house-manual?jobId=${encodeURIComponent(jobId)}`, { method: "DELETE" }));
+      setPublished(b.published);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copy(what: "embed" | "html") {
+    try {
+      await navigator.clipboard.writeText(what === "embed" ? snippet : html);
+      setCopied(what);
     } catch {
       setError("The browser blocked the copy. Select the code below and copy it by hand.");
     }
@@ -443,7 +497,7 @@ function HouseManualPage() {
       <JobTabs jobId={jobId} />
       <PageHeader
         title="House Manual"
-        description="A homeowner's manual for the job, ready to paste into a Squarespace Code Block."
+        description="A homeowner's manual for the job. Publish updates the Squarespace page that embeds it."
       />
 
       {error && (
@@ -461,9 +515,14 @@ function HouseManualPage() {
             <Button onClick={save} disabled={busy || !dirty}>
               {busy ? "Saving…" : dirty ? "Save" : "Saved"}
             </Button>
-            <Button variant="secondary" onClick={copy}>
-              {copied ? "Copied ✓" : "Copy HTML"}
+            <Button variant="secondary" onClick={publish} disabled={busy || (live && !dirty && !behind)}>
+              {busy ? "Working…" : live && !dirty && !behind ? "Published" : "Publish"}
             </Button>
+            {published && (
+              <Button variant="secondary" onClick={() => copy("embed")}>
+                {copied === "embed" ? "Copied ✓" : "Copy embed code"}
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => {
@@ -472,6 +531,11 @@ function HouseManualPage() {
             >
               Rebuild draft
             </Button>
+            {live && (
+              <Button variant="ghost" onClick={unpublish} disabled={busy}>
+                Unpublish
+              </Button>
+            )}
           </div>
         )}
       </div>
@@ -480,6 +544,8 @@ function HouseManualPage() {
           className="mb-4"
           items={[
             saved ? `Saved ${when(saved.updatedAt)}${saved.updatedBy ? ` by ${saved.updatedBy}` : ""}` : "Not saved yet",
+            live ? `Live since ${when(published!.at)}${published!.by ? ` by ${published!.by}` : ""}` : "Not published",
+            behind && "Saved changes not published",
             dirty && "Unsaved changes",
           ]}
         />
@@ -717,10 +783,25 @@ function HouseManualPage() {
               srcDoc={`<!doctype html><meta charset="utf-8"><body style="margin:24px;font:16px/1.6 Helvetica,Arial,sans-serif;color:#111;background:#fff">${html}</body>`}
               className="h-[70vh] w-full rounded-lg border border-line bg-white"
             />
+            {published && (
+              <details>
+                <summary className="cursor-pointer text-sm text-neutral-500 dark:text-neutral-400">
+                  Embed code · paste it once into a Squarespace Code Block
+                </summary>
+                <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+                  The page then shows whatever you last published, within a minute. JavaScript in a Code Block needs a
+                  Squarespace plan that allows it.
+                </p>
+                <Textarea readOnly rows={3} value={snippet} onFocus={(e) => e.target.select()} className="mt-2 font-mono text-xs" />
+              </details>
+            )}
             <details>
               <summary className="cursor-pointer text-sm text-neutral-500 dark:text-neutral-400">
-                Show the code · paste it into a Squarespace Code Block
+                Show the HTML · paste it by hand instead
               </summary>
+              <Button size="xs" variant="ghost" className="mt-2" onClick={() => copy("html")}>
+                {copied === "html" ? "Copied ✓" : "Copy HTML"}
+              </Button>
               <Textarea readOnly rows={8} value={html} onFocus={(e) => e.target.select()} className="mt-2 font-mono text-xs" />
             </details>
           </div>
