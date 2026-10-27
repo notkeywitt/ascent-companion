@@ -21,9 +21,13 @@ import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 // publish — the same content the public Squarespace page already shows. The
 // unguessable token is its key. Keep anything else out of `/m/`.
 //
+// `/api/google-chat` is called by Google Chat for the bot's spaces. It verifies a
+// Google-signed token (audience = its own URL, sender = Chat's service account)
+// before reading the event, then answers only the emails on its pilot list.
+//
 // This list does NOT skip the cross-site check below, which runs first. The
 // scheduler sends no Origin header, so it passes that check on its own.
-const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run", "/m"];
+const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run", "/api/google-chat", "/m"];
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;

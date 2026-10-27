@@ -98,6 +98,7 @@ matching row here.
 | **The Jobs page** (Active jobs, PreCon jobs and leads as kanban rows — schedule now, newest 3 open to-dos) | page `src/app/job-board/` → `/api/job-board`; card shape, `PRECON_PHASES` and the to-do grouping in `src/lib/jobBoard.ts`; the to-do read is `getRecentJobToDos` in `src/lib/jobtread.ts`; the leads row is `HomeLeadBoard` (`storeAs="jobs"`) |
 | **Leads / lead board** | read `src/lib/leads.ts`; the one write `src/lib/leadPush.ts`; UI `src/app/leads/` + `src/app/api/leads/*`; the home page's Leads panel `src/components/HomeLeadBoard.tsx` + `src/lib/leadBoard.ts`; the org's amber/red thresholds `src/lib/leadSettings.ts` + `/api/leads/settings` |
 | **The chat assistant** | engine `src/lib/anthropic.ts`, tools `src/lib/chatTools.ts`, UI `src/app/chat/` + `src/app/api/chat` |
+| **The Google Chat bot** | `src/app/api/google-chat/route.ts` (verifies Google's signed token, monthly Claude cap) + `src/lib/googleChat.ts` (pilot list, slash commands that answer with no Claude call, Chat formatting rules); reuses `runChat` on Haiku, spend logged as feature `google-chat` |
 | **Anything Sheets/Drive-backed** (employees, tools, mileage, safety, requisitions, Sunset, tracking sheets, audit log) | `src/lib/appsScript.ts` (the one client over the shared secret) → the matching appscript `.js` file |
 | **Invoice/Amazon extraction (Claude)** | `src/lib/claudeExtract.ts`, `src/lib/amazonImport.ts` |
 | **Auth / session / roles** | `src/auth.ts`, `src/middleware.ts`, `src/lib/auth.ts` |

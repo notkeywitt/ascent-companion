@@ -72,6 +72,12 @@ export interface RunChatOptions {
   messages: Anthropic.MessageParam[];
   jobId?: string;
   onEvent: (event: ChatEvent) => void;
+  /** Overrides ANTHROPIC_MODEL — the Google Chat bot runs on a cheaper model. */
+  model?: string;
+  /** The `ai_usage` feature name, so each surface's spend reads (and caps) on its own. */
+  feature?: string;
+  /** Lines appended to the system prompt (e.g. Google Chat's formatting rules). */
+  extraSystem?: string;
 }
 
 /**
@@ -80,15 +86,22 @@ export interface RunChatOptions {
  * fed back to the model as tool_result errors (never thrown), so one bad lookup
  * doesn't abort the whole answer.
  */
-export async function runChat({ messages, jobId, onEvent }: RunChatOptions): Promise<void> {
+export async function runChat({
+  messages,
+  jobId,
+  onEvent,
+  model = MODEL,
+  feature = "chat",
+  extraSystem,
+}: RunChatOptions): Promise<void> {
   const cfg = getPaveConfig();
-  const system = buildSystem(jobId);
+  const system = extraSystem ? `${buildSystem(jobId)}\n\n${extraSystem}` : buildSystem(jobId);
   const tools = anthropicToolDefs();
   const convo: Anthropic.MessageParam[] = [...messages];
 
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     const stream = client().messages.stream({
-      model: MODEL,
+      model,
       max_tokens: MAX_TOKENS,
       thinking: { type: "disabled" },
       system,
@@ -98,7 +111,7 @@ export async function runChat({ messages, jobId, onEvent }: RunChatOptions): Pro
     stream.on("text", (delta) => onEvent({ type: "text", text: delta }));
 
     const message = await stream.finalMessage();
-    trackClaudeUsage("chat", MODEL, message.usage, jobId ?? "");
+    trackClaudeUsage(feature, model, message.usage, jobId ?? "");
     convo.push({ role: "assistant", content: message.content });
 
     if (message.stop_reason !== "tool_use") {
