@@ -9,12 +9,11 @@ import {
   MetaLine,
   SectionHeading,
   Skeleton,
-  StatementBlock,
 } from "@/components/ui";
 import { Donut, type DonutSlice } from "@/components/Donut";
 import { JobGantt } from "@/components/JobGantt";
 import { jtBudgetUrl } from "@/lib/jtLinks";
-import { monthLabel } from "@/lib/billingMonths";
+import { MonthTotalCard, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { useAccess } from "@/components/AccessProvider";
 import {
   dateRange,
@@ -595,47 +594,21 @@ function LeadPanel({
 }
 
 /**
- * What the month invoices, as ONE figure — `pad` and up only.
+ * The month's cost across every job — the same "All jobs" card Tracking Sheets
+ * draws (MonthTotalCard), off the same read, so the two pages show one figure.
+ * Every job with bills or labor in the month, not only the board's active jobs
+ * (owner, 2026-10-27). The month is the billing month the masthead sets.
  *
- * A phone cannot afford this: it already spends its first screen on the card
- * row, and a second number above it would push the first card off. An iPad has
- * the room, and the number is what the row cannot say — the cards each answer
- * "how is THIS job", and nobody adds five corners up in their head. It is also
- * the one thing on this page readable from across the office, which is where a
- * docked iPad usually is.
- *
- * The month is the one the masthead's dropdown sets, and the figure is the sum
- * of the same per-job amounts printed in each card's corner — uninvoiced bills
- * plus uninvoiced time. `includesTime` false means the time walk failed and the
- * total is bills only; it says so rather than reading low in silence.
- *
- * The page's ONE display figure, so nothing else on home may claim a
- * StatementBlock. `rule={false}` because the section heading above it already
- * drew the band's rule, and two in a row read as a stray divider.
+ * `pad` and up only: a phone already spends its first screen on the card row,
+ * and this card would push the first job card off it.
  */
-function PortfolioLine({ cards, toInvoice }: { cards: JobBoardCard[]; toInvoice: ToInvoice }) {
-  const ids = new Set(cards.map((c) => c.id));
-  // The board's ACTIVE jobs only: the scan also returns jobs off the board
-  // (finished work still being closed out), and a headline over a row of cards
-  // has to add up to the cards.
-  const rows = Object.entries(toInvoice.totals).filter(([id, n]) => ids.has(id) && n > 0);
-  const total = rows.reduce((n, [, v]) => n + v, 0);
-  const sub = [
-    toInvoice.ym ? monthLabel(toInvoice.ym) : null,
-    `${rows.length} job${rows.length === 1 ? "" : "s"}`,
-    toInvoice.includesTime ? null : "bills only — labor didn't load",
-  ]
-    .filter(Boolean)
-    .join(" \u00b7 ");
-
+function MonthTotal({ ym }: { ym: string }) {
+  const { jobs } = useMonthJobs(ym);
+  if (!jobs?.length) return null;
   return (
-    <StatementBlock
-      rule={false}
-      className="mb-1 hidden pad:block"
-      label="To be invoiced"
-      value={money0(total)}
-      sub={sub}
-    />
+    <div className="mb-1 hidden pad:block">
+      <MonthTotalCard jobs={jobs} />
+    </div>
   );
 }
 
@@ -731,7 +704,7 @@ export function HomeJobBoard() {
         />
       ) : (
         <>
-          {toInvoice && <PortfolioLine cards={cards} toInvoice={toInvoice} />}
+          {toInvoice?.ym && <MonthTotal ym={toInvoice.ym} />}
           {/* A PHONE scrolls this row sideways, and it bleeds to the screen
               edges so the next card is visibly cut off — the same trick
               ChipScroller uses to say "there is more".

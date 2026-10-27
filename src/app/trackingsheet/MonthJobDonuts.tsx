@@ -85,30 +85,34 @@ export function MonthJobDonuts({
 
 /**
  * Every job's month added together: one Bills ring and one Labor ring, one
- * slice per JOB. Each job's figures are its card's own (sales tax out of
- * bills), and the cards' slice rules apply: a job under a tenth of its ring
- * folds into "Other jobs" unless it is in the top three. The slice label is
- * "Customer - Job" (the job name alone without a customer), standing in for
- * the cost code the helpers expect. Idle jobs add nothing, so it reads `jobs`
- * alone.
+ * slice per JOB, labelled "Customer - Job" (the job name alone without a
+ * customer). Each job's figures are its card's own (sales tax out of bills).
+ * Every job with bills or labor gets its own slice and legend row — no
+ * "Other" fold (owner, 2026-10-27). Idle jobs add nothing, so it reads `jobs`
+ * alone. Home's board draws this same card for its billing month.
+ *
+ * A job keeps one colour in both rings: colours go by rank in the combined
+ * total. ponytail: 7 categorical slots, so colours repeat from the 8th job;
+ * the legend names every slice, so identity is never colour alone.
  */
-function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
-  const rows = jobs.map((j) => {
-    const r = withoutSalesTax(j.rows);
-    return {
-      code: j.customerName ? `${j.customerName} - ${j.jobName}` : j.jobName,
-      name: "",
-      bills: r.reduce((n, x) => n + x.bills, 0),
-      labor: r.reduce((n, x) => n + x.labor, 0),
-    };
-  });
+export function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
+  const rows = jobs
+    .map((j) => {
+      const r = withoutSalesTax(j.rows);
+      return {
+        key: j.jobId,
+        label: j.customerName ? `${j.customerName} - ${j.jobName}` : j.jobName,
+        bills: r.reduce((n, x) => n + x.bills, 0),
+        labor: r.reduce((n, x) => n + x.labor, 0),
+      };
+    })
+    .sort((a, b) => b.bills + b.labor - (a.bills + a.labor));
   const bills = rows.reduce((n, r) => n + r.bills, 0);
   const labor = rows.reduce((n, r) => n + r.labor, 0);
-  const colorMap = buildColorMap(rows);
   const slices = (field: "bills" | "labor") =>
-    buildSlices(rows, colorMap, field).map((x) =>
-      x.key === "__other" ? { ...x, label: "Other jobs" } : x,
-    );
+    rows
+      .map((r, i) => ({ key: r.key, label: r.label, value: r[field], color: `var(--viz-${(i % 7) + 1})` }))
+      .filter((x) => x.value > 0);
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start gap-2">
