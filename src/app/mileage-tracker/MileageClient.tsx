@@ -1,0 +1,1561 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { JobPicker } from "@/components/JobPicker";
+import {
+  clearLocalTrip,
+  clearServerTrip,
+  downsample,
+  fetchServerTrip,
+  isStale,
+  pickTrip,
+  pushTrip,
+  readLocalTrip,
+  writeLocalTrip,
+  type ActiveTrip,
+  type TripPoint,
+} from "@/lib/mileageTrip";
+import { tripMiles } from "@/lib/mileageRoute";
+import {
+  Banner,
+  Card,
+  Button,
+  EmptyState,
+  Input,
+  Label,
+  Loading,
+  PageHeader,
+  Select,
+  Textarea,
+  Toggle,
+} from "@/components/ui";
+
+/**
+ * /mileage-tracker — one tap to start a trip, one tap to end it.
+ *
+ * A browser PWA can't track GPS in the background (the page is suspended once
+ * the phone locks), so this captures the START point + time on the first tap and
+ * the END point + time on the second; /api/mileage turns the two endpoints into
+ * driving miles + street addresses via Google Directions and logs the trip to
+ * the Project Database "Mileage" tab.
+ *
+ * THE OPEN TRIP IS SAVED IN TWO PLACES — localStorage on the phone, and the
+ * companion DB behind it (`/api/mileage/active`). That is what lets the driver
+ * lock the phone, close the app, or even swap to another device between the two
+ * taps and still finish the trip. See src/lib/mileageTrip.ts for the model.
+ */
+
+interface Employee {
+  name: string;
+  position: string;
+  id: string;
+  email?: string;
+}
+
+interface JobRef {
+  id: string;
+  name: string;
+  customer?: string;
+  address?: string;
+}
+
+interface Project {
+  id: string;
+  label: string;
+  lat: number | null;
+  lng: number | null;
+}
+
+interface StartFix {
+  startLat: number;
+  startLng: number;
+  startTime: string; // ISO
+}
+
+type Waypoint = TripPoint;
+
+interface Summary {
+  miles: number | null;
+  startAddress: string;
+  endAddress: string;
+  via: string;
+  stops: number;
+  durationMin: number;
+  jobLabel: string;
+  purpose: string;
+  startLatLng: string; // "lat,lng" for the route map
+  endLatLng: string;
+  polyline: string;
+  warning?: string;
+}
+
+interface TripResult {
+  ok?: boolean;
+  tripId?: string;
+  miles?: number | null;
+  date?: string;
+  startAddress?: string;
+  endAddress?: string;
+  via?: string;
+  stops?: number;
+  polyline?: string;
+  warning?: string;
+  error?: string;
+}
+
+// The last job a trip was logged against on this device. It is the job field's
+// default on the next trip — a driver on the same job all week picks nothing.
+// The picker's LIST is location-aware (nearest job first); the field is not.
+const LS_LAST_JOB = "mileage.lastJob";
+
+function readLastJob(): { id: string; label: string } | null {
+  try {
+    const raw = localStorage.getItem(LS_LAST_JOB);
+    if (!raw) return null;
+    const j = JSON.parse(raw) as { id?: string; label?: string };
+    return j?.id ? { id: j.id, label: j.label ?? "" } : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveLastJob(id: string, label: string) {
+  if (!id) return;
+  try {
+    localStorage.setItem(LS_LAST_JOB, JSON.stringify({ id, label }));
+  } catch {}
+}
+
+// Where this device's last hand-entered trip started. It is the From field's
+// default next time — most drives start at the shop or at home.
+const LS_LAST_FROM = "mileage.lastFrom";
+
+function readLastFrom(): string {
+  try {
+    return localStorage.getItem(LS_LAST_FROM) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function saveLastFrom(place: string) {
+  if (!place || isLatLng(place.replace(/\s+/g, ""))) return;
+  try {
+    localStorage.setItem(LS_LAST_FROM, place);
+  } catch {}
+}
+
+/** A job's street address without Google's trailing ", USA". */
+const jobAddr = (j: JobRef | null | undefined) => (j?.address ?? "").replace(/,\s*USA$/i, "").trim();
+
+// Auto-tracking: drop a breadcrumb only when it's this far from the last one (km)
+// — filters GPS jitter and idling. The Routes API caps intermediates at 25, so
+// we downsample the trail to this many before requesting the route.
+const TRAIL_MIN_GAP_KM = 0.08;
+const MAX_INTERMEDIATES = 23;
+
+// How long to sit on a change before mirroring the open trip to the server, and
+// the longest the debounce may hold it back while breadcrumbs keep arriving.
+const SERVER_DEBOUNCE_MS = 4000;
+const SERVER_MAX_WAIT_MS = 45000;
+
+// Great-circle distance in km — reused from the tools page to label the nearest
+// job site (display only; the billed miles come from Google Directions).
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function getPosition(opts: PositionOptions): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      reject(new Error("This device can't share its location."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, opts);
+  });
+}
+
+/**
+ * The fix for a trip endpoint, in two attempts. First ask for a fresh
+ * high-accuracy one. If the phone cannot produce it in time — a metal shop, a
+ * garage, a canyon, a cold GPS chip — fall back to a coarse fix up to a minute
+ * old rather than losing the whole trip. A DENIED permission is never retried:
+ * that is an answer, not a timeout.
+ */
+async function getTripFix(): Promise<GeolocationPosition> {
+  try {
+    return await getPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+  } catch (e) {
+    if ((e as GeolocationPositionError)?.code === 1) throw e;
+    return getPosition({ enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
+  }
+}
+
+function geoError(e: unknown): string {
+  const err = e as GeolocationPositionError | Error | undefined;
+  if (err && "code" in err) {
+    if (err.code === 1) return "Location permission was denied. Allow location for this site, then try again.";
+    if (err.code === 2) return "Location is unavailable right now — move to open sky and try again.";
+    if (err.code === 3) return "Getting your location timed out — try again.";
+  }
+  return err instanceof Error ? err.message : "Could not get your location.";
+}
+
+function fmtDuration(min: number): string {
+  if (!Number.isFinite(min) || min < 0) return "";
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return h ? `${h}h ${m}m` : `${m} min`;
+}
+
+const jobRefLabel = (j: JobRef) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+
+const LATLNG_RE = /^-?\d{1,3}(\.\d+)?,-?\d{1,3}(\.\d+)?$/;
+const isLatLng = (s: string) => LATLNG_RE.test(s);
+
+// Static route map for a trip, served through our key-hiding proxy. Renders null
+// unless both endpoints are valid coordinates (so manual entries show no map).
+// If the image fails (e.g. the Maps Static API isn't enabled / allowed on the
+// key), show a readable notice with a link that surfaces Google's actual error
+// rather than a silent broken-image icon.
+function TripMap({
+  start,
+  end,
+  polyline,
+  className = "",
+}: {
+  start: string;
+  end: string;
+  polyline?: string;
+  className?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (!isLatLng(start) || !isLatLng(end)) return null;
+
+  const p = new URLSearchParams({ start, end, size: "600x280" });
+  // A very long route line would blow the URL length limit — fall back to a
+  // straight start→end line rather than failing the whole image.
+  if (polyline && polyline.length <= 8000) p.set("path", polyline);
+  const src = `/api/mileage/map?${p.toString()}`;
+
+  if (failed) {
+    return (
+      <div
+        className={`rounded-lg border border-dashed border-neutral-300 px-4 py-5 text-center text-xs text-neutral-500 dark:border-neutral-700 ${className}`}
+      >
+        Map unavailable.{" "}
+        <a href={src} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
+          See why
+        </a>
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Trip route map"
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className={className}
+    />
+  );
+}
+
+// Local date as YYYY-MM-DD for the manual-entry <input type="date"> default.
+function today(d: Date = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+// Current month as YYYY-MM for the history <input type="month"> default.
+function thisMonth(): string {
+  return today().slice(0, 7);
+}
+
+// A stable per-trip key so a save that's retried (e.g. after a dropped signal)
+// doesn't create a duplicate — the server dedupes on it.
+function genKey(): string {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  } catch {}
+  return `k-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function MileageClient({
+  sessionUser,
+  initialDriver,
+  initialJobs,
+}: {
+  sessionUser: { name: string; email: string };
+  /** The roster name from the cached sign-in link; "" sends the client to the roster. */
+  initialDriver: string;
+  initialJobs: JobRef[];
+}) {
+  const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual" | "history">("idle");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Reference data.
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [jobs, setJobs] = useState<JobRef[]>(initialJobs);
+  const [projects, setProjects] = useState<Project[]>([]);
+  // The roster read has settled (loaded or failed) — the driver waits on it.
+  // Settled from the start when the server already knew the driver.
+  const [employeesLoaded, setEmployeesLoaded] = useState(!!initialDriver);
+
+  // Trip fields (kept across idle/active so a mid-trip edit sticks).
+  const [driver, setDriver] = useState(initialDriver);
+  const [jobId, setJobId] = useState("");
+  const [jobLabel, setJobLabel] = useState("");
+  const [purpose, setPurpose] = useState("");
+
+  const [start, setStart] = useState<StartFix | null>(null);
+  const [waypoints, setWaypoints] = useState<Waypoint[]>([]); // stops the driver marked
+  const [trail, setTrail] = useState<Waypoint[]>([]); // auto-tracked breadcrumbs
+  const trackWatchRef = useRef<number | null>(null);
+  const [addingStop, setAddingStop] = useState(false);
+  const [tripKey, setTripKey] = useState(""); // idempotency key for the active GPS trip
+  const [nowMs, setNowMs] = useState(0);
+  const [summary, setSummary] = useState<Summary | null>(null);
+  // The open trip came back from the companion DB, not from this phone — the
+  // driver started it somewhere else (or this browser was cleared).
+  const [restoredElsewhere, setRestoredElsewhere] = useState(false);
+  // True once the driver has acted on this page, so a slow server restore can
+  // never overwrite a trip they just started.
+  const actedRef = useRef(false);
+  // When the open trip was last mirrored to the server, so a long drive still
+  // gets a backup instead of resetting the debounce on every breadcrumb.
+  const lastPushRef = useRef(0);
+
+  // Manual entry (no GPS — a forgotten or after-the-fact trip).
+  const [miles, setMiles] = useState("");
+  const [manualDate, setManualDate] = useState(today());
+  const [manualKey, setManualKey] = useState(""); // idempotency key for a manual save
+  // Optional From/To: Google figures the miles from them (/api/mileage/route-miles).
+  const [fromPlace, setFromPlace] = useState("");
+  const [toPlace, setToPlace] = useState("");
+  const [roundTrip, setRoundTrip] = useState(false);
+  // The one-way route miles from the last lookup. Null once the driver types
+  // the miles or changes a place, so the round-trip switch never overwrites them.
+  const [oneWay, setOneWay] = useState<number | null>(null);
+  const [routeBusy, setRouteBusy] = useState(false);
+  const [routeErr, setRouteErr] = useState("");
+  // The To that a job pick filled in, so a later job pick may replace it but
+  // never replaces an address the driver typed.
+  const autoToRef = useRef("");
+
+  // History view. isAdmin/users come from the server (which enforces access).
+  const [trips, setTrips] = useState<Record<string, string>[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [users, setUsers] = useState<string[]>([]);
+  const [filterUser, setFilterUser] = useState("");
+  const [filterMonth, setFilterMonth] = useState(thisMonth());
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyErr, setHistoryErr] = useState("");
+
+  // Admin-only monthly PDF report.
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState("");
+  const [pdfErr, setPdfErr] = useState("");
+
+  // Put a saved open trip back on screen — the same code path for the local copy
+  // and the server one.
+  const applyTrip = useCallback((t: ActiveTrip) => {
+    setStart({ startLat: t.startLat, startLng: t.startLng, startTime: t.startTime });
+    if (t.driver) setDriver(t.driver);
+    setJobId(t.jobId);
+    setJobLabel(t.jobLabel);
+    setPurpose(t.purpose);
+    setWaypoints(t.waypoints);
+    setTrail(t.trail);
+    setTripKey(t.tripKey || genKey());
+    setPhase("active");
+  }, []);
+
+  // --- Load reference data + restore an in-progress trip on mount. ----------
+  // The server page sends the driver and the jobs; each fetch here is only the
+  // fallback for what it could not supply (no cached link, a failed jobs read).
+  useEffect(() => {
+    if (!initialDriver) {
+      (async () => {
+        try {
+          const res = await fetch("/api/employees");
+          const json = await res.json();
+          if (res.ok && json.ok !== false) setEmployees(json.employees ?? []);
+        } catch {
+        } finally {
+          setEmployeesLoaded(true);
+        }
+      })();
+    }
+    if (!initialJobs.length) {
+      fetch("/api/jobs")
+        .then((r) => r.json())
+        .then((j) => setJobs(j.jobs ?? []))
+        .catch(() => {});
+    }
+
+    // The phone's own copy first — it is synchronous, so a reopened app shows the
+    // trip in progress before any network call.
+    const local = readLocalTrip();
+    if (local) applyTrip(local);
+
+    // Then the server's copy, which is what survives a cleared browser and what
+    // carries a trip started on another device. It only wins when it started
+    // later than the local one, and never over a trip started here since.
+    (async () => {
+      const server = await fetchServerTrip();
+      if (!server || actedRef.current) return;
+      if (pickTrip(local, server) !== server) return;
+      applyTrip(server);
+      // The server copy only wins when it started later, so it always came from
+      // somewhere other than this browser's current copy.
+      setRestoredElsewhere(true);
+    })();
+  }, [applyTrip, initialDriver, initialJobs]);
+
+  // The job sites, for the "near X" line on a trip under way. That line is the
+  // only reader, and the read ends at Apps Script, so it waits for a trip.
+  const projectsAsked = useRef(false);
+  useEffect(() => {
+    if (phase !== "active" || projectsAsked.current) return;
+    projectsAsked.current = true;
+    fetch("/api/tool-tracker")
+      .then((r) => r.json())
+      .then((j) => setProjects(j.projects ?? []))
+      .catch(() => {});
+  }, [phase]);
+
+  // Default the job to the last one this device logged a trip against. It waits
+  // for the job list, so a job JobTread has since closed simply doesn't come
+  // back — and it never overrides a job a restored in-progress trip carries.
+  const lastJobApplied = useRef(false);
+  useEffect(() => {
+    if (lastJobApplied.current || !jobs.length) return;
+    lastJobApplied.current = true;
+    if (jobId) return;
+    const last = readLastJob();
+    const j = last && jobs.find((x) => x.id === last.id);
+    if (j) {
+      setJobId(j.id);
+      setJobLabel(jobRefLabel(j));
+    }
+  }, [jobs, jobId]);
+
+  // The driver is ALWAYS the signed-in person (owner, 2026-09-30 — the picker
+  // is gone). Matched to the roster by email, then name, so the trip carries
+  // the roster name the history and the monthly PDF group by; a person not on
+  // the roster is recorded under their sign-in name. A restored trip keeps the
+  // driver it was started with (applyTrip sets it first).
+  useEffect(() => {
+    if (driver || !employeesLoaded) return;
+    const email = sessionUser.email.trim().toLowerCase();
+    const name = sessionUser.name.trim().toLowerCase();
+    const signedIn =
+      (email && employees.find((e) => (e.email ?? "").trim().toLowerCase() === email)) ||
+      (name && employees.find((e) => e.name.trim().toLowerCase() === name));
+    const who = signedIn ? signedIn.name : sessionUser.name.trim() || sessionUser.email.trim();
+    if (who) setDriver(who);
+  }, [employees, employeesLoaded, sessionUser, driver]);
+
+  // The open trip as one object — what both copies below store.
+  const currentTrip = useMemo<ActiveTrip | null>(() => {
+    if (phase !== "active" || !start) return null;
+    return {
+      tripKey,
+      startLat: start.startLat,
+      startLng: start.startLng,
+      startTime: start.startTime,
+      driver,
+      jobId,
+      jobLabel,
+      purpose,
+      waypoints,
+      trail,
+      savedAt: new Date().toISOString(),
+    };
+  }, [phase, start, driver, jobId, jobLabel, purpose, waypoints, trail, tripKey]);
+
+  // COPY 1 — localStorage, on every change. Synchronous and offline, so a
+  // force-quit or a locked phone with no signal still leaves the trip on disk.
+  useEffect(() => {
+    if (currentTrip) writeLocalTrip(currentTrip);
+  }, [currentTrip]);
+
+  // COPY 2 — the companion DB, behind a debounce. A driving trail changes every
+  // few seconds, so the debounce is capped: past SERVER_MAX_WAIT_MS the next
+  // change is mirrored at once instead of waiting for the trail to go quiet.
+  useEffect(() => {
+    if (!currentTrip) return;
+    const wait = Date.now() - lastPushRef.current > SERVER_MAX_WAIT_MS ? 0 : SERVER_DEBOUNCE_MS;
+    const id = setTimeout(() => {
+      lastPushRef.current = Date.now();
+      void pushTrip(currentTrip);
+    }, wait);
+    return () => clearTimeout(id);
+  }, [currentTrip]);
+
+  // Flush the backup the moment the app is backgrounded or closed — the exact
+  // moment the debounce above would otherwise be cancelled mid-flight.
+  useEffect(() => {
+    if (!currentTrip) return;
+    const flush = () => {
+      lastPushRef.current = Date.now();
+      void pushTrip(currentTrip, { beacon: true });
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [currentTrip]);
+
+  // Tick the elapsed clock while a trip is active.
+  useEffect(() => {
+    if (phase !== "active") return;
+    setNowMs(Date.now());
+    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [phase]);
+
+  // Auto-track the route: record breadcrumbs continuously while the app is open
+  // and the screen is on. The browser suspends this when the phone locks / the
+  // app is backgrounded (pausing the trail), and resumes when it's reopened —
+  // and each time the app becomes visible we also grab a fresh point, so simply
+  // reopening the app updates the route without tapping "Add a stop."
+  useEffect(() => {
+    if (phase !== "active") return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+
+    const append = (lat: number, lng: number) => {
+      setTrail((prev) => {
+        const last = prev[prev.length - 1];
+        const anchor = last ?? (start ? { lat: start.startLat, lng: start.startLng } : null);
+        if (anchor && haversineKm(anchor, { lat, lng }) < TRAIL_MIN_GAP_KM) return prev;
+        return [...prev, { lat, lng, time: new Date().toISOString() }];
+      });
+    };
+
+    trackWatchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        if (document.visibilityState === "visible") append(pos.coords.latitude, pos.coords.longitude);
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 20000 },
+    );
+
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      navigator.geolocation.getCurrentPosition(
+        (pos) => append(pos.coords.latitude, pos.coords.longitude),
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
+      );
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      if (trackWatchRef.current != null) navigator.geolocation.clearWatch(trackWatchRef.current);
+      trackWatchRef.current = null;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [phase, start]);
+
+  const nearestToStart = useMemo(() => {
+    if (!start) return null;
+    const scored = projects
+      .filter((p) => p.lat != null && p.lng != null)
+      .map((p) => ({ p, d: haversineKm({ lat: start.startLat, lng: start.startLng }, { lat: p.lat as number, lng: p.lng as number }) }))
+      .sort((a, b) => a.d - b.d);
+    return scored.length && scored[0].d < 2 ? scored[0].p.label : null;
+  }, [start, projects]);
+
+  const elapsed = start ? fmtDuration(Math.max(0, Math.round((nowMs - new Date(start.startTime).getTime()) / 60000))) : "";
+
+  function onPickJob(id: string) {
+    setJobId(id);
+    const j = jobs.find((x) => x.id === id);
+    setJobLabel(j ? jobRefLabel(j) : "");
+  }
+
+  async function startTrip() {
+    setErr("");
+    setBusy(true);
+    actedRef.current = true;
+    try {
+      const pos = await getTripFix();
+      const trip: ActiveTrip = {
+        tripKey: genKey(),
+        startLat: pos.coords.latitude,
+        startLng: pos.coords.longitude,
+        startTime: new Date().toISOString(),
+        driver,
+        jobId,
+        jobLabel,
+        purpose,
+        waypoints: [],
+        trail: [],
+        savedAt: new Date().toISOString(),
+      };
+      // Both copies are written HERE, at the tap — not left to the mirror effect.
+      // A driver who taps Start and pockets the phone has already left.
+      writeLocalTrip(trip);
+      lastPushRef.current = Date.now();
+      void pushTrip(trip);
+      setRestoredElsewhere(false);
+      setStart({ startLat: trip.startLat, startLng: trip.startLng, startTime: trip.startTime });
+      setWaypoints([]);
+      setTrail([]);
+      setTripKey(trip.tripKey);
+      setPhase("active");
+    } catch (e) {
+      setErr(geoError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Mark a stop mid-trip. Captures the current point; the whole route
+  // (start → stops → end) is computed as one trip when you tap End.
+  async function addWaypoint() {
+    setErr("");
+    setAddingStop(true);
+    setBusy(true);
+    try {
+      const pos = await getTripFix();
+      setWaypoints((w) => [
+        ...w,
+        { lat: pos.coords.latitude, lng: pos.coords.longitude, time: new Date().toISOString() },
+      ]);
+    } catch (e) {
+      setErr(geoError(e));
+    } finally {
+      setBusy(false);
+      setAddingStop(false);
+    }
+  }
+
+  async function endTrip() {
+    if (!start) return;
+    setErr("");
+    setBusy(true);
+    try {
+      const pos = await getTripFix();
+      const endTime = new Date().toISOString();
+      // Route-shaping points = marked stops + auto trail, in travel (time) order,
+      // downsampled to fit the Routes API's intermediate cap.
+      const routePoints = downsample(
+        [...waypoints, ...trail].sort((a, b) => a.time.localeCompare(b.time)),
+        MAX_INTERMEDIATES,
+      ).map((w) => ({ lat: w.lat, lng: w.lng }));
+      const res = await fetch("/api/mileage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          startLat: start.startLat,
+          startLng: start.startLng,
+          startTime: start.startTime,
+          endLat: pos.coords.latitude,
+          endLng: pos.coords.longitude,
+          endTime,
+          waypoints: routePoints,
+          stopPoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })), // marked stops → Via
+          stops: waypoints.length, // only explicitly-marked stops count as "stops"
+          driver,
+          jobId,
+          jobLabel,
+          purpose: purpose.trim(),
+          clientKey: tripKey,
+        }),
+      });
+      const json: TripResult = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not save the trip. Your start point is still saved — try End again.");
+        return;
+      }
+      const durationMin = Math.max(0, Math.round((new Date(endTime).getTime() - new Date(start.startTime).getTime()) / 60000));
+      setSummary({
+        miles: json.miles ?? null,
+        startAddress: json.startAddress ?? "",
+        endAddress: json.endAddress ?? "",
+        via: json.via ?? "",
+        stops: json.stops ?? waypoints.length,
+        durationMin,
+        jobLabel,
+        purpose: purpose.trim(),
+        startLatLng: `${start.startLat},${start.startLng}`,
+        endLatLng: `${pos.coords.latitude},${pos.coords.longitude}`,
+        polyline: json.polyline ?? "",
+        warning: json.warning,
+      });
+      saveLastJob(jobId, jobLabel);
+      clearLocalTrip();
+      void clearServerTrip();
+      setRestoredElsewhere(false);
+      setStart(null);
+      setPhase("done");
+    } catch (e) {
+      setErr(geoError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Open the hand-entry form. From defaults to where the last one started, To to
+  // the selected job's address.
+  function openManual() {
+    setErr("");
+    actedRef.current = true;
+    setManualKey(genKey());
+    if (!fromPlace) setFromPlace(readLastFrom());
+    if (!toPlace) {
+      const addr = jobAddr(jobs.find((j) => j.id === jobId));
+      setToPlace(addr);
+      autoToRef.current = addr;
+    }
+    setPhase("manual");
+  }
+
+  function onPickManualJob(job: JobRef | null) {
+    const addr = jobAddr(job);
+    if (!addr || (toPlace && toPlace !== autoToRef.current)) return;
+    setToPlace(addr);
+    autoToRef.current = addr;
+    setOneWay(null);
+  }
+
+  async function useHereAsFrom() {
+    setRouteErr("");
+    setRouteBusy(true);
+    try {
+      const pos = await getTripFix();
+      setFromPlace(`${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`);
+      setOneWay(null);
+    } catch (e) {
+      setRouteErr(geoError(e));
+    } finally {
+      setRouteBusy(false);
+    }
+  }
+
+  async function lookUpMiles() {
+    setRouteErr("");
+    if (!fromPlace.trim() || !toPlace.trim()) {
+      setRouteErr("Fill in both From and To.");
+      return;
+    }
+    setRouteBusy(true);
+    try {
+      const res = await fetch("/api/mileage/route-miles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: fromPlace, to: toPlace }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        oneWayMiles?: number;
+        startAddress?: string;
+        endAddress?: string;
+        error?: string;
+      };
+      if (!res.ok || !json.ok || json.oneWayMiles == null) {
+        setRouteErr(json.error || "Could not get the miles. Type them instead.");
+        return;
+      }
+      // "Here" comes back as a street address; a typed one stays as typed.
+      if (json.startAddress) setFromPlace(json.startAddress);
+      if (json.endAddress) {
+        if (toPlace === autoToRef.current) autoToRef.current = json.endAddress;
+        setToPlace(json.endAddress);
+      }
+      setOneWay(json.oneWayMiles);
+      setMiles(String(tripMiles(json.oneWayMiles, roundTrip)));
+    } catch (e) {
+      setRouteErr(e instanceof Error ? e.message : "Could not get the miles. Type them instead.");
+    } finally {
+      setRouteBusy(false);
+    }
+  }
+
+  function onRoundTrip(on: boolean) {
+    setRoundTrip(on);
+    if (oneWay != null) setMiles(String(tripMiles(oneWay, on)));
+  }
+
+  async function saveManual() {
+    setErr("");
+    actedRef.current = true;
+    const m = Number(miles);
+    if (!Number.isFinite(m) || m <= 0) {
+      setErr("Enter the miles driven (a number greater than 0).");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/mileage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          manual: true,
+          miles: m,
+          date: manualDate,
+          driver,
+          jobId,
+          jobLabel,
+          purpose: purpose.trim(),
+          startAddress: fromPlace.trim(),
+          endAddress: toPlace.trim(),
+          roundTrip,
+          clientKey: manualKey,
+        }),
+      });
+      const json: TripResult = await res.json();
+      if (!res.ok || json.ok === false) {
+        setErr(json.error || "Could not save the trip.");
+        return;
+      }
+      saveLastJob(jobId, jobLabel);
+      saveLastFrom(fromPlace.trim());
+      const from = fromPlace.trim();
+      const to = toPlace.trim();
+      const loop = roundTrip && !!from && !!to;
+      setSummary({
+        miles: json.miles ?? m,
+        startAddress: from,
+        endAddress: loop ? from : to,
+        via: loop ? to : "",
+        stops: 0,
+        durationMin: 0,
+        jobLabel,
+        purpose: purpose.trim(),
+        startLatLng: "",
+        endLatLng: "",
+        polyline: "",
+      });
+      setPhase("done");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save the trip.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function logAnother() {
+    setSummary(null);
+    setPurpose("");
+    // The next trip starts on the job the last one was logged against — the same
+    // default a fresh load gets.
+    const last = readLastJob();
+    setJobId(last?.id ?? "");
+    setJobLabel(last?.label ?? "");
+    setMiles("");
+    setManualDate(today());
+    setFromPlace("");
+    setToPlace("");
+    autoToRef.current = "";
+    setRoundTrip(false);
+    setOneWay(null);
+    setRouteErr("");
+    setWaypoints([]);
+    setTrail([]);
+    setErr("");
+    setPhase("idle");
+  }
+
+  function cancelTrip() {
+    actedRef.current = true;
+    clearLocalTrip();
+    void clearServerTrip();
+    setRestoredElsewhere(false);
+    setStart(null);
+    setWaypoints([]);
+    setTrail([]);
+    setErr("");
+    setPhase("idle");
+  }
+
+  // Load the logged miles. The server scopes the result to the signed-in user
+  // (or all trips for an admin) and honors the month/user filters.
+  const loadHistory = useCallback(async () => {
+    setLoadingHistory(true);
+    setHistoryErr("");
+    try {
+      const params = new URLSearchParams();
+      if (filterMonth) params.set("month", filterMonth);
+      if (filterUser) params.set("user", filterUser);
+      const res = await fetch(`/api/mileage?${params.toString()}`);
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setHistoryErr(json.error || "Could not load miles.");
+        return;
+      }
+      setIsAdmin(!!json.isAdmin);
+      setUsers(json.users ?? []);
+      setTrips(json.trips ?? []);
+    } catch (e) {
+      setHistoryErr(e instanceof Error ? e.message : "Could not load miles.");
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [filterMonth, filterUser]);
+
+  useEffect(() => {
+    if (phase === "history") loadHistory();
+  }, [phase, loadHistory]);
+
+  const totalMiles = useMemo(() => {
+    const sum = trips.reduce((s, t) => s + (Number(t["Miles"]) || 0), 0);
+    return Math.round(sum * 10) / 10;
+  }, [trips]);
+
+  // Admin: render the whole selected month (all drivers) to a PDF in Drive.
+  async function createPdf() {
+    if (!filterMonth) {
+      setPdfErr("Pick a month first.");
+      setPdfUrl("");
+      return;
+    }
+    setPdfBusy(true);
+    setPdfErr("");
+    setPdfUrl("");
+    try {
+      const res = await fetch("/api/mileage/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: filterMonth }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) {
+        setPdfErr(json.error || "Could not create the PDF.");
+        return;
+      }
+      setPdfUrl(json.pdfUrl || "");
+    } catch (e) {
+      setPdfErr(e instanceof Error ? e.message : "Could not create the PDF.");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
+
+  // A new month/driver makes any generated PDF stale — clear it.
+  function clearPdf() {
+    setPdfUrl("");
+    setPdfErr("");
+  }
+
+  return (
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+      <PageHeader
+        title="Miles"
+        description={
+          <>
+            Miles are calculated based on where you start and stop your trip.
+            <span className="mt-1 block text-xs">
+              If you leave the app open, it will track you live, but it does not run in the
+              background. If you start and stop recording at the same location, miles will be 0.
+            </span>
+          </>
+        }
+      />
+
+      {err && (
+        <Banner tone="error" className="mb-4">
+          {err}
+        </Banner>
+      )}
+
+      {/* --------------------------------------------------------------- IDLE */}
+      {phase === "idle" && (
+        <div className="space-y-4">
+          <Card className="space-y-3">
+            {driver && (
+              <p className="text-xs text-neutral-500">
+                Recording as <span className="font-semibold text-neutral-700 dark:text-neutral-300">{driver}</span>
+              </p>
+            )}
+
+            <div>
+              <Label>Job (optional)</Label>
+              <div className="flex">
+                <JobPicker
+                  value={jobId}
+                  jobs={jobs.length ? jobs : undefined}
+                  onChange={onPickJob}
+                  showNearest
+                  allLabel="No job"
+                  allDescription="Leave this trip unassigned"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="mlg-purpose">Purpose (optional)</Label>
+              <Textarea
+                id="mlg-purpose"
+                rows={2}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="e.g. material pickup, client meeting"
+              />
+            </div>
+          </Card>
+
+          <button
+            type="button"
+            onClick={startTrip}
+            disabled={busy || !driver}
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Getting your location…" : "Start trip"}
+          </button>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              onClick={openManual}
+            >
+              Add miles by hand
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              onClick={() => {
+                setErr("");
+                setPhase("history");
+              }}
+            >
+              View logged miles
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------------- MANUAL */}
+      {phase === "manual" && (
+        <div className="space-y-4">
+          <Card className="space-y-3">
+            <div>
+              <Label htmlFor="mlg-date">Date</Label>
+              <Input
+                id="mlg-date"
+                type="date"
+                value={manualDate}
+                max={today()}
+                onChange={(e) => setManualDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Job (optional)</Label>
+              <div className="flex">
+                <JobPicker
+                  value={jobId}
+                  jobs={jobs.length ? jobs : undefined}
+                  onChange={onPickJob}
+                  onSelect={onPickManualJob}
+                  showNearest
+                  allLabel="No job"
+                  allDescription="Leave this trip unassigned"
+                />
+              </div>
+            </div>
+          </Card>
+
+          <Card className="space-y-3">
+            <p className="text-xs text-neutral-500">
+              Fill in From and To and tap Get miles, or type the miles below.
+            </p>
+            <div>
+              <div className="flex items-baseline justify-between">
+                <Label htmlFor="mlg-from">From</Label>
+                <button
+                  type="button"
+                  onClick={useHereAsFrom}
+                  disabled={routeBusy}
+                  className="text-xs font-semibold text-accent underline-offset-2 hover:underline disabled:opacity-40 dark:text-accent-soft"
+                >
+                  Use where I am
+                </button>
+              </div>
+              <Input
+                id="mlg-from"
+                value={fromPlace}
+                onChange={(e) => {
+                  setFromPlace(e.target.value);
+                  setOneWay(null);
+                }}
+                placeholder="Address or place"
+                autoComplete="street-address"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="mlg-to">To</Label>
+              <Input
+                id="mlg-to"
+                value={toPlace}
+                onChange={(e) => {
+                  setToPlace(e.target.value);
+                  setOneWay(null);
+                }}
+                placeholder="Address or place — a job fills this in"
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-3">
+              <Toggle checked={roundTrip} onChange={onRoundTrip} label="Round trip" />
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={lookUpMiles}
+                disabled={routeBusy || !fromPlace.trim() || !toPlace.trim()}
+              >
+                {routeBusy ? "Working…" : "Get miles"}
+              </Button>
+            </div>
+            {routeErr && <Banner tone="error">{routeErr}</Banner>}
+            {oneWay != null && (
+              <p className="text-xs text-neutral-500">
+                Google route: {oneWay} mi one way{roundTrip ? `, ${tripMiles(oneWay, true)} mi there and back` : ""}.
+              </p>
+            )}
+
+            <div>
+              <Label htmlFor="mlg-miles">Miles</Label>
+              <Input
+                id="mlg-miles"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.1"
+                value={miles}
+                onChange={(e) => {
+                  setMiles(e.target.value);
+                  setOneWay(null);
+                }}
+                placeholder="e.g. 24.5"
+              />
+            </div>
+          </Card>
+
+          <Card>
+            <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
+            <Textarea
+              id="mlg-purpose-m"
+              rows={2}
+              value={purpose}
+              onChange={(e) => setPurpose(e.target.value)}
+              placeholder="e.g. material pickup, client meeting"
+            />
+          </Card>
+
+          <button
+            type="button"
+            onClick={saveManual}
+            disabled={busy || !driver}
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? "Saving…" : "Save miles"}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("idle");
+            }}
+            disabled={busy}
+            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline disabled:opacity-40 dark:hover:text-accent-soft"
+          >
+            Back
+          </button>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- ACTIVE */}
+      {phase === "active" && start && (
+        <div className="space-y-4">
+          {restoredElsewhere && (
+            <Banner tone="info">
+              Picked up a trip you started on another device. Tap End when you arrive and the miles
+              are figured from that start point.
+            </Banner>
+          )}
+
+          {isStale(start.startTime, nowMs || Date.now()) && (
+            <Banner tone="warning">
+              This trip started{" "}
+              {new Date(start.startTime).toLocaleString([], {
+                weekday: "short",
+                hour: "numeric",
+                minute: "2-digit",
+              })}
+              . If you forgot to end it, log it by hand instead.
+              <button
+                type="button"
+                onClick={() => {
+                  const day = today(new Date(start.startTime));
+                  cancelTrip();
+                  openManual();
+                  setManualDate(day);
+                }}
+                className="mt-2 block font-semibold underline underline-offset-2"
+              >
+                Cancel this trip and log it by hand
+              </button>
+            </Banner>
+          )}
+
+          <Card className="text-center">
+            <div className="flex items-center justify-center gap-2 text-sm font-semibold text-accent dark:text-accent-soft">
+              <span className="inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-accent" aria-hidden />
+              Trip in progress
+            </div>
+            <div className="mt-2 text-3xl font-bold tabular-nums">{elapsed || "0 min"}</div>
+            <p className="mt-1 text-xs text-neutral-500">
+              Started {new Date(start.startTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+              {nearestToStart ? ` · near ${nearestToStart}` : ""}
+            </p>
+            <p className="mt-1 flex items-center justify-center gap-1.5 text-xs text-neutral-500">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent" aria-hidden />
+              Auto-tracking route{trail.length > 0 ? ` · ${trail.length} point${trail.length === 1 ? "" : "s"}` : ""}
+            </p>
+            {waypoints.length > 0 && (
+              <p className="mt-1 text-xs font-semibold text-accent dark:text-accent-soft">
+                {waypoints.length} stop{waypoints.length === 1 ? "" : "s"} marked
+              </p>
+            )}
+          </Card>
+
+          <Card className="space-y-3">
+            <div>
+              <Label>Job (optional)</Label>
+              <div className="flex">
+                <JobPicker
+                  value={jobId}
+                  jobs={jobs.length ? jobs : undefined}
+                  onChange={onPickJob}
+                  showNearest
+                  allLabel="No job"
+                  allDescription="Leave this trip unassigned"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="mlg-purpose-a">Purpose (optional)</Label>
+              <Textarea
+                id="mlg-purpose-a"
+                rows={2}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="e.g. material pickup, client meeting"
+              />
+            </div>
+          </Card>
+
+          <button
+            type="button"
+            onClick={addWaypoint}
+            disabled={busy}
+            className="w-full rounded-2xl border border-accent px-4 py-4 text-base font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
+          >
+            {addingStop ? "Marking stop…" : waypoints.length ? "Add another stop" : "Add a stop"}
+          </button>
+
+          <button
+            type="button"
+            onClick={endTrip}
+            disabled={busy}
+            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy && !addingStop ? "Saving trip…" : "End trip"}
+          </button>
+
+          <button
+            type="button"
+            onClick={cancelTrip}
+            disabled={busy}
+            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-danger hover:underline disabled:opacity-40"
+          >
+            Cancel this trip
+          </button>
+        </div>
+      )}
+
+      {/* --------------------------------------------------------------- DONE */}
+      {phase === "done" && summary && (
+        <div className="space-y-4">
+          <Card className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Trip logged</p>
+            <div className="mt-1 text-4xl font-bold tabular-nums">
+              {summary.miles == null ? "—" : summary.miles} <span className="text-lg font-semibold">mi</span>
+            </div>
+            {summary.durationMin > 0 && (
+              <p className="mt-1 text-sm text-neutral-500">
+                {fmtDuration(summary.durationMin)} driving
+                {summary.stops > 0 ? ` · ${summary.stops} stop${summary.stops === 1 ? "" : "s"}` : ""}
+              </p>
+            )}
+          </Card>
+
+          {summary.warning && (
+            <Banner tone="warning">{summary.warning}</Banner>
+          )}
+
+          {isLatLng(summary.startLatLng) && isLatLng(summary.endLatLng) && (
+            <TripMap
+              start={summary.startLatLng}
+              end={summary.endLatLng}
+              polyline={summary.polyline}
+              className="w-full rounded-xl border border-line"
+            />
+          )}
+
+          <Card className="space-y-2 text-sm">
+            {summary.startAddress && (
+              <Row label="From" value={summary.startAddress} />
+            )}
+            {summary.via && <Row label="Via" value={summary.via} />}
+            {summary.endAddress && <Row label="To" value={summary.endAddress} />}
+            {summary.jobLabel && <Row label="Job" value={summary.jobLabel} />}
+            {summary.purpose && <Row label="Purpose" value={summary.purpose} />}
+          </Card>
+
+          <button
+            type="button"
+            onClick={logAnother}
+            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
+          >
+            Log another trip
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("history");
+            }}
+            className="mx-auto block text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+          >
+            View logged miles
+          </button>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------ HISTORY */}
+      {phase === "history" && (
+        <div className="space-y-4">
+          <Card className="space-y-3">
+            {isAdmin && (
+              <div>
+                <Label htmlFor="mlg-filter-user">Driver</Label>
+                <Select
+                  id="mlg-filter-user"
+                  value={filterUser}
+                  onChange={(e) => {
+                    setFilterUser(e.target.value);
+                    clearPdf();
+                  }}
+                >
+                  <option value="">All drivers</option>
+                  {users.map((u) => (
+                    <option key={u} value={u}>
+                      {u}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="mlg-filter-month">Month</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="mlg-filter-month"
+                  type="month"
+                  value={filterMonth}
+                  onChange={(e) => {
+                    setFilterMonth(e.target.value);
+                    clearPdf();
+                  }}
+                />
+                {filterMonth && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterMonth("");
+                      clearPdf();
+                    }}
+                    className="shrink-0 text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline dark:hover:text-accent-soft"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <Card className="text-center">
+            <div className="text-3xl font-bold tabular-nums">
+              {totalMiles} <span className="text-base font-semibold">mi</span>
+            </div>
+            <p className="mt-0.5 text-xs text-neutral-500">
+              {trips.length} trip{trips.length === 1 ? "" : "s"}
+              {isAdmin ? (filterUser ? ` · ${filterUser}` : " · all drivers") : " · you"}
+            </p>
+          </Card>
+
+          {isAdmin && (
+            <Card className="space-y-2">
+              <button
+                type="button"
+                onClick={createPdf}
+                disabled={pdfBusy || !filterMonth}
+                className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
+              >
+                {pdfBusy ? "Creating PDF…" : "Create PDF — all drivers, this month"}
+              </button>
+              {!filterMonth && (
+                <p className="text-center text-xs text-neutral-500">
+                  Pick a month above to export the full report.
+                </p>
+              )}
+              {pdfErr && <Banner tone="error">{pdfErr}</Banner>}
+              {pdfUrl && (
+                <Banner tone="success">
+                  Report ready —{" "}
+                  <a
+                    href={pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold underline"
+                  >
+                    open the PDF
+                  </a>
+                  .
+                </Banner>
+              )}
+            </Card>
+          )}
+
+          {historyErr && <Banner tone="error">{historyErr}</Banner>}
+
+          {loadingHistory ? (
+            <Loading label="Loading miles…" />
+          ) : trips.length === 0 ? (
+            <EmptyState>
+              No miles logged{filterMonth || filterUser ? " for this filter" : " yet"}.
+            </EmptyState>
+          ) : (
+            <ul className="space-y-2">
+              {trips.map((t, i) => (
+                <TripRow key={t["TripID"] || i} t={t} showDriver={isAdmin} />
+              ))}
+            </ul>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setErr("");
+              setPhase("idle");
+            }}
+            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline dark:hover:text-accent-soft"
+          >
+            Back
+          </button>
+        </div>
+      )}
+
+      {phase === "idle" && !driver && !err && (
+        <div className="mt-4">
+          {employeesLoaded && !sessionUser.email && !sessionUser.name ? (
+            <Banner tone="error">Sign in with Google to record miles — a trip is recorded under your name.</Banner>
+          ) : (
+            <Loading label="Loading…" />
+          )}
+        </div>
+      )}
+    </main>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-3">
+      <span className="w-16 shrink-0 text-xs font-semibold uppercase tracking-wide text-neutral-500">{label}</span>
+      <span className="min-w-0 flex-1">{value}</span>
+    </div>
+  );
+}
+
+// One row in the logged-miles list.
+function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boolean }) {
+  const [showMap, setShowMap] = useState(false);
+  const manual = (t["Distance Source"] || "").toLowerCase() === "manual";
+  const stops = Number(t["Stops"]) || 0;
+  // Route incl. any marked stops: start → via → end.
+  const fromTo = [t["Start Address"], t["Via"], t["End Address"]].filter(Boolean).join(" → ");
+  const start = `${t["Start Lat"]},${t["Start Lng"]}`;
+  const end = `${t["End Lat"]},${t["End Lng"]}`;
+  const hasRoute = isLatLng(start) && isLatLng(end);
+  return (
+    <li className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold">
+            {t["Date"] || "—"}
+            {showDriver && t["Driver"] ? ` · ${t["Driver"]}` : ""}
+          </div>
+          {t["Job"] && <div className="truncate text-xs text-neutral-500">{t["Job"]}</div>}
+          {t["Purpose"] && <div className="truncate text-xs text-neutral-500">{t["Purpose"]}</div>}
+          {fromTo && <div className="mt-0.5 truncate text-xs text-neutral-400">{fromTo}</div>}
+          {hasRoute && (
+            <button
+              type="button"
+              onClick={() => setShowMap((v) => !v)}
+              className="mt-1 text-xs font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+            >
+              {showMap ? "Hide map" : "View map"}
+            </button>
+          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-sm font-bold tabular-nums">{t["Miles"] || "—"} mi</div>
+          {stops > 0 && (
+            <div className="text-[10px] text-neutral-400">
+              {stops} stop{stops === 1 ? "" : "s"}
+            </div>
+          )}
+          {manual && (
+            <div className="text-[10px] uppercase tracking-wide text-neutral-400">manual</div>
+          )}
+        </div>
+      </div>
+      {hasRoute && showMap && (
+        <TripMap
+          start={start}
+          end={end}
+          polyline={t["Polyline"]}
+          className="mt-3 w-full rounded-lg border border-line"
+        />
+      )}
+    </li>
+  );
+}
