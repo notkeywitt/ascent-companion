@@ -39,7 +39,10 @@ async function fromGoogleChat(req: NextRequest, body: Body): Promise<boolean> {
   const token =
     req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
     body?.authorizationEventObject?.systemIdToken;
-  if (!audience || !token) return false;
+  if (!audience || !token) {
+    console.warn(`[google-chat] refused: ${!audience ? "GOOGLE_CHAT_AUDIENCE is not set" : "no token on the request"}`);
+    return false;
+  }
   try {
     const { payload } = await jwtVerify(token, GOOGLE_CERTS, {
       issuer: ["https://accounts.google.com", "accounts.google.com"],
@@ -99,6 +102,7 @@ export async function POST(req: NextRequest) {
     );
 
   const ask = parseEvent(body as GoogleChatEvent);
+  console.log(`[google-chat] ${ask.kind}${"email" in ask ? ` from ${ask.email}` : ""}`);
   if (ask.kind === "ignore") return NextResponse.json({});
   if (ask.kind === "added") return reply(helpText());
 
