@@ -2,9 +2,9 @@
 slug: ascentbot-architecture
 repo: ascent-companion
 branch: claude/ascentbot-architecture-08o3ez
-status: in-progress
+status: shipped
 started: 2026-10-28T05:54:35Z
-updated: 2026-10-28T05:54:45Z
+updated: 2026-10-28T05:54:46Z
 goal: 
 next: Owner retries AscentBot; read [chat:google-chat] timing lines in Vercel logs to find the slow round or tool; if Google's 30s cap is the limit, build the background reply (needs a Chat service account)
 ---
