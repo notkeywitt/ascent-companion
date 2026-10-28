@@ -1457,6 +1457,26 @@ export const specDocs = sqliteTable("spec_docs", {
 export type SpecDocRow = typeof specDocs.$inferSelect;
 
 /**
+ * The Drive files and folders linked to a job — ONE list, shared by
+ * Specifications (read for AscentBot) and House Manual (Job files). `readAt`
+ * is when Specifications last read the link for AscentBot; "" = never.
+ */
+export const jobSources = sqliteTable(
+  "job_sources",
+  {
+    jobId: text("job_id").notNull(), // JobTread job id
+    driveId: text("drive_id").notNull(),
+    name: text("name").notNull().default(""),
+    url: text("url").notNull().default(""),
+    isFolder: integer("is_folder", { mode: "boolean" }).notNull().default(false),
+    readAt: text("read_at").notNull().default(""),
+    addedAt: text("added_at").notNull(),
+    addedBy: text("added_by").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.jobId, t.driveId] })],
+);
+
+/**
  * A job's homeowner's manual, as the office edited it on /house-manual. One
  * row per job; `value` is a HouseManual (src/lib/houseManual.ts) as JSON. No
  * row means the page shows a fresh draft built from JobTread and the spec list.

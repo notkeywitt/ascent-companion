@@ -9,6 +9,9 @@ import { Banner, Button, Input, ListCard, ListRow, MetaLine, SectionHeading } fr
  * time, one request each, skipping files already read and unchanged. The bot
  * searches the kept text (search_job_documents) — no Drive or model call per
  * question.
+ *
+ * The links are the job's ONE list of Drive sources, shared with House
+ * Manual's Job files: a folder linked there shows here, ready to read.
  */
 
 interface Doc {
@@ -19,6 +22,13 @@ interface Doc {
   pages: number;
   chars: number;
   note: string;
+}
+interface Source {
+  id: string;
+  name: string;
+  url: string;
+  isFolder: boolean;
+  readAt: string;
 }
 interface DriveFile {
   id: string;
@@ -37,8 +47,12 @@ async function readJson(r: Response) {
 
 const AT_ONCE = 3;
 
+const when = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
 export function JobDocuments({ jobId }: { jobId: string }) {
   const [docs, setDocs] = useState<Doc[]>([]);
+  const [sources, setSources] = useState<Source[]>([]);
   const [link, setLink] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -49,6 +63,7 @@ export function JobDocuments({ jobId }: { jobId: string }) {
     try {
       const b = await readJson(await fetch(`/api/specs/docs?jobId=${encodeURIComponent(jobId)}`, { cache: "no-store" }));
       setDocs(b.docs ?? []);
+      setSources(b.sources ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -56,17 +71,18 @@ export function JobDocuments({ jobId }: { jobId: string }) {
 
   useEffect(() => {
     setDocs([]);
+    setSources([]);
     setStatus("");
     setError("");
     void load();
   }, [load]);
 
-  async function read() {
+  async function read(target: string) {
     setBusy(true);
     setError("");
     try {
       setStatus("Listing the files…");
-      const q = new URLSearchParams({ jobId, link: link.trim() });
+      const q = new URLSearchParams({ jobId, link: target });
       const w = await readJson(await fetch(`/api/specs/docs?${q}`, { cache: "no-store" }));
       const files = w.files as DriveFile[];
       const todo = files.filter((f) => !f.done);
@@ -111,6 +127,20 @@ export function JobDocuments({ jobId }: { jobId: string }) {
     }
   }
 
+  async function unlink(s: Source) {
+    setError("");
+    try {
+      await readJson(
+        await fetch(`/api/specs/docs?jobId=${encodeURIComponent(jobId)}&source=${encodeURIComponent(s.id)}`, {
+          method: "DELETE",
+        }),
+      );
+      setSources((ss) => ss.filter((x) => x.id !== s.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async function remove(id: number) {
     setError("");
     try {
@@ -135,18 +165,48 @@ export function JobDocuments({ jobId }: { jobId: string }) {
           placeholder="Paste a Google Drive file or folder link"
           value={link}
           onChange={(e) => setLink(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && link.trim() && !busy && void read()}
+          onKeyDown={(e) => e.key === "Enter" && link.trim() && !busy && void read(link.trim())}
           className="max-w-md"
         />
-        <Button onClick={read} disabled={!link.trim() || busy}>
+        <Button onClick={() => void read(link.trim())} disabled={!link.trim() || busy}>
           {busy ? "Reading…" : "Read link"}
         </Button>
       </div>
       {error && <Banner tone="error">{error}</Banner>}
+      {sources.length > 0 && (
+        // The job's linked Drive files and folders — the same list as House Manual's Job files.
+        <ListCard>
+          {sources.map((s) => (
+            <ListRow
+              key={s.id}
+              wrap
+              label={
+                <a href={s.url} target="_blank" rel="noopener noreferrer" className="hover:text-accent hover:underline">
+                  {s.isFolder ? "Folder · " : ""}
+                  {s.name} ↗
+                </a>
+              }
+              desc={s.readAt ? `Read ${when(s.readAt)}` : <span className="text-warn">Not read for AscentBot yet</span>}
+              trailing={
+                <span className="flex shrink-0 gap-1">
+                  <Button size="xs" variant="secondary" disabled={busy} onClick={() => void read(s.id)}>
+                    {s.readAt ? "Read again" : "Read"}
+                  </Button>
+                  <Button size="xs" variant="ghost" aria-label={`Unlink ${s.name}`} onClick={() => void unlink(s)}>
+                    Unlink
+                  </Button>
+                </span>
+              }
+            />
+          ))}
+        </ListCard>
+      )}
       {status && <p className="text-[12px] text-neutral-500 dark:text-neutral-400">{status}</p>}
       <MetaLine
         items={[
-          docs.length ? `${docs.length} documents` : "No documents yet. AscentBot searches every file read here.",
+          docs.length
+            ? `${docs.length} documents read`
+            : "No documents read yet. AscentBot searches every file read here. Links are shared with House Manual.",
           pages > 0 && `${pages} pages`,
           noText > 0 && <span className="text-warn">{noText} without text</span>,
         ]}

@@ -1064,6 +1064,20 @@ async function applySchema() {
       imported_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // A job's linked Drive files and folders, shared by /specs and /house-manual (see schema.ts jobSources).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS job_sources (
+      job_id TEXT NOT NULL,
+      drive_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      url TEXT NOT NULL DEFAULT '',
+      is_folder INTEGER NOT NULL DEFAULT 0,
+      read_at TEXT NOT NULL DEFAULT '',
+      added_at TEXT NOT NULL,
+      added_by TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (job_id, drive_id)
+    )
+  `);
   // A job's homeowner's manual (see schema.ts houseManuals).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS house_manuals (

@@ -1,8 +1,8 @@
 import { and, eq, like, or, sql } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { specDocs } from "@/db/schema";
+import { jobSources, specDocs } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
-import { isReadable, type DriveItem } from "@/lib/houseManual";
+import { isReadable, type DriveItem, type ManualSource } from "@/lib/houseManual";
 import { extractPdfLinks, extractPdfText } from "@/lib/pdfLinks";
 
 /**
@@ -15,6 +15,9 @@ import { extractPdfLinks, extractPdfText } from "@/lib/pdfLinks";
  * pdf.js, no model, so a read costs nothing. A scan has no text layer; it is
  * kept by name and link only. `searchSpecDocs` is the bot's read: a LIKE
  * filter in the DB, then the matching lines with their page.
+ *
+ * The links themselves are `job_sources`: ONE list per job that /specs and
+ * /house-manual (Job files) both show and both add to.
  *
  * Read-only against Drive. Companion DB only. Server-only.
  */
@@ -64,9 +67,9 @@ const fileOf = (i: DriveItem, folder: string): DriveFile => ({
 });
 
 /** Every file under a Drive link, a folder level at a time. A file link is one file. */
-export async function walkDriveLink(id: string): Promise<{ root: string; files: DriveFile[]; truncated: boolean }> {
+export async function walkDriveLink(id: string): Promise<{ root: DriveItem; files: DriveFile[]; truncated: boolean }> {
   const top = await list(id);
-  if (!top.item.isFolder) return { root: top.item.name, files: [fileOf(top.item, "")], truncated: false };
+  if (!top.item.isFolder) return { root: top.item, files: [fileOf(top.item, "")], truncated: false };
   const files: DriveFile[] = [];
   let truncated = !!top.truncated;
   let listed = 1;
@@ -92,7 +95,40 @@ export async function walkDriveLink(id: string): Promise<{ root: string; files: 
     );
   }
   if (files.length > WALK_MAX_FILES) truncated = true;
-  return { root: top.item.name, files: files.slice(0, WALK_MAX_FILES), truncated };
+  return { root: top.item, files: files.slice(0, WALK_MAX_FILES), truncated };
+}
+
+/* ------------------------------------------------- the job's linked sources */
+
+export interface JobSource extends ManualSource {
+  /** When /specs last read it for AscentBot; "" = never. */
+  readAt: string;
+}
+
+/** The job's linked Drive files and folders, folders first, by name. */
+export async function listJobSources(jobId: string): Promise<JobSource[]> {
+  await ensureDb();
+  const rows = await db.select().from(jobSources).where(eq(jobSources.jobId, jobId));
+  return rows
+    .map((r) => ({ id: r.driveId, name: r.name, url: r.url, isFolder: r.isFolder, readAt: r.readAt }))
+    .sort((a, b) => (a.isFolder !== b.isFolder ? (a.isFolder ? -1 : 1) : a.name.localeCompare(b.name)));
+}
+
+/** Link a Drive file or folder to the job. Already linked: its name and link are refreshed; `read` stamps readAt. */
+export async function addJobSource(jobId: string, s: ManualSource, addedBy: string, read = false): Promise<void> {
+  await ensureDb();
+  const now = new Date().toISOString();
+  const set = { name: s.name.slice(0, 300), url: s.url.slice(0, 500), isFolder: s.isFolder, ...(read ? { readAt: now } : {}) };
+  await db
+    .insert(jobSources)
+    .values({ jobId, driveId: s.id, ...set, addedAt: now, addedBy })
+    .onConflictDoUpdate({ target: [jobSources.jobId, jobSources.driveId], set });
+}
+
+/** Unlink one. The Drive file stays, and so does any text already read from it. */
+export async function removeJobSource(jobId: string, driveId: string): Promise<void> {
+  await ensureDb();
+  await db.delete(jobSources).where(and(eq(jobSources.jobId, jobId), eq(jobSources.driveId, driveId)));
 }
 
 /** Read one Drive file and keep it as the job's document, replacing an earlier read. */

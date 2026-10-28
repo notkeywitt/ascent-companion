@@ -10,6 +10,10 @@ import { galleryFrom, isReadable, type DriveItem, type ManualGallery, type Manua
  * selections (the Specifications reader, so /specs gets the import too) or
  * added to the manual's Links; a folder of photos can become a gallery. All
  * reads go through /api/house-manual/drive.
+ *
+ * Shared with Specifications: the linked files and folders are the job's ONE
+ * job_sources list (link or unlink here and /specs changes too), and every spec
+ * list read on /specs is offered here to add, without reading the PDF again.
  */
 
 async function readJson(r: Response) {
@@ -31,8 +35,18 @@ const when = (iso: string) =>
 
 const textLink = "text-[12px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft";
 
+/** A spec list already read for the job — on /specs or here. */
+export interface SpecListRef {
+  id: number;
+  title: string;
+  revision: string;
+  importedAt: string;
+  rows: number;
+}
+
 interface Props {
   jobId: string;
+  specLists: SpecListRef[];
   sources: ManualSource[];
   onSources: (next: ManualSource[]) => void;
   onImport: (sections: ManualSection[]) => void;
@@ -183,7 +197,9 @@ function FolderBrowser({
   );
 }
 
-export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onAddGallery, onError }: Props) {
+export function JobFiles({ jobId, specLists: initialLists, sources, onSources, onImport, onAddLink, onAddGallery, onError }: Props) {
+  // Remounted with each load of the manual; a Drive import adds its list here.
+  const [specLists, setSpecLists] = useState(initialLists);
   const [link, setLink] = useState("");
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState("");
@@ -192,16 +208,43 @@ export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onAdd
   async function add() {
     setAdding(true);
     try {
-      const b = await readJson(await fetch(`/api/house-manual/drive?id=${encodeURIComponent(link)}`, { cache: "no-store" }));
-      const it: DriveItem = b.item;
-      if (!sources.some((s) => s.id === it.id)) {
-        onSources([...sources, { id: it.id, name: it.name, url: it.url, isFolder: it.isFolder }]);
-      }
+      const b = await readJson(
+        await fetch("/api/house-manual/drive", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobId, link }),
+        }),
+      );
+      onSources(b.sources);
       setLink("");
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function unlink(id: string) {
+    try {
+      const q = new URLSearchParams({ jobId, id });
+      onSources((await readJson(await fetch(`/api/house-manual/drive?${q}`, { method: "DELETE" }))).sources);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    }
+  }
+
+  async function addSpecList(l: SpecListRef) {
+    setImporting(`list-${l.id}`);
+    setNotice("");
+    try {
+      const q = new URLSearchParams({ jobId, specList: String(l.id) });
+      const b = await readJson(await fetch(`/api/house-manual?${q}`, { cache: "no-store" }));
+      onImport(b.sections);
+      setNotice(`Added ${l.title}. New items were added to the sections below.`);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setImporting("");
     }
   }
 
@@ -217,6 +260,7 @@ export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onAdd
         }),
       );
       onImport(b.sections);
+      if (b.list) setSpecLists((ls) => [b.list, ...ls]);
       setNotice(`Read ${b.rows} rows from ${name}. New items were added to the sections below.`);
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
@@ -230,7 +274,29 @@ export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onAdd
       <SectionHeading>Job files</SectionHeading>
       <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
         Link the job&apos;s Google Drive folders and files. These stay in the app; they are not printed on the page.
+        Specifications shares this list.
       </p>
+      {specLists.length > 0 && (
+        // Every spec list read for the job, on /specs or here — the same imports.
+        <Card pad={false} className="divide-y divide-line-soft">
+          {specLists.map((l) => (
+            <div key={l.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-2.5">
+              <a
+                href={`/specs?jobId=${encodeURIComponent(jobId)}`}
+                className="min-w-0 flex-1 truncate text-sm font-semibold hover:text-accent"
+              >
+                Spec list · {l.title}
+              </a>
+              <span className="text-[11px] text-neutral-500">
+                {[l.revision && `Rev ${l.revision}`, `${l.rows} items`, when(l.importedAt)].filter(Boolean).join(" · ")}
+              </span>
+              <button type="button" className={textLink} disabled={!!importing} onClick={() => void addSpecList(l)}>
+                {importing === `list-${l.id}` ? "Adding…" : "Add selections"}
+              </button>
+            </div>
+          ))}
+        </Card>
+      )}
       {sources.length > 0 && (
         <Card pad={false} className="divide-y divide-line-soft">
           {sources.map((s) => (
@@ -258,7 +324,7 @@ export function JobFiles({ jobId, sources, onSources, onImport, onAddLink, onAdd
                 type="button"
                 aria-label={`Unlink ${s.name}`}
                 title={`Unlink ${s.name}`}
-                onClick={() => onSources(sources.filter((x) => x.id !== s.id))}
+                onClick={() => void unlink(s.id)}
                 className="shrink-0 px-1 text-neutral-400 hover:text-danger"
               >
                 ✕

@@ -35,7 +35,7 @@ import {
   type ManualItem,
   type TitleStyle,
 } from "@/lib/houseManual";
-import { JobFiles, fetchGallery } from "./JobFiles";
+import { JobFiles, fetchGallery, type SpecListRef } from "./JobFiles";
 
 /**
  * House Manual — a job's homeowner's manual, built from what the app already
@@ -351,6 +351,7 @@ function HouseManualPage() {
   const [jobId] = useJobIdParam();
   const [manual, setManual] = useState<HouseManual | null>(null);
   const [vendors, setVendors] = useState<JobVendor[]>([]);
+  const [specLists, setSpecLists] = useState<SpecListRef[]>([]);
   const [allVendors, setAllVendors] = useState<{ id: string; name: string }[]>([]);
   const [saved, setSaved] = useState<Saved | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -372,6 +373,7 @@ function HouseManualPage() {
         const b = await readJson(await fetch(`/api/house-manual?${q}`, { cache: "no-store" }));
         setManual(b.manual);
         setVendors(b.vendors ?? []);
+        setSpecLists(b.specLists ?? []);
         if (!fresh) setSaved(b.saved);
         setPublished(b.published ?? null);
         setDirty(fresh);
@@ -559,8 +561,10 @@ function HouseManualPage() {
           <div className="min-w-0 space-y-6">
             <JobFiles
               jobId={jobId}
+              specLists={specLists}
               sources={manual.sources}
-              onSources={(sources) => edit((m) => ({ ...m, sources }))}
+              // Saved on the server as they change (the shared job_sources list), so not "unsaved".
+              onSources={(sources) => setManual((m) => (m ? { ...m, sources } : m))}
               onImport={(sections) => edit((m) => ({ ...m, sections: mergeSections(m.sections, sections) }))}
               onAddLink={(l) => edit((m) => ({ ...m, links: [...m.links, l] }))}
               onAddGallery={(g) => edit((m) => ({ ...m, galleries: [...m.galleries.filter((x) => x.folderId !== g.folderId), g] }))}

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { driveIdFromLink, specSections, type DriveItem } from "@/lib/houseManual";
+import { addJobSource, listJobSources, removeJobSource } from "@/lib/specDocs";
 import { importSpecPdf } from "@/lib/specImport";
 
 /**
@@ -12,6 +13,9 @@ import { importSpecPdf } from "@/lib/specImport";
  *   POST { jobId, fileId }     → read that file as a spec list: stored as the
  *                                job's newest import (so /specs shows it too)
  *                                and returned as manual sections
+ *   PUT  { jobId, link }       → link a file or folder to the job: the shared
+ *                                job_sources list, which /specs shows too
+ *   DELETE ?jobId=&id=         → unlink one, on both pages
  *
  * Read-only against Drive. Rides the "house-manual" view with /api/house-manual.
  */
@@ -60,14 +64,47 @@ export async function POST(req: NextRequest) {
       { timeoutMs: 120_000 },
     );
     const session = await auth();
-    const { list } = await importSpecPdf({
+    const { id, list } = await importSpecPdf({
       jobId,
       fileName: file.name,
       bytes: Buffer.from(file.data, "base64"),
       importedBy: session?.user?.email ?? "",
     });
-    return NextResponse.json({ sections: specSections(list), rows: list.rows.length });
+    return NextResponse.json({
+      sections: specSections(list),
+      rows: list.rows.length,
+      list: { id, title: list.title || file.name, revision: list.revision, importedAt: new Date().toISOString(), rows: list.rows.length },
+    });
   } catch (e) {
     return bridgeError(e);
   }
+}
+
+export async function PUT(req: NextRequest) {
+  let body: { jobId?: unknown; link?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+  const jobId = String(body.jobId ?? "").trim();
+  const id = driveIdFromLink(String(body.link ?? ""));
+  if (!JOB_ID.test(jobId)) return NextResponse.json({ error: "Pick a job." }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "Paste a Google Drive file or folder link." }, { status: 400 });
+  try {
+    const { item } = await callAppsScriptOrThrow<{ item: DriveItem }>({ action: "listDriveFolder", id });
+    const session = await auth();
+    await addJobSource(jobId, item, session?.user?.email ?? "");
+  } catch (e) {
+    return bridgeError(e);
+  }
+  return NextResponse.json({ sources: await listJobSources(jobId) });
+}
+
+export async function DELETE(req: NextRequest) {
+  const jobId = req.nextUrl.searchParams.get("jobId")?.trim() ?? "";
+  const id = driveIdFromLink(req.nextUrl.searchParams.get("id") ?? "");
+  if (!JOB_ID.test(jobId) || !id) return NextResponse.json({ error: "Send jobId and id." }, { status: 400 });
+  await removeJobSource(jobId, id);
+  return NextResponse.json({ sources: await listJobSources(jobId) });
 }
