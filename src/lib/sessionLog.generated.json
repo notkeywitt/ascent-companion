@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T18:34:39Z",
+  "generatedAt": "2026-10-28T18:47:56Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-28T18:34:39Z",
+      "updated": "2026-10-28T18:47:56Z",
       "goal": "",
-      "next": "test in Google Chat: ask AscentBot for Amanda Keeler's phone",
+      "next": "owner runs ./deploy.sh in ascent-appscript; then test read_email and report_gap in Google Chat",
       "commits": [
         {
           "date": "2026-09-03",
@@ -648,6 +648,13 @@
           "sha": "d9b02cf",
           "subject": "companion: ascentbot looks up customer and vendor contacts",
           "files": "src/lib/chatTools.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "11:47",
+          "sha": "18a008b",
+          "subject": "companion: ascentbot reads whole emails and reports questions it can't answer",
+          "files": "src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
         }
       ]
     },
