@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Banner, Card, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut } from "@/components/Donut";
 import { WORKING_PHASES, type JobRef } from "@/components/JobPicker";
@@ -71,7 +72,7 @@ export function MonthJobDonuts({
       >
         {`Jobs · ${monthLabel}`}
       </SectionHeading>
-      {jobs.length > 0 && <MonthTotalCard jobs={jobs} />}
+      {jobs.length > 0 && <MonthTotalCard jobs={jobs} ym={ym} />}
       {/* The home board's row: sideways on a phone, bleeding to the screen edge
           so the next card shows cut off; a grid from `pad` up. */}
       <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 pad:mx-0 pad:grid pad:grid-cols-2 pad:overflow-x-visible pad:px-0 xl:grid-cols-3 2xl:grid-cols-4">
@@ -94,8 +95,13 @@ export function MonthJobDonuts({
  * A job keeps one colour in both rings: colours go by rank in the combined
  * total. ponytail: 7 categorical slots, so colours repeat from the 8th job;
  * the legend names every slice, so identity is never colour alone.
+ *
+ * Clicking a slice, or its legend row, opens that job's Tracking Sheet on `ym`.
  */
-export function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
+export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string }) {
+  const router = useRouter();
+  const openJob = (jobId: string) =>
+    router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`);
   const rows = jobs
     .map((j) => {
       const r = withoutSalesTax(j.rows);
@@ -132,8 +138,8 @@ export function MonthTotalCard({ jobs }: { jobs: MonthJobCost[] }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 pad:mx-auto pad:max-w-xl">
-        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" />
-        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" />
+        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" onSelect={openJob} />
+        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" onSelect={openJob} />
       </div>
     </Card>
   );

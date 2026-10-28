@@ -607,7 +607,7 @@ function MonthTotal({ ym }: { ym: string }) {
   if (!jobs?.length) return null;
   return (
     <div className="mb-1 hidden pad:block">
-      <MonthTotalCard jobs={jobs} />
+      <MonthTotalCard jobs={jobs} ym={ym} />
     </div>
   );
 }
