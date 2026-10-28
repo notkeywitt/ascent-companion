@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T18:47:56Z",
+  "generatedAt": "2026-10-28T19:14:32Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-28T18:47:56Z",
+      "updated": "2026-10-28T19:14:32Z",
       "goal": "",
-      "next": "owner runs ./deploy.sh in ascent-appscript; then test read_email and report_gap in Google Chat",
+      "next": "confirm the Berger specs folder (1_USvfvHWDsazJrEJTl_Q7jdHFhe2LdWg) now adds on /specs",
       "commits": [
         {
           "date": "2026-09-03",
@@ -655,6 +655,13 @@
           "sha": "18a008b",
           "subject": "companion: ascentbot reads whole emails and reports questions it can't answer",
           "files": "src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "12:14",
+          "sha": "4176a32",
+          "subject": "companion: specs folder walk lists four folders at a time, 60s each",
+          "files": "src/lib/specDocs.ts"
         }
       ]
     },
