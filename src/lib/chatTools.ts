@@ -40,6 +40,7 @@ import {
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { searchJobMemory } from "@/lib/chatMemory";
+import { searchSpecDocs } from "@/lib/specDocs";
 import { DIGEST_SETTINGS } from "@/lib/digest/settings";
 import type { SpecList } from "@/lib/specList";
 import { db, ensureDb } from "@/db";
@@ -336,6 +337,29 @@ export const CHAT_TOOLS: ChatTool[] = [
         jobtreadSpecifications: jt.slice(0, 80),
       };
     },
+  },
+  {
+    name: "search_job_documents",
+    description:
+      "The text of a job's documents the office read in from Google Drive on the " +
+      "Specifications page: finish schedules, cut sheets, product data, plans, scopes. " +
+      "With words: the documents mentioning ANY of them, best first, each with matching " +
+      "lines and their page (page 0 = the document's product links). With document_id: " +
+      "that document's full text for one page. With neither: the list. Use for selections " +
+      "and product details get_job_selections lacks. Cite the document name and page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        ...JOB_PROP,
+        ...WORDS_PROP,
+        document_id: { type: "number", description: "Optional. Read one document, from a search result." },
+        page: { type: "number", description: "With document_id: the page to read. Defaults to 1." },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) =>
+      searchSpecDocs(String(input.job_id), wordsOf(input), Number(input.document_id) || 0, Number(input.page) || 1),
   },
   {
     name: "get_job_schedule",

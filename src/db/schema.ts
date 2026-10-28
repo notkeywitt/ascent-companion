@@ -1433,6 +1433,30 @@ export const specFiles = sqliteTable("spec_files", {
 });
 
 /**
+ * The job's Drive files, read once on /specs so AscentBot can search them
+ * without a model or Drive call per question (lib/specDocs). One row per job
+ * and Drive file; a re-read of the same link replaces the row. `text` is the
+ * PDF text layer with "[Page N]" headers, then its web links; "" when the file
+ * could not be read, and `note` says why.
+ */
+export const specDocs = sqliteTable("spec_docs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: text("job_id").notNull(), // JobTread job id
+  driveId: text("drive_id").notNull(),
+  name: text("name").notNull().default(""),
+  folder: text("folder").notNull().default(""), // path under the linked folder
+  mimeType: text("mime_type").notNull().default(""),
+  modified: text("modified").notNull().default(""), // Drive's, as read; "" retries on the next read
+  pages: integer("pages").notNull().default(0),
+  text: text("text").notNull().default(""),
+  note: text("note").notNull().default(""),
+  importedAt: text("imported_at").notNull(),
+  importedBy: text("imported_by").notNull().default(""),
+});
+
+export type SpecDocRow = typeof specDocs.$inferSelect;
+
+/**
  * A job's homeowner's manual, as the office edited it on /house-manual. One
  * row per job; `value` is a HouseManual (src/lib/houseManual.ts) as JSON. No
  * row means the page shows a fresh draft built from JobTread and the spec list.

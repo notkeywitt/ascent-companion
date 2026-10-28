@@ -40,15 +40,53 @@ export function isWebUrl(u: string): boolean {
   }
 }
 
-export async function extractPdfLinks(bytes: Uint8Array): Promise<PdfLink[]> {
+async function openPdf(bytes: Uint8Array) {
   // @ts-expect-error pdf.js ships no type declarations for its worker module.
   const worker = await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
   (globalThis as { pdfjsWorker?: unknown }).pdfjsWorker = worker;
   const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
-
   // pdf.js takes ownership of the buffer it is given, so hand it a copy.
   const task = getDocument({ data: bytes.slice(), disableFontFace: true });
-  const doc = await task.promise;
+  return { task, doc: await task.promise };
+}
+
+/**
+ * A PDF's text layer, page by page, each page headed "[Page N]". A line break
+ * where the baseline moves. Free: no model reads it. A scan has no text layer
+ * and comes back as headers only.
+ */
+export async function extractPdfText(bytes: Uint8Array): Promise<{ pages: number; text: string }> {
+  const { task, doc } = await openPdf(bytes);
+  const pages = doc.numPages;
+  const out: string[] = [];
+  try {
+    for (let p = 1; p <= pages; p++) {
+      const page = await doc.getPage(p);
+      let line = "";
+      let lastY: number | null = null;
+      const lines: string[] = [];
+      for (const i of (await page.getTextContent()).items as TextItem[]) {
+        if (typeof i.str !== "string") continue;
+        const y = i.transform[5];
+        if (lastY !== null && Math.abs(y - lastY) > 2) {
+          lines.push(line);
+          line = "";
+        }
+        line += ` ${i.str}`;
+        lastY = y;
+      }
+      lines.push(line);
+      out.push(`[Page ${p}]`, ...lines.map((l) => l.replace(/\s+/g, " ").trim()).filter(Boolean), "");
+      page.cleanup();
+    }
+  } finally {
+    await task.destroy();
+  }
+  return { pages, text: out.join("\n") };
+}
+
+export async function extractPdfLinks(bytes: Uint8Array): Promise<PdfLink[]> {
+  const { task, doc } = await openPdf(bytes);
   // One entry per URL. A link that wraps onto a second line is two annotations
   // with one target, and one product often links from several rows (the same
   // floor in three rooms); Claude may give one id to every row it belongs to.

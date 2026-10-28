@@ -175,6 +175,7 @@ export const helpText = () =>
 export const BOT_TOOLS = [
   "list_jobs",
   "get_job_selections",
+  "search_job_documents",
   "get_job_schedule",
   "get_job_notes",
   "search_job_memory",
@@ -192,7 +193,7 @@ export const CHAT_SYSTEM = [
   "For a money question (cost, budget, invoices, bills), say the Ascent app has it.",
   "- Earlier messages in this space are included above the new one. Use them.",
   "- Look before you answer: search_job_memory, then the source that fits (selections,",
-  "  schedule, notes, files, calendar, email, Drive). Name the source of each fact",
+  "  job documents, schedule, notes, files, calendar, email, Drive). Name the source of each fact",
   "  (\"per the spec list rev C\", \"daily log Oct 12\", \"noted by Ty on Oct 3\").",
   "  If sources disagree, give the newest and say so.",
   "- If nothing records the answer, say so plainly. Never guess a selection or a date.",

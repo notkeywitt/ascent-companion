@@ -1047,6 +1047,23 @@ async function applySchema() {
       bytes BLOB NOT NULL
     )
   `);
+  // A job's Drive files, read for AscentBot (see schema.ts specDocs).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS spec_docs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id TEXT NOT NULL,
+      drive_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      folder TEXT NOT NULL DEFAULT '',
+      mime_type TEXT NOT NULL DEFAULT '',
+      modified TEXT NOT NULL DEFAULT '',
+      pages INTEGER NOT NULL DEFAULT 0,
+      text TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      imported_at TEXT NOT NULL,
+      imported_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // A job's homeowner's manual (see schema.ts houseManuals).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS house_manuals (
@@ -1203,6 +1220,7 @@ async function applySchema() {
     `CREATE INDEX IF NOT EXISTS financial_events_actor_idx ON financial_events (actor, at DESC)`,
     `CREATE INDEX IF NOT EXISTS financial_events_request_idx ON financial_events (request_id)`,
     `CREATE INDEX IF NOT EXISTS spec_lists_job_idx ON spec_lists (job_id, id DESC)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS spec_docs_job_drive_idx ON spec_docs (job_id, drive_id)`,
     `CREATE INDEX IF NOT EXISTS chat_turns_space_idx ON chat_turns (space, at DESC)`,
     `CREATE INDEX IF NOT EXISTS chat_turns_job_idx ON chat_turns (job_id, at DESC)`,
   ]) {

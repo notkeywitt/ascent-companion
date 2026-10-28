@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
+import { JobDocuments } from "./JobDocuments";
 import {
   groupByRoom,
   specEntry,
@@ -42,6 +43,9 @@ import {
  * "Save to JobTread" sends ONE row onto the budget line it belongs to (owner's
  * call: individually, never in bulk). The line becomes a JobTread Specification
  * with the row added to its description — see /api/specs/jobtread.
+ *
+ * "Documents for AscentBot" (JobDocuments.tsx) takes a Drive file or folder
+ * link and keeps the text of every file in it for the Google Chat bot.
  */
 
 interface Current {
@@ -431,6 +435,8 @@ function Specs() {
           </div>
         )}
       </div>
+
+      {jobId && <JobDocuments jobId={jobId} />}
 
       {!jobId ? (
         <EmptyState>Pick a job to see its spec list.</EmptyState>
