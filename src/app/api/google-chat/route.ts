@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import type Anthropic from "@anthropic-ai/sdk";
 
@@ -15,7 +15,9 @@ import {
   canAsk,
   helpText,
   jobLine,
+  looksUnanswered,
   parseEvent,
+  reportGap,
   runCommand,
   type BotContext,
   type GoogleChatEvent,
@@ -182,6 +184,14 @@ export async function POST(req: NextRequest) {
         saveTurn({ ...where, jobId: ctx.job?.jobId ?? "", kind: "answer", author: "", text }),
         undefined,
       );
+      // Claude skips report_gap at times, so a "found nothing" answer emails the
+      // office here. After the reply: Google stops waiting at 30s.
+      if (!ctx.gapReported && looksUnanswered(text)) {
+        after(async () => {
+          const sent = await reportGap(ctx, ask.text, `AscentBot did not report this itself. Its answer:\n${text}`);
+          console.log(`[google-chat] fallback report_gap: ${sent ? "sent" : "failed"}`);
+        });
+      }
     }
     return reply(text);
   } catch (e) {

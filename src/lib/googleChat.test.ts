@@ -21,7 +21,17 @@ vi.mock("@/lib/jobtread", async (orig) => ({
 import type { ChatTurn } from "./chatMemory";
 import { CHAT_TOOLS, hasAnyWord } from "./chatTools";
 import type { JobRef, PaveConfig } from "./jobtread";
-import { BOT_TOOLS, botTools, buildHistory, canAsk, jobLine, matchJobs, parseEvent, type BotContext } from "./googleChat";
+import {
+  BOT_TOOLS,
+  botTools,
+  buildHistory,
+  canAsk,
+  jobLine,
+  looksUnanswered,
+  matchJobs,
+  parseEvent,
+  type BotContext,
+} from "./googleChat";
 
 describe("parseEvent", () => {
   const user = { email: "Ty@AscentBuildingCo.com", displayName: "Ty" };
@@ -214,8 +224,24 @@ describe("botTools", () => {
       expect.objectContaining({ action: "chatReportGap", question: "gate code?", asker: "Ty", job: "Berger Main House" }),
       expect.anything(),
     );
+    expect(ctx.gapReported).toBe(true);
     callAppsScriptOrThrow.mockRejectedValueOnce(new Error("down"));
     expect(await tool("report_gap").handler(cfg, { question: "gate code?" })).toEqual({ sent: false });
+  });
+});
+
+describe("looksUnanswered", () => {
+  it("spots an answer that found nothing", () => {
+    expect(looksUnanswered("I couldn’t find the roof color in the selections or documents.")).toBe(true);
+    expect(looksUnanswered("I could not find that.")).toBe(true);
+    expect(looksUnanswered("There's no record of the gate code.")).toBe(true);
+    expect(looksUnanswered("The roof color isn't recorded anywhere I can see.")).toBe(true);
+  });
+
+  it("leaves a real answer alone", () => {
+    expect(looksUnanswered("*Charcoal Grey*, inferred from bills (Sunset bill #407, Sep 25).")).toBe(false);
+    expect(looksUnanswered("Noted for Otis Perkins Addition.")).toBe(false);
+    expect(looksUnanswered("The Ascent app has the budget.")).toBe(false);
   });
 });
 

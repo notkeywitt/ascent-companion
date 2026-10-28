@@ -7881,6 +7881,91 @@ export async function getJobNotes(cfg: PaveConfig, jobId: string): Promise<JobNo
   return notes.filter((n) => n.text.trim() || n.subject.trim()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
+/** One line of a vendor bill, as AscentBot reads it: what was bought, never what it cost. */
+export interface BoughtLine {
+  name: string;
+  description: string;
+  costCode: string;
+  vendor: string;
+  billNumber: string;
+  /** YYYY-MM-DD */
+  issueDate: string;
+  status: string;
+}
+
+/** Pages read by `getBoughtLines`. A word as broad as a vendor's name can match thousands of lines. */
+const BILL_LINE_PAGES = 3;
+
+/**
+ * The lines of a job's vendor bills that mention ANY of `words` in the line's
+ * name or description, its cost code's number or name, or the vendor's name.
+ * Newest bill first. Voided (`denied`) bills are left out. The match runs in
+ * Pave (`like` is case-insensitive), so a busy job returns only what matched;
+ * the read stops after BILL_LINE_PAGES pages and says so in `more`.
+ * Read-only. Fields confirmed by introspection and a live read 2026-10-28.
+ */
+export async function getBoughtLines(
+  cfg: PaveConfig,
+  jobId: string,
+  words: string[],
+): Promise<{ lines: BoughtLine[]; more: boolean }> {
+  const like = (path: string[], w: string) => [path, "like", `%${w.replace(/[%_]/g, "")}%`];
+  const match = words
+    .filter((w) => w.replace(/[%_]/g, ""))
+    .flatMap((w) => [
+      like(["name"], w),
+      like(["description"], w),
+      like(["costCode", "name"], w),
+      like(["costCode", "number"], w),
+      like(["document", "account", "name"], w),
+    ]);
+  const where = {
+    and: [
+      [["document", "type"], "vendorBill"],
+      [["document", "status"], "!=", "denied"],
+      ...(match.length ? [{ or: match }] : []),
+    ],
+  };
+  const rows = await pageAll<any>(cfg, {
+    label: "job.costItems (bill lines)",
+    stopAfterPages: BILL_LINE_PAGES,
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: { ...args, where, sortBy: [{ field: ["document", "issueDate"], order: "desc" }] },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            description: {},
+            costCode: { number: {}, name: {} },
+            document: { number: {}, status: {}, issueDate: {}, account: { name: {} } },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
+  const lines = rows.map((r) => {
+    const name = String(r.name ?? "");
+    const code = String(r.costCode?.number ?? "");
+    const desc = String(r.description ?? "");
+    return {
+      name,
+      // Bill imports often copy the name or the cost code into the description; that says nothing new.
+      description: desc === name || (code && desc.startsWith(code)) ? "" : desc,
+      costCode: [code, r.costCode?.name].filter(Boolean).join(" "),
+      vendor: String(r.document?.account?.name ?? ""),
+      billNumber: String(r.document?.number ?? ""),
+      issueDate: String(r.document?.issueDate ?? "").slice(0, 10),
+      status: String(r.document?.status ?? ""),
+    };
+  });
+  return { lines, more: rows.length >= BILL_LINE_PAGES * PAVE_PAGE_SIZE };
+}
+
 /** One to-do to create in JobTread — the input to `createToDo` below. */
 export interface NewToDo {
   /** What to do. Required; JobTread collapses runs of whitespace. */

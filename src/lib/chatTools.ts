@@ -36,6 +36,7 @@ import {
   getJobSchedule,
   getJobNotes,
   getJobFiles,
+  getBoughtLines,
   findContacts,
   type DraftBill,
 } from "@/lib/jobtread";
@@ -450,6 +451,36 @@ export const CHAT_TOOLS: ChatTool[] = [
         hasAnyWord(`${n.subject} ${n.text}`, words),
       );
       return notes.slice(0, 60).map((n) => ({ ...n, text: n.text.slice(0, 1500) }));
+    },
+  },
+  {
+    name: "search_job_bills",
+    description:
+      "What was bought for a job: lines on its JobTread vendor bills (voided bills left out), " +
+      "newest first, each with vendor, bill number, date and cost code. No amounts. Product " +
+      "names on bills often carry the color, finish or model the spec list never recorded " +
+      "(e.g. 'SCREW ROOF 1in CHARCOAL', 'TOUCHUP 11OZ CHARCOAL GREY'). Search by the trade or " +
+      "material ('roof', 'siding', 'tile', 'faucet') or a vendor; a word like 'color' rarely " +
+      "matches. A bill shows what was bought, not what was decided: say the answer is " +
+      "inferred from bills, and name the line and bill.",
+    input_schema: {
+      type: "object",
+      properties: {
+        ...JOB_PROP,
+        words: {
+          type: "string",
+          description:
+            "Space-separated words or stems. A line matching ANY of them in its name, " +
+            "description, cost code or vendor is kept.",
+        },
+      },
+      required: ["job_id", "words"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = wordsOf(input);
+      if (!words.length) return { lines: [], reason: "Pass words to search by, e.g. 'roof'." };
+      return getBoughtLines(cfg, String(input.job_id), words);
     },
   },
   {

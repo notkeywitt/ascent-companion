@@ -187,6 +187,7 @@ export const BOT_TOOLS = [
   "list_jobs",
   "get_job_selections",
   "search_job_documents",
+  "search_job_bills",
   "get_job_schedule",
   "get_job_notes",
   "search_job_memory",
@@ -204,11 +205,16 @@ export const CHAT_SYSTEM = [
   "Here your job is decisions and details about a job: selections, what was decided, the",
   "schedule, who is coming when. The other rules above about bills and billing do not apply.",
   "For a money question (cost, budget, invoices, bills), say the Ascent app has it.",
+  "What a bill BOUGHT is not a money question: search_job_bills gives products, never amounts.",
   "- Earlier messages in this space are included above the new one. Use them.",
   "- Look before you answer: search_job_memory, then the source that fits (selections,",
   "  job documents, schedule, notes, files, calendar, email, Drive). Name the source of each fact",
   "  (\"per the spec list rev C\", \"daily log Oct 12\", \"noted by Ty on Oct 3\").",
   "  If sources disagree, give the newest and say so.",
+  "- For a material, color, finish or product (\"what color is the roof?\"), also call",
+  "  search_job_bills with the trade or material (\"roof\"). Product names on bills often",
+  "  carry the color. Say the answer is inferred from bills, and name the line and bill.",
+  "- Before you say nothing records it, also try search_email and search_drive, both in one step.",
   "- If nothing records the answer, say so plainly. Never guess a selection or a date.",
   "  Then call report_gap once; if it returns sent: true, end with \"I've let the office",
   "  know.\" Not for a",
@@ -291,6 +297,52 @@ export interface BotContext {
   name: string;
   /** The space's job. `link_space_to_job` sets it, so a note in the same answer lands on it. */
   job: SpaceJob | null;
+  /** Set once the office has been emailed about this question, by report_gap or the route's fallback. */
+  gapReported?: boolean;
+}
+
+const NOT_FOUND = [
+  /\b(couldn'?t|could not|can'?t|cannot|unable to|didn'?t|did not) (find|locate|see)\b/i,
+  /\bno record/i,
+  /\bnothing records\b/i,
+  /\b(isn'?t|is not|wasn'?t|was not) recorded\b/i,
+  /\bdon'?t have (any |a )?record/i,
+];
+
+/**
+ * True when an answer says the bot found nothing. The route emails the office
+ * itself when such an answer comes back and Claude skipped report_gap — the
+ * model does skip it (2026-10-28, "what color is the roof?").
+ */
+export function looksUnanswered(text: string): boolean {
+  const plain = text.replace(/’/g, "'");
+  return NOT_FOUND.some((re) => re.test(plain));
+}
+
+/**
+ * Email the office a question the bot could not answer. Best effort: a failed
+ * email must never cost the person their answer, so this never throws.
+ */
+export async function reportGap(ctx: BotContext, question: string, reason: string): Promise<boolean> {
+  try {
+    const res = (await callAppsScriptOrThrow(
+      {
+        action: "chatReportGap",
+        question,
+        reason,
+        asker: ctx.name,
+        askerEmail: ctx.email,
+        job: ctx.job?.jobName ?? "",
+        space: ctx.space,
+      },
+      { timeoutMs: 10_000, retry: false },
+    )) as { ok?: boolean };
+    const sent = res?.ok === true;
+    if (sent) ctx.gapReported = true;
+    return sent;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -372,26 +424,9 @@ export function botTools(ctx: BotContext): ChatTool[] {
         required: ["question"],
         additionalProperties: false,
       },
-      handler: async (_cfg, input) => {
-        // Best effort: a failed email must never cost the person their answer.
-        try {
-          const res = (await callAppsScriptOrThrow(
-            {
-              action: "chatReportGap",
-              question: String(input.question ?? ""),
-              reason: String(input.reason ?? ""),
-              asker: ctx.name,
-              askerEmail: ctx.email,
-              job: ctx.job?.jobName ?? "",
-              space: ctx.space,
-            },
-            { timeoutMs: 10_000, retry: false },
-          )) as { ok?: boolean };
-          return { sent: res?.ok === true };
-        } catch {
-          return { sent: false };
-        }
-      },
+      handler: async (_cfg, input) => ({
+        sent: await reportGap(ctx, String(input.question ?? ""), String(input.reason ?? "")),
+      }),
     },
   ];
 }
