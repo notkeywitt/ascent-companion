@@ -144,20 +144,30 @@ export function parseEvent(raw: GoogleChatEvent | null | undefined): ChatAsk {
   return { kind: "question", email, name, space, thread, text };
 }
 
+/** Words people say around a job's name that are not part of it ("the Smith job"). */
+const FILLER = new Set(["job", "jobs", "the", "project", "for", "this", "space", "is", "at", "on", "of", "and"]);
+
 /**
  * Find a job by what someone typed: an exact job number wins, then every job
- * whose name, number or customer contains all the typed words.
+ * whose name, number, customer or address contains all the typed words. Filler
+ * words ("job", "the") are dropped first. When no job has every word, the jobs
+ * matching the most words win, provided that is at least half of them — so
+ * "Smith kitchen remodel" still finds "Smith Kitchen".
  */
 export function matchJobs(jobs: JobRef[], query: string): JobRef[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  const exact = jobs.filter((j) => (j.number ?? "").toLowerCase() === q);
+  const exact = jobs.filter((j) => (j.number ?? "").toLowerCase() === q.replace(/^#/, ""));
   if (exact.length) return exact;
-  const words = q.split(/\s+/);
-  return jobs.filter((j) => {
-    const hay = `${j.name} ${j.number ?? ""} ${j.customer ?? ""}`.toLowerCase();
-    return words.every((w) => hay.includes(w));
+  const words = q.split(/[^a-z0-9]+/).filter((w) => (w.length > 1 || /\d/.test(w)) && !FILLER.has(w));
+  if (!words.length) return [];
+  const scored = jobs.map((j) => {
+    const hay = `${j.name} ${j.number ?? ""} ${j.customer ?? ""} ${j.address ?? ""}`.toLowerCase();
+    return { j, n: words.filter((w) => hay.includes(w)).length };
   });
+  const best = Math.max(0, ...scored.map((x) => x.n));
+  if (best === 0 || best < Math.ceil(words.length / 2)) return [];
+  return scored.filter((x) => x.n === best).map((x) => x.j);
 }
 
 export const helpText = () =>

@@ -77,6 +77,19 @@ describe("matchJobs", () => {
   it("matches nothing for an empty query", () => {
     expect(matchJobs(jobs, " ")).toEqual([]);
   });
+
+  it("ignores filler words and punctuation", () => {
+    const perkins: JobRef = { id: "p", name: "Otis Perkins Addition", number: "004", customer: "Ferron", address: "645 Bayshore Dr" };
+    expect(matchJobs([...jobs, perkins], "Ferron Otis Perkins Job").map((j) => j.id)).toEqual(["p"]);
+    expect(matchJobs([...jobs, perkins], "the Perkins' job at 645 Bayshore").map((j) => j.id)).toEqual(["p"]);
+    expect(matchJobs(jobs, "the job")).toEqual([]);
+    expect(matchJobs(jobs, "#7").map((j) => j.id)).toEqual(["c"]);
+  });
+
+  it("falls back to the jobs matching most of the words", () => {
+    expect(matchJobs(jobs, "smith kitchen remodel").map((j) => j.id)).toEqual(["a"]);
+    expect(matchJobs(jobs, "berger deck patio fence").map((j) => j.id)).toEqual([]);
+  });
 });
 
 describe("parseEvent, add-on app", () => {
