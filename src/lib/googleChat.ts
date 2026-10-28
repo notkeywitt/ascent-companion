@@ -188,6 +188,7 @@ export const BOT_TOOLS = [
   "get_job_selections",
   "search_job_documents",
   "search_job_bills",
+  "get_job_time",
   "get_job_schedule",
   "get_job_notes",
   "search_job_memory",
@@ -214,6 +215,11 @@ export const CHAT_SYSTEM = [
   "- For a material, color, finish or product (\"what color is the roof?\"), also call",
   "  search_job_bills with the trade or material (\"roof\"). Product names on bills often",
   "  carry the color. Say the answer is inferred from bills, and name the line and bill.",
+  "- Who worked on a job, when, on which cost code and for how many hours is job information:",
+  "  get_job_time answers it. \"Who is working there today?\": get_job_time for today (it shows",
+  "  who is clocked in) and get_job_schedule for who is assigned; say which is which.",
+  "  \"Who installed the siding?\": get_job_time with words \"siding\", no dates. Give hours,",
+  "  never pay, rates or labor cost; for those, the Ascent app has them.",
   "- Before you say nothing records it, also try search_email and search_drive, both in one step.",
   "- If nothing records the answer, say so plainly. Never guess a selection or a date.",
   "  Then call report_gap once; if it returns sent: true, end with \"I've let the office",
@@ -237,6 +243,13 @@ export const CHAT_SYSTEM = [
   "- Never commit the company to a price, date or scope. Pay, HR and personal",
   "  matters about staff don't belong here; point people to the office.",
 ].join("\n");
+
+/** Today in Pacific, so "today" and "last month" resolve to real dates. */
+export function todayLine(now = new Date()): string {
+  const fmt = (o: Intl.DateTimeFormatOptions) => now.toLocaleDateString("en-US", { ...o, timeZone: "America/Los_Angeles" });
+  const iso = now.toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+  return `Today is ${fmt({ weekday: "long", month: "short", day: "numeric", year: "numeric" })} (${iso}), Pacific time.`;
+}
 
 /** The system line naming the space's job, so Claude skips the list_jobs lookup. */
 export function jobLine(job: JobRef | undefined, linked: SpaceJob | null): string {

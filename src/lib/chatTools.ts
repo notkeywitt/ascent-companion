@@ -37,6 +37,8 @@ import {
   getJobNotes,
   getJobFiles,
   getBoughtLines,
+  getJobTimeLines,
+  type JobTimeLine,
   findContacts,
   type DraftBill,
 } from "@/lib/jobtread";
@@ -84,6 +86,50 @@ export function hasAnyWord(hay: string, words: string[]): boolean {
   if (!words.length) return true;
   const h = hay.toLowerCase();
   return words.some((w) => h.includes(w));
+}
+
+const hours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
+
+/**
+ * A job's time entries as AscentBot answers from them: exact totals, hours by
+ * person and by cost code, who is clocked in, and the newest entries. Hours
+ * only — no rate, pay type or cost.
+ */
+export function summarizeJobTime(t: { lines: JobTimeLine[]; count: number; minutes: number; more: boolean }) {
+  const tally = (key: (l: JobTimeLine) => string) => {
+    const m = new Map<string, { minutes: number; days: Set<string>; first: string; last: string }>();
+    for (const l of t.lines) {
+      const k = key(l) || "(none)";
+      const day = l.start.slice(0, 10);
+      const row = m.get(k) ?? { minutes: 0, days: new Set<string>(), first: day, last: day };
+      row.minutes += l.minutes;
+      row.days.add(day);
+      if (day < row.first) row.first = day;
+      if (day > row.last) row.last = day;
+      m.set(k, row);
+    }
+    return [...m.entries()]
+      .sort((a, b) => b[1].minutes - a[1].minutes)
+      .map(([name, r]) => ({ name, hours: hours(r.minutes), days: r.days.size, first: r.first, last: r.last }));
+  };
+  return {
+    entries: t.count,
+    totalHours: hours(t.minutes),
+    ...(t.more ? { note: `Totals cover all ${t.count} entries; the breakdowns below cover the newest ${t.lines.length}.` } : {}),
+    clockedInNow: t.lines
+      .filter((l) => !l.end)
+      .map((l) => ({ person: l.person, since: l.start, costCode: l.costCode, notes: l.notes.slice(0, 300) })),
+    byPerson: tally((l) => l.person).map(({ name, ...r }) => ({ person: name, ...r })),
+    byCostCode: tally((l) => l.costCode).map(({ name, ...r }) => ({ costCode: name, ...r })),
+    newest: t.lines.slice(0, 40).map((l) => ({
+      person: l.person,
+      start: l.start,
+      end: l.end || "still clocked in",
+      hours: hours(l.minutes),
+      costCode: l.costCode,
+      ...(l.notes ? { notes: l.notes.slice(0, 300) } : {}),
+    })),
+  };
 }
 
 const WORDS_PROP = {
@@ -481,6 +527,42 @@ export const CHAT_TOOLS: ChatTool[] = [
       const words = wordsOf(input);
       if (!words.length) return { lines: [], reason: "Pass words to search by, e.g. 'roof'." };
       return getBoughtLines(cfg, String(input.job_id), words);
+    },
+  },
+  {
+    name: "get_job_time",
+    description:
+      "Who worked on a job, when, and on what: its JobTread time entries, with exact total " +
+      "hours, hours by person and by cost code, who is clocked in now, and the newest entries " +
+      "(start, end, cost code, notes). Times are Pacific. Hours only, never pay or cost. " +
+      "Use for 'who is working at Keeler today?' (from and to = today), 'who installed the " +
+      "siding?' (words 'siding', no dates) or 'how much time on exterior finish carpentry " +
+      "last month?' (words plus that month's first and last day).",
+    input_schema: {
+      type: "object",
+      properties: {
+        ...JOB_PROP,
+        from: { type: "string", description: "Optional. First day, YYYY-MM-DD, Pacific. Omit for the job's whole history." },
+        to: { type: "string", description: "Optional. Last day, YYYY-MM-DD, inclusive." },
+        words: {
+          type: "string",
+          description:
+            "Optional. Space-separated words or stems; an entry is kept only when EVERY word " +
+            "appears in its person's name, cost code or notes (e.g. 'siding', 'exterior finish " +
+            "carpentry', 'rachel'). Use the fewest words that pin it down.",
+        },
+      },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const day = (v: unknown) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v ?? "")) ? String(v) : undefined);
+      const t = await getJobTimeLines(cfg, String(input.job_id), {
+        from: day(input.from),
+        to: day(input.to),
+        words: wordsOf(input),
+      });
+      return summarizeJobTime(t);
     },
   },
   {

@@ -6667,6 +6667,105 @@ export function jtIsoToOrgLocal(iso: string, tz: string = JT_ORG_TZ): string {
   return new Date(t + tzOffsetMs(t, tz)).toISOString().slice(0, 19);
 }
 
+/** One time entry on a job, as AscentBot reads it: who, when, on what. Never pay or cost. */
+export interface JobTimeLine {
+  person: string;
+  /** Org-local "YYYY-MM-DDTHH:MM:SS". */
+  start: string;
+  /** Org-local; "" while the person is still clocked in. */
+  end: string;
+  minutes: number;
+  costCode: string;
+  costItem: string;
+  notes: string;
+}
+
+/** Pages read by `getJobTimeLines`. The totals stay exact past it; only the line list stops. */
+const JOB_TIME_PAGES = 10;
+
+/**
+ * A job's time entries, newest first, narrowed to an org-local date window
+ * (`from`/`to` inclusive, "YYYY-MM-DD") and to entries mentioning EVERY one
+ * of `words`, each in any of: the person's name, the cost code's number or
+ * name, the cost item's name, the notes. Every word, so "exterior finish"
+ * does not also count Exterior Painting into a total. The match runs in Pave (`like` is
+ * case-insensitive). `count` and `minutes` come from Pave's own aggregate, so
+ * they are exact even when the line list stops at JOB_TIME_PAGES pages (`more`).
+ * Read-only. Fields and the `like` paths confirmed live 2026-10-28.
+ */
+export async function getJobTimeLines(
+  cfg: PaveConfig,
+  jobId: string,
+  opts: { from?: string; to?: string; words?: string[] } = {},
+): Promise<{ lines: JobTimeLine[]; count: number; minutes: number; more: boolean }> {
+  const clauses: unknown[] = [];
+  const from = opts.from ? orgLocalToJtIso(`${opts.from}T00:00`) : "";
+  if (from) clauses.push(["startedAt", ">=", from]);
+  if (opts.to && /^\d{4}-\d{2}-\d{2}$/.test(opts.to)) {
+    const next = new Date(`${opts.to}T00:00:00Z`);
+    next.setUTCDate(next.getUTCDate() + 1);
+    clauses.push(["startedAt", "<", orgLocalToJtIso(`${next.toISOString().slice(0, 10)}T00:00`)]);
+  }
+  const like = (path: string[], w: string) => [path, "like", `%${w}%`];
+  for (const w of (opts.words ?? []).map((x) => x.replace(/[%_]/g, "")).filter(Boolean)) {
+    clauses.push({
+      or: [
+        like(["user", "name"], w),
+        like(["costItem", "costCode", "number"], w),
+        like(["costItem", "costCode", "name"], w),
+        like(["costItem", "name"], w),
+        like(["notes"], w),
+      ],
+    });
+  }
+  const where = clauses.length ? { where: clauses.length === 1 ? clauses[0] : { and: clauses } } : {};
+
+  const [totals, rows] = await Promise.all([
+    pave<any>(cfg, {
+      job: { $: { id: jobId }, id: {}, timeEntries: { $: { ...where }, count: {}, sum: { $: "minutes" } } },
+    }),
+    pageAll<any>(cfg, {
+      label: "job.timeEntries (AscentBot)",
+      stopAfterPages: JOB_TIME_PAGES,
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          id: {},
+          timeEntries: {
+            $: { ...args, ...where, sortBy: [{ field: "startedAt", order: "desc" }] },
+            nextPage: {},
+            nodes: {
+              id: {},
+              startedAt: {},
+              endedAt: {},
+              minutes: {},
+              notes: {},
+              user: { name: {} },
+              costItem: { name: {}, costCode: { number: {}, name: {} } },
+            },
+          },
+        },
+      }),
+      pick: (r) => r?.job?.timeEntries,
+    }),
+  ]);
+  const count = Number(totals?.job?.timeEntries?.count) || 0;
+  return {
+    lines: rows.map((n) => ({
+      person: String(n.user?.name ?? ""),
+      start: jtIsoToOrgLocal(n.startedAt),
+      end: n.endedAt ? jtIsoToOrgLocal(n.endedAt) : "",
+      minutes: Number(n.minutes) || 0,
+      costCode: [n.costItem?.costCode?.number, n.costItem?.costCode?.name].filter(Boolean).join(" "),
+      costItem: String(n.costItem?.name ?? ""),
+      notes: String(n.notes ?? ""),
+    })),
+    count,
+    minutes: Number(totals?.job?.timeEntries?.sum) || 0,
+    more: count > rows.length,
+  };
+}
+
 export interface CreateTimeEntryArgs {
   userId: string; // JobTread user id (the member's `user.id`)
   jobId: string;

@@ -19,6 +19,7 @@ import {
   parseEvent,
   reportGap,
   runCommand,
+  todayLine,
   type BotContext,
   type GoogleChatEvent,
 } from "@/lib/googleChat";
@@ -165,10 +166,10 @@ export async function POST(req: NextRequest) {
       linked ? getJobs(cfg) : Promise.resolve([]),
     ]);
     const ctx: BotContext = { cfg, space: ask.space, thread: ask.thread, email: ask.email, name: ask.name, job: linked };
-    const jobContext = jobLine(
+    const jobContext = `${todayLine()}\n${jobLine(
       jobs.find((j) => j.id === linked?.jobId),
       linked,
-    );
+    )}`;
     // Saved first, so a decision kept during the answer files after the question that carried it.
     const where = { space: ask.space, thread: ask.thread };
     await quietly(

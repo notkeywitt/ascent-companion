@@ -19,7 +19,7 @@ vi.mock("@/lib/jobtread", async (orig) => ({
 }));
 
 import type { ChatTurn } from "./chatMemory";
-import { CHAT_TOOLS, hasAnyWord } from "./chatTools";
+import { CHAT_TOOLS, hasAnyWord, summarizeJobTime } from "./chatTools";
 import type { JobRef, PaveConfig } from "./jobtread";
 import {
   BOT_TOOLS,
@@ -30,6 +30,7 @@ import {
   looksUnanswered,
   matchJobs,
   parseEvent,
+  todayLine,
   type BotContext,
 } from "./googleChat";
 
@@ -261,5 +262,53 @@ describe("hasAnyWord", () => {
     expect(hasAnyWord("Drywall", ["plumb", "dry"])).toBe(true);
     expect(hasAnyWord("Drywall", ["tile"])).toBe(false);
     expect(hasAnyWord("anything", [])).toBe(true);
+  });
+});
+
+describe("todayLine", () => {
+  it("names the Pacific day, not the UTC one", () => {
+    // 03:00 UTC on Oct 29 is still the evening of Oct 28 in Pacific.
+    expect(todayLine(new Date("2026-10-29T03:00:00Z"))).toBe("Today is Wednesday, Oct 28, 2026 (2026-10-28), Pacific time.");
+  });
+});
+
+describe("summarizeJobTime", () => {
+  const line = (person: string, start: string, minutes: number, costCode: string, end = "x") => ({
+    person,
+    start,
+    end,
+    minutes,
+    costCode,
+    costItem: "",
+    notes: "",
+  });
+
+  it("totals hours by person and code, and lists who is clocked in", () => {
+    const s = summarizeJobTime({
+      lines: [
+        line("Cedar", "2026-10-28T07:00:00", 0, "06 20 13 Exterior Finish Carpentry", ""),
+        line("Cedar", "2026-10-27T07:00:00", 240, "06 20 13 Exterior Finish Carpentry"),
+        line("Rachel", "2026-10-20T07:00:00", 90, "07 46 23 Wood Siding"),
+        line("Cedar", "2026-10-20T12:00:00", 60, "07 46 23 Wood Siding"),
+      ],
+      count: 4,
+      minutes: 390,
+      more: false,
+    });
+    expect(s.totalHours).toBe(6.5);
+    expect(s.clockedInNow).toEqual([expect.objectContaining({ person: "Cedar", since: "2026-10-28T07:00:00" })]);
+    expect(s.byPerson[0]).toEqual({ person: "Cedar", hours: 5, days: 3, first: "2026-10-20", last: "2026-10-28" });
+    expect(s.byCostCode.map((c) => [c.costCode, c.hours])).toEqual([
+      ["06 20 13 Exterior Finish Carpentry", 4],
+      ["07 46 23 Wood Siding", 2.5],
+    ]);
+    expect(s.newest[0].end).toBe("still clocked in");
+    expect(JSON.stringify(s)).not.toMatch(/cost"|rate|pay/i);
+  });
+
+  it("says when the breakdown covers only the newest entries", () => {
+    const s = summarizeJobTime({ lines: [line("Ty", "2026-10-01T08:00:00", 60, "")], count: 1500, minutes: 90000, more: true });
+    expect(s.totalHours).toBe(1500);
+    expect(s.note).toMatch(/all 1500 entries/);
   });
 });
