@@ -36,6 +36,7 @@ matching row here.
 | How to deploy / env vars / Vercel | `DEPLOY.md` |
 | **Where a given file/feature lives (this doc)** | `CODEBASE_MAP.md` |
 | A guided course through the whole system, for the owner | `docs/course/README.md` |
+| The outside template AscentBot was modelled on (Aforma's Slack + Mac mini setup kit, Oct 2026). AscentBot follows its rules, not its machinery: Vercel + Google Chat instead of a Mac mini + Slack | `docs/ascentbot-setup-kit.md` |
 | What each session did and where it stopped | `SESSIONS.md` (generated index) → `.claude/sessions/*.md` |
 | Session-to-session handoff notes | `HANDOFF.md` — **do NOT read unless asked** |
 
