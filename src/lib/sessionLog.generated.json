@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T17:22:29Z",
+  "generatedAt": "2026-10-28T17:33:22Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-28T17:22:29Z",
+      "updated": "2026-10-28T17:33:22Z",
       "goal": "",
-      "next": "Owner: click a slice on the All Jobs bills or labor ring (Tracking Sheets and Home) and confirm it opens that job's Tracking Sheet on the same month.",
+      "next": "Owner: re-paste a job's Drive spec folder on /specs so its scans are read by OCR, then ask AscentBot about something only a scan holds. Scans over 10 pages stay name-only (split into page ranges if that matters).",
       "commits": [
         {
           "date": "2026-09-03",
@@ -634,6 +634,13 @@
           "sha": "1a5a23c",
           "subject": "companion: all-jobs ring slices open the job's tracking sheet",
           "files": "src/app/trackingsheet/MonthJobDonuts.tsx, src/components/HomeJobBoard.tsx"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "10:33",
+          "sha": "1b84d52",
+          "subject": "companion: specifications reads scanned pdfs with ocr for ascentbot",
+          "files": "CODEBASE_MAP.md, src/app/api/specs/docs/route.ts, src/lib/claudeExtract.ts, src/lib/specDocs.test.ts, src/lib/specDocs.ts"
         }
       ]
     },

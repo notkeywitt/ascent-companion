@@ -26,14 +26,14 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | `claude/ascentbot-architecture-08o3ez` | 17m ago | REMIND OWNER — AscentBot phase 2: read every message in a job space (service ac… |
+| [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | `claude/ascentbot-architecture-08o3ez` | 28m ago | REMIND OWNER — AscentBot phase 2: read every message in a job space (service ac… |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 44d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-28 | 89 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-10-28 | 90 | — |
 | [beautiful-pascal](.claude/sessions/2026-10-26-beautiful-pascal.md) | 2026-10-28 | 2 | — |
 | [stoic-tesla](.claude/sessions/2026-10-27-stoic-tesla.md) | 2026-10-27 | 2 | — |
 | [sunset-bill-bulk-expense](.claude/sessions/2026-10-23-sunset-bill-bulk-expense.md) | 2026-10-23 | 3 | — |
