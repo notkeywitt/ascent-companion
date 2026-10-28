@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T20:05:40Z",
+  "generatedAt": "2026-10-28T20:13:09Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,15 +8,22 @@
       "branch": "claude/ascent-roof-color-query-qdypqk",
       "status": "shipped",
       "started": "2026-10-28T20:05:30Z",
-      "updated": "2026-10-28T20:05:39Z",
+      "updated": "2026-10-28T20:13:09Z",
       "goal": "",
-      "next": "watch the next AscentBot miss: confirm search_job_bills fires and the office email arrives (fallback logs '[google-chat] fallback report_gap')",
+      "next": "ask AscentBot the three time questions in a job space and check the Vercel logs show get_job_time",
       "commits": [
         {
           "date": "2026-10-28",
           "time": "20:05",
           "sha": "e3d24c0",
           "subject": "companion: ascentbot reads what bills bought and always reports a miss",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "20:12",
+          "sha": "9e30bbb",
+          "subject": "companion: ascentbot answers who worked on a job, when, and for how many hours",
           "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
         }
       ]
