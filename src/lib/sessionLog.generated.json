@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-28T13:03:53Z",
+  "generatedAt": "2026-10-28T14:29:57Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascentbot-architecture",
+      "file": "2026-10-28-ascentbot-architecture.md",
+      "branch": "claude/ascentbot-architecture-08o3ez",
+      "status": "parked",
+      "started": "2026-10-28T05:54:35Z",
+      "updated": "2026-10-28T14:29:57Z",
+      "goal": "",
+      "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
+      "commits": [
+        {
+          "date": "2026-10-28",
+          "time": "05:54",
+          "sha": "7bd0eaa",
+          "subject": "companion: time each claude round and tool, run a round's tools in parallel",
+          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "14:29",
+          "sha": "a74b87a",
+          "subject": "companion: ascentbot answers job decisions and schedule, remembers each job space",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/db/index.ts, src/db/schema.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, +4 more"
+        }
+      ]
+    },
     {
       "slug": "beautiful-pascal",
       "file": "2026-10-26-beautiful-pascal.md",
@@ -25,25 +51,6 @@
           "sha": "ddc18ec",
           "subject": "companion: file deposit check photos in checks folder, hide actions on desktop",
           "files": "CODEBASE_MAP.md, src/app/api/deposit-tracker/email/route.ts, src/app/api/deposit-tracker/photo/route.ts, src/app/deposit-tracker/DepositTracker.tsx, src/app/page.tsx, src/components/HomeActions.tsx, +1 more"
-        }
-      ]
-    },
-    {
-      "slug": "ascentbot-architecture",
-      "file": "2026-10-28-ascentbot-architecture.md",
-      "branch": "claude/ascentbot-architecture-08o3ez",
-      "status": "shipped",
-      "started": "2026-10-28T05:54:35Z",
-      "updated": "2026-10-28T05:54:46Z",
-      "goal": "",
-      "next": "Owner retries AscentBot; read [chat:google-chat] timing lines in Vercel logs to find the slow round or tool; if Google's 30s cap is the limit, build the background reply (needs a Chat service account)",
-      "commits": [
-        {
-          "date": "2026-10-28",
-          "time": "05:54",
-          "sha": "7bd0eaa",
-          "subject": "companion: time each claude round and tool, run a round's tools in parallel",
-          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.ts"
         }
       ]
     },
