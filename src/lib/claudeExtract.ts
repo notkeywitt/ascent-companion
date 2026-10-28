@@ -155,7 +155,9 @@ async function callClaude(
           ? "amazon-import"
           : schema === (SPEC_LIST_SCHEMA as unknown)
             ? "spec-list"
-            : "extract";
+            : schema === SCAN_SCHEMA
+              ? "spec-doc-ocr"
+              : "extract";
   trackClaudeUsage(feature, MODEL, res.usage);
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
     console.error(`[claudeExtract] stop_reason=${res.stop_reason}`);
@@ -489,4 +491,36 @@ export async function extractSpecListWithClaude(bytes: Buffer, links: LinkRef[])
     "application/pdf",
     64_000,
   );
+}
+
+/* ------------------------------------------------------------------ *
+ * SCANNED DOCUMENT OCR
+ * ------------------------------------------------------------------ */
+
+const SCAN_SCHEMA = {
+  type: "object",
+  properties: { pages: { type: "array", items: { type: "string" } } },
+  required: ["pages"],
+  additionalProperties: false,
+};
+
+/**
+ * The words on a scanned PDF (no text layer), one string per page, so
+ * AscentBot can search a job's scanned drawings and documents. Throws when the
+ * reader fails; the caller keeps the file by name only.
+ */
+export async function ocrScanWithClaude(bytes: Buffer, timeoutMs: number): Promise<string[]> {
+  const prompt = `This PDF is a scan with no text layer. Transcribe the words on each page so they can be searched.
+
+RULES:
+1. One string per page, in page order. Lines separated by newlines.
+2. Include every legible word: notes, labels, dimensions, schedules, title blocks, stamps and handwriting.
+3. A table: one row per line, cells separated by " | ".
+4. Copy words and numbers exactly as printed. Do not describe drawings, summarize, or add words that are not on the page.
+5. A page with nothing legible is an empty string.`;
+  // A dense page is ~1-2k tokens of text, so the ceiling is the spec list's, streamed.
+  const out = await callClaude(prompt, SCAN_SCHEMA, timeoutMs, bytes, "application/pdf", 64_000);
+  const pages = (out as { pages?: unknown } | null)?.pages;
+  if (!Array.isArray(pages)) throw new Error("The reader returned no pages.");
+  return pages.map((p) => String(p ?? ""));
 }

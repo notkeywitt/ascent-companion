@@ -3,6 +3,7 @@ import { db, ensureDb } from "@/db";
 import { jobSources, specDocs } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { isReadable, type DriveItem, type ManualSource } from "@/lib/houseManual";
+import { ocrScanWithClaude } from "@/lib/claudeExtract";
 import { extractPdfLinks, extractPdfText } from "@/lib/pdfLinks";
 
 /**
@@ -12,8 +13,9 @@ import { extractPdfLinks, extractPdfText } from "@/lib/pdfLinks";
  * lists every file under it (subfolders too), and the page sends the files
  * back one at a time to `readDriveFile`, which fetches the PDF through the
  * Apps Script bridge (JobFiles.js) and keeps its TEXT LAYER and web links —
- * pdf.js, no model, so a read costs nothing. A scan has no text layer; it is
- * kept by name and link only. `searchSpecDocs` is the bot's read: a LIKE
+ * pdf.js, no model, so a read costs nothing. A scan has no text layer, so
+ * Claude reads its words (`ocrScanWithClaude`), up to `OCR_MAX_PAGES`; a longer
+ * scan is kept by name and link only. `searchSpecDocs` is the bot's read: a LIKE
  * filter in the DB, then the matching lines with their page.
  *
  * The links themselves are `job_sources`: ONE list per job that /specs and
@@ -49,6 +51,20 @@ const WALK_MAX_FILES = 300;
 const WALK_MAX_FOLDERS = 40;
 /** Text kept per document, about 100 dense pages. */
 const TEXT_MAX = 400_000;
+// ponytail: whole-scan OCR in one call must fit the route's 300s beside the
+// 120s Drive fetch. A longer scan needs the read split into page ranges.
+const OCR_MAX_PAGES = 10;
+const OCR_TIMEOUT_MS = 150_000;
+/** Claude takes 32 MB a request; base64 adds a third. */
+const OCR_MAX_BYTES = 20_000_000;
+/** The note on a scan that was not read. /specs reads such a file again on the next paste. */
+export const SCAN_NOTE = "No text layer (a scan).";
+
+/** OCR pages in the text layer's shape: "[Page N]", its lines, a blank line. */
+export const scanText = (pages: string[]) =>
+  pages
+    .map((t, i) => [`[Page ${i + 1}]`, ...t.split("\n").map((l) => l.trim()).filter(Boolean), ""].join("\n"))
+    .join("\n");
 
 export const driveUrl = (id: string) => `https://drive.google.com/open?id=${encodeURIComponent(id)}`;
 
@@ -149,10 +165,21 @@ export async function readDriveFile(jobId: string, f: DriveFile, importedBy: str
       const read = await extractPdfText(bytes);
       const links = await extractPdfLinks(bytes);
       pages = read.pages;
-      const hasText = read.text.replace(/\[Page \d+\]/g, "").trim().length > 0;
-      if (!hasText) note = "No text layer (a scan). AscentBot sees its name and link.";
+      let body = read.text.replace(/\[Page \d+\]/g, "").trim() ? read.text : "";
+      if (!body) {
+        if (pages > OCR_MAX_PAGES || bytes.length > OCR_MAX_BYTES) {
+          note = `A scan of ${pages} pages, too long to read for text. AscentBot sees its name and link.`;
+        } else {
+          try {
+            body = scanText(await ocrScanWithClaude(Buffer.from(bytes), OCR_TIMEOUT_MS));
+            note = "A scan, read by OCR. Check key numbers against the file.";
+          } catch (e) {
+            note = `${SCAN_NOTE} OCR failed: ${e instanceof Error ? e.message : e}. AscentBot sees its name and link.`;
+          }
+        }
+      }
       const linkLines = links.map((l) => `${l.text || l.context || "link"} — ${l.url}`);
-      text = [hasText ? read.text : "", linkLines.length ? `[Links]\n${linkLines.join("\n")}` : ""]
+      text = [body, linkLines.length ? `[Links]\n${linkLines.join("\n")}` : ""]
         .filter(Boolean)
         .join("\n")
         .slice(0, TEXT_MAX);

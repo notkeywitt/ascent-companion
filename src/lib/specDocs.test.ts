@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findSnippets, pageText } from "./specDocs";
+import { findSnippets, pageText, scanText } from "./specDocs";
 
 const TEXT = [
   "[Page 1]",
@@ -42,5 +42,15 @@ describe("findSnippets", () => {
     const { hits, snippets } = findSnippets(TEXT, ["tile"], 1);
     expect(hits).toBe(3);
     expect(snippets).toHaveLength(1);
+  });
+});
+
+describe("scanText", () => {
+  it("puts OCR pages in the text layer's shape, so pageText finds each one", () => {
+    const text = scanText(["  Tile: Fireclay 3x12 \n\n Ocean ", "", "A-201 | Primary bath"]);
+    expect(pageText(text, 1)).toBe("Tile: Fireclay 3x12\nOcean");
+    expect(pageText(text, 2)).toBe("");
+    expect(pageText(text, 3)).toBe("A-201 | Primary bath");
+    expect(findSnippets(text, ["ocean"]).snippets[0].page).toBe(1);
   });
 });

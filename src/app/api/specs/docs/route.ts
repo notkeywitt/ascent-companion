@@ -8,6 +8,7 @@ import {
   readDriveFile,
   removeJobSource,
   removeSpecDoc,
+  SCAN_NOTE,
   walkDriveLink,
 } from "@/lib/specDocs";
 
@@ -53,7 +54,8 @@ export async function GET(req: NextRequest) {
     const walk = await walkDriveLink(id);
     const session = await auth();
     await addJobSource(jobId, walk.root, session?.user?.email ?? "", true);
-    const seen = new Map(docs.map((d) => [d.driveId, d.modified]));
+    // A scan read before OCR existed, or whose OCR failed, is read again.
+    const seen = new Map(docs.filter((d) => !d.note.startsWith(SCAN_NOTE)).map((d) => [d.driveId, d.modified]));
     const files = walk.files.map((f) => ({ ...f, done: !!f.modified && seen.get(f.id) === f.modified }));
     return NextResponse.json({ root: walk.root.name, files, truncated: walk.truncated });
   } catch (e) {
