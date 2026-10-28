@@ -3840,6 +3840,89 @@ export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promi
   };
 }
 
+export interface ContactMatch {
+  /** The person, or "" for an account match with no person named. */
+  name: string;
+  title: string;
+  account: string;
+  /** "customer" or "vendor". */
+  accountType: string;
+  email: string;
+  phone: string;
+  addresses: string[];
+  /** Other people on a matched account, by name only. */
+  people?: string[];
+}
+
+/**
+ * Customers, vendors and their people whose name holds `text` — AscentBot's
+ * "what is Amanda's number?". One request: org `contacts` and org `accounts`,
+ * each a `like` match (case-insensitive, probed live 2026-10-28). Email / Phone
+ * are custom fields (see getVendorDetail): a customer's sit on the contact,
+ * a vendor's often on the account, so both are read. Nested
+ * `customFieldValues` on a paged connection is the 413 shape — held to 10 rows.
+ */
+export async function findContacts(cfg: PaveConfig, text: string): Promise<ContactMatch[]> {
+  const like = `%${text.trim()}%`;
+  const CF = { $: { size: 20 }, nodes: { value: {}, customField: { name: {} } } };
+  const LOC = { $: { size: 5 }, nodes: { address: {}, formattedAddress: {} } };
+  const r = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      contacts: {
+        $: { where: { and: [["name", "like", like]] }, size: 10 },
+        nodes: {
+          name: {},
+          title: {},
+          customFieldValues: CF,
+          account: { name: {}, type: {}, locations: LOC },
+        },
+      },
+      accounts: {
+        $: { where: { and: [["name", "like", like]] }, size: 10 },
+        nodes: {
+          name: {},
+          type: {},
+          customFieldValues: CF,
+          locations: LOC,
+          contacts: { $: { size: 10 }, nodes: { name: {} } },
+        },
+      },
+    },
+  });
+  const cf = (n: any) => new Map<string, string>(((n?.customFieldValues?.nodes ?? []) as any[]).map(cfPair));
+  const addrs = (a: any) =>
+    ((a?.locations?.nodes ?? []) as any[])
+      .map((l) => String(l?.formattedAddress ?? l?.address ?? "").trim())
+      .filter(Boolean);
+  const people = ((r?.organization?.contacts?.nodes ?? []) as any[]).map((c): ContactMatch => {
+    const f = cf(c);
+    return {
+      name: String(c?.name ?? ""),
+      title: String(c?.title ?? ""),
+      account: String(c?.account?.name ?? ""),
+      accountType: String(c?.account?.type ?? ""),
+      email: f.get("Email") ?? "",
+      phone: f.get("Phone") ?? "",
+      addresses: addrs(c?.account),
+    };
+  });
+  const accounts = ((r?.organization?.accounts?.nodes ?? []) as any[]).map((a): ContactMatch => {
+    const f = cf(a);
+    return {
+      name: "",
+      title: "",
+      account: String(a?.name ?? ""),
+      accountType: String(a?.type ?? ""),
+      email: f.get("Email") ?? "",
+      phone: f.get("Phone") ?? "",
+      addresses: addrs(a),
+      people: ((a?.contacts?.nodes ?? []) as any[]).map((c) => String(c?.name ?? "")).filter(Boolean),
+    };
+  });
+  return [...people, ...accounts];
+}
+
 /**
  * The vendors who billed a job, each with the cost code it billed most to (its
  * trade, as a homeowner would read it) — the contact picker on /house-manual.

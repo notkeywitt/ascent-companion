@@ -36,6 +36,7 @@ import {
   getJobSchedule,
   getJobNotes,
   getJobFiles,
+  findContacts,
   type DraftBill,
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
@@ -268,6 +269,26 @@ export const CHAT_TOOLS: ChatTool[] = [
     },
     handler: async (_cfg, input) =>
       callAppsScriptOrThrow({ action: "chatSearchMail", query: String(input.query ?? "") }, SEARCH_OPTS),
+  },
+  {
+    name: "find_contact",
+    description:
+      "Look up a customer, vendor or subcontractor by name in JobTread: phone, email, " +
+      "address, company and the other people on the account. Use for 'what is Amanda " +
+      "Keeler's number?' or 'email for the plumber'. Try this before search_email. " +
+      "Matches part of a name ('Keeler', 'HOBI').",
+    input_schema: {
+      type: "object",
+      properties: { name: { type: "string", description: "A person's or company's name, or part of it." } },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const name = String(input.name ?? "").trim();
+      if (name.length < 2) throw new Error("Give at least two letters of a name.");
+      const found = await findContacts(cfg, name);
+      return found.length ? found : `No customer or vendor in JobTread matches "${name}".`;
+    },
   },
   {
     name: "search_drive",
