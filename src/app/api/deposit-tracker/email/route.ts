@@ -16,7 +16,7 @@ import {
  * sends. Each press makes a new draft.
  *
  * The server re-reads the invoices (customer, job, number) and the photos from
- * JobTread; a photo off the Office job's Deposits folder is refused. Apps
+ * JobTread; a photo off the Office job's Checks folder is refused. Apps
  * Script (`draftDepositEmail`) downloads each photo and attaches it.
  *
  * Gated by the "deposit-tracker" view (src/lib/views.ts), admin by default.

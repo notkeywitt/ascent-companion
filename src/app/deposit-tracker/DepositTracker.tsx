@@ -23,7 +23,7 @@ import {
 import { money } from "@/lib/money";
 import { orgDay } from "@/lib/orgTime";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
-import { checkPhotoName, longDate } from "@/lib/depositTracker";
+import { DEPOSIT_FOLDER, checkPhotoName, longDate } from "@/lib/depositTracker";
 import type { OpenInvoiceRow, RecordedPayment } from "@/lib/jobtread";
 import { shrinkPhoto, takePendingPhotos } from "./pendingPhotos";
 
@@ -31,7 +31,7 @@ import { shrinkPhoto, takePendingPhotos } from "./pendingPhotos";
  * DEPOSIT CHECKS — three screens, one deposit.
  *
  *   1. Photos. Home's button took the first photo; "Add a check" takes more.
- *      "Save to JobTread" files each photo on the Office job, folder Deposits.
+ *      "Save to JobTread" files each photo on the Office job, folder Checks.
  *   2. Invoices. Every open client invoice; tick the ones the checks pay and
  *      set the amount (the balance by default). "Mark paid" records the
  *      payments in JobTread, then drafts the email to Sara and Casey.
@@ -271,7 +271,7 @@ export function DepositTracker({ writes }: { writes: boolean }) {
         title="Deposit checks"
         description={
           step === "photos"
-            ? "Photograph each check. The photos go to the Office job in JobTread, folder Deposits."
+            ? "Photograph each check. The photos go to the Office job in JobTread, folder Checks."
             : step === "invoices"
               ? "Select the invoices the checks pay. Each one is marked paid in JobTread."
               : "Recorded in JobTread."
@@ -497,7 +497,7 @@ export function DepositTracker({ writes }: { writes: boolean }) {
           )}
 
           <div className="mt-6 flex flex-col gap-2">
-            <Link href={`/office?folder=${encodeURIComponent("Deposits")}`} className={btn("ghost", "md", "w-full")}>
+            <Link href={`/office?folder=${encodeURIComponent(DEPOSIT_FOLDER)}`} className={btn("ghost", "md", "w-full")}>
               See the photos in Office files
             </Link>
             <Button variant="ghost" className="w-full" onClick={startOver}>

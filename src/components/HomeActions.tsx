@@ -14,6 +14,8 @@ import { setPendingPhotos } from "@/app/deposit-tracker/pendingPhotos";
  * that needs the camera must open it HERE, from the tap, because a page cannot
  * open the camera on load.
  *
+ * Desktop never shows the panel (owner, 2026-10-28): see the section's class.
+ *
  * Deposit checks (the first button): the tap opens the camera, and the photo
  * goes to /deposit-tracker, which files it in JobTread and asks which invoices
  * it pays.
@@ -26,7 +28,10 @@ export function HomeActions() {
   if (!access.can("deposit-tracker")) return null;
 
   return (
-    <section className="mt-6">
+    // Phones and iPads only: hidden where the main pointer is a mouse (a
+    // desktop), the same touch test globals.css uses. A camera button is no use
+    // at a desk; the page stays in the Jobs menu there.
+    <section className="mt-6 [@media(pointer:fine)]:hidden">
       <SectionHeading className="mb-2">Actions</SectionHeading>
       <div className="grid grid-cols-2 gap-2 pad:grid-cols-4">
         <button

@@ -123,7 +123,7 @@ matching row here.
 | **Checking one job before its invoice goes out** | the "Before you send" card on `/trackingsheet?jobId=…` → `src/app/trackingsheet/PreSendCheck.tsx` → `GET /api/invoice-review/job` → `src/lib/invoiceReview/preSend.ts` |
 | **The same vendor bill captured twice** | `checks/duplicateDraft.ts` (a draft copying another bill — runs in "Check this job") vs `checks/duplicateBill.ts` (one finalized bill on two client invoices) vs `checks/duplicateWide.ts` (two bills for one vendor invoice, across months, finalized or not). Different questions; none sees the others' case |
 | **A job's deposit and client payments** (the balance, what drew it down, which payments paid which invoices) | Deposit left = Deposit − Previously applied − Draws. Rules `src/lib/deposits.ts` (pure, pinned to real jobs by `deposits.test.ts`), JobTread read `getJobDepositInputs` in `src/lib/jobtread.ts` (CD lines + client payments), the deposit entered by hand for a pre-JobTread deposit in table `deposit_links` (`src/lib/depositLinks.ts`), route `/api/deposits` (shared read `src/lib/depositRead.ts`), card `src/app/trackingsheet/DepositCard.tsx` beside the board's invoice panel. THE one JobTread write: `/api/deposits/apply` sets a DRAFT invoice's single Deposit line (rules `planDepositDraw`, write `writeDepositDraw` — verified, undone on a mismatch, journalled). Deposit lines are kept out of every work total: the review's cost and markup figures (`depositPart` in `invoiceReview/checks/shared.ts`), the job board (`NOT_DEPOSIT_LINE`) and the board rail. The write's probe is `scripts/probe-deposit-line.mjs` (dry by default); the staged plan is `DEPOSITS_PLAN.md` |
-| **Deposit checks** (Home's Actions button: photograph the checks, file them on the Office job in folder Deposits, mark the client invoices paid, draft the email to Sara and Casey) | button `src/components/HomeActions.tsx` (the Actions panel on Today; opens the camera from the tap) → page `src/app/deposit-tracker/` (`DepositTracker.tsx`; `pendingPhotos.ts` carries Home's photos across and shrinks each to a JPEG) → routes `/api/deposit-tracker/photo` (`uploadFileToJobFolder`), `/invoices` (`getOpenCustomerInvoices`), `/record` (`getInvoicesForPayment` + `recordInvoicePayments` — one payment per customer account, idempotent on the deposit key, journalled), `/email` → appscript `DepositEmail.js` (`draftDepositEmail`). Rules + email wording `src/lib/depositTracker.ts` (pure, tested). View `deposit-tracker`, admin-only |
+| **Deposit checks** (Home's Actions button: photograph the checks, file them on the Office job in folder Checks, mark the client invoices paid, draft the email to Sara and Casey) | button `src/components/HomeActions.tsx` (the Actions panel on Today; opens the camera from the tap) → page `src/app/deposit-tracker/` (`DepositTracker.tsx`; `pendingPhotos.ts` carries Home's photos across and shrinks each to a JPEG) → routes `/api/deposit-tracker/photo` (`uploadFileToJobFolder`), `/invoices` (`getOpenCustomerInvoices`), `/record` (`getInvoicesForPayment` + `recordInvoicePayments` — one payment per customer account, idempotent on the deposit key, journalled), `/email` → appscript `DepositEmail.js` (`draftDepositEmail`). Rules + email wording `src/lib/depositTracker.ts` (pure, tested). View `deposit-tracker`, admin-only |
 | **What a client owes, and how late** | `src/lib/arAging.ts` (the buckets, pure + tested), route `/api/ar-aging` (one org-wide `getOpenCustomerInvoices` walk), page `/ar-aging` |
 | **Who changed this bill / line / time entry** | `src/lib/financialJournal.ts` (the recorder + reader), `src/lib/billJournal.ts` (the bill-header wrapper), page `/journal`, route `/api/journal`, table `financial_events`. Append-only and never trimmed |
 | **A captured cost that never reached QuickBooks** | `checks/qboPush.ts` — QBO is the general ledger, and `qboIsIgnored` turns the push off in one tap. Also runs in "Check this job", which is the useful moment: the fix is one tap before the invoice goes out |
@@ -367,7 +367,7 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   `jobs`, `clients` (Directory — the customer/job directory, and the one
   page that EDITS a JobTread record), `unbilled`, `ar-aging` (Receivables — unpaid
   client invoices, aged), `deposit-tracker` (Deposit checks — photos of the
-  checks to the Office job's Deposits folder, the invoices they pay marked
+  checks to the Office job's Checks folder, the invoices they pay marked
   paid, the email to Sara and Casey drafted; admin-only),
   `vendors`, `bill-search` (fast full-text search over every bill + line item,
   live JobTread plus seeded pre-JobTread history), `email`, `needs-review` (the
@@ -449,7 +449,7 @@ Grouped by domain; each folder is `…/route.ts`.
   `deposits/apply` (POST — the one JobTread write: a DRAFT invoice's Deposit
   line, checked against a fresh ledger, verified, journalled),
   `deposit-tracker/*` (`photo` POST — one check photo onto the Office job,
-  folder Deposits; `invoices` GET — open client invoices with a balance;
+  folder Checks; `invoices` GET — open client invoices with a balance;
   `record` POST — the payments, one per customer account, re-checked against
   JobTread first and safe to press twice; `email` POST — the Gmail draft via
   Apps Script `draftDepositEmail`),

@@ -2,7 +2,7 @@
  * The DEPOSIT TRACKER — the rules behind Home's "Deposit checks" button.
  *
  * The flow: photograph the checks → file the photos on the Office job's Files
- * tab, folder "Deposits" → pick the open client invoices the checks pay → record
+ * tab, folder "Checks" → pick the open client invoices the checks pay → record
  * the payments in JobTread → draft an email to Sara and Casey with the photos
  * and what each check paid.
  *
@@ -14,8 +14,8 @@
 import { money } from "./money";
 import { SIGNATURE_HTML, SIGNATURE_TEXT } from "./emailSignature";
 
-/** The Office job's Files folder the check photos go in. JobTread makes it on the first file. */
-export const DEPOSIT_FOLDER = "Deposits";
+/** The Office job's Files folder the check photos go in — the office's existing "Checks" folder (owner, 2026-10-28). */
+export const DEPOSIT_FOLDER = "Checks";
 
 /** Sara (the bookkeeper) and Casey — the two the owner named. */
 export const DEPOSIT_EMAIL_TO = ["booksbysara@hotmail.com", "casey@ascentbuildingco.com"];
@@ -182,7 +182,7 @@ export function composeDepositEmail({
   const ref = reference.trim();
   const intro =
     `${photos === 1 ? "The check" : `The ${photos} checks`} for today's deposit ${photos === 1 ? "is" : "are"} attached. ` +
-    "They are recorded as paid in JobTread:";
+    "They are recorded as paid in JobTread, so please do not enter them in QuickBooks:";
 
   const cell = "padding:4px 12px 4px 0;text-align:left";
   const num = "padding:4px 0 4px 12px;text-align:right";

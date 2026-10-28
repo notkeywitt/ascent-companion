@@ -5,7 +5,7 @@ import { DEPOSIT_FOLDER } from "@/lib/depositTracker";
 
 /**
  * POST multipart { file, name } — one check photo onto the Office job's Files
- * tab, folder "Deposits". The deposit tracker's first write. One photo a
+ * tab, folder "Checks". The deposit tracker's first write. One photo a
  * request: the phone shrinks each one to a JPEG first, and Vercel refuses a
  * request body over 4.5 MB.
  *

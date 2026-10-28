@@ -75,7 +75,7 @@ function Home() {
       <HomeMasthead />
 
       {/* The button panel — one big tap per thing done from a phone (Deposit
-          checks first). Self-hiding: each button rides its own view, and the
+          checks first). Hidden on a desktop. Self-hiding: each button rides its own view, and the
           deposit view is admin-only by default. */}
       <HomeActions />
 
