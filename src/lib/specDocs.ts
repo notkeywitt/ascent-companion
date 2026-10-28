@@ -49,6 +49,11 @@ export interface SpecDoc {
 /** A walk's ceilings. A job folder holds tens of files, not hundreds. */
 const WALK_MAX_FILES = 300;
 const WALK_MAX_FOLDERS = 40;
+/** Folder listings in flight at once. The bridge checks sharing on every child,
+ *  so one listing is slow; a wide folder sent every listing at once and ran
+ *  past the bridge's 25 s default. */
+const WALK_AT_ONCE = 4;
+const LIST_TIMEOUT_MS = 60_000;
 /** Text kept per document, about 100 dense pages. */
 const TEXT_MAX = 400_000;
 // ponytail: whole-scan OCR in one call must fit the route's 300s beside the
@@ -69,10 +74,10 @@ export const scanText = (pages: string[]) =>
 export const driveUrl = (id: string) => `https://drive.google.com/open?id=${encodeURIComponent(id)}`;
 
 const list = (id: string) =>
-  callAppsScriptOrThrow<{ item: DriveItem; children?: DriveItem[]; truncated?: boolean }>({
-    action: "listDriveFolder",
-    id,
-  });
+  callAppsScriptOrThrow<{ item: DriveItem; children?: DriveItem[]; truncated?: boolean }>(
+    { action: "listDriveFolder", id },
+    { timeoutMs: LIST_TIMEOUT_MS },
+  );
 
 const fileOf = (i: DriveItem, folder: string): DriveFile => ({
   id: i.id,
@@ -102,13 +107,17 @@ export async function walkDriveLink(id: string): Promise<{ root: DriveItem; file
     if (subs.length > room) truncated = true;
     const next = subs.slice(0, Math.max(room, 0));
     listed += next.length;
-    level = await Promise.all(
-      next.map(async (s) => {
-        const r = await list(s.id);
-        if (r.truncated) truncated = true;
-        return { path: s.path, children: r.children ?? [] };
-      }),
-    );
+    level = [];
+    for (let i = 0; i < next.length; i += WALK_AT_ONCE) {
+      const batch = await Promise.all(
+        next.slice(i, i + WALK_AT_ONCE).map(async (s) => {
+          const r = await list(s.id);
+          if (r.truncated) truncated = true;
+          return { path: s.path, children: r.children ?? [] };
+        }),
+      );
+      level.push(...batch);
+    }
   }
   if (files.length > WALK_MAX_FILES) truncated = true;
   return { root: top.item, files: files.slice(0, WALK_MAX_FILES), truncated };
