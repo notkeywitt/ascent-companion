@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-28T17:33:22Z",
+  "generatedAt": "2026-10-28T18:31:19Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-28T17:33:22Z",
+      "updated": "2026-10-28T18:31:19Z",
       "goal": "",
-      "next": "Owner: re-paste a job's Drive spec folder on /specs so its scans are read by OCR, then ask AscentBot about something only a scan holds. Scans over 10 pages stay name-only (split into page ranges if that matters).",
+      "next": "test in Google Chat: ask AscentBot for Amanda Keeler's phone",
       "commits": [
         {
           "date": "2026-09-03",
@@ -641,6 +641,13 @@
           "sha": "1b84d52",
           "subject": "companion: specifications reads scanned pdfs with ocr for ascentbot",
           "files": "CODEBASE_MAP.md, src/app/api/specs/docs/route.ts, src/lib/claudeExtract.ts, src/lib/specDocs.test.ts, src/lib/specDocs.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "11:31",
+          "sha": "d9b02cf",
+          "subject": "companion: ascentbot looks up customer and vendor contacts",
+          "files": "src/lib/chatTools.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
         }
       ]
     },
