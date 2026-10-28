@@ -42,6 +42,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 
 import { linkSpaceJob, saveTurn, type ChatTurn, type SpaceJob } from "@/lib/chatMemory";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { toolByName, type ChatTool } from "@/lib/chatTools";
 import { getJobs, type JobRef, type PaveConfig } from "@/lib/jobtread";
 import { money0 } from "@/lib/money";
@@ -193,6 +194,7 @@ export const BOT_TOOLS = [
   "get_calendar",
   "find_contact",
   "search_email",
+  "read_email",
   "search_drive",
 ];
 
@@ -208,13 +210,17 @@ export const CHAT_SYSTEM = [
   "  (\"per the spec list rev C\", \"daily log Oct 12\", \"noted by Ty on Oct 3\").",
   "  If sources disagree, give the newest and say so.",
   "- If nothing records the answer, say so plainly. Never guess a selection or a date.",
+  "  Then call report_gap once; if it returns sent: true, end with \"I've let the office",
+  "  know.\" Not for a",
+  "  question the rules here send elsewhere (money, pay, HR).",
   "- When someone states a decision or a detail to keep (\"we went with…\", \"the plumber is",
   "  coming Tuesday\"), call save_note with it in plain words, then reply only",
   "  \"Noted for <job>.\" If you can't tell a decision from a question, ask.",
   "- When someone says which job this space is for, call link_space_to_job. If the space",
   "  has no job and a question names one job, answer it, then ask \"Want me to tie this",
   "  space to <job>?\" and link it on a yes.",
-  "- You cannot change JobTread. save_note and link_space_to_job only write to your own memory.",
+  "- You cannot change JobTread. save_note and link_space_to_job only write to your own memory;",
+  "  report_gap only emails the office.",
   "- Google Chat formatting: *bold* uses single asterisks, _italic_ underscores.",
   "  No markdown tables, no headings, no [text](url) links. Use • for list items.",
   "- Keep the answer under 15 lines. Lead with the answer.",
@@ -288,8 +294,9 @@ export interface BotContext {
 }
 
 /**
- * AscentBot's two tools that write — to the Companion's own memory tables,
- * never to JobTread. Built per request around who is asking and where.
+ * AscentBot's own tools. Two write to the Companion's memory tables, never to
+ * JobTread; `report_gap` emails the office a question the bot could not answer.
+ * Built per request around who is asking and where.
  */
 export function botTools(ctx: BotContext): ChatTool[] {
   return [
@@ -349,6 +356,41 @@ export function botTools(ctx: BotContext): ChatTool[] {
         if (!ctx.job) return { saved: false, reason: "This space is not tied to a job yet. Ask which job it is for." };
         await saveTurn({ space: ctx.space, thread: ctx.thread, jobId: ctx.job.jobId, kind: "note", author: ctx.name, text });
         return { saved: true, job: ctx.job.jobName };
+      },
+    },
+    {
+      name: "report_gap",
+      description:
+        "Email the office a question you could not answer from any source, so they can " +
+        "teach the system where the answer lives. Call it once, after you have looked.",
+      input_schema: {
+        type: "object",
+        properties: {
+          question: { type: "string", description: "The question, as the person asked it." },
+          reason: { type: "string", description: "Which sources you checked, and what was missing." },
+        },
+        required: ["question"],
+        additionalProperties: false,
+      },
+      handler: async (_cfg, input) => {
+        // Best effort: a failed email must never cost the person their answer.
+        try {
+          const res = (await callAppsScriptOrThrow(
+            {
+              action: "chatReportGap",
+              question: String(input.question ?? ""),
+              reason: String(input.reason ?? ""),
+              asker: ctx.name,
+              askerEmail: ctx.email,
+              job: ctx.job?.jobName ?? "",
+              space: ctx.space,
+            },
+            { timeoutMs: 10_000, retry: false },
+          )) as { ok?: boolean };
+          return { sent: res?.ok === true };
+        } catch {
+          return { sent: false };
+        }
       },
     },
   ];

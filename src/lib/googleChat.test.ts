@@ -4,6 +4,10 @@ const { linkSpaceJob, saveTurn } = vi.hoisted(() => ({
   linkSpaceJob: vi.fn(async () => {}),
   saveTurn: vi.fn(async (_t: unknown) => {}),
 }));
+const { callAppsScriptOrThrow } = vi.hoisted(() => ({
+  callAppsScriptOrThrow: vi.fn(async (_b: unknown, _o?: unknown): Promise<unknown> => ({ ok: true })),
+}));
+vi.mock("@/lib/appsScript", () => ({ callAppsScriptOrThrow }));
 vi.mock("@/lib/chatMemory", () => ({ linkSpaceJob, saveTurn, searchJobMemory: vi.fn(async () => []) }));
 vi.mock("@/lib/jobtread", async (orig) => ({
   ...(await orig<typeof import("./jobtread")>()),
@@ -201,6 +205,17 @@ describe("botTools", () => {
     ctx.job = { jobId: "c", jobName: "Berger Main House" };
     expect(await tool("save_note").handler(cfg, { text: " chose Ocean " })).toMatchObject({ saved: true });
     expect(saveTurn).toHaveBeenCalledWith(expect.objectContaining({ jobId: "c", kind: "note", author: "Ty", text: "chose Ocean" }));
+  });
+
+  it("emails a gap with who asked and the job, and never throws", async () => {
+    ctx.job = { jobId: "c", jobName: "Berger Main House" };
+    expect(await tool("report_gap").handler(cfg, { question: "gate code?" })).toEqual({ sent: true });
+    expect(callAppsScriptOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "chatReportGap", question: "gate code?", asker: "Ty", job: "Berger Main House" }),
+      expect.anything(),
+    );
+    callAppsScriptOrThrow.mockRejectedValueOnce(new Error("down"));
+    expect(await tool("report_gap").handler(cfg, { question: "gate code?" })).toEqual({ sent: false });
   });
 });
 
