@@ -2,9 +2,9 @@
 slug: ascent-roof-color-query
 repo: ascent-companion
 branch: claude/ascent-roof-color-query-qdypqk
-status: in-progress
+status: shipped
 started: 2026-10-28T20:05:30Z
-updated: 2026-10-28T20:05:34Z
+updated: 2026-10-28T20:05:39Z
 goal: 
 next: watch the next AscentBot miss: confirm search_job_bills fires and the office email arrives (fallback logs '[google-chat] fallback report_gap')
 ---

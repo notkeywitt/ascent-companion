@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-28T19:14:32Z",
+  "generatedAt": "2026-10-28T20:05:40Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascent-roof-color-query",
+      "file": "2026-10-28-ascent-roof-color-query.md",
+      "branch": "claude/ascent-roof-color-query-qdypqk",
+      "status": "shipped",
+      "started": "2026-10-28T20:05:30Z",
+      "updated": "2026-10-28T20:05:39Z",
+      "goal": "",
+      "next": "watch the next AscentBot miss: confirm search_job_bills fires and the office email arrives (fallback logs '[google-chat] fallback report_gap')",
+      "commits": [
+        {
+          "date": "2026-10-28",
+          "time": "20:05",
+          "sha": "e3d24c0",
+          "subject": "companion: ascentbot reads what bills bought and always reports a miss",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
