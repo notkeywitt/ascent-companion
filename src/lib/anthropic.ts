@@ -17,7 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { trackClaudeUsage } from "@/lib/aiUsage";
 
 import { getPaveConfig } from "@/lib/config";
-import { anthropicToolDefs, toolByName } from "@/lib/chatTools";
+import { CHAT_TOOLS, anthropicToolDefs, type ChatTool } from "@/lib/chatTools";
 
 // Sonnet by default — fast enough for this high-volume conversational surface
 // and keeps Opus out of every app path. ANTHROPIC_MODEL overrides it.
@@ -80,6 +80,10 @@ export interface RunChatOptions {
   feature?: string;
   /** Lines appended to the system prompt (e.g. Google Chat's formatting rules). */
   extraSystem?: string;
+  /** Only these registry tools, by name. Omitted → every tool in chatTools.ts. */
+  tools?: string[];
+  /** Tools built for this one request (AscentBot's link and note tools). */
+  extraTools?: ChatTool[];
 }
 
 /**
@@ -95,10 +99,14 @@ export async function runChat({
   model = MODEL,
   feature = "chat",
   extraSystem,
+  tools: only,
+  extraTools = [],
 }: RunChatOptions): Promise<void> {
   const cfg = getPaveConfig();
   const system = extraSystem ? `${buildSystem(jobId)}\n\n${extraSystem}` : buildSystem(jobId);
-  const tools = anthropicToolDefs();
+  const available = [...(only ? CHAT_TOOLS.filter((t) => only.includes(t.name)) : CHAT_TOOLS), ...extraTools];
+  const byName = new Map(available.map((t) => [t.name, t]));
+  const tools = anthropicToolDefs(available);
   const convo: Anthropic.MessageParam[] = [...messages];
 
   // One log line per Claude round and per tool, so a slow answer shows where
@@ -143,7 +151,7 @@ export async function runChat({
         let content: string;
         let isError = false;
         try {
-          const tool = toolByName(use.name);
+          const tool = byName.get(use.name);
           if (!tool) throw new Error(`Unknown tool: ${use.name}`);
           const out = await tool.handler(cfg, (use.input ?? {}) as Record<string, unknown>);
           content = JSON.stringify(out);

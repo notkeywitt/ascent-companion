@@ -7659,6 +7659,145 @@ export async function getScheduledTasks(cfg: PaveConfig): Promise<OpenToDo[]> {
   return fetchTasks(cfg, false);
 }
 
+/** One item on a job's schedule or to-do list, for AscentBot. */
+export interface JobScheduleItem {
+  id: string;
+  name: string;
+  /** The phase (parent group row) it sits under, e.g. "Rough-In". */
+  phase: string;
+  description: string;
+  startDate: string | null; // YYYY-MM-DD
+  endDate: string | null; // YYYY-MM-DD
+  progress: number | null; // 0..1
+  isToDo: boolean;
+  assignees: string[];
+}
+
+/**
+ * Every schedule item and to-do on one job, by start date — what AscentBot reads
+ * for "when is the plumber scheduled?". Group rows (phases) are dropped; each
+ * item carries its phase name instead. Done items are kept: "when did framing
+ * finish?" is a fair question too.
+ *
+ * Assignees come in a second read by id (`_getToDoAssignees`): nesting
+ * `assignedMemberships` in the paged walk returns HTTP 413 (probed live
+ * 2026-10-28 on an 85-task job, size 100). Fields confirmed by introspection
+ * and a live read the same day.
+ */
+export async function getJobSchedule(cfg: PaveConfig, jobId: string): Promise<JobScheduleItem[]> {
+  const nodes = await pageAll<any>(cfg, {
+    label: "job.tasks (schedule)",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        tasks: {
+          $: { ...args },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            description: {},
+            isToDo: {},
+            isGroup: {},
+            startDate: {},
+            endDate: {},
+            progress: {},
+            parentTask: { name: {} },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.tasks,
+  });
+  const items = nodes.filter((n) => !n?.isGroup);
+  const people = await _getToDoAssignees(
+    cfg,
+    items.map((n) => n.id),
+  );
+  return items
+    .map((n) => ({
+      id: String(n.id),
+      name: String(n.name ?? "") || "(untitled)",
+      phase: String(n.parentTask?.name ?? ""),
+      description: String(n.description ?? ""),
+      startDate: n.startDate ?? null,
+      endDate: n.endDate ?? null,
+      progress: typeof n.progress === "number" ? n.progress : null,
+      isToDo: Boolean(n.isToDo),
+      assignees: people.get(n.id)?.names ?? [],
+    }))
+    .sort((a, b) => (a.startDate ?? a.endDate ?? "9999").localeCompare(b.startDate ?? b.endDate ?? "9999"));
+}
+
+/** One daily log or comment on a job, for AscentBot. */
+export interface JobNote {
+  kind: "dailyLog" | "comment";
+  /** YYYY-MM-DD for a daily log; the full timestamp for a comment. */
+  date: string;
+  author: string;
+  /** A comment's subject line; "" for a daily log. */
+  subject: string;
+  text: string;
+  /** What a comment is attached to: job, task, document, file, dailyLog… */
+  on: string;
+}
+
+/**
+ * A job's daily logs and comments, newest first — where a decision written
+ * down in JobTread lives. Fields confirmed by introspection and a live read
+ * 2026-10-28.
+ */
+export async function getJobNotes(cfg: PaveConfig, jobId: string): Promise<JobNote[]> {
+  const [logs, comments] = await Promise.all([
+    pageAll<any>(cfg, {
+      label: "job.dailyLogs",
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          id: {},
+          dailyLogs: { $: { ...args }, nextPage: {}, nodes: { id: {}, date: {}, notes: {}, user: { name: {} } } },
+        },
+      }),
+      pick: (r) => r?.job?.dailyLogs,
+    }),
+    pageAll<any>(cfg, {
+      label: "job.comments",
+      query: (args) => ({
+        job: {
+          $: { id: jobId },
+          id: {},
+          comments: {
+            $: { ...args },
+            nextPage: {},
+            nodes: { id: {}, createdAt: {}, name: {}, message: {}, targetType: {}, createdByUser: { name: {} } },
+          },
+        },
+      }),
+      pick: (r) => r?.job?.comments,
+    }),
+  ]);
+  const notes: JobNote[] = [
+    ...logs.map((n) => ({
+      kind: "dailyLog" as const,
+      date: String(n.date ?? ""),
+      author: String(n.user?.name ?? ""),
+      subject: "",
+      text: String(n.notes ?? ""),
+      on: "job",
+    })),
+    ...comments.map((n) => ({
+      kind: "comment" as const,
+      date: String(n.createdAt ?? ""),
+      author: String(n.createdByUser?.name ?? ""),
+      subject: String(n.name ?? ""),
+      text: String(n.message ?? ""),
+      on: String(n.targetType ?? ""),
+    })),
+  ];
+  return notes.filter((n) => n.text.trim() || n.subject.trim()).sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** One to-do to create in JobTread — the input to `createToDo` below. */
 export interface NewToDo {
   /** What to do. Required; JobTread collapses runs of whitespace. */

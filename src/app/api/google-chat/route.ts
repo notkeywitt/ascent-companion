@@ -1,10 +1,26 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { NextRequest, NextResponse } from "next/server";
 
+import type Anthropic from "@anthropic-ai/sdk";
+
 import { readUsageByMonth } from "@/lib/aiUsage";
 import { runChat } from "@/lib/anthropic";
+import { getSpaceJob, recentTurns, saveTurn, type SpaceJob } from "@/lib/chatMemory";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { CHAT_SYSTEM, canAsk, helpText, parseEvent, runCommand, type GoogleChatEvent } from "@/lib/googleChat";
+import {
+  BOT_TOOLS,
+  CHAT_SYSTEM,
+  botTools,
+  buildHistory,
+  canAsk,
+  helpText,
+  jobLine,
+  parseEvent,
+  runCommand,
+  type BotContext,
+  type GoogleChatEvent,
+} from "@/lib/googleChat";
+import { getJobs } from "@/lib/jobtread";
 
 // Google Chat posts every event in the bot's spaces here. It carries no Google
 // session, so src/middleware.ts lists this path as PUBLIC and the handler
@@ -66,27 +82,47 @@ async function overMonthlyCap(): Promise<boolean> {
   return spent >= cap;
 }
 
-async function askClaude(question: string, name: string): Promise<string> {
+const TOO_LONG = "That took too long to look up. Try a narrower question, or the Assistant page in the app.";
+
+async function askClaude(
+  messages: Anthropic.MessageParam[],
+  ctx: BotContext,
+  jobContext: string,
+): Promise<{ text: string; timedOut: boolean }> {
   const start = Date.now();
   let text = "";
   const answer = runChat({
-    messages: [{ role: "user", content: name ? `${name} asks: ${question}` : question }],
+    messages,
+    jobId: ctx.job?.jobId,
     model: process.env.GOOGLE_CHAT_MODEL?.trim() || "claude-haiku-5-5",
     feature: "google-chat",
-    extraSystem: CHAT_SYSTEM,
+    extraSystem: `${CHAT_SYSTEM}\n\n${jobContext}`,
+    tools: BOT_TOOLS,
+    extraTools: botTools(ctx),
     onEvent: (e) => {
       if (e.type === "text") text += e.text;
       if (e.type === "error") text += `\n${e.error}`;
     },
-  }).then(() => text.trim() || "I couldn't find an answer to that.");
-  const late = new Promise<string>((done) =>
+  }).then(() => ({ text: text.trim() || "I couldn't find an answer to that.", timedOut: false }));
+  const late = new Promise<{ text: string; timedOut: boolean }>((done) =>
     setTimeout(() => {
       // The [chat:google-chat] lines before this one show which round or tool was slow.
-      console.warn(`[google-chat] deadline hit after ${Date.now() - start}ms: ${question.slice(0, 200)}`);
-      done("That took too long to look up. Try a narrower question, or the Assistant page in the app.");
+      const q = messages[messages.length - 1]?.content;
+      console.warn(`[google-chat] deadline hit after ${Date.now() - start}ms: ${String(q).slice(0, 200)}`);
+      done({ text: TOO_LONG, timedOut: true });
     }, DEADLINE_MS),
   );
   return Promise.race([answer, late]);
+}
+
+/** Memory is best-effort: a failed read or write is logged, never fails the reply. */
+async function quietly<T>(what: string, p: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await p;
+  } catch (e) {
+    console.error(`[google-chat] ${what} failed: ${e instanceof Error ? e.message : e}`);
+    return fallback;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -114,14 +150,40 @@ export async function POST(req: NextRequest) {
   if (!hasGrant()) return reply("I can't reach JobTread right now (JT_GRANT_KEY is not set).");
 
   try {
-    if (ask.kind === "command") return reply(await runCommand(getPaveConfig(), ask.commandId, ask.arg));
+    const cfg = getPaveConfig();
+    const linked = await quietly<SpaceJob | null>("reading the space's job", getSpaceJob(ask.space), null);
+    if (ask.kind === "command") return reply(await runCommand(cfg, ask.commandId, ask.arg, linked));
 
     if (/^(help|\?)$/i.test(ask.text)) return reply(helpText());
-    if (!process.env.ANTHROPIC_API_KEY) return reply("AI answers are off. The / commands still work.");
-    if (await overMonthlyCap()) {
-      return reply("This month's AI budget for chat is used up. The / commands still work (free).");
+    if (!process.env.ANTHROPIC_API_KEY) return reply("AI answers are off for now. Ask the office.");
+    if (await overMonthlyCap()) return reply("This month's AI budget for chat is used up. Ask the office.");
+
+    const [turns, jobs] = await Promise.all([
+      quietly("reading the space's history", recentTurns(ask.space), []),
+      linked ? getJobs(cfg) : Promise.resolve([]),
+    ]);
+    const ctx: BotContext = { cfg, space: ask.space, thread: ask.thread, email: ask.email, name: ask.name, job: linked };
+    const jobContext = jobLine(
+      jobs.find((j) => j.id === linked?.jobId),
+      linked,
+    );
+    // Saved first, so a decision kept during the answer files after the question that carried it.
+    const where = { space: ask.space, thread: ask.thread };
+    await quietly(
+      "saving the question",
+      saveTurn({ ...where, jobId: linked?.jobId ?? "", kind: "question", author: ask.name, text: ask.text }),
+      undefined,
+    );
+    const { text, timedOut } = await askClaude(buildHistory(turns, { name: ask.name, text: ask.text }), ctx, jobContext);
+    // ctx.job, not `linked`: the answer may have just tied the space to a job.
+    if (!timedOut) {
+      await quietly(
+        "saving the answer",
+        saveTurn({ ...where, jobId: ctx.job?.jobId ?? "", kind: "answer", author: "", text }),
+        undefined,
+      );
     }
-    return reply(await askClaude(ask.text, ask.name));
+    return reply(text);
   } catch (e) {
     console.error(`[google-chat] ${e instanceof Error ? e.message : e}`);
     return reply("Something went wrong looking that up. Try again, or use the Assistant page in the app.");

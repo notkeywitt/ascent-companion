@@ -9,6 +9,9 @@
  * tree through Apps Script (ChatSearch.js there), which already holds that
  * Gmail and Drive access. Both are reads too.
  *
+ * The job-knowledge tools (selections, schedule, notes, files, calendar, the
+ * bot's memory) serve AscentBot, the Google Chat bot, and /chat alike.
+ *
  * PHASE 1 IS READ-ONLY. Do NOT add any write function (updateLine, createLine,
  * setBill*, createVendorBill, …) here — writes come later behind writesEnabled()
  * plus an explicit confirmation step, so the chat can never fight the hourly
@@ -29,9 +32,19 @@ import {
   getBillFiles,
   getVendors,
   getCostToComplete,
+  getJobSpecifications,
+  getJobSchedule,
+  getJobNotes,
+  getJobFiles,
   type DraftBill,
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import { searchJobMemory } from "@/lib/chatMemory";
+import { DIGEST_SETTINGS } from "@/lib/digest/settings";
+import type { SpecList } from "@/lib/specList";
+import { db, ensureDb } from "@/db";
+import { specLists } from "@/db/schema";
+import { desc, eq } from "drizzle-orm";
 
 /** Apps Script is slow; the Google Chat bot has 30s for its whole answer. */
 const SEARCH_OPTS = { timeoutMs: 15_000, retry: false };
@@ -55,6 +68,30 @@ export interface ChatTool extends ChatToolDef {
  *  JobTread's bill total, sales tax included: the 88 80 00 tax line is one of those
  *  costs. Nothing is ever added on top. */
 const billAmount = (b: DraftBill) => b.cost ?? 0;
+
+/** The words a lookup is narrowed by. */
+const wordsOf = (input: Record<string, unknown>) =>
+  String(input.words ?? "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
+
+/** True when `hay` holds ANY of the words — a stem like "plumb" finds "Plumbing". No words → true. */
+export function hasAnyWord(hay: string, words: string[]): boolean {
+  if (!words.length) return true;
+  const h = hay.toLowerCase();
+  return words.some((w) => h.includes(w));
+}
+
+const WORDS_PROP = {
+  words: {
+    type: "string",
+    description:
+      "Optional. Space-separated words or stems; an item matching ANY of them is kept " +
+      "(e.g. 'plumb' finds plumber and plumbing). Omit to get everything.",
+  },
+};
+const JOB_PROP = { job_id: { type: "string", description: "The JobTread job id." } };
 
 const compactBill = (b: DraftBill) => ({
   docId: b.id,
@@ -254,6 +291,181 @@ export const CHAT_TOOLS: ChatTool[] = [
     },
   },
   {
+    name: "get_job_selections",
+    description:
+      "A job's selections and specifications: the architect's spec list imported into the " +
+      "Assistant (room, item, spec, notes, open question and its answer, status, date " +
+      "revised) and the JobTread budget lines marked as specifications. Use for 'what tile " +
+      "did we choose?' or 'which faucet is in the guest bath?'.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const jobId = String(input.job_id);
+      const words = wordsOf(input);
+      await ensureDb();
+      const [row] = await db
+        .select()
+        .from(specLists)
+        .where(eq(specLists.jobId, jobId))
+        .orderBy(desc(specLists.id))
+        .limit(1);
+      const list = row ? (JSON.parse(row.value) as SpecList) : null;
+      const specRows = (list?.rows ?? [])
+        .filter((r) => hasAnyWord(`${r.room} ${r.item} ${r.spec} ${r.notes} ${r.question} ${r.answer} ${r.tag}`, words))
+        .map((r) => ({
+          room: r.room,
+          item: r.item,
+          spec: r.spec,
+          ...(r.notes ? { notes: r.notes } : {}),
+          ...(r.question ? { question: r.question, answer: r.answer } : {}),
+          ...(r.tag ? { tag: r.tag } : {}),
+          ...(r.revised ? { revised: r.revised } : {}),
+          status: r.status,
+        }));
+      const jt = (await getJobSpecifications(cfg, jobId)).filter((s) =>
+        hasAnyWord(`${s.group} ${s.name} ${s.description}`, words),
+      );
+      return {
+        specList: list
+          ? { title: list.title, revision: list.revision, importedAt: row!.importedAt, rows: specRows.slice(0, 80) }
+          : null,
+        jobtreadSpecifications: jt.slice(0, 80),
+      };
+    },
+  },
+  {
+    name: "get_job_schedule",
+    description:
+      "A job's JobTread schedule and to-dos, by start date: name, phase, dates, progress " +
+      "(0-1), who is assigned and any description. Use for 'when is the plumber " +
+      "scheduled?' or 'when does drywall start?'. Trade names often appear as the task " +
+      "name (e.g. 'Plumbing Rough-In'), so search by a stem.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = wordsOf(input);
+      const items = (await getJobSchedule(cfg, String(input.job_id))).filter((t) =>
+        hasAnyWord(`${t.name} ${t.phase} ${t.description} ${t.assignees.join(" ")}`, words),
+      );
+      return {
+        today: new Date().toISOString().slice(0, 10),
+        count: items.length,
+        items: items.slice(0, 150).map((t) => ({
+          name: t.name,
+          ...(t.phase ? { phase: t.phase } : {}),
+          start: t.startDate,
+          end: t.endDate,
+          progress: t.progress,
+          ...(t.isToDo ? { toDo: true } : {}),
+          ...(t.assignees.length ? { assignees: t.assignees } : {}),
+          ...(t.description ? { description: t.description.slice(0, 400) } : {}),
+        })),
+      };
+    },
+  },
+  {
+    name: "get_job_notes",
+    description:
+      "A job's daily logs and comments in JobTread, newest first: date, author, subject and " +
+      "text. Use for decisions or details someone wrote down in JobTread.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = wordsOf(input);
+      const notes = (await getJobNotes(cfg, String(input.job_id))).filter((n) =>
+        hasAnyWord(`${n.subject} ${n.text}`, words),
+      );
+      return notes.slice(0, 60).map((n) => ({ ...n, text: n.text.slice(0, 1500) }));
+    },
+  },
+  {
+    name: "search_job_memory",
+    description:
+      "What people told AscentBot about a job in Google Chat: decisions it was asked to " +
+      "remember, earlier questions and its answers, newest first, each with who and when. " +
+      "Check this for any decision or detail before saying nothing is recorded.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) => searchJobMemory(String(input.job_id), String(input.words ?? "")),
+  },
+  {
+    name: "get_job_files",
+    description:
+      "Files attached to a job in JobTread (plans, photos, bill scans), newest first: name, " +
+      "folder, date and link. Give the user the link; this tool cannot open a file.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = wordsOf(input);
+      const files = (await getJobFiles(cfg, String(input.job_id))).filter((f) =>
+        hasAnyWord(`${f.name} ${f.folder ?? ""}`, words),
+      );
+      return files.slice(0, 50).map((f) => ({
+        name: f.name,
+        folder: f.folder ?? "",
+        added: f.createdAt.slice(0, 10),
+        url: f.url ?? "",
+      }));
+    },
+  },
+  {
+    name: "get_calendar",
+    description:
+      "Events on the office's shared Google calendars (office, Ty, Casey, time off) from " +
+      "today forward: date, time, calendar, title and location. Use for site visits, " +
+      "inspections and who is out. Calendar titles may name the job or the trade.",
+    input_schema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days ahead, 1-31. Defaults to 14." },
+        ...WORDS_PROP,
+      },
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) => {
+      const days = Math.min(Math.max(Math.round(Number(input.days) || 14), 1), 31);
+      const cal = DIGEST_SETTINGS["calendar-events"].config;
+      const r = await callAppsScriptOrThrow<{
+        events?: { calendarName?: string; title?: string; location?: string; allDay?: boolean; start?: string; end?: string }[];
+      }>(
+        { action: "digestCalendar", days, calendarIds: cal.calendarIds, calendarNames: cal.calendarNames, includePrimary: false },
+        SEARCH_OPTS,
+      );
+      const words = wordsOf(input);
+      return (r.events ?? [])
+        .filter((e) => hasAnyWord(`${e.title ?? ""} ${e.location ?? ""} ${e.calendarName ?? ""}`, words))
+        .slice(0, 60)
+        .map((e) => ({
+          calendar: e.calendarName ?? "",
+          title: e.title ?? "",
+          start: e.start ?? "",
+          end: e.end ?? "",
+          ...(e.allDay ? { allDay: true } : {}),
+          ...(e.location ? { location: e.location } : {}),
+        }));
+    },
+  },
+  {
     name: "list_vendors",
     description:
       "List the organization's vendor accounts (id and name). Useful for resolving or " +
@@ -273,8 +485,8 @@ export function toolByName(name: string): ChatTool | undefined {
 }
 
 /** The tool definitions in the shape the Anthropic Messages API expects. */
-export function anthropicToolDefs(): ChatToolDef[] {
-  return CHAT_TOOLS.map(({ name, description, input_schema }) => ({
+export function anthropicToolDefs(tools: ChatTool[] = CHAT_TOOLS): ChatToolDef[] {
+  return tools.map(({ name, description, input_schema }) => ({
     name,
     description,
     input_schema,

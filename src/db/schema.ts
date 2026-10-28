@@ -1576,3 +1576,34 @@ export const onboardingSubmissions = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.email, t.formId] })],
 );
+
+/**
+ * ASCENTBOT MEMORY — the Google Chat bot (src/app/api/google-chat). See
+ * src/lib/chatMemory.ts.
+ *
+ * chat_space_jobs  which JobTread job a Google Chat space is about. Set when
+ *                  someone tells the bot ("this space is for the Smith job").
+ * chat_turns       every question the bot was asked, every answer it gave and
+ *                  every decision it was told to remember. Keyed by space AND
+ *                  job, so a decision stays findable if the job gets a new
+ *                  space. `thread` is Google's thread name, kept for the day
+ *                  the bot reads whole threads.
+ */
+export const chatSpaceJobs = sqliteTable("chat_space_jobs", {
+  space: text("space").primaryKey(), // Google's "spaces/AAAA…"
+  jobId: text("job_id").notNull(),
+  jobName: text("job_name").notNull().default(""),
+  linkedBy: text("linked_by").notNull().default(""), // email
+  linkedAt: text("linked_at").notNull(),
+});
+
+export const chatTurns = sqliteTable("chat_turns", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  space: text("space").notNull(),
+  thread: text("thread").notNull().default(""),
+  jobId: text("job_id").notNull().default(""), // "" when the space is not linked
+  kind: text("kind").notNull(), // question | answer | note
+  author: text("author").notNull().default(""), // display name; "" for an answer
+  text: text("text").notNull(),
+  at: text("at").notNull(),
+});

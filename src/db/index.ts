@@ -1172,6 +1172,28 @@ async function applySchema() {
       PRIMARY KEY (email, form_id)
     )
   `);
+  // AscentBot's memory (see schema.ts chatSpaceJobs / chatTurns).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS chat_space_jobs (
+      space TEXT PRIMARY KEY,
+      job_id TEXT NOT NULL,
+      job_name TEXT NOT NULL DEFAULT '',
+      linked_by TEXT NOT NULL DEFAULT '',
+      linked_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS chat_turns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      space TEXT NOT NULL,
+      thread TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      kind TEXT NOT NULL,
+      author TEXT NOT NULL DEFAULT '',
+      text TEXT NOT NULL,
+      at TEXT NOT NULL
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [
@@ -1181,6 +1203,8 @@ async function applySchema() {
     `CREATE INDEX IF NOT EXISTS financial_events_actor_idx ON financial_events (actor, at DESC)`,
     `CREATE INDEX IF NOT EXISTS financial_events_request_idx ON financial_events (request_id)`,
     `CREATE INDEX IF NOT EXISTS spec_lists_job_idx ON spec_lists (job_id, id DESC)`,
+    `CREATE INDEX IF NOT EXISTS chat_turns_space_idx ON chat_turns (space, at DESC)`,
+    `CREATE INDEX IF NOT EXISTS chat_turns_job_idx ON chat_turns (job_id, at DESC)`,
   ]) {
     await getClient().execute(idx);
   }
