@@ -67,6 +67,7 @@ async function overMonthlyCap(): Promise<boolean> {
 }
 
 async function askClaude(question: string, name: string): Promise<string> {
+  const start = Date.now();
   let text = "";
   const answer = runChat({
     messages: [{ role: "user", content: name ? `${name} asks: ${question}` : question }],
@@ -79,10 +80,11 @@ async function askClaude(question: string, name: string): Promise<string> {
     },
   }).then(() => text.trim() || "I couldn't find an answer to that.");
   const late = new Promise<string>((done) =>
-    setTimeout(
-      () => done("That took too long to look up. Try a narrower question, or the Assistant page in the app."),
-      DEADLINE_MS,
-    ),
+    setTimeout(() => {
+      // The [chat:google-chat] lines before this one show which round or tool was slow.
+      console.warn(`[google-chat] deadline hit after ${Date.now() - start}ms: ${question.slice(0, 200)}`);
+      done("That took too long to look up. Try a narrower question, or the Assistant page in the app.");
+    }, DEADLINE_MS),
   );
   return Promise.race([answer, late]);
 }

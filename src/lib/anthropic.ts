@@ -101,7 +101,13 @@ export async function runChat({
   const tools = anthropicToolDefs();
   const convo: Anthropic.MessageParam[] = [...messages];
 
+  // One log line per Claude round and per tool, so a slow answer shows where
+  // the time went in the Vercel runtime logs.
+  const t0 = Date.now();
+  const tag = `[chat:${feature}]`;
+
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
+    const roundStart = Date.now();
     const stream = client().messages.stream({
       model,
       max_tokens: MAX_TOKENS,
@@ -113,10 +119,15 @@ export async function runChat({
     stream.on("text", (delta) => onEvent({ type: "text", text: delta }));
 
     const message = await stream.finalMessage();
+    console.log(
+      `${tag} round ${iter + 1}: ${Date.now() - roundStart}ms, ${message.usage.input_tokens} in / ` +
+        `${message.usage.output_tokens} out, stop=${message.stop_reason}`,
+    );
     trackClaudeUsage(feature, model, message.usage, jobId ?? "");
     convo.push({ role: "assistant", content: message.content });
 
     if (message.stop_reason !== "tool_use") {
+      console.log(`${tag} done in ${Date.now() - t0}ms`);
       onEvent({ type: "done" });
       return;
     }
@@ -124,31 +135,34 @@ export async function runChat({
     const toolUses = message.content.filter(
       (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
     );
-    const results: Anthropic.ToolResultBlockParam[] = [];
-    for (const use of toolUses) {
-      onEvent({ type: "tool", name: use.name });
-      let content: string;
-      let isError = false;
-      try {
-        const tool = toolByName(use.name);
-        if (!tool) throw new Error(`Unknown tool: ${use.name}`);
-        const out = await tool.handler(cfg, (use.input ?? {}) as Record<string, unknown>);
-        content = JSON.stringify(out);
-      } catch (e) {
-        isError = true;
-        content = `Error: ${e instanceof Error ? e.message : String(e)}`;
-      }
-      onEvent({ type: "tool_result", name: use.name, ok: !isError });
-      results.push({
-        type: "tool_result",
-        tool_use_id: use.id,
-        content,
-        is_error: isError,
-      });
-    }
+    // The tools only read, so a round's lookups run side by side.
+    const results = await Promise.all(
+      toolUses.map(async (use): Promise<Anthropic.ToolResultBlockParam> => {
+        onEvent({ type: "tool", name: use.name });
+        const toolStart = Date.now();
+        let content: string;
+        let isError = false;
+        try {
+          const tool = toolByName(use.name);
+          if (!tool) throw new Error(`Unknown tool: ${use.name}`);
+          const out = await tool.handler(cfg, (use.input ?? {}) as Record<string, unknown>);
+          content = JSON.stringify(out);
+        } catch (e) {
+          isError = true;
+          content = `Error: ${e instanceof Error ? e.message : String(e)}`;
+        }
+        console.log(
+          `${tag} tool ${use.name} ${JSON.stringify(use.input ?? {})}: ${Date.now() - toolStart}ms, ` +
+            `${isError ? `FAILED ${content.slice(0, 200)}` : `${content.length} chars`}`,
+        );
+        onEvent({ type: "tool_result", name: use.name, ok: !isError });
+        return { type: "tool_result", tool_use_id: use.id, content, is_error: isError };
+      }),
+    );
     convo.push({ role: "user", content: results });
   }
 
+  console.log(`${tag} hit the ${MAX_ITERATIONS}-round limit after ${Date.now() - t0}ms`);
   onEvent({
     type: "error",
     error: "The assistant hit its tool-call limit before finishing. Try a narrower question.",
