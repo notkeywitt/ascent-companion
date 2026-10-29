@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/ascent-roof-color-query-qdypqk
 status: shipped
 started: 2026-10-28T20:05:30Z
-updated: 2026-10-29T02:32:09Z
+updated: 2026-10-29T02:38:34Z
 goal: 
-next: after ./deploy.sh in ascent-appscript, ask AscentBot to read a Drive spec file and a JobTread bill PDF; then build 'answer later' (step 2)
+next: owner adds GOOGLE_CHAT_SERVICE_ACCOUNT_JSON in Vercel; then test a slow question posts later. Next roadmap step: bigger model for hard questions + JobTread change orders/proposal scope
 ---
 
 ## Log
@@ -18,5 +18,7 @@ next: after ./deploy.sh in ascent-appscript, ask AscentBot to read a Drive spec 
   CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts
 - 2026-10-29 02:32 · `5e40caa` companion: ascentbot opens and reads drive files and jobtread pdfs
   CODEBASE_MAP.md, src/db/index.ts, src/db/schema.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, +2 more
+- 2026-10-29 02:38 · `023a96e` companion: ascentbot posts a slow answer later instead of giving up
+  .env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/fileReader.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts
 
 ## Notes
