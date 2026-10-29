@@ -45,7 +45,7 @@ import type { ChatEvent } from "@/lib/anthropic";
 
 import { linkSpaceJob, saveTurn, type ChatTurn, type SpaceJob } from "@/lib/chatMemory";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
-import { toolByName, type ChatTool } from "@/lib/chatTools";
+import { hasAnyWord, toolByName, type ChatTool } from "@/lib/chatTools";
 import { getJobs, type JobRef, type PaveConfig } from "@/lib/jobtread";
 import { money0 } from "@/lib/money";
 
@@ -198,6 +198,8 @@ export const BOT_TOOLS = [
   "get_job_files",
   "read_file",
   "get_calendar",
+  "find_tools",
+  "get_todos",
   "find_contact",
   "search_email",
   "read_email",
@@ -226,6 +228,9 @@ export const CHAT_SYSTEM = [
   "  who is clocked in) and get_job_schedule for who is assigned; say which is which.",
   "  \"Who installed the siding?\": get_job_time with words \"siding\", no dates. Give hours,",
   "  never pay, rates or labor cost; for those, the Ascent app has them.",
+  "- Tools (where a tool is, what is at a job): find_tools. Open to-dos across jobs, or",
+  "  someone's list: get_todos. Mileage trips and miles by job or driver: get_mileage.",
+  "  Miles are fine to give; a mileage reimbursement amount is pay, so point to the office.",
   "- Before you say nothing records it, also try search_email and search_drive, both in one step.",
   "- A file name is not its contents. When search_drive or get_job_files finds a likely file,",
   "  open it with read_file (pass words to find the page) before you answer or give up.",
@@ -251,6 +256,49 @@ export const CHAT_SYSTEM = [
   "- Never commit the company to a price, date or scope. Pay, HR and personal",
   "  matters about staff don't belong here; point people to the office.",
 ].join("\n");
+
+/** One mileage trip as the Mileage tab holds it, keyed by its header. */
+type MileageRow = Record<string, unknown>;
+
+/**
+ * Mileage trips as AscentBot answers from them: totals by driver and by job,
+ * and the newest trips. No coordinates or route lines.
+ */
+export function summarizeMileage(trips: MileageRow[], words: string[]) {
+  const f = (t: MileageRow, k: string) => String(t[k] ?? "").trim();
+  const kept = trips.filter((t) =>
+    hasAnyWord(["Driver", "Job", "Purpose", "Start Address", "End Address", "Via"].map((k) => f(t, k)).join(" "), words),
+  );
+  const miles = (t: MileageRow) => Number(f(t, "Miles")) || 0;
+  const tally = (key: string) => {
+    const m = new Map<string, { miles: number; trips: number }>();
+    for (const t of kept) {
+      const k = f(t, key) || "(none)";
+      const row = m.get(k) ?? { miles: 0, trips: 0 };
+      row.miles += miles(t);
+      row.trips += 1;
+      m.set(k, row);
+    }
+    return [...m.entries()]
+      .sort((a, b) => b[1].miles - a[1].miles)
+      .map(([name, r]) => ({ name, miles: Math.round(r.miles * 10) / 10, trips: r.trips }));
+  };
+  return {
+    trips: kept.length,
+    totalMiles: Math.round(kept.reduce((n, t) => n + miles(t), 0) * 10) / 10,
+    byDriver: tally("Driver"),
+    byJob: tally("Job"),
+    newest: kept.slice(0, 30).map((t) => ({
+      date: f(t, "Date").slice(0, 10),
+      driver: f(t, "Driver"),
+      job: f(t, "Job"),
+      ...(f(t, "Purpose") ? { purpose: f(t, "Purpose") } : {}),
+      miles: f(t, "Miles"),
+      from: f(t, "Start Address"),
+      to: f(t, "End Address"),
+    })),
+  };
+}
 
 /** The bot's own tools: they act on an answer already written, so its text is kept. */
 const OWN_ACTIONS = new Set(["report_gap", "save_note", "link_space_to_job"]);
@@ -458,6 +506,35 @@ export function botTools(ctx: BotContext): ChatTool[] {
         if (!ctx.job) return { saved: false, reason: "This space is not tied to a job yet. Ask which job it is for." };
         await saveTurn({ space: ctx.space, thread: ctx.thread, jobId: ctx.job.jobId, kind: "note", author: ctx.name, text });
         return { saved: true, job: ctx.job.jobName };
+      },
+    },
+    {
+      name: "get_mileage",
+      description:
+        "Mileage trips from the app's mileage tracker: date, driver, job, purpose, miles, " +
+        "from and to. Totals by driver and by job. The office and owners see everyone's " +
+        "trips; anyone else sees only their own. Use for 'how many miles to Keeler this " +
+        "month?' or 'who drove to Berger last week?'.",
+      input_schema: {
+        type: "object",
+        properties: {
+          month: { type: "string", description: "Optional. YYYY-MM. Omit for every month." },
+          words: {
+            type: "string",
+            description: "Optional. Space-separated words; a trip matching ANY of them in its driver, job, purpose or addresses is kept.",
+          },
+        },
+        additionalProperties: false,
+      },
+      handler: async (_cfg, input) => {
+        const month = /^\d{4}-\d{2}$/.test(String(input.month ?? "")) ? String(input.month) : "";
+        // Apps Script decides from the asker's email: admins get every trip, others their own.
+        const r = await callAppsScriptOrThrow<{ trips?: MileageRow[] }>(
+          { action: "listMileage", requesterEmail: ctx.email, month },
+          { timeoutMs: 15_000, retry: false },
+        );
+        const words = String(input.words ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+        return summarizeMileage(r.trips ?? [], words);
       },
     },
     {

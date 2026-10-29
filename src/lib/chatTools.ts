@@ -39,6 +39,7 @@ import {
   getBoughtLines,
   getJobTimeLines,
   getJobScopeLines,
+  getOpenToDos,
   type ScopeLine,
   type JobTimeLine,
   findContacts,
@@ -48,6 +49,7 @@ import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { searchJobMemory } from "@/lib/chatMemory";
 import { searchSpecDocs } from "@/lib/specDocs";
 import { readFile } from "@/lib/fileReader";
+import { orgDay } from "@/lib/orgTime";
 import { DIGEST_SETTINGS } from "@/lib/digest/settings";
 import type { SpecList } from "@/lib/specList";
 import { db, ensureDb } from "@/db";
@@ -695,6 +697,80 @@ export const CHAT_TOOLS: ChatTool[] = [
         { drive: String(input.drive ?? ""), jobtreadFileId: String(input.jobtread_file_id ?? "") },
         { page: Number(input.page) || undefined, words: wordsOf(input) },
       ),
+  },
+  {
+    name: "find_tools",
+    description:
+      "The company's tool inventory (the Tools tracker): each tool's name, type, group, " +
+      "condition, serial number, accessories, the job it was last scanned at, and when and " +
+      "by whom. Use for 'where is the track saw?' or 'what tools are at Keeler?' (words " +
+      "match the job name too).",
+    input_schema: {
+      type: "object",
+      properties: { ...WORDS_PROP },
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) => {
+      const r = await callAppsScriptOrThrow<{ tools?: Record<string, string>[] }>({ action: "listTools" }, SEARCH_OPTS);
+      const words = wordsOf(input);
+      const s = (t: Record<string, string>, k: string) => String(t[k] ?? "").trim();
+      const tools = (r.tools ?? []).filter((t) =>
+        hasAnyWord(
+          ["name", "type", "toolGroup", "condition", "serial", "accessories", "locationLabel"].map((k) => s(t, k)).join(" "),
+          words,
+        ),
+      );
+      return {
+        count: tools.length,
+        tools: tools.slice(0, 60).map((t) => ({
+          name: s(t, "name"),
+          type: s(t, "type"),
+          ...(s(t, "toolGroup") ? { group: s(t, "toolGroup") } : {}),
+          ...(s(t, "condition") ? { condition: s(t, "condition") } : {}),
+          ...(s(t, "serial") ? { serial: s(t, "serial") } : {}),
+          ...(s(t, "accessories") ? { accessories: s(t, "accessories") } : {}),
+          location: s(t, "locationLabel") || "(not scanned to a job)",
+          ...(s(t, "lastscan") ? { lastScanned: s(t, "lastscan"), by: s(t, "lastScanEmail") } : {}),
+        })),
+      };
+    },
+  },
+  {
+    name: "get_todos",
+    description:
+      "Open JobTread to-dos across the company, including ones on no job: name, " +
+      "description, due date, overdue or not, job and who it is assigned to. Overdue " +
+      "first, then by due date. Use for 'what's on Ty's list?', 'what's overdue?' or " +
+      "'what's left to do at Keeler?'. Words match the name, description, job and " +
+      "assignee. For one job's done items and schedule, use get_job_schedule.",
+    input_schema: {
+      type: "object",
+      properties: { ...WORDS_PROP },
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = wordsOf(input);
+      const today = orgDay(new Date().toISOString());
+      const rows = (await getOpenToDos(cfg))
+        .filter((t) => hasAnyWord(`${t.name} ${t.description ?? ""} ${t.jobName ?? ""} ${t.assignees.join(" ")}`, words))
+        .map((t) => {
+          const due = t.endDate || t.startDate || "";
+          return {
+            name: t.name,
+            ...(t.description ? { description: t.description.slice(0, 400) } : {}),
+            due: due || "no date",
+            overdue: !!due && due < today,
+            job: t.jobName || "(no job)",
+            assignedTo: t.assignees.length ? t.assignees.join(", ") : "nobody",
+          };
+        })
+        .sort((a, b) =>
+          a.overdue !== b.overdue
+            ? a.overdue ? -1 : 1
+            : (a.due === "no date" ? "9" : a.due).localeCompare(b.due === "no date" ? "9" : b.due),
+        );
+      return { count: rows.length, overdue: rows.filter((r) => r.overdue).length, todos: rows.slice(0, 60) };
+    },
   },
   {
     name: "get_calendar",

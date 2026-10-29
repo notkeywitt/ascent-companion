@@ -11,6 +11,11 @@ vi.mock("@/lib/appsScript", () => ({ callAppsScriptOrThrow }));
 vi.mock("@/lib/chatMemory", () => ({ linkSpaceJob, saveTurn, searchJobMemory: vi.fn(async () => []) }));
 vi.mock("@/lib/jobtread", async (orig) => ({
   ...(await orig<typeof import("./jobtread")>()),
+  getOpenToDos: async () => [
+    { id: "1", name: "Order windows", endDate: "2000-01-01", jobName: "Smith Kitchen", assignees: ["Ty"], assigneeIds: [] },
+    { id: "2", name: "Call inspector", endDate: "2999-01-01", jobName: null, assignees: [], assigneeIds: [] },
+    { id: "3", name: "Pick tile", jobName: "Berger Main House", assignees: ["Casey"], assigneeIds: [] },
+  ],
   getJobs: async () => [
     { id: "a", name: "Smith Kitchen", number: "12", customer: "Jane Smith" },
     { id: "b", name: "Smith Garage", number: "120" },
@@ -31,6 +36,7 @@ import {
   looksUnanswered,
   matchJobs,
   parseEvent,
+  summarizeMileage,
   todayLine,
   type BotContext,
 } from "./googleChat";
@@ -367,5 +373,51 @@ describe("answerCollector", () => {
     a.onEvent({ type: "reset" });
     a.onEvent({ type: "text", text: "Charcoal Grey." });
     expect(a.text()).toBe("Charcoal Grey.");
+  });
+});
+
+describe("find_tools and get_todos", () => {
+  const cfg = {} as PaveConfig;
+  const tool = (name: string) => CHAT_TOOLS.find((t) => t.name === name)!;
+
+  it("finds a tool by name or by the job it sits at", async () => {
+    callAppsScriptOrThrow.mockResolvedValueOnce({
+      ok: true,
+      tools: [
+        { name: "Track saw", type: "Saw", locationLabel: "Keeler - Remodel", lastscan: "10/20/2026", lastScanEmail: "ty@x" },
+        { name: "Laser level", type: "Layout", locationLabel: "" },
+      ],
+    });
+    const r = (await tool("find_tools").handler(cfg, { words: "keeler" })) as { count: number; tools: unknown[] };
+    expect(r.count).toBe(1);
+    expect(r.tools[0]).toMatchObject({ name: "Track saw", location: "Keeler - Remodel", by: "ty@x" });
+  });
+
+  it("lists open to-dos overdue first, and names unassigned ones", async () => {
+    const r = (await tool("get_todos").handler(cfg, {})) as { overdue: number; todos: { name: string; assignedTo: string; job: string }[] };
+    expect(r.overdue).toBe(1);
+    expect(r.todos.map((t) => t.name)).toEqual(["Order windows", "Call inspector", "Pick tile"]);
+    expect(r.todos[1]).toMatchObject({ assignedTo: "nobody", job: "(no job)" });
+  });
+});
+
+describe("get_mileage", () => {
+  it("asks as the person asking, and totals miles by driver and job", async () => {
+    const ctx = { cfg: {} as PaveConfig, space: "spaces/S1", thread: "", email: "ty@ascentbuildingco.com", name: "Ty", job: null };
+    callAppsScriptOrThrow.mockResolvedValueOnce({
+      ok: true,
+      trips: [
+        { Date: "2026-10-02", Driver: "Ty O'Steen", Job: "Keeler - Remodel", Miles: "12.5", Polyline: "abc", "Start Lat": "48" },
+        { Date: "2026-10-01", Driver: "Seth", Job: "Keeler - Remodel", Miles: "10" },
+        { Date: "2026-10-01", Driver: "Seth", Job: "Berger - Bunkhouse", Miles: "30" },
+      ],
+    });
+    const r = (await botTools(ctx).find((t) => t.name === "get_mileage")!.handler(ctx.cfg, { month: "2026-10", words: "keeler" })) as ReturnType<typeof summarizeMileage>;
+    expect(callAppsScriptOrThrow).toHaveBeenLastCalledWith(
+      expect.objectContaining({ action: "listMileage", requesterEmail: "ty@ascentbuildingco.com", month: "2026-10" }),
+      expect.anything(),
+    );
+    expect(r).toMatchObject({ trips: 2, totalMiles: 22.5, byJob: [{ name: "Keeler - Remodel", miles: 22.5, trips: 2 }] });
+    expect(JSON.stringify(r)).not.toMatch(/Polyline|abc|Lat/);
   });
 });
