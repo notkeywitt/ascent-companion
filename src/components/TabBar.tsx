@@ -227,8 +227,8 @@ const GripIcon = () => (
 /* The bump's shape: a trapezoid with softened corners. 76 × 16. */
 const BUMP_W = 76;
 const BUMP_H = 16;
-const BUMP_CLIP = "path('M0 16 Q3 16 4.6 14 L12 3 Q14 0.5 17 0.5 H59 Q62 0.5 64 3 L71.4 14 Q73 16 76 16 Z')";
-const BUMP_EDGE = "M0 16 Q3 16 4.6 14 L12 3 Q14 0.5 17 0.5 H59 Q62 0.5 64 3 L71.4 14 Q73 16 76 16";
+const BUMP_CLIP = "path('M0 16 Q6 16 8.5 12.5 L14.5 3.5 Q17 0.5 21.5 0.5 H54.5 Q59 0.5 61.5 3.5 L67.5 12.5 Q70 16 76 16 Z')";
+const BUMP_EDGE = "M0 16 Q6 16 8.5 12.5 L14.5 3.5 Q17 0.5 21.5 0.5 H54.5 Q59 0.5 61.5 3.5 L67.5 12.5 Q70 16 76 16";
 
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
