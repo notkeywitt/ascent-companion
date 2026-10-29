@@ -242,6 +242,43 @@ function thumbAt(url: string, width: number): string {
   return url.replace(/([?&]sz=)w\d+/, "$1w" + width);
 }
 
+// Two ways to supply a tool photo: the camera, or a photo already on the phone.
+// `capture` forces the camera on a phone, so the library needs its own input.
+// Each input is cleared after a pick, so choosing the same file again still fires.
+function PhotoPicker({
+  hasPhoto,
+  onPick,
+}: {
+  hasPhoto: boolean;
+  onPick: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const libraryRef = useRef<HTMLInputElement>(null);
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onPick(e);
+    e.target.value = "";
+  };
+  return (
+    <div className="flex flex-wrap gap-2">
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={pick}
+        className="hidden"
+      />
+      <input ref={libraryRef} type="file" accept="image/*" onChange={pick} className="hidden" />
+      <Button variant="secondary" size="sm" onClick={() => cameraRef.current?.click()}>
+        {hasPhoto ? "Retake photo" : "Take photo"}
+      </Button>
+      <Button variant="secondary" size="sm" onClick={() => libraryRef.current?.click()}>
+        Choose from phone
+      </Button>
+    </div>
+  );
+}
+
 function ToolPhoto({
   url,
   className,
@@ -297,7 +334,6 @@ export default function ToolsPage() {
   const [newPhoto, setNewPhoto] = useState<string>(""); // downscaled data URL, if replacing
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
-  const fileRef = useRef<HTMLInputElement>(null);
   const serialFileRef = useRef<HTMLInputElement>(null);
   const [serialOcrBusy, setSerialOcrBusy] = useState(false);
   const [serialOcrMsg, setSerialOcrMsg] = useState("");
@@ -320,7 +356,6 @@ export default function ToolsPage() {
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState("");
   const [createDone, setCreateDone] = useState<{ tool: Tool; warn?: string } | null>(null);
-  const createFileRef = useRef<HTMLInputElement>(null);
   const createSerialRef = useRef<HTMLInputElement>(null);
   const [createSerialBusy, setCreateSerialBusy] = useState(false);
   const [createSerialMsg, setCreateSerialMsg] = useState("");
@@ -454,7 +489,6 @@ export default function ToolsPage() {
     setNewPhoto("");
     setSaveErr("");
     setSerialOcrMsg("");
-    if (fileRef.current) fileRef.current.value = "";
     if (serialFileRef.current) serialFileRef.current.value = "";
   }
 
@@ -1086,21 +1120,7 @@ export default function ToolsPage() {
                     className="h-20 w-20 shrink-0 rounded-lg border border-line"
                   />
                   <div>
-                    <input
-                      ref={createFileRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={onPickCreatePhoto}
-                      className="hidden"
-                    />
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => createFileRef.current?.click()}
-                    >
-                      {createPhoto ? "Choose a different photo" : "Add photo"}
-                    </Button>
+                    <PhotoPicker hasPhoto={!!createPhoto} onPick={onPickCreatePhoto} />
                     {createPhoto && (
                       <p className="mt-1 text-xs text-neutral-500">
                         Photo ready — saves on “Add tool”.
@@ -1236,17 +1256,7 @@ export default function ToolsPage() {
                 className="h-20 w-20 shrink-0 rounded-lg border border-line"
               />
               <div>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={onPickPhoto}
-                  className="hidden"
-                />
-                <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
-                  {newPhoto ? "Choose a different photo" : "Replace photo"}
-                </Button>
+                <PhotoPicker hasPhoto={!!newPhoto} onPick={onPickPhoto} />
                 {newPhoto && (
                   <p className="mt-1 text-xs text-neutral-500">New photo ready — saves on “Save”.</p>
                 )}

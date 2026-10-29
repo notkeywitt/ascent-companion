@@ -65,22 +65,23 @@ describe("the bottom bar", () => {
     ]);
   });
 
-  it("gives office and admin the same bar: Home, Invoicing, Jobs, Miles, Time", () => {
+  it("gives office and admin the same bar: Home, Invoicing, Tools, Miles, Time", () => {
     for (const role of ["office", "admin"] as const) {
       expect(barFor(role, canFor(role)).map((i) => i.label), role).toEqual([
         "Home",
         "Invoicing",
-        "Jobs",
+        "Tools",
         "Miles",
         "Time",
       ]);
     }
   });
 
-  it("gives office and admin a Jobs slot in place of Incoming Bills", () => {
+  it("gives office and admin a Tools slot in place of Jobs", () => {
     for (const role of ["office", "admin"] as const) {
       const keys = barFor(role, canFor(role)).map((i) => i.key);
-      expect(keys, role).toContain("clients");
+      expect(keys, role).toContain("tools");
+      expect(keys, role).not.toContain("clients");
       expect(keys, role).not.toContain("incoming");
     }
   });
