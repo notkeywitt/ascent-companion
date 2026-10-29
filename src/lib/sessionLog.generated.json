@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T02:38:35Z",
+  "generatedAt": "2026-10-29T02:48:12Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/ascent-roof-color-query-qdypqk",
       "status": "shipped",
       "started": "2026-10-28T20:05:30Z",
-      "updated": "2026-10-29T02:38:35Z",
+      "updated": "2026-10-29T02:48:12Z",
       "goal": "",
-      "next": "owner adds GOOGLE_CHAT_SERVICE_ACCOUNT_JSON in Vercel; then test a slow question posts later. Next roadmap step: bigger model for hard questions + JobTread change orders/proposal scope",
+      "next": "test in the Ferron space: 'did they choose rocks on the roof?' (search_job_scope) and 'what color is the roof?' (escalation); then roadmap step 4, hear every message (needs Workspace admin approval)",
       "commits": [
         {
           "date": "2026-10-28",
@@ -39,6 +39,13 @@
           "sha": "023a96e",
           "subject": "companion: ascentbot posts a slow answer later instead of giving up",
           "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/fileReader.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "02:48",
+          "sha": "4dca7ec",
+          "subject": "companion: ascentbot reads client decisions and hands hard questions to sonnet",
+          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatTools.ts, +3 more"
         }
       ]
     },

@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-roof-color-query-qdypqk
 status: shipped
 started: 2026-10-28T20:05:30Z
-updated: 2026-10-29T02:48:11Z
+updated: 2026-10-29T02:48:12Z
 goal: 
 next: test in the Ferron space: 'did they choose rocks on the roof?' (search_job_scope) and 'what color is the roof?' (escalation); then roadmap step 4, hear every message (needs Workspace admin approval)
 ---
