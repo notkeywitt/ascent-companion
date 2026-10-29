@@ -26,13 +26,14 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | `claude/ascentbot-architecture-08o3ez` | 25h ago | REMIND OWNER — AscentBot phase 2: read every message in a job space (service ac… |
+| [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | `claude/ascentbot-architecture-08o3ez` | 26h ago | REMIND OWNER — AscentBot phase 2: read every message in a job space (service ac… |
 | [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 46d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-29 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-29 | 94 | — |
 | [ascent-roof-color-query](.claude/sessions/2026-10-28-ascent-roof-color-query.md) | 2026-10-29 | 9 | — |
 | [beautiful-pascal](.claude/sessions/2026-10-26-beautiful-pascal.md) | 2026-10-28 | 2 | — |
@@ -47,4 +48,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [manual-mileage-recording](.claude/sessions/2026-10-17-manual-mileage-recording.md) | 2026-10-17 | 1 | — |
 | [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 11 | remove billing period label and caption from home picker |
 | [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 7 | — |
-| [automate-timesheet-email](.claude/sessions/2026-10-16-automate-timesheet-email.md) | 2026-10-16 | 1 | Draft the pay-period time entries email (JobTread CSV attached) from a button o… |
