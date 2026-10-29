@@ -345,7 +345,7 @@ export function TabBar() {
           nothing. The bar is always dark, so its marks are white, not tokens. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-white print:hidden pad:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 bg-neutral-950/85 pb-[env(safe-area-inset-bottom)] text-white backdrop-blur-xl print:hidden pad:hidden"
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
           const start = touchY.current;
@@ -353,7 +353,6 @@ export function TabBar() {
           if (more.length && start !== null && start - e.changedTouches[0].clientY > 30) setOpen(true);
         }}
       >
-        <span aria-hidden className="absolute inset-0 bg-black/45 backdrop-blur-xl backdrop-saturate-150" />
         {/* No drawer: a plain top line. */}
         {more.length === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-neutral-300/40" />}
         {/* The drawer's grip: an angular bump (16px) rising above the bar's top
@@ -376,7 +375,7 @@ export function TabBar() {
               style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
             >
               <span
-                className="absolute inset-0 bg-black/45 backdrop-blur-xl backdrop-saturate-150 transition group-active:bg-black/60"
+                className="absolute inset-0 bg-neutral-950 transition group-active:bg-neutral-800"
                 style={{ clipPath: BUMP_CLIP }}
               />
               <svg viewBox={`0 0 ${BUMP_W} ${BUMP_H}`} className="absolute inset-0 h-full w-full overflow-visible" fill="none">
