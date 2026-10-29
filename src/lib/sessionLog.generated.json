@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T19:04:48Z",
+  "generatedAt": "2026-10-29T19:09:55Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/admiring-hawking-b4zgzx",
       "status": "shipped",
       "started": "2026-10-29T19:04:37Z",
-      "updated": "2026-10-29T19:04:48Z",
+      "updated": "2026-10-29T19:09:55Z",
       "goal": "",
       "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
       "commits": [
@@ -17,6 +17,13 @@
           "time": "19:04",
           "sha": "95921a8",
           "subject": "companion: let mileage from/to take office, shop or a job name",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:09",
+          "sha": "2b1af8c",
+          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
           "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
         }
       ]
