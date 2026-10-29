@@ -45,6 +45,7 @@ import {
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { searchJobMemory } from "@/lib/chatMemory";
 import { searchSpecDocs } from "@/lib/specDocs";
+import { readFile } from "@/lib/fileReader";
 import { DIGEST_SETTINGS } from "@/lib/digest/settings";
 import type { SpecList } from "@/lib/specList";
 import { db, ensureDb } from "@/db";
@@ -360,7 +361,7 @@ export const CHAT_TOOLS: ChatTool[] = [
       "Search the job folders in Google Drive by words in a file's name or text (Drive " +
       "reads the text inside PDFs and Docs too), e.g. 'window schedule Smith'. Returns up " +
       "to 10 files: name, link, the folder path (which names the job) and modified date. " +
-      "Give the user the link; this tool cannot open the file.",
+      "To read one, pass its link to read_file.",
     input_schema: {
       type: "object",
       properties: { query: { type: "string", description: "Words to find, plain text." } },
@@ -582,8 +583,8 @@ export const CHAT_TOOLS: ChatTool[] = [
   {
     name: "get_job_files",
     description:
-      "Files attached to a job in JobTread (plans, photos, bill scans), newest first: name, " +
-      "folder, date and link. Give the user the link; this tool cannot open a file.",
+      "Files attached to a job in JobTread (plans, photos, bill scans), newest first: file_id, " +
+      "name, type, folder, date and link. To read a PDF, pass its file_id to read_file.",
     input_schema: {
       type: "object",
       properties: { ...JOB_PROP, ...WORDS_PROP },
@@ -596,12 +597,42 @@ export const CHAT_TOOLS: ChatTool[] = [
         hasAnyWord(`${f.name} ${f.folder ?? ""}`, words),
       );
       return files.slice(0, 50).map((f) => ({
+        file_id: f.id,
         name: f.name,
+        type: f.type,
         folder: f.folder ?? "",
         added: f.createdAt.slice(0, 10),
         url: f.url ?? "",
       }));
     },
+  },
+  {
+    name: "read_file",
+    description:
+      "Open ONE file and read its text: a Drive file (pass its link from search_drive) or a " +
+      "JobTread PDF (pass its file_id from get_job_files). PDFs and Google Docs, Sheets and " +
+      "Slides; a short scan is read by AI. With words: the pages that mention them, with the " +
+      "lines. With page: the text from that page on, a few pages at a time, and nextPage to " +
+      "go on. Cite the file name and page.",
+    input_schema: {
+      type: "object",
+      properties: {
+        drive: { type: "string", description: "A Google Drive link or file id." },
+        jobtread_file_id: { type: "string", description: "A JobTread file id, from get_job_files." },
+        words: {
+          type: "string",
+          description: "Optional. Space-separated words; returns the pages and lines mentioning ANY of them.",
+        },
+        page: { type: "number", description: "Optional. The page to read from. Defaults to 1." },
+      },
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) =>
+      readFile(
+        cfg,
+        { drive: String(input.drive ?? ""), jobtreadFileId: String(input.jobtread_file_id ?? "") },
+        { page: Number(input.page) || undefined, words: wordsOf(input) },
+      ),
   },
   {
     name: "get_calendar",

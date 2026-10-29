@@ -1651,3 +1651,17 @@ export const chatTurns = sqliteTable("chat_turns", {
   text: text("text").notNull(),
   at: text("at").notNull(),
 });
+
+/**
+ * The text of a file AscentBot has opened (fileReader.ts), kept so the next
+ * page, or the next question about it, needs no second fetch or scan read.
+ * `key` is "drive:<id>" or "jobtread:<id>".
+ */
+export const fileTexts = sqliteTable("file_texts", {
+  key: text("key").primaryKey(),
+  name: text("name").notNull().default(""),
+  pages: integer("pages").notNull().default(0),
+  text: text("text").notNull().default(""),
+  note: text("note").notNull().default(""),
+  readAt: text("read_at").notNull(),
+});

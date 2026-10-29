@@ -899,6 +899,27 @@ export async function getJobFiles(cfg: PaveConfig, jobId: string): Promise<JobFi
 }
 
 /**
+ * One JobTread file by its id — the name, type, size and a fresh download link.
+ * AscentBot's file reader fetches the bytes from that link. Read-only.
+ * Fields confirmed by a live read 2026-10-29.
+ */
+export async function getFileById(
+  cfg: PaveConfig,
+  fileId: string,
+): Promise<{ id: string; name: string; type: string; size: number; url: string } | null> {
+  const r = await pave(cfg, { file: { $: { id: fileId }, id: {}, name: {}, type: {}, size: {}, url: {} } });
+  const f = r?.file;
+  if (!f?.id) return null;
+  return {
+    id: String(f.id),
+    name: String(f.name ?? ""),
+    type: String(f.type ?? ""),
+    size: Number(f.size) || 0,
+    url: String(f.url ?? ""),
+  };
+}
+
+/**
  * WRITE — set a bill's issueDate (used to stamp its billing month as the last day
  * of that month, matching the Apps Script convention). Never touches lineItems
  * (updateDocument with lineItems wipes cost items — CLAUDE.md).

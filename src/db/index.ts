@@ -1225,6 +1225,16 @@ async function applySchema() {
       at TEXT NOT NULL
     )
   `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS file_texts (
+      key TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      pages INTEGER NOT NULL DEFAULT 0,
+      text TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      read_at TEXT NOT NULL
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [
