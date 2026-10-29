@@ -440,3 +440,39 @@ const PARENT_WORKSPACE: [string, string][] = [
   ["/bill", "close"],
   ["/add-bill", "close"],
 ];
+
+/** How many links the phone bar's drawer holds: a 4 × 3 grid. */
+export const DRAWER_SIZE = 12;
+
+/**
+ * The phone bar's drawer (owner, 2026-10-29): the pages the bar has no room
+ * for, as a 4 × 3 grid of icons. First every workspace the rail lists that is
+ * not already a bar slot; then single pages, in workspace order, that no slot
+ * already opens. At most DRAWER_SIZE, and only what this person can open.
+ */
+export function drawerFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
+  const bar = barFor(role, can, pin);
+  const taken = new Set(bar.map((i) => i.href));
+  const out: BarItem[] = [];
+  const add = (i: BarItem) => {
+    if (out.length >= DRAWER_SIZE || taken.has(i.href)) return;
+    taken.add(i.href);
+    out.push({ ...i, gap: undefined });
+  };
+  const page = (t: WorkspaceTab): BarItem => ({ key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] });
+  for (const i of railFor(role, can, pin)) {
+    if (bar.some((b) => b.key === i.key)) continue;
+    // A workspace whose first page is a bar slot (Time, My Work) gives its
+    // next page instead, under that page's own name.
+    const ws = i.workspace ? WORKSPACES.find((w) => w.id === i.workspace) : undefined;
+    const next = ws && taken.has(i.href) ? reachableTabs(ws, can).find((t) => !taken.has(t.href)) : undefined;
+    add(next ? page(next) : i);
+  }
+  for (const ws of WORKSPACES) {
+    for (const t of reachableTabs(ws, can)) add(page(t));
+  }
+  for (const t of EXTRA_LINKS) {
+    if (can(t.view)) add(page(t));
+  }
+  return out;
+}

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { ROLES, VIEWS, resolveAllowedViews, viewIdForPath } from "@/lib/views";
 import {
   BARS,
+  DRAWER_SIZE,
   EXTRA_LINKS,
   OUTSIDE_WORKSPACES,
   WORKSPACES,
   activeBarKey,
   barFor,
+  drawerFor,
   locate,
   railFor,
 } from "@/lib/workspaces";
@@ -154,5 +156,31 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/bill/123")).toBe("close");
     expect(activeBarKey(rail, "/add-bill")).toBe("close");
     expect(activeBarKey(rail, "/bill-search")).not.toBe("close");
+  });
+});
+
+describe("the phone bar's drawer", () => {
+  const can = (role: (typeof ROLES)[number]) => {
+    const views = resolveAllowedViews(role);
+    return (v: string) => views.has(v);
+  };
+  it("holds at most twelve pages each role can open, none already on the bar, none twice", () => {
+    for (const role of ROLES) {
+      const items = drawerFor(role, can(role));
+      const bar = barFor(role, can(role)).map((i) => i.href);
+      expect(items.length, role).toBeGreaterThan(0);
+      expect(items.length, role).toBeLessThanOrEqual(DRAWER_SIZE);
+      expect(new Set(items.map((i) => i.href)).size, role).toBe(items.length);
+      for (const i of items) {
+        expect(bar, `${role} ${i.key}`).not.toContain(i.href);
+        expect(i.view === "" || can(role)(i.view), `${role} ${i.key}`).toBe(true);
+      }
+    }
+  });
+  it("fills the office's grid, workspaces first", () => {
+    const keys = drawerFor("office", can("office")).map((i) => i.key);
+    expect(keys).toHaveLength(DRAWER_SIZE);
+    expect(keys.slice(0, 4)).toEqual(["employees", "clients", "vendors", "time-sync"]);
+    expect(keys).toEqual(expect.arrayContaining(["incoming", "search"]));
   });
 });

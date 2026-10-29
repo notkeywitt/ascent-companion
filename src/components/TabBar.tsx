@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { AppMenu } from "@/components/AppMenu";
+import { Dialog } from "@/components/ui";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import {
@@ -16,6 +17,7 @@ import {
   WORKSPACES,
   activeBarKey,
   barFor,
+  drawerFor,
   railFor,
   reachableTabs,
   type BarItem,
@@ -30,6 +32,11 @@ import {
  * a slot someone cannot open is simply absent. EVERY role gets a bar, leads
  * included (owner, 2026-09-29): it is the way home from any page, and the
  * header's ☰ menu carries everything else.
+ *
+ * THE DRAWER (owner, 2026-10-29): a grip along the bar's top edge opens a
+ * sheet of up to twelve more pages, a 4 × 3 grid of icons (`drawerFor`). A
+ * tap on the grip or a swipe up on the bar opens it. Phone only: the rail
+ * already lists everything.
  *
  * PINNED: a person can pin one page from the ☰ menu (per device). It takes the
  * bar's last slot; see `barFor`.
@@ -162,6 +169,55 @@ const ClipboardIcon = () => (
   </IconBase>
 );
 
+const CheckIcon = () => (
+  <IconBase>
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="m8 12 3 3 5-6" />
+  </IconBase>
+);
+const DocumentIcon = () => (
+  <IconBase>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 13h6M9 17h6" />
+  </IconBase>
+);
+const UserPlusIcon = () => (
+  <IconBase>
+    <circle cx="9" cy="8" r="4" />
+    <path d="M2 21a7 7 0 0 1 14 0M19 8v6M16 11h6" />
+  </IconBase>
+);
+const PayrollIcon = () => (
+  <IconBase>
+    <rect x="3" y="4" width="18" height="16" rx="2" />
+    <path d="M14.5 9.5h-3.25a1.75 1.75 0 0 0 0 3.5h1.5a1.75 1.75 0 0 1 0 3.5H9.5M12 8v1.5M12 16.5V18" />
+  </IconBase>
+);
+const MessageIcon = () => (
+  <IconBase>
+    <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z" />
+  </IconBase>
+);
+const MapPinIcon = () => (
+  <IconBase>
+    <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+    <circle cx="12" cy="9.5" r="2.5" />
+  </IconBase>
+);
+const MailIcon = () => (
+  <IconBase>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="m3 7 9 6 9-6" />
+  </IconBase>
+);
+const SafetyIcon = () => (
+  <IconBase>
+    <path d="M4 15a8 8 0 0 1 16 0M2 15h20v3H2zM12 7V4M9 15V9.5M15 15V9.5" />
+  </IconBase>
+);
+/** The drawer's grip: a short bar, like the handle of a sheet. */
+const GripIcon = () => <span aria-hidden className="h-1 w-9 rounded-full bg-neutral-300 dark:bg-neutral-600" />;
+
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
   <IconBase>
@@ -199,6 +255,19 @@ const ICONS: Record<string, () => React.ReactNode> = {
   "job-board": HammerIcon,
   vendors: StoreIcon,
   "time-off": CalendarIcon,
+  "time-sync": PayrollIcon,
+  "invoice-review": CheckIcon,
+  "invoicing-summary": DocumentIcon,
+  "new-hires": UserPlusIcon,
+  "labor-rates": PayrollIcon,
+  "safety-meeting": SafetyIcon,
+  bills: InboxIcon,
+  email: MailIcon,
+  "bill-search": SearchIcon,
+  leads: UsersIcon,
+  requests: MessageIcon,
+  chat: MessageIcon,
+  lopezrocks: MapPinIcon,
 };
 
 export function TabBar() {
@@ -223,10 +292,17 @@ export function TabBar() {
     return () => window.removeEventListener(BAR_PIN_EVENT, read);
   }, []);
 
+  // The drawer. It closes on any navigation, a back swipe included.
+  const [open, setOpen] = useState(false);
+  useEffect(() => setOpen(false), [pathname]);
+  // A swipe up on the bar opens the drawer, like a sheet's handle.
+  const touchY = useRef<number | null>(null);
+
   // The bar is chrome for the signed-in app; these two pages have none.
   if (pathname === "/login" || pathname === "/privacy") return null;
 
   const items = barFor(access.role, access.can, pin);
+  const more = drawerFor(access.role, access.can, pin);
   const rail = railFor(access.role, access.can, pin);
   // One slot is decoration, and it would cost every page 56px to say nothing.
   if (items.length < 2) return null;
@@ -253,34 +329,83 @@ export function TabBar() {
           --tabbar-h in globals.css has to match it. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-ink/95 print:hidden pad:hidden"
-        style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-ink/95 print:hidden pad:hidden"
+        onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
+        onTouchEnd={(e) => {
+          const start = touchY.current;
+          touchY.current = null;
+          if (more.length && start !== null && start - e.changedTouches[0].clientY > 30) setOpen(true);
+        }}
       >
-        {items.map((t) => {
-          const on = t.key === active;
-          const Icon = ICONS[t.key] ?? PinIcon;
-          return (
-            <Link
-              key={t.key}
-              href={t.href + qs}
-              aria-current={on ? "page" : undefined}
-              onClick={guard}
-              // `active:` is the PRESS (paints the instant a finger lands); the
-              // overlay below is the WAIT (only while the navigation is in flight).
-              className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 ${
-                on ? "text-accent dark:text-accent-soft" : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-              }`}
-            >
-              {/* The active mark is a short ochre rule above the icon — the
-                  same rule <SectionHeading> uses. */}
-              <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-accent" : "bg-transparent"}`} />
-              <Icon />
-              {labelOf(t)}
-              <LinkPendingOverlay spinnerClassName="h-5 w-5" />
-            </Link>
-          );
-        })}
+        {/* The drawer's grip: h-3, which --tabbar-h counts. */}
+        {more.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            aria-label="More pages"
+            aria-expanded={open}
+            aria-haspopup="dialog"
+            className="flex h-3 w-full items-end justify-center active:bg-accent/15"
+          >
+            <GripIcon />
+          </button>
+        )}
+        <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+          {items.map((t) => {
+            const on = t.key === active;
+            const Icon = ICONS[t.key] ?? PinIcon;
+            return (
+              <Link
+                key={t.key}
+                href={t.href + qs}
+                aria-current={on ? "page" : undefined}
+                onClick={guard}
+                // `active:` is the PRESS (paints the instant a finger lands); the
+                // overlay below is the WAIT (only while the navigation is in flight).
+                className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 ${
+                  on ? "text-accent dark:text-accent-soft" : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                }`}
+              >
+                {/* The active mark is a short ochre rule above the icon — the
+                    same rule <SectionHeading> uses. */}
+                <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-accent" : "bg-transparent"}`} />
+                <Icon />
+                {labelOf(t)}
+                <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+              </Link>
+            );
+          })}
+        </div>
       </nav>
+
+      {/* The drawer: the pages the bar has no room for, four to a row. */}
+      {open && (
+        <Dialog onClose={() => setOpen(false)} title="More pages">
+          <div className="grid grid-cols-4 gap-1">
+            {more.map((t) => {
+              const on = t.covers.some((href) => pathname === href || pathname.startsWith(href + "/"));
+              const Icon = ICONS[t.key] ?? DocumentIcon;
+              return (
+                <Link
+                  key={t.key}
+                  href={t.href + qs}
+                  aria-current={on ? "page" : undefined}
+                  onClick={(e) => {
+                    guard(e);
+                    if (!e.defaultPrevented) setOpen(false);
+                  }}
+                  className={`relative flex min-h-[4.5rem] flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 ${
+                    on ? "bg-accent/10 text-accent dark:text-accent-soft" : "text-neutral-600 dark:text-neutral-300"
+                  }`}
+                >
+                  <Icon />
+                  <span className="line-clamp-2">{labelOf(t)}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </Dialog>
+      )}
 
       {/* iPAD AND UP: a rail down the left edge with every workspace; from 2xl
           a sidebar that also lists the current workspace's pages. Its width is
