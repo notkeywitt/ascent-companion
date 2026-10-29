@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/epic-hopper-7lcvmj
 status: shipped
 started: 2026-10-29T22:25:12Z
-updated: 2026-10-29T22:55:56Z
+updated: 2026-10-29T23:01:23Z
 goal: 
 next: owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)
 ---
@@ -20,6 +20,8 @@ next: owner to try the bar drawer on a phone; tune which 12 pages it lists (draw
 - 2026-10-29 22:46 · `2270253` companion: dark blurred glass bar, smaller angular grip bump with a grey outline and dot grip
   src/app/globals.css, src/components/TabBar.tsx
 - 2026-10-29 22:55 · `12003de` companion: soften the grip bump's corners, grey its dots, lighten the bar glass
+  src/components/TabBar.tsx
+- 2026-10-29 23:01 · `dc3f695` companion: round the grip bump's corners more
   src/components/TabBar.tsx
 
 ## Notes
