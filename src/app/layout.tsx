@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
-import { Roboto, Roboto_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
@@ -28,9 +28,14 @@ import { noAuthConfigured } from "@/lib/authMode";
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
 // alternative to the print primary, LL Medium). Exposed as a CSS var wired into
 // Tailwind's `font-sans` so the whole app renders in it.
-const roboto = Roboto({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+//
+// The font files live in the repo (src/app/fonts, SIL Open Font License), not
+// on Google Fonts: a `next/font/google` build downloads them, and a failed
+// download failed a production build on 2026-10-29. One variable file covers
+// every weight from 100 to 900.
+const roboto = localFont({
+  src: "./fonts/roboto-latin-wght-normal.woff2",
+  weight: "100 900",
   variable: "--font-roboto",
   display: "swap",
 });
@@ -39,9 +44,9 @@ const roboto = Roboto({
 // previews), but the browser default for `font-mono` is Courier, which reads as
 // a different typeface entirely. Roboto Mono keeps the alignment inside the
 // brand family, so nothing in the app renders as Courier.
-const robotoMono = Roboto_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const robotoMono = localFont({
+  src: "./fonts/roboto-mono-latin-wght-normal.woff2",
+  weight: "100 700",
   variable: "--font-roboto-mono",
   display: "swap",
 });
