@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-29T19:22:07Z",
+  "generatedAt": "2026-10-29T19:29:42Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "gifted-meitner",
+      "file": "2026-10-29-gifted-meitner.md",
+      "branch": "claude/gifted-meitner-r3udjg",
+      "status": "shipped",
+      "started": "2026-10-29T19:29:35Z",
+      "updated": "2026-10-29T19:29:41Z",
+      "goal": "",
+      "next": "none — list fix shipped",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "19:29",
+          "sha": "2967e76",
+          "subject": "companion: put every AscentBot list item on its own line",
+          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
     {
       "slug": "admiring-hawking",
       "file": "2026-10-29-admiring-hawking.md",

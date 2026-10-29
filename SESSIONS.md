@@ -33,6 +33,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [gifted-meitner](.claude/sessions/2026-10-29-gifted-meitner.md) | 2026-10-29 | 1 | — |
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-29 | 3 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-29 | 94 | — |
 | [ascent-roof-color-query](.claude/sessions/2026-10-28-ascent-roof-color-query.md) | 2026-10-29 | 9 | — |
@@ -47,4 +48,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [remove-office-hamburger-menu](.claude/sessions/2026-10-18-remove-office-hamburger-menu.md) | 2026-10-18 | 3 | — |
 | [manual-mileage-recording](.claude/sessions/2026-10-17-manual-mileage-recording.md) | 2026-10-17 | 1 | — |
 | [main](.claude/sessions/2026-10-17-main.md) | 2026-10-17 | 11 | remove billing period label and caption from home picker |
-| [time-sync-edit](.claude/sessions/2026-10-17-time-sync-edit.md) | 2026-10-17 | 7 | — |
