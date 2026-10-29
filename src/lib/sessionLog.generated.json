@@ -1,47 +1,14 @@
 {
-  "generatedAt": "2026-10-29T22:10:31Z",
+  "generatedAt": "2026-10-29T22:17:00Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "intelligent-rubin",
-      "file": "2026-10-29-intelligent-rubin.md",
-      "branch": "claude/intelligent-rubin-pksyhq",
-      "status": "shipped",
-      "started": "2026-10-29T20:31:39Z",
-      "updated": "2026-10-29T22:10:31Z",
-      "goal": "",
-      "next": "done: add-tool button shipped",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "20:31",
-          "sha": "baf241f",
-          "subject": "companion: add an add-tool button to the tools page",
-          "files": "src/app/tools/page.tsx"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "21:43",
-          "sha": "3e5a2c0",
-          "subject": "companion: pick a tool photo from the phone, and put tools on the office bar",
-          "files": "src/app/tools/page.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:10",
-          "sha": "683be76",
-          "subject": "companion: add tools to the office and admin rail",
-          "files": "src/lib/workspaces.test.ts, src/lib/workspaces.ts"
-        }
-      ]
-    },
     {
       "slug": "ascentbot-architecture",
       "file": "2026-10-28-ascentbot-architecture.md",
       "branch": "claude/ascentbot-architecture-08o3ez",
       "status": "shipped",
       "started": "2026-10-28T05:54:35Z",
-      "updated": "2026-10-29T20:30:22Z",
+      "updated": "2026-10-29T22:17:00Z",
       "goal": "",
       "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
       "commits": [
@@ -72,6 +39,46 @@
           "sha": "72ef214",
           "subject": "companion: ascentbot searches employees, vendors, projects and other office records",
           "files": "src/lib/chatTools.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:16",
+          "sha": "fc11393",
+          "subject": "companion: ascentbot looks up staff details instead of refusing them",
+          "files": "src/lib/googleChat.ts"
+        }
+      ]
+    },
+    {
+      "slug": "intelligent-rubin",
+      "file": "2026-10-29-intelligent-rubin.md",
+      "branch": "claude/intelligent-rubin-pksyhq",
+      "status": "shipped",
+      "started": "2026-10-29T20:31:39Z",
+      "updated": "2026-10-29T22:10:31Z",
+      "goal": "",
+      "next": "done: add-tool button shipped",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "20:31",
+          "sha": "baf241f",
+          "subject": "companion: add an add-tool button to the tools page",
+          "files": "src/app/tools/page.tsx"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "21:43",
+          "sha": "3e5a2c0",
+          "subject": "companion: pick a tool photo from the phone, and put tools on the office bar",
+          "files": "src/app/tools/page.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:10",
+          "sha": "683be76",
+          "subject": "companion: add tools to the office and admin rail",
+          "files": "src/lib/workspaces.test.ts, src/lib/workspaces.ts"
         }
       ]
     },
