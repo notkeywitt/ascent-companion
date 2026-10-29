@@ -386,6 +386,8 @@ const DESK_TOP: BarSlot[] = [
   // Vendors under Jobs at the owner's ask (2026-10-26).
   { kind: "tab", view: "vendors" },
   { kind: "workspace", id: "time" },
+  // Tools on the rail too (owner, 2026-10-29), as on the phone bar.
+  { kind: "tab", view: "tools" },
 ];
 export const RAIL_TOP: Partial<Record<Role, BarSlot[]>> = { admin: DESK_TOP, office: DESK_TOP };
 

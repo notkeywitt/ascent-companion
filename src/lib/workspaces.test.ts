@@ -119,11 +119,11 @@ describe("the iPad rail", () => {
     const views = resolveAllowedViews(role);
     return (v: string) => views.has(v);
   };
-  it("starts the office's rail with the owner's six, then a space, then every other workspace once", () => {
+  it("starts the office's rail with the owner's seven, then a space, then every other workspace once", () => {
     const items = railFor("office", can("office"));
     const rail = items.map((i) => i.key);
-    expect(rail.slice(0, 6)).toEqual(["today", "close", "employees", "clients", "vendors", "time"]);
-    expect(items[6].gap).toBe(true);
+    expect(rail.slice(0, 7)).toEqual(["today", "close", "employees", "clients", "vendors", "time", "tools"]);
+    expect(items[7].gap).toBe(true);
     expect(items.filter((i) => i.gap)).toHaveLength(1);
     expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "help", "office", "mywork"]));
     expect(rail).not.toContain("admin");
@@ -145,6 +145,7 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/payroll")).toBe("time");
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
     expect(activeBarKey(rail, "/employee-time")).toBe("time");
+    expect(activeBarKey(rail, "/tools")).toBe("tools");
   });
   it("lights the parent workspace on a job page or a bill", () => {
     const rail = railFor("office", can("office"));
