@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [intelligent-rubin](.claude/sessions/2026-10-29-intelligent-rubin.md) | 2026-10-29 | 1 | — |
 | [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | 2026-10-29 | 4 | — |
 | [gifted-meitner](.claude/sessions/2026-10-29-gifted-meitner.md) | 2026-10-29 | 1 | — |
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-29 | 3 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [todo-assignees](.claude/sessions/2026-10-19-todo-assignees.md) | 2026-10-19 | 3 | Home to-dos show details and assignees |
 | [page-consolidation-audit](.claude/sessions/2026-10-18-page-consolidation-audit.md) | 2026-10-19 | 33 | audit admin and office pages, recommend merges |
 | [remove-office-hamburger-menu](.claude/sessions/2026-10-18-remove-office-hamburger-menu.md) | 2026-10-18 | 3 | — |
-| [manual-mileage-recording](.claude/sessions/2026-10-17-manual-mileage-recording.md) | 2026-10-17 | 1 | — |
