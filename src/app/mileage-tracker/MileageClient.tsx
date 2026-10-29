@@ -17,6 +17,7 @@ import {
   type TripPoint,
 } from "@/lib/mileageTrip";
 import { tripMiles } from "@/lib/mileageRoute";
+import { placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
 import {
   Banner,
   Card,
@@ -147,6 +148,41 @@ function saveLastFrom(place: string) {
 }
 
 /** A job's street address without Google's trailing ", USA". */
+// A From/To field's text as Google should route it: a named job becomes its
+// address. An ambiguous name or a job with no address is an error to show.
+function routeTarget(field: string, text: string, match: PlaceMatch): { place: string; error: string } {
+  if (match.kind === "ambiguous") {
+    const names = match.jobs.slice(0, 4).map(placeLabel).join("; ");
+    return { place: "", error: `${field}: "${text.trim()}" fits ${match.jobs.length} jobs (${names}). Type more of the name.` };
+  }
+  if (match.kind === "job" && !match.address) {
+    return { place: "", error: `${field}: ${placeLabel(match.job)} has no address in JobTread. Type the address instead.` };
+  }
+  return { place: match.kind === "job" ? match.address : text.trim(), error: "" };
+}
+
+// What the trip log records: a named job reads "Shop — 4223 Center Rd, …".
+function savedPlace(text: string, match: PlaceMatch): string {
+  if (match.kind !== "job") return text.trim();
+  return match.address ? `${placeLabel(match.job)} — ${match.address}` : placeLabel(match.job);
+}
+
+// The quiet line under From/To that says which job the words named.
+function PlaceHint({ match }: { match: PlaceMatch }) {
+  if (match.kind === "job") {
+    return (
+      <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+        → {placeLabel(match.job)}
+        {match.address ? ` · ${match.address}` : " · no address in JobTread"}
+      </p>
+    );
+  }
+  if (match.kind === "ambiguous") {
+    return <p className="mt-1 text-xs text-warn">Fits {match.jobs.length} jobs. Type more of the name.</p>;
+  }
+  return null;
+}
+
 const jobAddr = (j: JobRef | null | undefined) => (j?.address ?? "").replace(/,\s*USA$/i, "").trim();
 
 // Auto-tracking: drop a breadcrumb only when it's this far from the last one (km)
@@ -758,12 +794,20 @@ export function MileageClient({
       setRouteErr("Fill in both From and To.");
       return;
     }
+    // "Office", "shop" or a job name becomes that job's address before Google
+    // sees it. The field keeps the words the driver typed.
+    const from = routeTarget("From", fromPlace, fromMatch);
+    const to = routeTarget("To", toPlace, toMatch);
+    if (from.error || to.error) {
+      setRouteErr(from.error || to.error);
+      return;
+    }
     setRouteBusy(true);
     try {
       const res = await fetch("/api/mileage/route-miles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ from: fromPlace, to: toPlace }),
+        body: JSON.stringify({ from: from.place, to: to.place }),
       });
       const json = (await res.json()) as {
         ok?: boolean;
@@ -776,9 +820,10 @@ export function MileageClient({
         setRouteErr(json.error || "Could not get the miles. Type them instead.");
         return;
       }
-      // "Here" comes back as a street address; a typed one stays as typed.
-      if (json.startAddress) setFromPlace(json.startAddress);
-      if (json.endAddress) {
+      // "Here" comes back as a street address; a typed one stays as typed, and
+      // so does a job name.
+      if (json.startAddress && fromMatch.kind !== "job") setFromPlace(json.startAddress);
+      if (json.endAddress && toMatch.kind !== "job") {
         if (toPlace === autoToRef.current) autoToRef.current = json.endAddress;
         setToPlace(json.endAddress);
       }
@@ -790,6 +835,14 @@ export function MileageClient({
       setRouteBusy(false);
     }
   }
+
+  // What a From/To text names: a job (Office and Shop are jobs), or an address.
+  const fromMatch = useMemo(() => resolvePlace(fromPlace, jobs), [fromPlace, jobs]);
+  const toMatch = useMemo(() => resolvePlace(toPlace, jobs), [toPlace, jobs]);
+  const placeOptions = useMemo(
+    () => Array.from(new Set(jobs.map(placeLabel))).sort((a, b) => a.localeCompare(b)),
+    [jobs],
+  );
 
   function onRoundTrip(on: boolean) {
     setRoundTrip(on);
@@ -817,8 +870,8 @@ export function MileageClient({
           jobId,
           jobLabel,
           purpose: purpose.trim(),
-          startAddress: fromPlace.trim(),
-          endAddress: toPlace.trim(),
+          startAddress: savedPlace(fromPlace, fromMatch),
+          endAddress: savedPlace(toPlace, toMatch),
           roundTrip,
           clientKey: manualKey,
         }),
@@ -830,8 +883,8 @@ export function MileageClient({
       }
       saveLastJob(jobId, jobLabel);
       saveLastFrom(fromPlace.trim());
-      const from = fromPlace.trim();
-      const to = toPlace.trim();
+      const from = savedPlace(fromPlace, fromMatch);
+      const to = savedPlace(toPlace, toMatch);
       const loop = roundTrip && !!from && !!to;
       setSummary({
         miles: json.miles ?? m,
@@ -1080,7 +1133,7 @@ export function MileageClient({
 
           <Card className="space-y-3">
             <p className="text-xs text-neutral-500">
-              Fill in From and To and tap Get miles, or type the miles below.
+              Type Office, Shop, a job name or an address in From and To, then tap Get miles. Or type the miles below.
             </p>
             <div>
               <div className="flex items-baseline justify-between">
@@ -1101,9 +1154,11 @@ export function MileageClient({
                   setFromPlace(e.target.value);
                   setOneWay(null);
                 }}
-                placeholder="Address or place"
-                autoComplete="street-address"
+                placeholder="Office, Shop, a job, or an address"
+                list="mlg-places"
+                autoComplete="off"
               />
+              <PlaceHint match={fromMatch} />
             </div>
 
             <div>
@@ -1115,9 +1170,17 @@ export function MileageClient({
                   setToPlace(e.target.value);
                   setOneWay(null);
                 }}
-                placeholder="Address or place — a job fills this in"
+                placeholder="Office, Shop, a job, or an address"
+                list="mlg-places"
+                autoComplete="off"
               />
+              <PlaceHint match={toMatch} />
             </div>
+            <datalist id="mlg-places">
+              {placeOptions.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
 
             <div className="flex items-center justify-between gap-3">
               <Toggle checked={roundTrip} onChange={onRoundTrip} label="Round trip" />

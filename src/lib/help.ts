@@ -281,6 +281,7 @@ export const HELP: HelpSection[] = [
           "Allow location for the start and the end. The app cannot work without it.",
           "You can lock the phone between the two taps.",
           "Tap **Add miles** for a trip you forgot.",
+          "In **Add miles**, From and To take **Office**, **Shop**, a job name or an address.",
           "Tap **View logged miles** to read your history.",
           "Log each stop of a multi-stop trip as its own trip.",
         ],
