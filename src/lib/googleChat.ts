@@ -41,6 +41,8 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 
+import type { ChatEvent } from "@/lib/anthropic";
+
 import { linkSpaceJob, saveTurn, type ChatTurn, type SpaceJob } from "@/lib/chatMemory";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { toolByName, type ChatTool } from "@/lib/chatTools";
@@ -249,6 +251,33 @@ export const CHAT_SYSTEM = [
   "- Never commit the company to a price, date or scope. Pay, HR and personal",
   "  matters about staff don't belong here; point people to the office.",
 ].join("\n");
+
+/** The bot's own tools: they act on an answer already written, so its text is kept. */
+const OWN_ACTIONS = new Set(["report_gap", "save_note", "link_space_to_job"]);
+
+/**
+ * Collects the answer the bot posts from runChat's events. Text written before
+ * a lookup is a draft the next round replaces ("…I'll check Drive too"), so it
+ * is dropped; text before the bot's own actions (report_gap, save_note) is the
+ * answer and stays. A `reset` (a larger model rewriting) clears everything.
+ */
+export function answerCollector() {
+  let text = "";
+  let dropDraft = false;
+  return {
+    onEvent: (e: ChatEvent) => {
+      if (e.type === "reset") text = "";
+      if (e.type === "tool" && !OWN_ACTIONS.has(e.name)) dropDraft = true;
+      if (e.type === "text") {
+        if (dropDraft) text = "";
+        dropDraft = false;
+        text += e.text;
+      }
+      if (e.type === "error") text += `\n${e.error}`;
+    },
+    text: () => text.trim(),
+  };
+}
 
 /** Today in Pacific, so "today" and "last month" resolve to real dates. */
 export function todayLine(now = new Date()): string {

@@ -22,6 +22,7 @@ import type { ChatTurn } from "./chatMemory";
 import { CHAT_TOOLS, groupScopeLines, hasAnyWord, summarizeJobTime } from "./chatTools";
 import type { JobRef, PaveConfig } from "./jobtread";
 import {
+  answerCollector,
   BOT_TOOLS,
   botTools,
   buildHistory,
@@ -346,5 +347,25 @@ describe("groupScopeLines", () => {
       },
     ]);
     expect(out[1].groups[0].lines[0]).not.toHaveProperty("option");
+  });
+});
+
+describe("answerCollector", () => {
+  it("drops a draft written before a lookup, keeps text before the bot's own actions", () => {
+    const a = answerCollector();
+    a.onEvent({ type: "text", text: "Nothing records it. I'll check Drive too." });
+    a.onEvent({ type: "tool", name: "search_drive" });
+    a.onEvent({ type: "text", text: "Nothing I checked records the siding color." });
+    a.onEvent({ type: "tool", name: "report_gap" });
+    a.onEvent({ type: "text", text: " I've let the office know." });
+    expect(a.text()).toBe("Nothing I checked records the siding color. I've let the office know.");
+  });
+
+  it("clears on a reset", () => {
+    const a = answerCollector();
+    a.onEvent({ type: "text", text: "I couldn't find it." });
+    a.onEvent({ type: "reset" });
+    a.onEvent({ type: "text", text: "Charcoal Grey." });
+    expect(a.text()).toBe("Charcoal Grey.");
   });
 });

@@ -8,6 +8,7 @@ import { runChat } from "@/lib/anthropic";
 import { getSpaceJob, recentTurns, saveTurn, type SpaceJob } from "@/lib/chatMemory";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import {
+  answerCollector,
   BOT_TOOLS,
   CHAT_SYSTEM,
   botTools,
@@ -110,7 +111,7 @@ function askClaude(
   jobContext: string,
   later: boolean,
 ): Promise<string> {
-  let text = "";
+  const answer = answerCollector();
   const run = () =>
     runChat({
       messages,
@@ -121,15 +122,11 @@ function askClaude(
       tools: BOT_TOOLS,
       extraTools: botTools(ctx),
       escalate: escalation(),
-      onEvent: (e) => {
-        if (e.type === "reset") text = "";
-        if (e.type === "text") text += e.text;
-        if (e.type === "error") text += `\n${e.error}`;
-      },
+      onEvent: answer.onEvent,
     });
   // With a way to answer later, the file reader may take longer over a long scan.
   return (later ? readerTime.run(LONG_READ, run) : run()).then(
-    () => text.trim() || "I couldn't find an answer to that.",
+    () => answer.text() || "I couldn't find an answer to that.",
     (e) => {
       console.error(`[google-chat] answer failed: ${e instanceof Error ? e.message : e}`);
       return "Something went wrong looking that up. Try again, or use the Assistant page in the app.";
