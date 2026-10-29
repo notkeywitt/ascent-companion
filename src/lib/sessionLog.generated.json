@@ -1,7 +1,47 @@
 {
-  "generatedAt": "2026-10-29T19:29:42Z",
+  "generatedAt": "2026-10-29T20:30:22Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascentbot-architecture",
+      "file": "2026-10-28-ascentbot-architecture.md",
+      "branch": "claude/ascentbot-architecture-08o3ez",
+      "status": "shipped",
+      "started": "2026-10-28T05:54:35Z",
+      "updated": "2026-10-29T20:30:22Z",
+      "goal": "",
+      "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
+      "commits": [
+        {
+          "date": "2026-10-28",
+          "time": "05:54",
+          "sha": "7bd0eaa",
+          "subject": "companion: time each claude round and tool, run a round's tools in parallel",
+          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "14:29",
+          "sha": "a74b87a",
+          "subject": "companion: ascentbot answers job decisions and schedule, remembers each job space",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/db/index.ts, src/db/schema.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, +4 more"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "17:05",
+          "sha": "9a6d477",
+          "subject": "companion: ascentbot finds a job when the name comes with \"job\" or extra words",
+          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "20:30",
+          "sha": "72ef214",
+          "subject": "companion: ascentbot searches employees, vendors, projects and other office records",
+          "files": "src/lib/chatTools.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
     {
       "slug": "gifted-meitner",
       "file": "2026-10-29-gifted-meitner.md",
@@ -796,39 +836,6 @@
           "sha": "bc58b56",
           "subject": "companion: ascentbot hears every message in its job spaces, not only @mentions",
           "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/app/api/google-chat/sync/route.ts, src/db/index.ts, src/db/schema.ts, +8 more"
-        }
-      ]
-    },
-    {
-      "slug": "ascentbot-architecture",
-      "file": "2026-10-28-ascentbot-architecture.md",
-      "branch": "claude/ascentbot-architecture-08o3ez",
-      "status": "parked",
-      "started": "2026-10-28T05:54:35Z",
-      "updated": "2026-10-28T17:05:40Z",
-      "goal": "",
-      "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
-      "commits": [
-        {
-          "date": "2026-10-28",
-          "time": "05:54",
-          "sha": "7bd0eaa",
-          "subject": "companion: time each claude round and tool, run a round's tools in parallel",
-          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.ts"
-        },
-        {
-          "date": "2026-10-28",
-          "time": "14:29",
-          "sha": "a74b87a",
-          "subject": "companion: ascentbot answers job decisions and schedule, remembers each job space",
-          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/db/index.ts, src/db/schema.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, +4 more"
-        },
-        {
-          "date": "2026-10-28",
-          "time": "17:05",
-          "sha": "9a6d477",
-          "subject": "companion: ascentbot finds a job when the name comes with \"job\" or extra words",
-          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
         }
       ]
     },
