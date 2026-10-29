@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/intelligent-rubin-pksyhq
 status: shipped
 started: 2026-10-29T20:31:39Z
-updated: 2026-10-29T21:43:01Z
+updated: 2026-10-29T22:10:30Z
 goal: 
 next: done: add-tool button shipped
 ---
@@ -16,5 +16,7 @@ next: done: add-tool button shipped
   src/app/tools/page.tsx
 - 2026-10-29 21:43 · `3e5a2c0` companion: pick a tool photo from the phone, and put tools on the office bar
   src/app/tools/page.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts
+- 2026-10-29 22:10 · `683be76` companion: add tools to the office and admin rail
+  src/lib/workspaces.test.ts, src/lib/workspaces.ts
 
 ## Notes
