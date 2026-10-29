@@ -147,6 +147,20 @@ function writeCachedBootstrap(b: Bootstrap): void {
 
 // An empty tool record — the starting point when a scan hits a ToolId that isn't
 // in the inventory yet (the QR value becomes the new row's id).
+// The next free ToolId for a tool added by hand: one past the highest number
+// among ids shaped like the stickers ("tool087" → "tool088"), keeping their
+// prefix and zero padding. Only a suggestion — the field stays editable.
+function nextToolId(tools: Tool[]): string {
+  let best = { prefix: "tool", n: 0, width: 3 };
+  for (const t of tools) {
+    const m = t.id.match(/^([a-z]*)(\d+)$/i);
+    if (!m) continue;
+    const n = Number(m[2]);
+    if (n > best.n) best = { prefix: m[1] || "tool", n, width: m[2].length };
+  }
+  return best.prefix + String(best.n + 1).padStart(best.width, "0");
+}
+
 function blankTool(id: string): Tool {
   return {
     id,
@@ -299,8 +313,9 @@ export default function ToolsPage() {
   const [relocErr, setRelocErr] = useState("");
   const [relocDone, setRelocDone] = useState<{ tool: Tool; locationLabel: string } | null>(null);
 
-  // ---- New tool (scanned a QR that isn't in the inventory yet) ----------------
+  // ---- New tool (scanned a QR that isn't in the inventory yet, or "Add tool") --
   const [newForm, setNewForm] = useState<Tool | null>(null); // creation form (id + fields)
+  const [newManual, setNewManual] = useState(false); // opened by "Add tool", not a scan
   const [createPhoto, setCreatePhoto] = useState(""); // downscaled data URL, if added
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState("");
@@ -534,6 +549,7 @@ export default function ToolsPage() {
     setRelocErr("");
     setRelocDone(null);
     setNewForm(null);
+    setNewManual(false);
     setCreatePhoto("");
     setCreateErr("");
     setCreateDone(null);
@@ -549,6 +565,42 @@ export default function ToolsPage() {
   function closeScan() {
     setScanning(false);
     resetScanState();
+  }
+
+  // "Add tool" — the scan's new-tool form, without a sticker to read the id from.
+  function startAdd() {
+    setScanErr("");
+    resetScanState();
+    openNewTool(nextToolId(tools), true);
+  }
+
+  function openNewTool(id: string, manual: boolean) {
+    setNewForm(blankTool(id));
+    setNewManual(manual);
+    setCreatePhoto("");
+    setCreateErr("");
+    setCreateDone(null);
+    setCreateSerialMsg("");
+    setScanProjectId("");
+    locate();
+  }
+
+  // Ask for GPS to pre-select the nearest job site (used by every flow).
+  function locate() {
+    if (navigator.geolocation) {
+      setGeoMsg("Finding your location…");
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setHere(fix);
+          pickNearest(fix);
+        },
+        () => setGeoMsg("Location unavailable — pick the job site below."),
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+      );
+    } else {
+      setGeoMsg("This device can't share location — pick the job site below.");
+    }
   }
 
   function pickNearest(fix: { lat: number; lng: number }) {
@@ -584,30 +636,10 @@ export default function ToolsPage() {
       // Known tool → relocate it.
       setScanTool(found);
       setScanProjectId(found.location || "");
+      locate();
     } else {
       // Unknown sticker → register it as a new tool (id is the scanned value).
-      setNewForm(blankTool(id));
-      setCreatePhoto("");
-      setCreateErr("");
-      setCreateDone(null);
-      setCreateSerialMsg("");
-      setScanProjectId("");
-    }
-
-    // Ask for GPS to pre-select the nearest job site (used by both flows).
-    if (navigator.geolocation) {
-      setGeoMsg("Finding your location…");
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          setHere(fix);
-          pickNearest(fix);
-        },
-        () => setGeoMsg("Location unavailable — pick the job site below."),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
-      );
-    } else {
-      setGeoMsg("This device can't share location — pick the job site below.");
+      openNewTool(id, false);
     }
   }
 
@@ -675,6 +707,15 @@ export default function ToolsPage() {
 
   async function saveNewTool() {
     if (!newForm) return;
+    const toolId = newForm.id.trim();
+    if (!toolId) {
+      setCreateErr("Give the tool an ID.");
+      return;
+    }
+    if (tools.some((t) => t.id.toLowerCase() === toolId.toLowerCase())) {
+      setCreateErr(`A tool with ID "${toolId}" already exists.`);
+      return;
+    }
     if (!newForm.name.trim()) {
       setCreateErr("Give the tool a name.");
       return;
@@ -683,7 +724,7 @@ export default function ToolsPage() {
     setCreateErr("");
     try {
       // 1. Create the row (text fields + location). The scan audit is stamped
-      //    server-side since a create only happens by scanning the sticker.
+      //    server-side, so a hand-added tool records who registered it.
       const fields = {
         name: newForm.name,
         type: newForm.type,
@@ -696,7 +737,7 @@ export default function ToolsPage() {
       const res = await fetch("/api/tools", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toolId: newForm.id, fields }),
+        body: JSON.stringify({ toolId, fields }),
       });
       const json = await res.json();
       if (!res.ok || json.ok === false) throw new Error(json.error || "Could not add the tool.");
@@ -713,7 +754,7 @@ export default function ToolsPage() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              toolId: newForm.id,
+              toolId,
               imageBase64: createPhoto,
               mimeType: "image/jpeg",
             }),
@@ -740,9 +781,14 @@ export default function ToolsPage() {
         title="Tools"
         description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
         actions={
-          <Button variant="primary" size="sm" onClick={startScan} disabled={loading || !!loadErr}>
-            Scan tool
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" onClick={startAdd} disabled={loading || !!loadErr}>
+              Add tool
+            </Button>
+            <Button variant="primary" size="sm" onClick={startScan} disabled={loading || !!loadErr}>
+              Scan tool
+            </Button>
+          </>
         }
         className="!mb-3"
       />
@@ -976,7 +1022,7 @@ export default function ToolsPage() {
         </Dialog>
       )}
 
-      {/* New-tool overlay (scanned an unknown sticker) */}
+      {/* New-tool overlay (scanned an unknown sticker, or "Add tool") */}
       {newForm && (
         <Dialog onClose={closeScan} busy={creating} label={createDone ? "Tool added" : "New tool"}>
             {createDone ? (
@@ -999,8 +1045,12 @@ export default function ToolsPage() {
                   <Button variant="secondary" className="flex-1" onClick={closeScan}>
                     Done
                   </Button>
-                  <Button variant="primary" className="flex-1" onClick={startScan}>
-                    Scan another
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={newManual ? startAdd : startScan}
+                  >
+                    {newManual ? "Add another" : "Scan another"}
                   </Button>
                 </div>
               </>
@@ -1008,11 +1058,25 @@ export default function ToolsPage() {
               <>
                 <div className="mb-1 flex items-baseline justify-between">
                   <h2 className="text-lg font-bold">New tool</h2>
-                  <span className="text-xs text-neutral-500">ID: {newForm.id}</span>
+                  {!newManual && <span className="text-xs text-neutral-500">ID: {newForm.id}</span>}
                 </div>
                 <p className="mb-3 text-xs text-neutral-500">
-                  This sticker isn&apos;t in the inventory yet — add its details to register it.
+                  {newManual
+                    ? "Add its details to register it. The ID is the next free number — match it to the tool's sticker."
+                    : "This sticker isn't in the inventory yet — add its details to register it."}
                 </p>
+
+                {newManual && (
+                  <div className="mb-3">
+                    <Label htmlFor="new-tool-id">Tool ID</Label>
+                    <input
+                      id="new-tool-id"
+                      value={newForm.id}
+                      onChange={(ev) => setNewForm({ ...newForm, id: ev.target.value })}
+                      className={inputCls}
+                    />
+                  </div>
+                )}
 
                 {/* Photo */}
                 <div className="mb-4 flex items-center gap-3">
@@ -1134,7 +1198,7 @@ export default function ToolsPage() {
                   <Button
                     className="flex-1"
                     onClick={saveNewTool}
-                    disabled={creating || !newForm.name.trim()}
+                    disabled={creating || !newForm.name.trim() || !newForm.id.trim()}
                   >
                     {creating ? "Adding…" : "Add tool"}
                   </Button>
