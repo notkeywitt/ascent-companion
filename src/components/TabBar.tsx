@@ -216,7 +216,7 @@ const SafetyIcon = () => (
   </IconBase>
 );
 /** The drawer's grip: a short bar, like the handle of a sheet. */
-const GripIcon = () => <span aria-hidden className="h-1 w-9 rounded-full bg-neutral-300 dark:bg-neutral-600" />;
+const GripIcon = () => <span aria-hidden className="h-1.5 w-10 rounded-full bg-neutral-400 dark:bg-neutral-500" />;
 
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
@@ -337,7 +337,8 @@ export function TabBar() {
           if (more.length && start !== null && start - e.changedTouches[0].clientY > 30) setOpen(true);
         }}
       >
-        {/* The drawer's grip: h-3, which --tabbar-h counts. */}
+        {/* The drawer's grip: a soft bump (20px) rising above the bar's top
+            hairline, over an h-3 strip. --tabbar-h counts both. */}
         {more.length > 0 && (
           <button
             type="button"
@@ -345,9 +346,18 @@ export function TabBar() {
             aria-label="More pages"
             aria-expanded={open}
             aria-haspopup="dialog"
-            className="flex h-3 w-full items-end justify-center active:bg-accent/15"
+            className="group relative block h-3 w-full"
           >
-            <GripIcon />
+            {/* Solid, and 1px into the bar, so it covers the hairline. */}
+            <span
+              aria-hidden
+              className="absolute -top-5 left-1/2 flex h-[21px] w-24 -translate-x-1/2 items-center justify-center border border-b-0 border-line bg-cream shadow-[0_-3px_8px_rgba(0,0,0,0.06)] transition group-active:bg-accent/15 dark:bg-ink"
+              style={{ borderTopLeftRadius: "50% 100%", borderTopRightRadius: "50% 100%" }}
+            >
+              <span className="mt-1.5">
+                <GripIcon />
+              </span>
+            </span>
           </button>
         )}
         <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>

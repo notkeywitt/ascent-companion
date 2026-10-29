@@ -333,12 +333,13 @@ html .group:hover .group-hover\:text-accent {
    and <StickyActionBar>'s `bottom` — both read the ONE number instead of each
    hardcoding an offset that drifts the moment the bar changes height. */
 :root {
-  /* h-14 (3.5rem) tab + the drawer's h-3 (0.75rem) grip + its own 1px top
-     border + the home-indicator inset.
+  /* h-14 (3.5rem) tab + the drawer's h-3 (0.75rem) grip strip and its 20px
+     (1.25rem) bump above the hairline + its own 1px top border + the
+     home-indicator inset.
      The border is part of the height a docked bar has to clear — leave it out
      and everything offset by this variable overlaps the tab bar by exactly
      one pixel. */
-  --tabbar-h: calc(3.5rem + 0.75rem + 1px + env(safe-area-inset-bottom));
+  --tabbar-h: calc(3.5rem + 0.75rem + 1.25rem + 1px + env(safe-area-inset-bottom));
 
   /* Height of the sticky TOP chrome (components/AppHeader — logo, search and
      Add bill, all on one row). Unlike the tab bar this is not a fixed
