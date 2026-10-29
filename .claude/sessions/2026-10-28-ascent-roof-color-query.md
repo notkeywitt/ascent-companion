@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-roof-color-query-qdypqk
 status: shipped
 started: 2026-10-28T20:05:30Z
-updated: 2026-10-29T02:52:14Z
+updated: 2026-10-29T05:12:44Z
 goal: 
 next: test in the Ferron space: 'did they choose rocks on the roof?' (search_job_scope) and 'what color is the roof?' (escalation); then roadmap step 4, hear every message (needs Workspace admin approval)
 ---
@@ -24,5 +24,7 @@ next: test in the Ferron space: 'did they choose rocks on the roof?' (search_job
   .env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatTools.ts, +3 more
 - 2026-10-29 02:52 · `e9df058` companion: ascentbot signs in to google chat with workload identity federation, no key file
   .env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts
+- 2026-10-29 05:12 · `62e7e09` companion: ascentbot posts only its final answer, not a draft written before more lookups
+  src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts
 
 ## Notes
