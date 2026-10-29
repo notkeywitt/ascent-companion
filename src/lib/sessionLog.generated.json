@@ -1,91 +1,16 @@
 {
-  "generatedAt": "2026-10-29T14:38:23Z",
+  "generatedAt": "2026-10-29T18:01:40Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "ascent-roof-color-query",
-      "file": "2026-10-28-ascent-roof-color-query.md",
-      "branch": "claude/ascent-roof-color-query-qdypqk",
-      "status": "shipped",
-      "started": "2026-10-28T20:05:30Z",
-      "updated": "2026-10-29T14:38:23Z",
-      "goal": "",
-      "next": "owner approves chat.app.messages.readonly (Marketplace SDK + Admin console install), sets GOOGLE_CHAT_READ_SPACES=on; check logs for [chat-sync]",
-      "commits": [
-        {
-          "date": "2026-10-28",
-          "time": "20:05",
-          "sha": "e3d24c0",
-          "subject": "companion: ascentbot reads what bills bought and always reports a miss",
-          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
-        },
-        {
-          "date": "2026-10-28",
-          "time": "20:12",
-          "sha": "9e30bbb",
-          "subject": "companion: ascentbot answers who worked on a job, when, and for how many hours",
-          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "02:32",
-          "sha": "5e40caa",
-          "subject": "companion: ascentbot opens and reads drive files and jobtread pdfs",
-          "files": "CODEBASE_MAP.md, src/db/index.ts, src/db/schema.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, +2 more"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "02:38",
-          "sha": "023a96e",
-          "subject": "companion: ascentbot posts a slow answer later instead of giving up",
-          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/fileReader.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "02:48",
-          "sha": "4dca7ec",
-          "subject": "companion: ascentbot reads client decisions and hands hard questions to sonnet",
-          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatTools.ts, +3 more"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "02:52",
-          "sha": "e9df058",
-          "subject": "companion: ascentbot signs in to google chat with workload identity federation, no key file",
-          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "05:12",
-          "sha": "62e7e09",
-          "subject": "companion: ascentbot posts only its final answer, not a draft written before more lookups",
-          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "05:22",
-          "sha": "a9efa6b",
-          "subject": "companion: ascentbot answers from the tool tracker, open to-dos and mileage",
-          "files": "CODEBASE_MAP.md, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "14:38",
-          "sha": "bc58b56",
-          "subject": "companion: ascentbot hears every message in its job spaces, not only @mentions",
-          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/app/api/google-chat/sync/route.ts, src/db/index.ts, src/db/schema.ts, +8 more"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-28T19:14:32Z",
+      "updated": "2026-10-29T18:01:40Z",
       "goal": "",
-      "next": "confirm the Berger specs folder (1_USvfvHWDsazJrEJTl_Q7jdHFhe2LdWg) now adds on /specs",
+      "next": "confirm the next AscentBot list answer in Google Chat shows one bullet per line",
       "commits": [
         {
           "date": "2026-09-03",
@@ -737,6 +662,88 @@
           "sha": "4176a32",
           "subject": "companion: specs folder walk lists four folders at a time, 60s each",
           "files": "src/lib/specDocs.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "11:01",
+          "sha": "47375dc",
+          "subject": "companion: ascentbot puts each list item on its own line",
+          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
+    {
+      "slug": "ascent-roof-color-query",
+      "file": "2026-10-28-ascent-roof-color-query.md",
+      "branch": "claude/ascent-roof-color-query-qdypqk",
+      "status": "shipped",
+      "started": "2026-10-28T20:05:30Z",
+      "updated": "2026-10-29T14:38:23Z",
+      "goal": "",
+      "next": "owner approves chat.app.messages.readonly (Marketplace SDK + Admin console install), sets GOOGLE_CHAT_READ_SPACES=on; check logs for [chat-sync]",
+      "commits": [
+        {
+          "date": "2026-10-28",
+          "time": "20:05",
+          "sha": "e3d24c0",
+          "subject": "companion: ascentbot reads what bills bought and always reports a miss",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "20:12",
+          "sha": "9e30bbb",
+          "subject": "companion: ascentbot answers who worked on a job, when, and for how many hours",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "02:32",
+          "sha": "5e40caa",
+          "subject": "companion: ascentbot opens and reads drive files and jobtread pdfs",
+          "files": "CODEBASE_MAP.md, src/db/index.ts, src/db/schema.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, +2 more"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "02:38",
+          "sha": "023a96e",
+          "subject": "companion: ascentbot posts a slow answer later instead of giving up",
+          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/fileReader.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "02:48",
+          "sha": "4dca7ec",
+          "subject": "companion: ascentbot reads client decisions and hands hard questions to sonnet",
+          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatTools.ts, +3 more"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "02:52",
+          "sha": "e9df058",
+          "subject": "companion: ascentbot signs in to google chat with workload identity federation, no key file",
+          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/lib/googleChatPost.test.ts, src/lib/googleChatPost.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "05:12",
+          "sha": "62e7e09",
+          "subject": "companion: ascentbot posts only its final answer, not a draft written before more lookups",
+          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "05:22",
+          "sha": "a9efa6b",
+          "subject": "companion: ascentbot answers from the tool tracker, open to-dos and mileage",
+          "files": "CODEBASE_MAP.md, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "14:38",
+          "sha": "bc58b56",
+          "subject": "companion: ascentbot hears every message in its job spaces, not only @mentions",
+          "files": ".env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/app/api/google-chat/sync/route.ts, src/db/index.ts, src/db/schema.ts, +8 more"
         }
       ]
     },
