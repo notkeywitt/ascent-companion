@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-29T22:17:00Z",
+  "generatedAt": "2026-10-29T22:25:24Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "epic-hopper",
+      "file": "2026-10-29-epic-hopper.md",
+      "branch": "claude/epic-hopper-7lcvmj",
+      "status": "shipped",
+      "started": "2026-10-29T22:25:12Z",
+      "updated": "2026-10-29T22:25:23Z",
+      "goal": "",
+      "next": "owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "22:25",
+          "sha": "e740804",
+          "subject": "companion: make the phone tab bar a drawer with a 4x3 grid of more pages",
+          "files": "src/app/globals.css, src/components/TabBar.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:25",
+          "sha": "10132fc",
+          "subject": "companion: session ledger",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "ascentbot-architecture",
       "file": "2026-10-28-ascentbot-architecture.md",
