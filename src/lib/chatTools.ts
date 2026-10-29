@@ -38,6 +38,8 @@ import {
   getJobFiles,
   getBoughtLines,
   getJobTimeLines,
+  getJobScopeLines,
+  type ScopeLine,
   type JobTimeLine,
   findContacts,
   type DraftBill,
@@ -131,6 +133,37 @@ export function summarizeJobTime(t: { lines: JobTimeLine[]; count: number; minut
       ...(l.notes ? { notes: l.notes.slice(0, 300) } : {}),
     })),
   };
+}
+
+/**
+ * Client-document lines grouped by document, each group's note once, and a
+ * selection's options marked chosen or not. No prices.
+ */
+export function groupScopeLines(lines: ScopeLine[]) {
+  const docs = new Map<string, { document: string; status: string; date: string; groups: Map<string, { note: string; lines: unknown[] }> }>();
+  for (const l of lines) {
+    const key = `${l.document} #${l.documentNumber}`;
+    const doc = docs.get(key) ?? { document: key, status: l.status, date: l.issueDate, groups: new Map() };
+    const g = doc.groups.get(l.group) ?? { note: l.groupNote, lines: [] };
+    g.lines.push({
+      name: l.name,
+      ...(l.description ? { description: l.description.slice(0, 600) } : {}),
+      ...(l.costCode ? { costCode: l.costCode } : {}),
+      ...(l.isSelected === null ? {} : { option: l.isSelected ? "chosen" : "not chosen" }),
+    });
+    doc.groups.set(l.group, g);
+    docs.set(key, doc);
+  }
+  return [...docs.values()].map((d) => ({
+    document: d.document,
+    status: d.status,
+    date: d.date,
+    groups: [...d.groups.entries()].map(([name, g]) => ({
+      group: name,
+      ...(g.note ? { note: g.note.slice(0, 1200) } : {}),
+      lines: g.lines,
+    })),
+  }));
 }
 
 const WORDS_PROP = {
@@ -564,6 +597,35 @@ export const CHAT_TOOLS: ChatTool[] = [
         words: wordsOf(input),
       });
       return summarizeJobTime(t);
+    },
+  },
+  {
+    name: "search_job_scope",
+    description:
+      "What the client agreed to: lines of the job's JobTread proposals, selections and change " +
+      "orders, newest first, with each document's status. A selection lists its options and " +
+      "marks which was chosen; a group's note often quotes the decision and who made it. No " +
+      "prices. Use for 'did we agree to rocks on the roof?', 'what's in the scope for the " +
+      "deck?' or 'which vanity fronts did they pick?'. A pending document is not agreed yet.",
+    input_schema: {
+      type: "object",
+      properties: {
+        ...JOB_PROP,
+        words: {
+          type: "string",
+          description:
+            "Space-separated words or stems; a line matching ANY of them in its name, " +
+            "description, group, cost code or document name is kept (e.g. 'vanity', 'rock roof').",
+        },
+      },
+      required: ["job_id", "words"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = wordsOf(input);
+      if (!words.length) return { documents: [], reason: "Pass words to search by, e.g. 'vanity'." };
+      const { lines, more } = await getJobScopeLines(cfg, String(input.job_id), words);
+      return { documents: groupScopeLines(lines), ...(more ? { note: "More lines matched; narrow the words." } : {}) };
     },
   },
   {

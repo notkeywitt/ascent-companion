@@ -68,6 +68,8 @@ export type ChatEvent =
   | { type: "tool"; name: string }
   | { type: "tool_result"; name: string; ok: boolean }
   | { type: "done" }
+  /** The text so far is withdrawn: a larger model is writing the answer again (`escalate`). */
+  | { type: "reset" }
   | { type: "error"; error: string };
 
 export interface RunChatOptions {
@@ -84,6 +86,41 @@ export interface RunChatOptions {
   tools?: string[];
   /** Tools built for this one request (AscentBot's link and note tools). */
   extraTools?: ChatTool[];
+  /**
+   * Hand a hard question to a larger model. From round `afterRounds + 1` on,
+   * every round runs on `model`. And when a round on the small model ends with
+   * an answer `retryIf` rejects (it gave up), that answer is withdrawn (a
+   * `reset` event) and the larger model writes it again from the same lookups.
+   * One-way: once on the larger model, the loop stays there.
+   */
+  escalate?: { model: string; afterRounds: number; retryIf?: (text: string) => boolean };
+}
+
+/**
+ * One round on the larger model. Sonnet 5.5 refuses `thinking: disabled`, so it
+ * thinks adaptively at medium effort, and runs through the beta endpoint for
+ * the server-side refusal fallback.
+ */
+type RoundStream = ReturnType<Anthropic["messages"]["stream"]>;
+
+function bigRound(
+  model: string,
+  system: string,
+  tools: ReturnType<typeof anthropicToolDefs>,
+  convo: Anthropic.MessageParam[],
+): RoundStream {
+  // The beta stream emits the same "text" deltas and final message the loop reads.
+  return client().beta.messages.stream({
+    model,
+    max_tokens: MAX_TOKENS,
+    thinking: { type: "adaptive" },
+    output_config: { effort: "medium" },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
+    system,
+    tools,
+    messages: convo,
+  } as unknown as Parameters<Anthropic["beta"]["messages"]["stream"]>[0]) as unknown as RoundStream;
 }
 
 /**
@@ -101,6 +138,7 @@ export async function runChat({
   extraSystem,
   tools: only,
   extraTools = [],
+  escalate,
 }: RunChatOptions): Promise<void> {
   const cfg = getPaveConfig();
   const system = extraSystem ? `${buildSystem(jobId)}\n\n${extraSystem}` : buildSystem(jobId);
@@ -114,24 +152,42 @@ export async function runChat({
   const t0 = Date.now();
   const tag = `[chat:${feature}]`;
 
+  let big = false;
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     const roundStart = Date.now();
-    const stream = client().messages.stream({
-      model,
-      max_tokens: MAX_TOKENS,
-      thinking: { type: "disabled" },
-      system,
-      tools,
-      messages: convo,
+    if (escalate && iter >= escalate.afterRounds) big = true;
+    const roundModel = big && escalate ? escalate.model : model;
+    const stream: RoundStream =
+      big && escalate
+        ? bigRound(escalate.model, system, tools, convo)
+        : client().messages.stream({
+            model,
+            max_tokens: MAX_TOKENS,
+            thinking: { type: "disabled" },
+            system,
+            tools,
+            messages: convo,
+          });
+    let roundText = "";
+    stream.on("text", (delta: string) => {
+      roundText += delta;
+      onEvent({ type: "text", text: delta });
     });
-    stream.on("text", (delta) => onEvent({ type: "text", text: delta }));
 
-    const message = await stream.finalMessage();
+    const message: Anthropic.Message = await stream.finalMessage();
     console.log(
-      `${tag} round ${iter + 1}: ${Date.now() - roundStart}ms, ${message.usage.input_tokens} in / ` +
+      `${tag} round ${iter + 1} (${roundModel}): ${Date.now() - roundStart}ms, ${message.usage.input_tokens} in / ` +
         `${message.usage.output_tokens} out, stop=${message.stop_reason}`,
     );
-    trackClaudeUsage(feature, model, message.usage, jobId ?? "");
+    trackClaudeUsage(feature, roundModel, message.usage, jobId ?? "");
+
+    // The small model gave up: withdraw its answer and let the larger one try from the same lookups.
+    if (escalate && !big && message.stop_reason !== "tool_use" && escalate.retryIf?.(roundText)) {
+      console.log(`${tag} escalating to ${escalate.model}: the answer gave up`);
+      onEvent({ type: "reset" });
+      big = true;
+      continue;
+    }
     convo.push({ role: "assistant", content: message.content });
 
     if (message.stop_reason !== "tool_use") {

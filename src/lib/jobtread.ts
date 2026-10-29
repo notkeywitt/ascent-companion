@@ -8086,6 +8086,98 @@ export async function getBoughtLines(
   return { lines, more: rows.length >= BILL_LINE_PAGES * PAVE_PAGE_SIZE };
 }
 
+/** One line of a client document (proposal, selection, change order), as AscentBot reads it. No prices. */
+export interface ScopeLine {
+  document: string;
+  documentNumber: string;
+  status: string;
+  /** YYYY-MM-DD */
+  issueDate: string;
+  name: string;
+  description: string;
+  costCode: string;
+  /** The line's group, e.g. "Selections", and the group's own note (often the decision and who made it). */
+  group: string;
+  groupNote: string;
+  /** On a selection: true for the option chosen, false for one passed over. */
+  isSelected: boolean | null;
+}
+
+/** Pages read by `getJobScopeLines`. A proposal runs to tens of lines, not thousands. */
+const SCOPE_PAGES = 3;
+
+/**
+ * The lines of a job's client documents — the type JobTread calls
+ * `customerOrder`: proposals, selections, change orders — that mention ANY of
+ * `words` in the line's name or description, its group's name or note, its
+ * cost code, or the document's name. Newest document first. Denied documents
+ * are left out; pending ones come back with their status. `isSelected` says
+ * which option of a selection was chosen. Never a price. Read-only. Fields
+ * confirmed live 2026-10-29.
+ */
+export async function getJobScopeLines(
+  cfg: PaveConfig,
+  jobId: string,
+  words: string[],
+): Promise<{ lines: ScopeLine[]; more: boolean }> {
+  const like = (path: string[], w: string) => [path, "like", `%${w}%`];
+  const match = words
+    .map((w) => w.replace(/[%_]/g, ""))
+    .filter(Boolean)
+    .flatMap((w) => [
+      like(["name"], w),
+      like(["description"], w),
+      like(["costGroup", "name"], w),
+      like(["costGroup", "description"], w),
+      like(["costCode", "name"], w),
+      like(["document", "name"], w),
+    ]);
+  const where = {
+    and: [
+      [["document", "type"], "customerOrder"],
+      [["document", "status"], "!=", "denied"],
+      ...(match.length ? [{ or: match }] : []),
+    ],
+  };
+  const rows = await pageAll<any>(cfg, {
+    label: "job.costItems (client documents)",
+    stopAfterPages: SCOPE_PAGES,
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        costItems: {
+          $: { ...args, where, sortBy: [{ field: ["document", "issueDate"], order: "desc" }] },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            description: {},
+            isSelected: {},
+            costCode: { number: {}, name: {} },
+            costGroup: { name: {}, description: {} },
+            document: { name: {}, number: {}, status: {}, issueDate: {} },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.costItems,
+  });
+  const lines = rows.map((r) => ({
+    document: String(r.document?.name ?? ""),
+    documentNumber: String(r.document?.number ?? ""),
+    status: String(r.document?.status ?? ""),
+    issueDate: String(r.document?.issueDate ?? "").slice(0, 10),
+    name: String(r.name ?? ""),
+    description: String(r.description ?? ""),
+    costCode: [r.costCode?.number, r.costCode?.name].filter(Boolean).join(" "),
+    group: String(r.costGroup?.name ?? ""),
+    groupNote: String(r.costGroup?.description ?? ""),
+    isSelected: typeof r.isSelected === "boolean" ? r.isSelected : null,
+  }));
+  return { lines, more: rows.length >= SCOPE_PAGES * PAVE_PAGE_SIZE };
+}
+
 /** One to-do to create in JobTread — the input to `createToDo` below. */
 export interface NewToDo {
   /** What to do. Required; JobTread collapses runs of whitespace. */

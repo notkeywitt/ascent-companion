@@ -19,7 +19,7 @@ vi.mock("@/lib/jobtread", async (orig) => ({
 }));
 
 import type { ChatTurn } from "./chatMemory";
-import { CHAT_TOOLS, hasAnyWord, summarizeJobTime } from "./chatTools";
+import { CHAT_TOOLS, groupScopeLines, hasAnyWord, summarizeJobTime } from "./chatTools";
 import type { JobRef, PaveConfig } from "./jobtread";
 import {
   BOT_TOOLS,
@@ -226,6 +226,10 @@ describe("botTools", () => {
       expect.anything(),
     );
     expect(ctx.gapReported).toBe(true);
+    callAppsScriptOrThrow.mockClear();
+    expect(await tool("report_gap").handler(cfg, { question: "gate code?" })).toEqual({ sent: true });
+    expect(callAppsScriptOrThrow).not.toHaveBeenCalled(); // once per question
+    ctx.gapReported = false;
     callAppsScriptOrThrow.mockRejectedValueOnce(new Error("down"));
     expect(await tool("report_gap").handler(cfg, { question: "gate code?" })).toEqual({ sent: false });
   });
@@ -310,5 +314,37 @@ describe("summarizeJobTime", () => {
     const s = summarizeJobTime({ lines: [line("Ty", "2026-10-01T08:00:00", 60, "")], count: 1500, minutes: 90000, more: true });
     expect(s.totalHours).toBe(1500);
     expect(s.note).toMatch(/all 1500 entries/);
+  });
+});
+
+describe("groupScopeLines", () => {
+  const line = (name: string, isSelected: boolean | null, number = "204") => ({
+    document: "Selection",
+    documentNumber: number,
+    status: "approved",
+    issueDate: "2026-07-06",
+    name,
+    description: "",
+    costCode: "07 62 00 Living Roof System",
+    group: "Selections",
+    groupNote: "From Bill Ferron: yes to rocks",
+    isSelected,
+  });
+
+  it("groups by document, keeps the note once, and marks the chosen option", () => {
+    const out = groupScopeLines([line("YES ROCKS", true), line("NO ROCKS", false), line("Deck scope", null, "116")]);
+    expect(out).toHaveLength(2);
+    expect(out[0]).toMatchObject({ document: "Selection #204", status: "approved", date: "2026-07-06" });
+    expect(out[0].groups).toEqual([
+      {
+        group: "Selections",
+        note: "From Bill Ferron: yes to rocks",
+        lines: [
+          { name: "YES ROCKS", costCode: "07 62 00 Living Roof System", option: "chosen" },
+          { name: "NO ROCKS", costCode: "07 62 00 Living Roof System", option: "not chosen" },
+        ],
+      },
+    ]);
+    expect(out[1].groups[0].lines[0]).not.toHaveProperty("option");
   });
 });

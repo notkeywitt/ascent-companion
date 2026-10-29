@@ -186,6 +186,7 @@ export const helpText = () =>
 export const BOT_TOOLS = [
   "list_jobs",
   "get_job_selections",
+  "search_job_scope",
   "search_job_documents",
   "search_job_bills",
   "get_job_time",
@@ -213,6 +214,8 @@ export const CHAT_SYSTEM = [
   "  job documents, schedule, notes, files, calendar, email, Drive). Name the source of each fact",
   "  (\"per the spec list rev C\", \"daily log Oct 12\", \"noted by Ty on Oct 3\").",
   "  If sources disagree, give the newest and say so.",
+  "- For what the client chose or agreed to (a selection, an option, scope, a change), call",
+  "  search_job_scope as well as get_job_selections. Name the document (\"Selection #204, Jul 6\").",
   "- For a material, color, finish or product (\"what color is the roof?\"), also call",
   "  search_job_bills with the trade or material (\"roof\"). Product names on bills often",
   "  carry the color. Say the answer is inferred from bills, and name the line and bill.",
@@ -340,6 +343,8 @@ export function looksUnanswered(text: string): boolean {
  * email must never cost the person their answer, so this never throws.
  */
 export async function reportGap(ctx: BotContext, question: string, reason: string): Promise<boolean> {
+  // Once per question: a larger model rewriting the answer may call report_gap again.
+  if (ctx.gapReported) return true;
   try {
     const res = (await callAppsScriptOrThrow(
       {

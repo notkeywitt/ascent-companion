@@ -92,6 +92,15 @@ const STILL_LOOKING = "Still looking. I'll post the answer in this thread when I
 /** An answer posted later must land before the route's 300 s run ends. */
 const LATER_MS = 270_000;
 
+/**
+ * The larger model for a hard question: rounds after the second, and a retry
+ * when the small model's answer gives up. "off" keeps every round on the small one.
+ */
+function escalation() {
+  const model = process.env.GOOGLE_CHAT_HARD_MODEL?.trim() || "claude-sonnet-5-5";
+  return model === "off" ? undefined : { model, afterRounds: 2, retryIf: looksUnanswered };
+}
+
 const sleep = (ms: number) => new Promise<null>((done) => setTimeout(() => done(null), ms));
 
 /** Claude's answer as one string. Never rejects: a failure becomes the answer's text. */
@@ -106,7 +115,9 @@ function askClaude(messages: Anthropic.MessageParam[], ctx: BotContext, jobConte
       extraSystem: `${CHAT_SYSTEM}\n\n${jobContext}`,
       tools: BOT_TOOLS,
       extraTools: botTools(ctx),
+      escalate: escalation(),
       onEvent: (e) => {
+        if (e.type === "reset") text = "";
         if (e.type === "text") text += e.text;
         if (e.type === "error") text += `\n${e.error}`;
       },
