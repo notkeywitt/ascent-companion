@@ -23,6 +23,8 @@ import {
   type BotContext,
   type GoogleChatEvent,
 } from "@/lib/googleChat";
+import { LONG_READ, readerTime } from "@/lib/fileReader";
+import { canPostLater, postToChat } from "@/lib/googleChatPost";
 import { getJobs } from "@/lib/jobtread";
 
 // Google Chat posts every event in the bot's spaces here. It carries no Google
@@ -30,7 +32,7 @@ import { getJobs } from "@/lib/jobtread";
 // authenticates the caller itself: a Google-signed token whose audience is this
 // endpoint's URL and whose subject is Google's own account for this Chat app.
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const GOOGLE_CERTS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 
@@ -86,36 +88,37 @@ async function overMonthlyCap(): Promise<boolean> {
 }
 
 const TOO_LONG = "That took too long to look up. Try a narrower question, or the Assistant page in the app.";
+const STILL_LOOKING = "Still looking. I'll post the answer in this thread when I have it.";
+/** An answer posted later must land before the route's 300 s run ends. */
+const LATER_MS = 270_000;
 
-async function askClaude(
-  messages: Anthropic.MessageParam[],
-  ctx: BotContext,
-  jobContext: string,
-): Promise<{ text: string; timedOut: boolean }> {
-  const start = Date.now();
+const sleep = (ms: number) => new Promise<null>((done) => setTimeout(() => done(null), ms));
+
+/** Claude's answer as one string. Never rejects: a failure becomes the answer's text. */
+function askClaude(messages: Anthropic.MessageParam[], ctx: BotContext, jobContext: string): Promise<string> {
   let text = "";
-  const answer = runChat({
-    messages,
-    jobId: ctx.job?.jobId,
-    model: process.env.GOOGLE_CHAT_MODEL?.trim() || "claude-haiku-5-5",
-    feature: "google-chat",
-    extraSystem: `${CHAT_SYSTEM}\n\n${jobContext}`,
-    tools: BOT_TOOLS,
-    extraTools: botTools(ctx),
-    onEvent: (e) => {
-      if (e.type === "text") text += e.text;
-      if (e.type === "error") text += `\n${e.error}`;
+  const run = () =>
+    runChat({
+      messages,
+      jobId: ctx.job?.jobId,
+      model: process.env.GOOGLE_CHAT_MODEL?.trim() || "claude-haiku-5-5",
+      feature: "google-chat",
+      extraSystem: `${CHAT_SYSTEM}\n\n${jobContext}`,
+      tools: BOT_TOOLS,
+      extraTools: botTools(ctx),
+      onEvent: (e) => {
+        if (e.type === "text") text += e.text;
+        if (e.type === "error") text += `\n${e.error}`;
+      },
+    });
+  // With a way to answer later, the file reader may take longer over a long scan.
+  return (canPostLater() ? readerTime.run(LONG_READ, run) : run()).then(
+    () => text.trim() || "I couldn't find an answer to that.",
+    (e) => {
+      console.error(`[google-chat] answer failed: ${e instanceof Error ? e.message : e}`);
+      return "Something went wrong looking that up. Try again, or use the Assistant page in the app.";
     },
-  }).then(() => ({ text: text.trim() || "I couldn't find an answer to that.", timedOut: false }));
-  const late = new Promise<{ text: string; timedOut: boolean }>((done) =>
-    setTimeout(() => {
-      // The [chat:google-chat] lines before this one show which round or tool was slow.
-      const q = messages[messages.length - 1]?.content;
-      console.warn(`[google-chat] deadline hit after ${Date.now() - start}ms: ${String(q).slice(0, 200)}`);
-      done({ text: TOO_LONG, timedOut: true });
-    }, DEADLINE_MS),
   );
-  return Promise.race([answer, late]);
 }
 
 /** Memory is best-effort: a failed read or write is logged, never fails the reply. */
@@ -177,24 +180,44 @@ export async function POST(req: NextRequest) {
       saveTurn({ ...where, jobId: linked?.jobId ?? "", kind: "question", author: ask.name, text: ask.text }),
       undefined,
     );
-    const { text, timedOut } = await askClaude(buildHistory(turns, { name: ask.name, text: ask.text }), ctx, jobContext);
+    const start = Date.now();
+    const answer = askClaude(buildHistory(turns, { name: ask.name, text: ask.text }), ctx, jobContext);
     // ctx.job, not `linked`: the answer may have just tied the space to a job.
-    if (!timedOut) {
+    const keep = async (text: string) => {
       await quietly(
         "saving the answer",
         saveTurn({ ...where, jobId: ctx.job?.jobId ?? "", kind: "answer", author: "", text }),
         undefined,
       );
-      // Claude skips report_gap at times, so a "found nothing" answer emails the
-      // office here. After the reply: Google stops waiting at 30s.
+      // Claude skips report_gap at times, so a "found nothing" answer emails the office here.
       if (!ctx.gapReported && looksUnanswered(text)) {
-        after(async () => {
-          const sent = await reportGap(ctx, ask.text, `AscentBot did not report this itself. Its answer:\n${text}`);
-          console.log(`[google-chat] fallback report_gap: ${sent ? "sent" : "failed"}`);
-        });
+        const sent = await reportGap(ctx, ask.text, `AscentBot did not report this itself. Its answer:\n${text}`);
+        console.log(`[google-chat] fallback report_gap: ${sent ? "sent" : "failed"}`);
       }
+    };
+
+    const quick = await Promise.race([answer, sleep(DEADLINE_MS)]);
+    if (quick !== null) {
+      // After the reply: Google stops waiting at 30s.
+      after(() => keep(quick));
+      return reply(quick);
     }
-    return reply(text);
+    // The [chat:google-chat] lines before this one show which round or tool was slow.
+    console.warn(`[google-chat] deadline hit after ${Date.now() - start}ms: ${ask.text.slice(0, 200)}`);
+    if (!canPostLater()) return reply(TOO_LONG);
+
+    // Answer later: the reply says so now, and the answer is posted in the thread.
+    after(async () => {
+      const late = await Promise.race([answer, sleep(LATER_MS - (Date.now() - start))]);
+      try {
+        await postToChat(ask.space, ask.thread, late ?? TOO_LONG);
+        console.log(`[google-chat] posted a later answer after ${Date.now() - start}ms`);
+      } catch (e) {
+        console.error(`[google-chat] posting the later answer failed: ${e instanceof Error ? e.message : e}`);
+      }
+      if (late !== null) await keep(late);
+    });
+    return reply(STILL_LOOKING);
   } catch (e) {
     console.error(`[google-chat] ${e instanceof Error ? e.message : e}`);
     return reply("Something went wrong looking that up. Try again, or use the Assistant page in the app.");

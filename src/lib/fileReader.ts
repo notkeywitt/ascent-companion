@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { fileTexts } from "@/db/schema";
@@ -26,18 +27,27 @@ import { findSnippets, pageText, scanText } from "@/lib/specDocs";
  * no second fetch. A JobTread file never changes; a Drive file is read again
  * after DRIVE_FRESH_MS. A failed read is never kept, so it is tried again.
  *
- * Google Chat gives the bot 25 s for its whole answer, so the waits here are
- * short and a long scan is left unread. Read-only everywhere. Server-only.
+ * The waits are short by default: Google Chat gives an inline answer 25 s, and
+ * the /chat page 60 s. A caller that can answer later (AscentBot with its
+ * service account) runs the read inside `readerTime.run(LONG_READ, …)` and gets
+ * longer waits and longer scans. Read-only everywhere. Server-only.
  */
 
 /** Characters of text handed back per call — about three dense pages. */
 const CHUNK_CHARS = 8_000;
 /** Text kept per file, about 100 dense pages (the same ceiling as /specs). */
 const TEXT_MAX = 400_000;
-const FETCH_TIMEOUT_MS = 15_000;
-/** A scan is read only when short enough to finish inside the bot's answer. */
-const OCR_MAX_PAGES = 4;
-const OCR_TIMEOUT_MS = 15_000;
+export interface ReaderTime {
+  fetchMs: number;
+  /** A scan is read only when short enough to finish inside the answer. */
+  ocrPages: number;
+  ocrMs: number;
+}
+const QUICK_READ: ReaderTime = { fetchMs: 15_000, ocrPages: 4, ocrMs: 15_000 };
+/** For an answer posted later: the 300 s route, after the rounds before the read. */
+export const LONG_READ: ReaderTime = { fetchMs: 60_000, ocrPages: 10, ocrMs: 120_000 };
+export const readerTime = new AsyncLocalStorage<ReaderTime>();
+const limits = () => readerTime.getStore() ?? QUICK_READ;
 const BYTES_MAX = 20 * 1024 * 1024;
 const DRIVE_FRESH_MS = 24 * 60 * 60 * 1000;
 
@@ -70,14 +80,15 @@ export const isJobTreadFileUrl = (url: string) => {
 async function textOf(bytes: Uint8Array): Promise<{ pages: number; text: string; note: string }> {
   const read = await extractPdfText(bytes);
   if (read.text.replace(/\[Page \d+\]/g, "").trim()) return { pages: read.pages, text: read.text, note: "" };
-  if (read.pages > OCR_MAX_PAGES) {
+  const { ocrPages, ocrMs } = limits();
+  if (read.pages > ocrPages) {
     return {
       pages: read.pages,
       text: "",
-      note: `A scan of ${read.pages} pages. Only a scan of ${OCR_MAX_PAGES} pages or fewer can be read in time; give the link.`,
+      note: `A scan of ${read.pages} pages. Only a scan of ${ocrPages} pages or fewer can be read in time; give the link.`,
     };
   }
-  const text = scanText(await ocrScanWithClaude(Buffer.from(bytes), OCR_TIMEOUT_MS));
+  const text = scanText(await ocrScanWithClaude(Buffer.from(bytes), ocrMs));
   return { pages: read.pages, text, note: "A scan, read by AI. Check key numbers against the file." };
 }
 
@@ -86,7 +97,7 @@ async function fetchDrive(id: string): Promise<Omit<Read, "key"> | string> {
   if (!rootId) return "Drive reading is not set up (JOB_FOLDERS_DRIVE_ID is empty).";
   const pdf = await callAppsScriptOrThrow<{ name?: string; data: string; inTree?: boolean }>(
     { action: "getDriveFilePdf", id, rootId },
-    { timeoutMs: FETCH_TIMEOUT_MS, retry: false },
+    { timeoutMs: limits().fetchMs, retry: false },
   );
   // Only an Apps Script deploy that checked the folder tree says so. An older one
   // ignores rootId, so its answer is refused rather than trusted.
@@ -103,7 +114,7 @@ async function fetchJobTread(cfg: PaveConfig, fileId: string): Promise<Omit<Read
   }
   if (f.size > BYTES_MAX) return `"${f.name}" is over 20 MB.`;
   if (!isJobTreadFileUrl(f.url)) return "JobTread gave no download link for that file.";
-  const res = await fetch(f.url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  const res = await fetch(f.url, { signal: AbortSignal.timeout(limits().fetchMs) });
   if (!res.ok) throw new Error(`JobTread's file link answered ${res.status}.`);
   const bytes = new Uint8Array(await res.arrayBuffer());
   if (bytes.length > BYTES_MAX) return `"${f.name}" is over 20 MB.`;
@@ -125,6 +136,8 @@ export async function readFileText(cfg: PaveConfig, src: FileSource): Promise<Re
   const got = driveId ? await fetchDrive(driveId) : await fetchJobTread(cfg, jtId);
   if (typeof got === "string") return got;
   const values = { ...got, text: got.text.slice(0, TEXT_MAX), readAt: new Date().toISOString() };
+  // A scan left unread is not kept: a later read with more time may read it.
+  if (!values.text) return { key, ...values };
   await db
     .insert(fileTexts)
     .values({ key, ...values })
