@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascentbot-architecture-08o3ez
 status: shipped
 started: 2026-10-28T05:54:35Z
-updated: 2026-10-29T20:30:22Z
+updated: 2026-10-29T22:16:59Z
 goal: 
 next: REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.
 ---
@@ -20,6 +20,8 @@ next: REMIND OWNER — AscentBot phase 2: read every message in a job space (ser
   src/lib/googleChat.test.ts, src/lib/googleChat.ts
 - 2026-10-29 20:30 · `72ef214` companion: ascentbot searches employees, vendors, projects and other office records
   src/lib/chatTools.ts, src/lib/googleChat.ts
+- 2026-10-29 22:16 · `fc11393` companion: ascentbot looks up staff details instead of refusing them
+  src/lib/googleChat.ts
 
 ## Notes
 - 2026-10-28 14:29 — Owner (2026-10-28): AscentBot is for job decisions and details (tile, plumber date), not money. Team uses plain language, no slash commands. Phase 2 the owner wants later: read EVERY message in a job space, not only @mentions — needs a Chat service account + Workspace-admin approval of chat.app.messages.readonly + Chat API spaces.messages.list. Remind the owner.
