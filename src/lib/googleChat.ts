@@ -27,13 +27,10 @@
  * thread. That needs no service account and no Chat API key, but Google only
  * waits 30 seconds for it — hence the deadline in the route.
  *
- * LATER — the owner asked for this, 2026-10-28: read EVERY message in a job
- * space, not only @mentions, so "the tile is delayed to Friday" said between
- * two people is remembered too. Google only sends a Chat app the messages that
- * @mention it. Reading the rest needs a service account (a robot Google login)
- * for the Chat app, a Workspace admin's approval of the
- * `chat.app.messages.readonly` scope, and a read of the Chat API's
- * `spaces.messages.list` per space. `chat_turns.thread` is already kept for it.
+ * EVERY MESSAGE, not only @mentions (asked for 2026-10-28): Google sends a
+ * Chat app only its @mentions, so chatSync.ts READS each job space through the
+ * Chat API — before each question there, and daily for every space — and keeps
+ * what people said as "said" turns. Off until GOOGLE_CHAT_READ_SPACES=on.
  *
  * Server-only (the command runner holds the Pave config). Never import from a
  * client component.
@@ -75,11 +72,12 @@ export const COMMANDS: Record<number, { name: string; usage: string }> = {
 /** `space` and `thread` are Google's resource names ("spaces/AAAA…"); "" when absent. */
 export type ChatAsk =
   | { kind: "added" }
-  | { kind: "command"; email: string; name: string; space: string; thread: string; commandId: number; arg: string }
-  | { kind: "question"; email: string; name: string; space: string; thread: string; text: string }
+  | { kind: "command"; email: string; name: string; user: string; space: string; thread: string; commandId: number; arg: string }
+  | { kind: "question"; email: string; name: string; user: string; space: string; thread: string; text: string }
   | { kind: "ignore" };
 
-type ChatUser = { email?: string; displayName?: string; type?: string };
+/** `name` is Google's "users/123" — how the Chat API names a message's sender. */
+type ChatUser = { name?: string; email?: string; displayName?: string; type?: string };
 type Named = { name?: string };
 type ChatMessage = {
   text?: string;
@@ -134,6 +132,7 @@ export function parseEvent(raw: GoogleChatEvent | null | undefined): ChatAsk {
 
   const email = (ev.user?.email ?? "").trim().toLowerCase();
   const name = (ev.user?.displayName ?? "").trim();
+  const user = String(ev.user?.name ?? "");
   const msg = ev.message ?? {};
   const text = String(msg.argumentText ?? msg.text ?? "").trim();
   const commandId = Number(msg.slashCommand?.commandId ?? ev.appCommandMetadata?.appCommandId);
@@ -141,10 +140,10 @@ export function parseEvent(raw: GoogleChatEvent | null | undefined): ChatAsk {
   const thread = String(msg.thread?.name ?? "");
 
   if (Number.isFinite(commandId) && commandId > 0) {
-    return { kind: "command", email, name, space, thread, commandId, arg: text };
+    return { kind: "command", email, name, user, space, thread, commandId, arg: text };
   }
   if (!text) return { kind: "ignore" };
-  return { kind: "question", email, name, space, thread, text };
+  return { kind: "question", email, name, user, space, thread, text };
 }
 
 /** Words people say around a job's name that are not part of it ("the Smith job"). */
@@ -213,7 +212,8 @@ export const CHAT_SYSTEM = [
   "schedule, who is coming when. The other rules above about bills and billing do not apply.",
   "For a money question (cost, budget, invoices, bills), say the Ascent app has it.",
   "What a bill BOUGHT is not a money question: search_job_bills gives products, never amounts.",
-  "- Earlier messages in this space are included above the new one. Use them.",
+  "- Earlier messages in this space are included above the new one. Use them. They include",
+  "  what people said to each other in the space (\"said\"), not only what they asked you.",
   "- Look before you answer: search_job_memory, then the source that fits (selections,",
   "  job documents, schedule, notes, files, calendar, email, Drive). Name the source of each fact",
   "  (\"per the spec list rev C\", \"daily log Oct 12\", \"noted by Ty on Oct 3\").",
@@ -360,7 +360,7 @@ export function buildHistory(
   const said = (t: ChatTurn) =>
     t.kind === "answer"
       ? t.text
-      : `[${shortDate(t.at)}] ${t.author || "Someone"} ${t.kind === "note" ? "noted" : "asks"}: ${t.text}`;
+      : `[${shortDate(t.at)}] ${t.author || "Someone"} ${t.kind === "note" ? "noted" : t.kind === "said" ? "said" : "asks"}: ${t.text}`;
   const now = `${question.name || "Someone"} asks: ${question.text}`;
   let budget = maxChars - now.length;
   const kept: ChatTurn[] = [];

@@ -9,6 +9,10 @@
     {
       "path": "/api/digest/run",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/google-chat/sync",
+      "schedule": "41 10 * * *"
     }
   ]
 }

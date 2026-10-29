@@ -1665,3 +1665,21 @@ export const fileTexts = sqliteTable("file_texts", {
   note: text("note").notNull().default(""),
   readAt: text("read_at").notNull(),
 });
+
+/** How far AscentBot has read each job space's messages (chatSync.ts): the newest createTime stored. */
+export const chatSpaceSync = sqliteTable("chat_space_sync", {
+  space: text("space").primaryKey(),
+  syncedTo: text("synced_to").notNull(),
+});
+
+/**
+ * Display names of the people seen in Chat, keyed by Google's "users/123". The
+ * Chat API lists a message's sender by that id alone under app authentication,
+ * so names are learned from the events people send the bot.
+ */
+export const chatUsers = sqliteTable("chat_users", {
+  user: text("user").primaryKey(),
+  name: text("name").notNull().default(""),
+  email: text("email").notNull().default(""),
+  seenAt: text("seen_at").notNull(),
+});

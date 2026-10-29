@@ -19,6 +19,8 @@
  */
 
 const CHAT_SCOPE = "https://www.googleapis.com/auth/chat.bot";
+/** Read every message in the app's spaces. App authentication; a Workspace admin approves it once. */
+const READ_SCOPE = "https://www.googleapis.com/auth/chat.app.messages.readonly";
 
 interface Federation {
   audience: string;
@@ -50,7 +52,16 @@ export function vercelOidcToken(headers: Headers): string {
 
 export const canPostLater = (oidcToken: string) => federation() !== null && !!oidcToken;
 
-let cached: { token: string; until: number } | null = null;
+/**
+ * Reading whole spaces needs the admin-approved scope, so it stays off until
+ * GOOGLE_CHAT_READ_SPACES=on is set after that approval — otherwise every
+ * question would log a refused read.
+ */
+export const canReadSpaces = (oidcToken: string) =>
+  canPostLater(oidcToken) && process.env.GOOGLE_CHAT_READ_SPACES?.trim() === "on";
+
+/** One token per scope set: the read scope may be refused while posting still works. */
+const cached = new Map<string, { token: string; until: number }>();
 
 async function postJson<T>(url: string, body: unknown, bearer?: string): Promise<T> {
   const res = await fetch(url, {
@@ -67,8 +78,10 @@ async function postJson<T>(url: string, body: unknown, bearer?: string): Promise
   return out;
 }
 
-async function accessToken(fed: Federation, oidcToken: string): Promise<string> {
-  if (cached && Date.now() < cached.until) return cached.token;
+async function accessToken(fed: Federation, oidcToken: string, scopes: string[] = [CHAT_SCOPE]): Promise<string> {
+  const key = scopes.join(" ");
+  const hit = cached.get(key);
+  if (hit && Date.now() < hit.until) return hit.token;
   // 1. Vercel's token → a Google federated token.
   const sts = await postJson<{ access_token: string }>("https://sts.googleapis.com/v1/token", {
     grantType: "urn:ietf:params:oauth:grant-type:token-exchange",
@@ -81,11 +94,11 @@ async function accessToken(fed: Federation, oidcToken: string): Promise<string> 
   // 2. That token borrows the Chat app's service account, for Chat only.
   const sa = await postJson<{ accessToken: string; expireTime: string }>(
     `https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${encodeURIComponent(fed.serviceAccount)}:generateAccessToken`,
-    { scope: [CHAT_SCOPE], lifetime: "3600s" },
+    { scope: scopes, lifetime: "3600s" },
     sts.access_token,
   );
   // Renewed a minute early, so a token never runs out mid-call.
-  cached = { token: sa.accessToken, until: Date.parse(sa.expireTime) - 60_000 };
+  cached.set(key, { token: sa.accessToken, until: Date.parse(sa.expireTime) - 60_000 });
   return sa.accessToken;
 }
 
@@ -104,4 +117,48 @@ export async function postToChat(space: string, thread: string, text: string, oi
     { text, ...(thread ? { thread: { name: thread } } : {}) },
     await accessToken(fed, oidcToken),
   );
+}
+
+/** One message as the Chat API lists it, with only the fields AscentBot reads. */
+export interface ChatApiMessage {
+  name: string;
+  createTime: string;
+  text?: string;
+  sender?: { name?: string; displayName?: string; type?: string };
+  thread?: { name?: string };
+  slashCommand?: unknown;
+  annotations?: { type?: string; userMention?: { user?: { type?: string } } }[];
+}
+
+/**
+ * A space's messages created after `sinceIso`, oldest first, at most
+ * `maxPages` pages of 100. `more` is true when the walk stopped with messages
+ * left, so the caller saves its cursor and picks up from there next time.
+ */
+export async function listSpaceMessages(
+  space: string,
+  sinceIso: string,
+  oidcToken: string,
+  maxPages = 5,
+): Promise<{ messages: ChatApiMessage[]; more: boolean }> {
+  const fed = federation();
+  if (!fed || !oidcToken) throw new Error("Workload Identity Federation is not set up.");
+  if (!/^spaces\/[\w-]+$/.test(space)) throw new Error(`Not a Chat space: "${space}".`);
+  const token = await accessToken(fed, oidcToken, [READ_SCOPE]);
+  const messages: ChatApiMessage[] = [];
+  let pageToken = "";
+  for (let page = 0; page < maxPages; page++) {
+    const url = new URL(`https://chat.googleapis.com/v1/${space}/messages`);
+    url.searchParams.set("pageSize", "100");
+    url.searchParams.set("orderBy", "createTime asc");
+    url.searchParams.set("filter", `createTime > "${sinceIso}"`);
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) throw new Error(`Chat API answered ${res.status}: ${(await res.text()).slice(0, 300)}`);
+    const body = (await res.json()) as { messages?: ChatApiMessage[]; nextPageToken?: string };
+    messages.push(...(body.messages ?? []));
+    pageToken = body.nextPageToken ?? "";
+    if (!pageToken) return { messages, more: false };
+  }
+  return { messages, more: true };
 }

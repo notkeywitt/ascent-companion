@@ -633,8 +633,9 @@ export const CHAT_TOOLS: ChatTool[] = [
   {
     name: "search_job_memory",
     description:
-      "What people told AscentBot about a job in Google Chat: decisions it was asked to " +
-      "remember, earlier questions and its answers, newest first, each with who and when. " +
+      "What was said about a job in its Google Chat space: decisions AscentBot was asked to " +
+      "remember, earlier questions and its answers, and (when space reading is on) what " +
+      "people said to each other there, newest first, each with who and when. " +
       "Check this for any decision or detail before saying nothing is recorded.",
     input_schema: {
       type: "object",

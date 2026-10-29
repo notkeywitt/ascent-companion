@@ -5,7 +5,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import { readUsageByMonth } from "@/lib/aiUsage";
 import { runChat } from "@/lib/anthropic";
-import { getSpaceJob, recentTurns, saveTurn, type SpaceJob } from "@/lib/chatMemory";
+import { getSpaceJob, recentTurns, rememberChatUser, saveTurn, type SpaceJob } from "@/lib/chatMemory";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import {
   answerCollector,
@@ -25,7 +25,8 @@ import {
   type GoogleChatEvent,
 } from "@/lib/googleChat";
 import { LONG_READ, readerTime } from "@/lib/fileReader";
-import { canPostLater, postToChat, vercelOidcToken } from "@/lib/googleChatPost";
+import { canPostLater, canReadSpaces, postToChat, vercelOidcToken } from "@/lib/googleChatPost";
+import { syncSpace } from "@/lib/chatSync";
 import { getJobs } from "@/lib/jobtread";
 
 // Google Chat posts every event in the bot's spaces here. It carries no Google
@@ -89,6 +90,8 @@ async function overMonthlyCap(): Promise<boolean> {
 }
 
 const TOO_LONG = "That took too long to look up. Try a narrower question, or the Assistant page in the app.";
+/** The wait for reading a space before a question; past it the answer goes ahead without. */
+const SYNC_MS = 4_000;
 const STILL_LOOKING = "Still looking. I'll post the answer in this thread when I have it.";
 /** An answer posted later must land before the route's 300 s run ends. */
 const LATER_MS = 270_000;
@@ -163,6 +166,9 @@ export async function POST(req: NextRequest) {
   if (ask.kind === "ignore") return NextResponse.json({});
   if (ask.kind === "added") return reply(helpText());
 
+  // Learn the asker's name, so messages read from the space can say who wrote them.
+  await quietly("remembering the asker", rememberChatUser(ask.user, ask.name, ask.email), undefined);
+
   if (!canAsk(ask.email)) {
     return reply("Sorry, I only answer the pilot group for now. Ask the office to add you.");
   }
@@ -176,6 +182,19 @@ export async function POST(req: NextRequest) {
     if (/^(help|\?)$/i.test(ask.text)) return reply(helpText());
     if (!process.env.ANTHROPIC_API_KEY) return reply("AI answers are off for now. Ask the office.");
     if (await overMonthlyCap()) return reply("This month's AI budget for chat is used up. Ask the office.");
+
+    // Read while the request is live: Google sign-ins below and the later answer use it.
+    const oidc = vercelOidcToken(req.headers);
+    const later = canPostLater(oidc);
+    // Hear the space first, so what people said since the last read is in the history.
+    if (linked && canReadSpaces(oidc)) {
+      const got = await quietly(
+        "reading the space",
+        Promise.race([syncSpace(ask.space, linked.jobId, oidc, 2), sleep(SYNC_MS).then(() => -1)]),
+        0,
+      );
+      if (got === -1) console.warn("[google-chat] reading the space ran past its wait; answering without it");
+    }
 
     const [turns, jobs] = await Promise.all([
       quietly("reading the space's history", recentTurns(ask.space), []),
@@ -194,9 +213,6 @@ export async function POST(req: NextRequest) {
       undefined,
     );
     const start = Date.now();
-    // Read while the request is live: the later answer signs in to Google with it.
-    const oidc = vercelOidcToken(req.headers);
-    const later = canPostLater(oidc);
     const answer = askClaude(buildHistory(turns, { name: ask.name, text: ask.text }), ctx, jobContext, later);
     // ctx.job, not `linked`: the answer may have just tied the space to a job.
     const keep = async (text: string) => {

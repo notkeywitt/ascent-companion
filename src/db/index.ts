@@ -1235,6 +1235,20 @@ async function applySchema() {
       read_at TEXT NOT NULL
     )
   `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS chat_space_sync (
+      space TEXT PRIMARY KEY,
+      synced_to TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS chat_users (
+      user TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      email TEXT NOT NULL DEFAULT '',
+      seen_at TEXT NOT NULL
+    )
+  `);
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

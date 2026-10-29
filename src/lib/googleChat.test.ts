@@ -47,7 +47,7 @@ describe("parseEvent", () => {
   it("reads an @mention as a question, without the mention itself", () => {
     expect(
       parseEvent({ type: "MESSAGE", user, message: { text: "@Assistant what's unbilled?", argumentText: " what's unbilled?" } }),
-    ).toEqual({ kind: "question", email: "ty@ascentbuildingco.com", name: "Ty", space: "", thread: "", text: "what's unbilled?" });
+    ).toEqual({ kind: "question", email: "ty@ascentbuildingco.com", name: "Ty", user: "", space: "", thread: "", text: "what's unbilled?" });
   });
 
   it("reads both slash-command shapes", () => {
@@ -115,13 +115,14 @@ describe("matchJobs", () => {
 });
 
 describe("parseEvent, add-on app", () => {
-  const user = { email: "tommy@ascentbuildingco.com", displayName: "Tommy" };
+  const user = { name: "users/42", email: "tommy@ascentbuildingco.com", displayName: "Tommy" };
 
   it("reads a message, a command and being added", () => {
     expect(parseEvent({ chat: { user, messagePayload: { message: { argumentText: " over budget?" } } } })).toEqual({
       kind: "question",
       email: "tommy@ascentbuildingco.com",
       name: "Tommy",
+      user: "users/42",
       space: "",
       thread: "",
       text: "over budget?",

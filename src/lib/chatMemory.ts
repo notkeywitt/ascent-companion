@@ -1,17 +1,19 @@
 /**
  * AscentBot's memory — which job a Google Chat space is about, and what was
- * said to the bot there (questions, answers, decisions it was told to keep).
+ * said there: questions, answers, decisions it was told to keep, and (kind
+ * "said", once space reading is on) what people said to each other.
  *
- * Companion DB only (tables chat_space_jobs, chat_turns). Nothing here touches
- * JobTread. Server-only.
+ * Companion DB only (tables chat_space_jobs, chat_turns, chat_space_sync,
+ * chat_users). Nothing here touches JobTread. Server-only.
  */
 
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { chatSpaceJobs, chatTurns } from "@/db/schema";
+import { chatSpaceJobs, chatSpaceSync, chatTurns, chatUsers } from "@/db/schema";
 
-export type TurnKind = "question" | "answer" | "note";
+/** "said" = a message between people in the space, read by chatSync.ts. */
+export type TurnKind = "question" | "answer" | "note" | "said";
 
 export interface ChatTurn {
   kind: TurnKind;
@@ -61,10 +63,51 @@ export async function saveTurn(t: {
   kind: TurnKind;
   author: string;
   text: string;
+  /** When it was said. Defaults to now; a synced message keeps its own time. */
+  at?: string;
 }): Promise<void> {
   if (!t.space || !t.text.trim()) return;
   await ensureDb();
-  await db.insert(chatTurns).values({ ...t, text: t.text.trim(), at: new Date().toISOString() });
+  await db.insert(chatTurns).values({ ...t, text: t.text.trim(), at: t.at ?? new Date().toISOString() });
+}
+
+/** Every space tied to a job. */
+export async function linkedSpaces(): Promise<({ space: string } & SpaceJob)[]> {
+  await ensureDb();
+  const rows = await db.select().from(chatSpaceJobs);
+  return rows.map((r) => ({ space: r.space, jobId: r.jobId, jobName: r.jobName }));
+}
+
+/** The newest message time read from a space, "" before the first read. */
+export async function spaceSyncedTo(space: string): Promise<string> {
+  await ensureDb();
+  const [row] = await db.select().from(chatSpaceSync).where(eq(chatSpaceSync.space, space)).limit(1);
+  return row?.syncedTo ?? "";
+}
+
+export async function setSpaceSyncedTo(space: string, syncedTo: string): Promise<void> {
+  await ensureDb();
+  await db
+    .insert(chatSpaceSync)
+    .values({ space, syncedTo })
+    .onConflictDoUpdate({ target: chatSpaceSync.space, set: { syncedTo } });
+}
+
+/** Remember a person's display name from an event, keyed by Google's "users/123". */
+export async function rememberChatUser(user: string, name: string, email: string): Promise<void> {
+  if (!/^users\/\w+$/.test(user) || !name) return;
+  await ensureDb();
+  const row = { name, email, seenAt: new Date().toISOString() };
+  await db.insert(chatUsers).values({ user, ...row }).onConflictDoUpdate({ target: chatUsers.user, set: row });
+}
+
+/** Display names for "users/123" ids, as far as they are known. */
+export async function chatUserNames(users: string[]): Promise<Map<string, string>> {
+  const ids = [...new Set(users.filter(Boolean))];
+  if (!ids.length) return new Map();
+  await ensureDb();
+  const rows = await db.select().from(chatUsers).where(inArray(chatUsers.user, ids));
+  return new Map(rows.map((r) => [r.user, r.name]));
 }
 
 /**
