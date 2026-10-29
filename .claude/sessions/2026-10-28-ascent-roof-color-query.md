@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascent-roof-color-query-qdypqk
 status: shipped
 started: 2026-10-28T20:05:30Z
-updated: 2026-10-29T02:38:34Z
+updated: 2026-10-29T02:38:35Z
 goal: 
 next: owner adds GOOGLE_CHAT_SERVICE_ACCOUNT_JSON in Vercel; then test a slow question posts later. Next roadmap step: bigger model for hard questions + JobTread change orders/proposal scope
 ---
