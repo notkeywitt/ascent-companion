@@ -700,6 +700,37 @@ export const CHAT_TOOLS: ChatTool[] = [
       ),
   },
   {
+    name: "search_company_records",
+    description:
+      "The office's own records in the Project Database sheet, one record type per call: " +
+      "'employees' (name, phone, email, position, role, status, hire date, birthday, home " +
+      "address, driver's license), 'vendors' (subs and suppliers: contact, phone, email, " +
+      "service, notes, address, insurance and license documents), 'projects' (status, " +
+      "phase, dates, location, client name, email, phone and notes, tracking sheet link), " +
+      "'requisitions' (field purchase requests: what, who asked, job, needed by, status), " +
+      "'safety_meetings' (date, topic, lead, who attended, roster PDF), 'plans' (plan " +
+      "PDFs per project) or 'precover_photos' (photos of walls before drywall, by job, room " +
+      "and view, with a Drive link). No dollar amounts. Words match ANY column.",
+    input_schema: {
+      type: "object",
+      properties: {
+        record: {
+          type: "string",
+          enum: ["employees", "vendors", "projects", "requisitions", "safety_meetings", "plans", "precover_photos"],
+          description: "Which records to search.",
+        },
+        ...WORDS_PROP,
+      },
+      required: ["record"],
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) =>
+      callAppsScriptOrThrow(
+        { action: "chatRecords", record: String(input.record ?? ""), words: String(input.words ?? "") },
+        SEARCH_OPTS,
+      ),
+  },
+  {
     name: "find_tools",
     description:
       "The company's tool inventory (the Tools tracker): each tool's name, type, group, " +
