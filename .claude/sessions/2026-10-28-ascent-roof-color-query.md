@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/ascent-roof-color-query-qdypqk
 status: shipped
 started: 2026-10-28T20:05:30Z
-updated: 2026-10-29T05:22:12Z
+updated: 2026-10-29T14:38:22Z
 goal: 
-next: test in the Ferron space: 'did they choose rocks on the roof?' (search_job_scope) and 'what color is the roof?' (escalation); then roadmap step 4, hear every message (needs Workspace admin approval)
+next: owner approves chat.app.messages.readonly (Marketplace SDK + Admin console install), sets GOOGLE_CHAT_READ_SPACES=on; check logs for [chat-sync]
 ---
 
 ## Log
@@ -28,5 +28,7 @@ next: test in the Ferron space: 'did they choose rocks on the roof?' (search_job
   src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts
 - 2026-10-29 05:22 · `a9efa6b` companion: ascentbot answers from the tool tracker, open to-dos and mileage
   CODEBASE_MAP.md, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts
+- 2026-10-29 14:38 · `bc58b56` companion: ascentbot hears every message in its job spaces, not only @mentions
+  .env.example, CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/app/api/google-chat/sync/route.ts, src/db/index.ts, src/db/schema.ts, +8 more
 
 ## Notes
