@@ -215,8 +215,20 @@ const SafetyIcon = () => (
     <path d="M4 15a8 8 0 0 1 16 0M2 15h20v3H2zM12 7V4M9 15V9.5M15 15V9.5" />
   </IconBase>
 );
-/** The drawer's grip: a short bar, like the handle of a sheet. */
-const GripIcon = () => <span aria-hidden className="h-1.5 w-10 rounded-full bg-neutral-400 dark:bg-neutral-500" />;
+/** The drawer's grip: two rows of three dots, like the handle of a sheet. */
+const GripIcon = () => (
+  <span aria-hidden className="grid grid-cols-3 gap-[3px]">
+    {Array.from({ length: 6 }, (_, i) => (
+      <span key={i} className="h-[3px] w-[3px] rounded-full bg-neutral-300" />
+    ))}
+  </span>
+);
+
+/* The bump's shape: a trapezoid, its top corners barely rounded. 76 × 16. */
+const BUMP_W = 76;
+const BUMP_H = 16;
+const BUMP_CLIP = "polygon(0 100%, 14px 0, calc(100% - 14px) 0, 100% 100%)";
+const BUMP_EDGE = "M0.5 16 L13.4 1.2 Q14 0.5 15 0.5 H61 Q62 0.5 62.6 1.2 L75.5 16";
 
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
@@ -324,12 +336,16 @@ export function TabBar() {
 
   return (
     <>
-      {/* PHONE: edge to edge along the bottom, one top hairline, the home
-          indicator's inset as padding INSIDE the bar. Whatever this measures,
-          --tabbar-h in globals.css has to match it. */}
+      {/* PHONE: edge to edge along the bottom, dark blurred glass in both
+          themes, one light-grey top line, the home indicator's inset as padding
+          INSIDE the bar. Whatever this measures, plus the bump above it,
+          --tabbar-h in globals.css has to match it.
+          The glass is a LAYER, not the nav's own backdrop-filter: a filtered
+          nav would make itself the bump's backdrop, and the bump would blur
+          nothing. The bar is always dark, so its marks are white, not tokens. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-cream/95 pb-[env(safe-area-inset-bottom)] backdrop-blur dark:bg-ink/95 print:hidden pad:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-white print:hidden pad:hidden"
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
           const start = touchY.current;
@@ -337,8 +353,11 @@ export function TabBar() {
           if (more.length && start !== null && start - e.changedTouches[0].clientY > 30) setOpen(true);
         }}
       >
-        {/* The drawer's grip: a soft bump (20px) rising above the bar's top
-            hairline, over an h-3 strip. --tabbar-h counts both. */}
+        <span aria-hidden className="absolute inset-0 bg-black/65 backdrop-blur-xl backdrop-saturate-150" />
+        {/* No drawer: a plain top line. */}
+        {more.length === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-neutral-300/40" />}
+        {/* The drawer's grip: an angular bump (16px) rising above the bar's top
+            line, over an h-3 strip. --tabbar-h counts both. */}
         {more.length > 0 && (
           <button
             type="button"
@@ -348,19 +367,28 @@ export function TabBar() {
             aria-haspopup="dialog"
             className="group relative block h-3 w-full"
           >
-            {/* Solid, and 1px into the bar, so it covers the hairline. */}
+            {/* The top line, in two halves that meet the bump's edge. */}
+            <span aria-hidden className="absolute left-0 top-0 h-px bg-neutral-300/40" style={{ right: `calc(50% + ${BUMP_W / 2}px)` }} />
+            <span aria-hidden className="absolute right-0 top-0 h-px bg-neutral-300/40" style={{ left: `calc(50% + ${BUMP_W / 2}px)` }} />
             <span
               aria-hidden
-              className="absolute -top-5 left-1/2 flex h-[21px] w-24 -translate-x-1/2 items-center justify-center border border-b-0 border-line bg-cream shadow-[0_-3px_8px_rgba(0,0,0,0.06)] transition group-active:bg-accent/15 dark:bg-ink"
-              style={{ borderTopLeftRadius: "50% 100%", borderTopRightRadius: "50% 100%" }}
+              className="absolute left-1/2 -translate-x-1/2"
+              style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
             >
-              <span className="mt-1.5">
+              <span
+                className="absolute inset-0 bg-black/65 backdrop-blur-xl backdrop-saturate-150 transition group-active:bg-black/80"
+                style={{ clipPath: BUMP_CLIP }}
+              />
+              <svg viewBox={`0 0 ${BUMP_W} ${BUMP_H}`} className="absolute inset-0 h-full w-full overflow-visible" fill="none">
+                <path d={BUMP_EDGE} stroke="rgb(212 212 212 / 0.75)" strokeWidth={1} />
+              </svg>
+              <span className="absolute inset-x-0 bottom-0.5 flex justify-center">
                 <GripIcon />
               </span>
             </span>
           </button>
         )}
-        <div className="grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+        <div className="relative grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
           {items.map((t) => {
             const on = t.key === active;
             const Icon = ICONS[t.key] ?? PinIcon;
@@ -372,13 +400,12 @@ export function TabBar() {
                 onClick={guard}
                 // `active:` is the PRESS (paints the instant a finger lands); the
                 // overlay below is the WAIT (only while the navigation is in flight).
-                className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 ${
-                  on ? "text-accent dark:text-accent-soft" : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-white/10 ${
+                  on ? "text-white" : "text-white/60 hover:text-white"
                 }`}
               >
-                {/* The active mark is a short ochre rule above the icon — the
-                    same rule <SectionHeading> uses. */}
-                <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-accent" : "bg-transparent"}`} />
+                {/* The active mark is a short white rule above the icon. */}
+                <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-white" : "bg-transparent"}`} />
                 <Icon />
                 {labelOf(t)}
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
