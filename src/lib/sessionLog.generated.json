@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T22:25:24Z",
+  "generatedAt": "2026-10-29T22:37:19Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/epic-hopper-7lcvmj",
       "status": "shipped",
       "started": "2026-10-29T22:25:12Z",
-      "updated": "2026-10-29T22:25:23Z",
+      "updated": "2026-10-29T22:37:19Z",
       "goal": "",
       "next": "owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)",
       "commits": [
@@ -25,6 +25,13 @@
           "sha": "10132fc",
           "subject": "companion: session ledger",
           "files": ""
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:37",
+          "sha": "0a589ff",
+          "subject": "companion: give the bar drawer's grip a bigger soft bump above the hairline",
+          "files": "src/app/globals.css, src/components/TabBar.tsx"
         }
       ]
     },

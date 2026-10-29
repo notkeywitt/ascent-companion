@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/epic-hopper-7lcvmj
 status: shipped
 started: 2026-10-29T22:25:12Z
-updated: 2026-10-29T22:37:18Z
+updated: 2026-10-29T22:37:19Z
 goal: 
 next: owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)
 ---
