@@ -28,6 +28,7 @@ import { CHAT_TOOLS, groupScopeLines, hasAnyWord, summarizeJobTime } from "./cha
 import type { JobRef, PaveConfig } from "./jobtread";
 import {
   answerCollector,
+  listLines,
   BOT_TOOLS,
   botTools,
   buildHistory,
@@ -420,5 +421,16 @@ describe("get_mileage", () => {
     );
     expect(r).toMatchObject({ trips: 2, totalMiles: 22.5, byJob: [{ name: "Keeler - Remodel", miles: 22.5, trips: 2 }] });
     expect(JSON.stringify(r)).not.toMatch(/Polyline|abc|Lat/);
+  });
+});
+
+describe("listLines", () => {
+  it("breaks run-together list items onto their own lines", () => {
+    expect(listLines("Lasers:\n\n• A: Ferron • B: Ferron • C: Berger\n\nCheck.")).toBe(
+      "Lasers:\n\n• A: Ferron\n• B: Ferron\n• C: Berger\n\nCheck.",
+    );
+  });
+  it("leaves a list already on its own lines alone", () => {
+    expect(listLines("• A\n• B")).toBe("• A\n• B");
   });
 });
