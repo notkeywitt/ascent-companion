@@ -24,7 +24,7 @@ import {
   type GoogleChatEvent,
 } from "@/lib/googleChat";
 import { LONG_READ, readerTime } from "@/lib/fileReader";
-import { canPostLater, postToChat } from "@/lib/googleChatPost";
+import { canPostLater, postToChat, vercelOidcToken } from "@/lib/googleChatPost";
 import { getJobs } from "@/lib/jobtread";
 
 // Google Chat posts every event in the bot's spaces here. It carries no Google
@@ -104,7 +104,12 @@ function escalation() {
 const sleep = (ms: number) => new Promise<null>((done) => setTimeout(() => done(null), ms));
 
 /** Claude's answer as one string. Never rejects: a failure becomes the answer's text. */
-function askClaude(messages: Anthropic.MessageParam[], ctx: BotContext, jobContext: string): Promise<string> {
+function askClaude(
+  messages: Anthropic.MessageParam[],
+  ctx: BotContext,
+  jobContext: string,
+  later: boolean,
+): Promise<string> {
   let text = "";
   const run = () =>
     runChat({
@@ -123,7 +128,7 @@ function askClaude(messages: Anthropic.MessageParam[], ctx: BotContext, jobConte
       },
     });
   // With a way to answer later, the file reader may take longer over a long scan.
-  return (canPostLater() ? readerTime.run(LONG_READ, run) : run()).then(
+  return (later ? readerTime.run(LONG_READ, run) : run()).then(
     () => text.trim() || "I couldn't find an answer to that.",
     (e) => {
       console.error(`[google-chat] answer failed: ${e instanceof Error ? e.message : e}`);
@@ -192,7 +197,10 @@ export async function POST(req: NextRequest) {
       undefined,
     );
     const start = Date.now();
-    const answer = askClaude(buildHistory(turns, { name: ask.name, text: ask.text }), ctx, jobContext);
+    // Read while the request is live: the later answer signs in to Google with it.
+    const oidc = vercelOidcToken(req.headers);
+    const later = canPostLater(oidc);
+    const answer = askClaude(buildHistory(turns, { name: ask.name, text: ask.text }), ctx, jobContext, later);
     // ctx.job, not `linked`: the answer may have just tied the space to a job.
     const keep = async (text: string) => {
       await quietly(
@@ -215,13 +223,13 @@ export async function POST(req: NextRequest) {
     }
     // The [chat:google-chat] lines before this one show which round or tool was slow.
     console.warn(`[google-chat] deadline hit after ${Date.now() - start}ms: ${ask.text.slice(0, 200)}`);
-    if (!canPostLater()) return reply(TOO_LONG);
+    if (!later) return reply(TOO_LONG);
 
     // Answer later: the reply says so now, and the answer is posted in the thread.
     after(async () => {
       const late = await Promise.race([answer, sleep(LATER_MS - (Date.now() - start))]);
       try {
-        await postToChat(ask.space, ask.thread, late ?? TOO_LONG);
+        await postToChat(ask.space, ask.thread, late ?? TOO_LONG, oidc);
         console.log(`[google-chat] posted a later answer after ${Date.now() - start}ms`);
       } catch (e) {
         console.error(`[google-chat] posting the later answer failed: ${e instanceof Error ? e.message : e}`);
