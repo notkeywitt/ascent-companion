@@ -1,12 +1,13 @@
 /**
  * A PLACE IN PLAIN WORDS — the From and To fields of a hand-entered trip.
  *
- * A driver types "Office", "the shop" or "Berger" instead of a street address.
- * `resolvePlace` matches that text against the open jobs and returns the job's
- * JobTread address, which is what Google routes. Office and Shop are ordinary
- * JobTread jobs under the "Ascent" customer, so they need no special case.
+ * A driver types "Office", "the shop", "Berger" or "the dump" instead of a
+ * street address. `resolvePlace` matches that text against the open jobs and
+ * the crew's regular stops (`KNOWN_PLACES`), and returns an address for Google
+ * to route. Office and Shop are ordinary JobTread jobs under the "Ascent"
+ * customer, so they need no special case. A job's address comes from JobTread.
  *
- * Text that names no job comes back as `none`, and the page sends it to Google
+ * Text that names no job or place comes back as `none`, and the page sends it to Google
  * unchanged — a typed street address still works. Text that fits more than one
  * job comes back as `ambiguous`, so the page can ask instead of guessing.
  *
@@ -21,11 +22,48 @@ export interface PlaceJob {
   address?: string;
 }
 
+/**
+ * The crew's regular stops that are not jobs. Add one here: a label, the words
+ * people call it, and a street address Google can route. Found 2026-10-29 on
+ * each business's own listing; JobTread's vendor records carry no address.
+ */
+export interface KnownPlace {
+  label: string;
+  aliases: string[];
+  address: string;
+}
+
+export const KNOWN_PLACES: KnownPlace[] = [
+  {
+    label: "Sunset Builders Supply",
+    aliases: ["sunset", "sunset builders", "sunset builders supply", "the lumber yard", "lumber yard"],
+    address: "4194 Center Rd, Lopez Island, WA 98261",
+  },
+  {
+    label: "Blossom Grocery",
+    aliases: ["blossom", "blossom grocery", "blossoms"],
+    address: "295 Village Rd, Lopez Island, WA 98261",
+  },
+  {
+    label: "Lopez Village Market",
+    aliases: ["lvm", "lopez village market", "village market", "red apple"],
+    address: "162 Weeks Rd, Lopez Island, WA 98261",
+  },
+  {
+    label: "Lopez Dump",
+    aliases: ["dump", "the dump", "lopez dump", "transfer station", "solid waste", "lopez solid waste", "recycle center"],
+    address: "2419 Fisherman Bay Rd, Lopez Island, WA 98261",
+  },
+];
+
 export type PlaceMatch =
-  /** No job fits; treat the text as an address. */
+  /** Nothing fits; treat the text as an address. */
   | { kind: "none" }
-  /** One job fits. `address` is "" when the job has none in JobTread. */
-  | { kind: "job"; job: PlaceJob; address: string }
+  /**
+   * One job or one known place fits. `job` is set for a job. `address` is ""
+   * when the job has none in JobTread.
+   */
+  | { kind: "named"; label: string; address: string; job?: PlaceJob }
   /** Several jobs fit; the driver must say which. */
   | { kind: "ambiguous"; jobs: PlaceJob[] };
 
@@ -58,6 +96,10 @@ export function resolvePlace(text: string, jobs: PlaceJob[]): PlaceMatch {
   if (!want.length) return { kind: "none" };
   const q = want.join(" ");
 
+  // A known place called by one of its names wins outright: "the dump", "LVM".
+  const known = KNOWN_PLACES.find((p) => [p.label, ...p.aliases].some((a) => norm(a) === q));
+  if (known) return named(known);
+
   // A job number: "#142" or "job 142". A bare number is a house number.
   const num = /^\s*(?:#|job\s*#?\s*)(\d+)\s*$/i.exec(text)?.[1];
   if (num) {
@@ -70,7 +112,15 @@ export function resolvePlace(text: string, jobs: PlaceJob[]): PlaceMatch {
     const hay = new Set(tokens(`${j.name} ${j.customer ?? ""}`));
     return want.every((t) => hay.has(t));
   });
-  if (fits.length <= 1) return pick(fits);
+  if (fits.length === 0) {
+    // No job — try the known places' words: "sunset supply", "village grocery".
+    const places = KNOWN_PLACES.filter((p) => {
+      const hay = new Set(tokens([p.label, ...p.aliases].join(" ")));
+      return want.every((t) => hay.has(t));
+    });
+    return places.length === 1 ? named(places[0]) : { kind: "none" };
+  }
+  if (fits.length === 1) return pick(fits);
 
   // Several fit. The one whose name or full label IS the text wins — so "Office"
   // is the Office job, not every customer with "Office" in its name.
@@ -82,5 +132,7 @@ export function resolvePlace(text: string, jobs: PlaceJob[]): PlaceMatch {
 function pick(hits: PlaceJob[]): PlaceMatch {
   if (hits.length === 0) return { kind: "none" };
   if (hits.length > 1) return { kind: "ambiguous", jobs: hits };
-  return { kind: "job", job: hits[0], address: placeJobAddress(hits[0]) };
+  return { kind: "named", label: placeLabel(hits[0]), address: placeJobAddress(hits[0]), job: hits[0] };
 }
+
+const named = (p: KnownPlace): PlaceMatch => ({ kind: "named", label: p.label, address: p.address });

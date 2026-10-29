@@ -17,7 +17,7 @@ import {
   type TripPoint,
 } from "@/lib/mileageTrip";
 import { tripMiles } from "@/lib/mileageRoute";
-import { placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
+import { KNOWN_PLACES, placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
 import {
   Banner,
   Card,
@@ -155,24 +155,24 @@ function routeTarget(field: string, text: string, match: PlaceMatch): { place: s
     const names = match.jobs.slice(0, 4).map(placeLabel).join("; ");
     return { place: "", error: `${field}: "${text.trim()}" fits ${match.jobs.length} jobs (${names}). Type more of the name.` };
   }
-  if (match.kind === "job" && !match.address) {
-    return { place: "", error: `${field}: ${placeLabel(match.job)} has no address in JobTread. Type the address instead.` };
+  if (match.kind === "named" && !match.address) {
+    return { place: "", error: `${field}: ${match.label} has no address in JobTread. Type the address instead.` };
   }
-  return { place: match.kind === "job" ? match.address : text.trim(), error: "" };
+  return { place: match.kind === "named" ? match.address : text.trim(), error: "" };
 }
 
-// What the trip log records: a named job reads "Shop — 4223 Center Rd, …".
+// What the trip log records: a named place reads "Shop — 4223 Center Rd, …".
 function savedPlace(text: string, match: PlaceMatch): string {
-  if (match.kind !== "job") return text.trim();
-  return match.address ? `${placeLabel(match.job)} — ${match.address}` : placeLabel(match.job);
+  if (match.kind !== "named") return text.trim();
+  return match.address ? `${match.label} — ${match.address}` : match.label;
 }
 
-// The quiet line under From/To that says which job the words named.
+// The quiet line under From/To that says which job or place the words named.
 function PlaceHint({ match }: { match: PlaceMatch }) {
-  if (match.kind === "job") {
+  if (match.kind === "named") {
     return (
       <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
-        → {placeLabel(match.job)}
+        → {match.label}
         {match.address ? ` · ${match.address}` : " · no address in JobTread"}
       </p>
     );
@@ -822,8 +822,8 @@ export function MileageClient({
       }
       // "Here" comes back as a street address; a typed one stays as typed, and
       // so does a job name.
-      if (json.startAddress && fromMatch.kind !== "job") setFromPlace(json.startAddress);
-      if (json.endAddress && toMatch.kind !== "job") {
+      if (json.startAddress && fromMatch.kind !== "named") setFromPlace(json.startAddress);
+      if (json.endAddress && toMatch.kind !== "named") {
         if (toPlace === autoToRef.current) autoToRef.current = json.endAddress;
         setToPlace(json.endAddress);
       }
@@ -840,7 +840,10 @@ export function MileageClient({
   const fromMatch = useMemo(() => resolvePlace(fromPlace, jobs), [fromPlace, jobs]);
   const toMatch = useMemo(() => resolvePlace(toPlace, jobs), [toPlace, jobs]);
   const placeOptions = useMemo(
-    () => Array.from(new Set(jobs.map(placeLabel))).sort((a, b) => a.localeCompare(b)),
+    () =>
+      Array.from(new Set([...KNOWN_PLACES.map((p) => p.label), ...jobs.map(placeLabel)])).sort((a, b) =>
+        a.localeCompare(b),
+      ),
     [jobs],
   );
 
@@ -1133,7 +1136,7 @@ export function MileageClient({
 
           <Card className="space-y-3">
             <p className="text-xs text-neutral-500">
-              Type Office, Shop, a job name or an address in From and To, then tap Get miles. Or type the miles below.
+              Type Office, Shop, Sunset, Blossom, LVM, the dump, a job name or an address in From and To, then tap Get miles. Or type the miles below.
             </p>
             <div>
               <div className="flex items-baseline justify-between">
@@ -1154,7 +1157,7 @@ export function MileageClient({
                   setFromPlace(e.target.value);
                   setOneWay(null);
                 }}
-                placeholder="Office, Shop, a job, or an address"
+                placeholder="Office, Shop, Sunset, a job, or an address"
                 list="mlg-places"
                 autoComplete="off"
               />
@@ -1170,7 +1173,7 @@ export function MileageClient({
                   setToPlace(e.target.value);
                   setOneWay(null);
                 }}
-                placeholder="Office, Shop, a job, or an address"
+                placeholder="Office, Shop, Sunset, a job, or an address"
                 list="mlg-places"
                 autoComplete="off"
               />
