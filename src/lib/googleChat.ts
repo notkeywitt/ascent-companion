@@ -328,9 +328,16 @@ export function answerCollector() {
   };
 }
 
-/** Puts each • list item on its own line; the model sometimes runs them together. */
+/**
+ * Puts each list item on its own line; the model sometimes runs them together.
+ * A "- " or "* " item at the start of a line becomes "• " too, so every list
+ * reads the same. Google Chat shows each line break as sent.
+ */
 export function listLines(text: string): string {
-  return text.replace(/[ \t]+•[ \t]+/g, "\n• ");
+  return text
+    .replace(/^[ \t]*[-*][ \t]+(?=\S)/gm, "• ")
+    .replace(/([^\s])[ \t]*•[ \t]*/g, "$1\n• ")
+    .replace(/^[ \t]*•[ \t]*/gm, "• ");
 }
 
 /** Today in Pacific, so "today" and "last month" resolve to real dates. */

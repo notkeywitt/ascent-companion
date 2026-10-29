@@ -433,4 +433,10 @@ describe("listLines", () => {
   it("leaves a list already on its own lines alone", () => {
     expect(listLines("• A\n• B")).toBe("• A\n• B");
   });
+  it("breaks an item glued to the line before it", () => {
+    expect(listLines("Open bills:• A• B")).toBe("Open bills:\n• A\n• B");
+  });
+  it("turns dash and star items into • items", () => {
+    expect(listLines("Due:\n- A - $500\n* B")).toBe("Due:\n• A - $500\n• B");
+  });
 });
