@@ -219,16 +219,16 @@ const SafetyIcon = () => (
 const GripIcon = () => (
   <span aria-hidden className="grid grid-cols-3 gap-[3px]">
     {Array.from({ length: 6 }, (_, i) => (
-      <span key={i} className="h-[3px] w-[3px] rounded-full bg-neutral-300" />
+      <span key={i} className="h-[3px] w-[3px] rounded-full bg-neutral-500" />
     ))}
   </span>
 );
 
-/* The bump's shape: a trapezoid, its top corners barely rounded. 76 × 16. */
+/* The bump's shape: a trapezoid with softened corners. 76 × 16. */
 const BUMP_W = 76;
 const BUMP_H = 16;
-const BUMP_CLIP = "polygon(0 100%, 14px 0, calc(100% - 14px) 0, 100% 100%)";
-const BUMP_EDGE = "M0.5 16 L13.4 1.2 Q14 0.5 15 0.5 H61 Q62 0.5 62.6 1.2 L75.5 16";
+const BUMP_CLIP = "path('M0 16 Q3 16 4.6 14 L12 3 Q14 0.5 17 0.5 H59 Q62 0.5 64 3 L71.4 14 Q73 16 76 16 Z')";
+const BUMP_EDGE = "M0 16 Q3 16 4.6 14 L12 3 Q14 0.5 17 0.5 H59 Q62 0.5 64 3 L71.4 14 Q73 16 76 16";
 
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
@@ -353,7 +353,7 @@ export function TabBar() {
           if (more.length && start !== null && start - e.changedTouches[0].clientY > 30) setOpen(true);
         }}
       >
-        <span aria-hidden className="absolute inset-0 bg-black/65 backdrop-blur-xl backdrop-saturate-150" />
+        <span aria-hidden className="absolute inset-0 bg-black/45 backdrop-blur-xl backdrop-saturate-150" />
         {/* No drawer: a plain top line. */}
         {more.length === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-neutral-300/40" />}
         {/* The drawer's grip: an angular bump (16px) rising above the bar's top
@@ -376,7 +376,7 @@ export function TabBar() {
               style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
             >
               <span
-                className="absolute inset-0 bg-black/65 backdrop-blur-xl backdrop-saturate-150 transition group-active:bg-black/80"
+                className="absolute inset-0 bg-black/45 backdrop-blur-xl backdrop-saturate-150 transition group-active:bg-black/60"
                 style={{ clipPath: BUMP_CLIP }}
               />
               <svg viewBox={`0 0 ${BUMP_W} ${BUMP_H}`} className="absolute inset-0 h-full w-full overflow-visible" fill="none">
