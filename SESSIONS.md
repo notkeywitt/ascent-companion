@@ -11,7 +11,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 |---|---|---|---|---|
 | [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 17d ago | 2 | — |
 | [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 26d ago | 4 | — |
-| [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 35d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
+| [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 36d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 43d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 49d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
 | [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 49d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
@@ -33,7 +33,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [ascent-roof-color-query](.claude/sessions/2026-10-28-ascent-roof-color-query.md) | 2026-10-29 | 7 | — |
+| [ascent-roof-color-query](.claude/sessions/2026-10-28-ascent-roof-color-query.md) | 2026-10-29 | 8 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-10-28 | 93 | — |
 | [beautiful-pascal](.claude/sessions/2026-10-26-beautiful-pascal.md) | 2026-10-28 | 2 | — |
 | [stoic-tesla](.claude/sessions/2026-10-27-stoic-tesla.md) | 2026-10-27 | 2 | — |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T05:12:45Z",
+  "generatedAt": "2026-10-29T05:22:12Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/ascent-roof-color-query-qdypqk",
       "status": "shipped",
       "started": "2026-10-28T20:05:30Z",
-      "updated": "2026-10-29T05:12:45Z",
+      "updated": "2026-10-29T05:22:12Z",
       "goal": "",
       "next": "test in the Ferron space: 'did they choose rocks on the roof?' (search_job_scope) and 'what color is the roof?' (escalation); then roadmap step 4, hear every message (needs Workspace admin approval)",
       "commits": [
@@ -60,6 +60,13 @@
           "sha": "62e7e09",
           "subject": "companion: ascentbot posts only its final answer, not a draft written before more lookups",
           "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "05:22",
+          "sha": "a9efa6b",
+          "subject": "companion: ascentbot answers from the tool tracker, open to-dos and mileage",
+          "files": "CODEBASE_MAP.md, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
         }
       ]
     },
