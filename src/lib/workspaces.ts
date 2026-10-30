@@ -211,8 +211,10 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
 /**
  * Pages that show no tab strip. The safety meeting is passed around the room
  * on an iPad; a row of other pages above the sign-in is a way to lose it.
+ * Miles dropped its strip at the owner's ask (2026-10-30); the ☰ menu and the
+ * bottom bar still reach Tools, Requisitions and Time Off.
  */
-export const NO_STRIP = new Set(["safety-meeting"]);
+export const NO_STRIP = new Set(["safety-meeting", "mileage"]);
 
 /** Workspaces that show no tab strip on any of their pages. Invoicing dropped
  * its strip at the owner's ask (2026-10-03); the ☰ menu still lists its pages. */
