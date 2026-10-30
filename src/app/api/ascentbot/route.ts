@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth, envAllowed } from "@/auth";
 import { BOT_AREAS, cleanAreas } from "@/lib/botAccess";
+import { requireBotAdmin } from "@/lib/botAdmin";
 import {
   deleteBotRole,
   deleteBotUser,
@@ -10,7 +10,6 @@ import {
   saveBotRole,
   saveBotUser,
 } from "@/lib/botUsers";
-import { resolveAllowedViews } from "@/lib/views";
 
 /**
  * The AscentBot page's data: roles (named sets of areas) and the people who
@@ -18,19 +17,8 @@ import { resolveAllowedViews } from "@/lib/views";
  *
  * Gated by the `ascentbot` view (admin only by default, lib/views.ts).
  * Middleware already refuses this path to anyone without it; the check repeats
- * here so the route is safe on its own.
+ * here so the route is safe on its own (lib/botAdmin.ts).
  */
-
-async function requireAdmin() {
-  const session = await auth();
-  const u = session?.user;
-  const email = (u?.email ?? "").toLowerCase();
-  const ok =
-    envAllowed().includes(email) ||
-    u?.role === "admin" ||
-    (!!u && resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny, u.roleBase).has("ascentbot"));
-  return { ok, email };
-}
 
 const FORBIDDEN = () => NextResponse.json({ error: "Forbidden" }, { status: 403 });
 const bad = (error: string) => NextResponse.json({ error }, { status: 400 });
@@ -43,7 +31,7 @@ async function snapshot() {
 }
 
 export async function GET() {
-  if (!(await requireAdmin()).ok) return FORBIDDEN();
+  if (!(await requireBotAdmin()).ok) return FORBIDDEN();
   return NextResponse.json(await snapshot());
 }
 
@@ -52,7 +40,7 @@ export async function GET() {
  * { kind: "role", id?, name, areas }              add a role, or edit one.
  */
 export async function POST(req: NextRequest) {
-  const me = await requireAdmin();
+  const me = await requireBotAdmin();
   if (!me.ok) return FORBIDDEN();
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return bad("Send JSON.");
@@ -78,7 +66,7 @@ export async function POST(req: NextRequest) {
 
 /** ?email=… removes a person; ?role=… removes a role nobody is on. */
 export async function DELETE(req: NextRequest) {
-  if (!(await requireAdmin()).ok) return FORBIDDEN();
+  if (!(await requireBotAdmin()).ok) return FORBIDDEN();
   const email = req.nextUrl.searchParams.get("email");
   const role = req.nextUrl.searchParams.get("role");
   try {

@@ -1242,6 +1242,22 @@ async function applySchema() {
       synced_to TEXT NOT NULL
     )
   `);
+  // The Signal chats AscentBot may read (see schema.ts signalChats).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS signal_chats (
+      chat TEXT PRIMARY KEY,
+      type TEXT NOT NULL DEFAULT '',
+      messages INTEGER NOT NULL DEFAULT 0,
+      last_at TEXT NOT NULL DEFAULT '',
+      rule TEXT NOT NULL DEFAULT '',
+      job_id TEXT NOT NULL DEFAULT '',
+      job_name TEXT NOT NULL DEFAULT '',
+      sent_to INTEGER NOT NULL DEFAULT 0,
+      set_by TEXT NOT NULL DEFAULT '',
+      set_at TEXT NOT NULL DEFAULT '',
+      seen_at TEXT NOT NULL
+    )
+  `);
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS chat_users (
       user TEXT PRIMARY KEY,

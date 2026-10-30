@@ -1,7 +1,7 @@
 #!/bin/sh
 # Sets up signal_sync.py on the office Mac mini: a venv, ~/.ascent-signal/,
-# and a launchd job at 7 AM and 5 PM. Safe to run again; it keeps chats.json,
-# secret and state.json. See README.md.
+# and a launchd job at 7 AM and 5 PM. Safe to run again; it keeps the secret.
+# Which chats are sent is set on the Ascent app's AscentBot page. See README.md.
 set -eu
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -20,7 +20,6 @@ fi
 
 cp "$HERE/signal_sync.py" "$DIR/signal_sync.py"
 
-[ -f "$DIR/chats.json" ] || echo '{}' > "$DIR/chats.json"
 if [ -f "$DIR/secret" ]; then chmod 600 "$DIR/secret"; fi
 
 cat > "$PLIST" <<PLIST

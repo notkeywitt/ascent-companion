@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 """
-Signal group messages -> AscentBot's memory. Runs on the office Mac mini.
+Signal messages -> AscentBot's memory. Runs on the office Mac mini.
 
-Reads a COPY of Signal Desktop's encrypted database, keeps the chats the
-allowlist names, appends them to a monthly CSV backup, and POSTs the new ones
-to the Companion's /api/google-chat/signal-import. The Companion skips any
-message it already holds, so a re-sent batch is harmless.
+Reads a COPY of Signal Desktop's encrypted database and talks to the
+Companion's /api/google-chat/signal-import twice:
 
-    signal_sync.py --list-chats   every Signal chat, to fill chats.json
-    signal_sync.py --dry-run      what it would send; sends nothing
+  1. sends the list of chats (name, group or direct, message count, last
+     message time) and gets back each chat's rule, set on the AscentBot page:
+     a job, the office, don't send, or not set yet. A new chat arrives as
+     "not set" and sends nothing until someone assigns it.
+  2. sends the new messages of the chats set to a job or the office, after
+     each chat's cursor (Signal's received_at of the newest message the
+     Companion stored). The Companion re-checks the rules and skips any
+     message it already holds, so a re-sent batch is harmless.
+
+    signal_sync.py --list-chats   every chat on this Mac; sends nothing
+    signal_sync.py --dry-run      reports the chats, prints what it would send
     signal_sync.py                send
 
 Files, all under ~/.ascent-signal/:
-    chats.json   the allowlist. A chat not named here never leaves the Mac.
-                 { "Smith Kitchen": {"jobId": "22N...", "jobName": "Smith - Kitchen"},
-                   "Ascent Crew":   "office",
-                   "Mom":           "skip" }
     secret       SIGNAL_IMPORT_SECRET (chmod 600)
     config.json  optional: {"url": "https://.../api/google-chat/signal-import"}
-    state.json   per-chat cursor (Signal's received_at), moved only after a 200
     archive/     YYYY-MM.csv, every message sent
 
 Never opens Signal's own database file for writing. Never prints the key or
@@ -157,6 +159,7 @@ def message_text(body, raw_json):
 
 
 def chat_counts(db, by_conv):
+    """Chat name -> (group|private, message count, newest sent_at ms)."""
     out = {}
     for cid, n, last in db.execute(
         "SELECT conversationId, count(*), max(sent_at) FROM messages "
@@ -168,46 +171,51 @@ def chat_counts(db, by_conv):
     return out
 
 
-def new_messages(db, by_conv, by_sid, me, chats, state):
-    """Messages after each allowed chat's cursor, oldest first."""
+def iso(ms):
+    return datetime.fromtimestamp((ms or 0) / 1000, tz=timezone.utc).isoformat()
+
+
+def new_messages(db, by_conv, by_sid, me, rules):
+    """Messages after each sending chat's cursor, in the order received."""
     mcols = columns(db, "messages")
     src = "sourceServiceId" if "sourceServiceId" in mcols else "sourceUuid"
-    wanted = {}
-    for cid, (_ctype, label) in by_conv.items():
-        rule = chats.get(label)
-        if isinstance(rule, dict) and rule.get("jobId"):
-            wanted[cid] = (label, rule["jobId"])
-        elif rule == "office":
-            wanted[cid] = (label, "")
     out = []
-    unmapped = {label for label in chat_counts(db, by_conv) if label not in chats}
-    for cid, (label, job_id) in wanted.items():
-        since = int(state.get(label, 0))
+    for cid, (_ctype, label) in by_conv.items():
+        rule = rules.get(label)
+        if not rule or rule["rule"] not in ("job", "office"):
+            continue
         for mid, body, raw, typ, sender, sent_at, received_at in db.execute(
             f"SELECT id, body, json, type, {src}, sent_at, received_at FROM messages "
             f"WHERE conversationId = ? AND received_at > ? AND type IN {TALK_TYPES} "
             "ORDER BY received_at",
-            (cid, since),
+            (cid, int(rule.get("sentTo") or 0)),
         ):
             text = message_text(body, raw)
             if not text:
                 continue
             author = me if typ == "outgoing" else (by_sid.get(sender) or "Someone")
-            at = datetime.fromtimestamp((sent_at or 0) / 1000, tz=timezone.utc).isoformat()
-            out.append({"id": mid, "chat": label, "jobId": job_id, "author": author, "text": text,
-                        "at": at, "_received": received_at})
-    out.sort(key=lambda m: m["_received"] or 0)
-    return out, sorted(unmapped)
+            out.append({"id": mid, "chat": label, "author": author, "text": text,
+                        "at": iso(sent_at), "received": received_at or 0,
+                        "_job": rule.get("jobId") or ""})
+    out.sort(key=lambda m: m["received"])
+    return out
 
 
-# --- sending ----------------------------------------------------------------
+# --- talking to the Companion -----------------------------------------------
 
-def post(url, secret, batch):
-    body = json.dumps({"messages": [{k: v for k, v in m.items() if not k.startswith("_")} for m in batch]}).encode()
+def post(url, secret, payload):
+    body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Content-Type": "application/json", "Authorization": f"Bearer {secret}"})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.loads(r.read() or b"{}")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read() or b"{}")
+    except urllib.error.HTTPError as e:
+        log(f"import refused: HTTP {e.code} {e.read()[:200]!r}. Nothing more sent this run.")
+        sys.exit(1)
+    except urllib.error.URLError as e:
+        log(f"import unreachable: {e.reason}. Nothing more sent this run.")
+        sys.exit(1)
 
 
 def archive(batch):
@@ -224,7 +232,7 @@ def archive(batch):
             if new:
                 w.writerow(["at", "chat", "jobId", "author", "text", "id"])
             for m in rows:
-                w.writerow([m["at"], m["chat"], m["jobId"], m["author"], m["text"], m["id"]])
+                w.writerow([m["at"], m["chat"], m["_job"], m["author"], m["text"], m["id"]])
 
 
 def read_json(path, default):
@@ -236,64 +244,57 @@ def read_json(path, default):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--list-chats", action="store_true", help="print every chat and stop")
-    ap.add_argument("--dry-run", action="store_true", help="print what would be sent; send nothing")
+    ap.add_argument("--list-chats", action="store_true", help="print every chat on this Mac; send nothing")
+    ap.add_argument("--dry-run", action="store_true", help="report the chats, print what would be sent")
     args = ap.parse_args()
 
-    chats = read_json(STATE_DIR / "chats.json", {})
-    state = read_json(STATE_DIR / "state.json", {})
     url = read_json(STATE_DIR / "config.json", {}).get("url") or DEFAULT_URL
 
     with tempfile.TemporaryDirectory() as tmp:
         db = open_copy(tmp)
         by_conv, by_sid = load_people(db)
+        counts = chat_counts(db, by_conv)
 
         if args.list_chats:
-            for label, (ctype, n, last) in sorted(chat_counts(db, by_conv).items(), key=lambda kv: -kv[1][2]):
-                when = datetime.fromtimestamp(last / 1000).strftime("%Y-%m-%d")
-                rule = chats.get(label, "(not in chats.json)")
-                print(f"{ctype:8} {n:6} msgs  last {when}  {label!r:40} {rule if isinstance(rule, str) else 'job ' + rule.get('jobId', '?')}")
+            for label, (ctype, n, last) in sorted(counts.items(), key=lambda kv: -kv[1][2]):
+                print(f"{ctype:8} {n:6} msgs  last {datetime.fromtimestamp(last / 1000):%Y-%m-%d}  {label}")
             return
 
-        msgs, unmapped = new_messages(db, by_conv, by_sid, my_name(db, by_sid), chats, state)
+        secret_file = STATE_DIR / "secret"
+        if not secret_file.exists():
+            raise SystemExit(f"No secret at {secret_file}. See README.md.")
+        secret = secret_file.read_text().strip()
+
+        report = [{"chat": label, "type": ctype, "messages": n, "lastAt": iso(last)}
+                  for label, (ctype, n, last) in counts.items()]
+        rules = {r["chat"]: r for r in post(url, secret, {"chats": report}).get("chats", [])}
+        msgs = new_messages(db, by_conv, by_sid, my_name(db, by_sid), rules)
         db.close()
 
-    if unmapped:
-        log(f"unmapped (skipped, add to chats.json to keep or skip): {len(unmapped)} chats")
+    not_set = sum(1 for r in rules.values() if not r.get("rule"))
+    if not_set:
+        log(f"{not_set} chats not set: assign them on the Ascent app's AscentBot page")
     if not msgs:
         log("no new messages")
         return
 
     if args.dry_run:
         for m in msgs[-50:]:
-            print(f"{m['at'][:16]}  [{m['chat']}{' / job ' + m['jobId'] if m['jobId'] else ' / office'}]  {m['author']}: {m['text'][:120]}")
+            where = f"job {m['_job']}" if m["_job"] else "office"
+            print(f"{m['at'][:16]}  [{m['chat']} / {where}]  {m['author']}: {m['text'][:120]}")
         log(f"dry run: {len(msgs)} messages would be sent (last 50 shown)")
         return
 
-    secret_file = STATE_DIR / "secret"
-    if not secret_file.exists():
-        raise SystemExit(f"No secret at {secret_file}. See README.md.")
-    secret = secret_file.read_text().strip()
-
-    stored = skipped = 0
+    stored = skipped = refused = 0
     for i in range(0, len(msgs), BATCH):
         batch = msgs[i:i + BATCH]
-        try:
-            r = post(url, secret, batch)
-        except urllib.error.HTTPError as e:
-            log(f"import refused: HTTP {e.code} {e.read()[:200]!r}. Cursor not moved.")
-            sys.exit(1)
-        except urllib.error.URLError as e:
-            log(f"import unreachable: {e.reason}. Cursor not moved.")
-            sys.exit(1)
+        r = post(url, secret, {"messages": [{k: v for k, v in m.items() if not k.startswith("_")} for m in batch]})
         stored += r.get("stored", 0)
         skipped += r.get("skipped", 0)
+        refused += r.get("refused", 0)
         archive(batch)
-        for m in batch:
-            state[m["chat"]] = max(int(state.get(m["chat"], 0)), int(m["_received"] or 0))
-        (STATE_DIR / "state.json").write_text(json.dumps(state, indent=2))
 
-    log(f"sent {len(msgs)}: {stored} stored, {skipped} already kept")
+    log(f"sent {len(msgs)}: {stored} stored, {skipped} already kept, {refused} refused")
 
 
 if __name__ == "__main__":

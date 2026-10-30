@@ -1666,6 +1666,27 @@ export const fileTexts = sqliteTable("file_texts", {
   readAt: text("read_at").notNull(),
 });
 
+/**
+ * The Signal chats on the office Mac mini (signalChats.ts), reported by
+ * scripts/signal-sync/ each run and assigned on the AscentBot page. `rule`:
+ * "" = not set yet, "job", "office" or "skip". Only "job" and "office" chats
+ * are sent. `sent_to` is Signal's received_at of the newest message stored, so
+ * the next run sends only what is newer; 0 = send its whole history.
+ */
+export const signalChats = sqliteTable("signal_chats", {
+  chat: text("chat").primaryKey(), // the chat's name in Signal
+  type: text("type").notNull().default(""), // group | private
+  messages: integer("messages").notNull().default(0),
+  lastAt: text("last_at").notNull().default(""),
+  rule: text("rule").notNull().default(""),
+  jobId: text("job_id").notNull().default(""),
+  jobName: text("job_name").notNull().default(""),
+  sentTo: integer("sent_to").notNull().default(0),
+  setBy: text("set_by").notNull().default(""),
+  setAt: text("set_at").notNull().default(""),
+  seenAt: text("seen_at").notNull(),
+});
+
 /** How far AscentBot has read each job space's messages (chatSync.ts): the newest createTime stored. */
 export const chatSpaceSync = sqliteTable("chat_space_sync", {
   space: text("space").primaryKey(),

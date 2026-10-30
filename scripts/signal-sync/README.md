@@ -1,12 +1,23 @@
 # Signal → AscentBot memory
 
-Runs on the office Mac mini at 7 AM and 5 PM. It copies new messages from the
-Signal chats you allow into AscentBot's memory. AscentBot then finds them:
+Runs on the office Mac mini at 7 AM and 5 PM. Each run:
 
-- **Job groups** (one group = one job): `search_job_memory`, like that job's Google Chat space.
-- **Office groups** (crew-wide chats): `search_team_chat`, by words such as "Smith tile".
+1. Sends the Ascent app the list of Signal chats on this Mac: names, message counts and
+   last message dates. It sends no messages in this step.
+2. Gets back what the **AscentBot page** says for each chat, then sends the new messages
+   of the chats set to a job or the office.
 
-A chat not named in `chats.json` never leaves the Mac.
+Assign chats on the Ascent app → **AscentBot** → **Signal chats**:
+
+| Choice | What AscentBot does |
+|---|---|
+| A job | Files its messages under that job. `search_job_memory` finds them. |
+| Office group | Keeps them with no job. `search_team_chat` finds them by words, such as "Smith tile". |
+| Don't send | Nothing. Choosing this for a chat already sent removes its messages from AscentBot. |
+| Not set | Nothing. Every new chat starts here and shows up after the Mac's next run. |
+
+Assigning a chat sends its whole history on the next run. Changing a chat to another job
+moves the messages already sent.
 
 ## What it needs
 
@@ -16,29 +27,18 @@ A chat not named in `chats.json` never leaves the Mac.
 
 ## Set up (once)
 
-1. **Secret.** Make a random value: `openssl rand -base64 32`.
-   - Vercel → ascent-companion → Settings → Environment Variables:
-     `SIGNAL_IMPORT_SECRET` = that value (Production). Redeploy.
-   - On the Mac: `mkdir -p ~/.ascent-signal && pbpaste > ~/.ascent-signal/secret && chmod 600 ~/.ascent-signal/secret`
-     (copy the value first).
+1. **Secret.** Copy `SIGNAL_IMPORT_SECRET` from Vercel (ascent-companion → Settings →
+   Environment Variables), then run:
+   `pbpaste | tr -d '\n' > ~/.ascent-signal/secret && chmod 600 ~/.ascent-signal/secret`
 2. **Install.** `sh scripts/signal-sync/install.sh` from the `ascent-companion` folder.
    It makes the venv (a private Python package folder), `~/.ascent-signal/` and the
    twice-a-day launchd job (the macOS scheduler).
-3. **List your chats.** `~/.ascent-signal/venv/bin/python ~/.ascent-signal/signal_sync.py --list-chats`
+3. **First run.** `~/.ascent-signal/venv/bin/python ~/.ascent-signal/signal_sync.py --dry-run`
    The first run asks for Keychain access to "Signal Safe Storage". Enter the Mac
    password and click **Always Allow**, or the 7 AM run cannot read Signal.
-4. **Fill the allowlist** `~/.ascent-signal/chats.json`, using the names exactly as listed:
-   ```json
-   {
-     "Smith Kitchen": { "jobId": "22NxxxxXXXX", "jobName": "Smith - Kitchen" },
-     "Ascent Crew":   "office",
-     "Mom":           "skip"
-   }
-   ```
-   The job id is the one in the job's JobTread link. `"skip"` just keeps the chat
-   out of the "unmapped" count in the log.
-5. **Check.** Run it with `--dry-run`. Read the last 50 lines it prints.
-6. **First send.** Run it with no flag. A newly added chat sends its whole history once.
+   The dry run sends the chat list only, so the chats appear on the AscentBot page.
+4. **Assign the chats** on the AscentBot page.
+5. **Send.** Run it with no flag, or wait for the next scheduled run.
 
 ## Day to day
 
@@ -46,9 +46,7 @@ A chat not named in `chats.json` never leaves the Mac.
 - Backup: `~/.ascent-signal/archive/YYYY-MM.csv`, every message sent.
 - Run now: `launchctl kickstart gui/$(id -u)/com.ascent.signal-sync`.
 - Stop: `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.ascent.signal-sync.plist`.
-- A new job group: add it to `chats.json`. The next run sends its history.
-- After a change to `signal_sync.py` in the repo, run `install.sh` again. It keeps
-  `chats.json`, `secret` and `state.json`.
+- After a change to `signal_sync.py` in the repo, run `install.sh` again. It keeps the secret.
 
 ## When it fails
 
@@ -59,5 +57,6 @@ A chat not named in `chats.json` never leaves the Mac.
 | `security: ... could not be found` | Signal Desktop's Keychain item is gone. Open Signal once, then run again. |
 | `file is not a database` | The key is wrong, or Signal changed its format. Run by hand and read the error. |
 
-A failed run moves no cursor (the per-chat "sent up to here" mark), so nothing is lost.
-The Companion skips a message it already holds, so a repeat send is harmless.
+The Companion keeps each chat's cursor (the "sent up to here" mark) and moves it only
+when messages are stored, so a failed run loses nothing. It skips a message it already
+holds, so a repeat send is harmless.
