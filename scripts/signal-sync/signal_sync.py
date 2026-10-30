@@ -43,7 +43,7 @@ HOME = Path.home()
 # The two overrides exist for testing against a fake database.
 SIGNAL_DIR = Path(os.environ.get("ASCENT_SIGNAL_APP_DIR") or HOME / "Library" / "Application Support" / "Signal")
 STATE_DIR = Path(os.environ.get("ASCENT_SIGNAL_STATE_DIR") or HOME / ".ascent-signal")
-DEFAULT_URL = "https://assistant.ascentbuildingco.com/api/google-chat/signal-import"
+DEFAULT_URL = "https://ascent-companion.vercel.app/api/google-chat/signal-import"
 BATCH = 200
 # Message types that are people talking. Everything else (group changes,
 # safety-number changes, timers, calls) is skipped.
