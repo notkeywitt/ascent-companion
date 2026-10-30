@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-29T23:19:21Z",
+  "generatedAt": "2026-10-30T14:05:37Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/epic-hopper-7lcvmj",
       "status": "shipped",
       "started": "2026-10-29T22:25:12Z",
-      "updated": "2026-10-29T23:19:21Z",
+      "updated": "2026-10-30T14:05:37Z",
       "goal": "",
       "next": "owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)",
       "commits": [
@@ -52,6 +52,13 @@
           "time": "23:01",
           "sha": "dc3f695",
           "subject": "companion: round the grip bump's corners more",
+          "files": "src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:05",
+          "sha": "5bd367c",
+          "subject": "companion: slide the bar up as a translucent drawer with a soft SVG tab, no clip-path",
           "files": "src/components/TabBar.tsx"
         }
       ]
