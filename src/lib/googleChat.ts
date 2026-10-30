@@ -163,6 +163,33 @@ export function matchJobs(jobs: JobRef[], query: string): JobRef[] {
   return scored.filter((x) => x.n === best).map((x) => x.j);
 }
 
+/** The gold star, drawn in a code block so Chat keeps its spacing. */
+export const GOLD_STAR = [
+  "            *",
+  "           ***",
+  "          *****",
+  "  *********************",
+  "    *****************",
+  "      *************",
+  "       ***********",
+  "      *****   *****",
+  "     ***         ***",
+  "    *               *",
+].join("\n");
+
+const GOLD_STAR_ASK = /^\s*gold\s*star\b[\s,:;!.-]*(?:for\s+|to\s+)?(.*?)[\s!.]*$/i;
+
+/**
+ * "@AscentBot gold star" → the star, and "gold star for Ty" names Ty under it.
+ * A fixed reply: no Claude call, so it costs nothing. Null for anything else.
+ */
+export function goldStar(text: string): string | null {
+  const m = GOLD_STAR_ASK.exec(text);
+  if (!m) return null;
+  const who = m[1].trim().slice(0, 60);
+  return `\`\`\`\n${GOLD_STAR}\n\`\`\`\n*Gold star${who ? ` for ${who}` : ""}!*`;
+}
+
 export const helpText = () =>
   [
     "I keep track of each job's decisions and details. @mention me in plain words:",

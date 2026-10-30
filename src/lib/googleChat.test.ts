@@ -30,6 +30,8 @@ import { ALL_AREAS, accessSystem, AREA_TOOLS, botToolNames, cleanAreas, recordTy
 import {
   answerCollector,
   listLines,
+  goldStar,
+  GOLD_STAR,
   botTools,
   buildHistory,
   jobLine,
@@ -600,5 +602,18 @@ describe("oddChars", () => {
   it("names the non-ASCII characters an answer carries", () => {
     expect(oddChars("• A\u00a0• B")).toBe("U+2022×2 U+00A0×1");
     expect(oddChars("plain")).toBe("");
+  });
+});
+
+describe("goldStar", () => {
+  it("draws the star in a code block, and names who it is for", () => {
+    expect(goldStar("gold star")).toBe("```\n" + GOLD_STAR + "\n```\n*Gold star!*");
+    expect(goldStar("Gold Star for Ty!")).toMatch(/\*Gold star for Ty!\*$/);
+    expect(goldStar("goldstar, Casey")).toMatch(/for Casey!/);
+  });
+
+  it("leaves a question that merely mentions a gold star alone", () => {
+    expect(goldStar("who got a gold star last week?")).toBeNull();
+    expect(goldStar("what color is the roof?")).toBeNull();
   });
 });

@@ -12,6 +12,7 @@ import {
   CHAT_SYSTEM,
   botTools,
   buildHistory,
+  goldStar,
   helpText,
   isStartOver,
   jobLine,
@@ -206,6 +207,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (/^(help|\?)$/i.test(ask.text)) return reply(helpText());
+    const star = goldStar(ask.text);
+    if (star) return reply(star);
     if (isStartOver(ask.text)) {
       await quietly("starting over", startOver(ask.space, ask.thread, linked?.jobId ?? "", ask.name), undefined);
       return reply(START_OVER_REPLY);
