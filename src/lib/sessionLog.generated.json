@@ -1,7 +1,47 @@
 {
-  "generatedAt": "2026-10-30T14:05:37Z",
+  "generatedAt": "2026-10-30T14:09:20Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "admiring-hawking",
+      "file": "2026-10-29-admiring-hawking.md",
+      "branch": "claude/admiring-hawking-b4zgzx",
+      "status": "shipped",
+      "started": "2026-10-29T19:04:37Z",
+      "updated": "2026-10-30T14:09:20Z",
+      "goal": "",
+      "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "19:04",
+          "sha": "95921a8",
+          "subject": "companion: let mileage from/to take office, shop or a job name",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:09",
+          "sha": "2b1af8c",
+          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:22",
+          "sha": "3fa4372",
+          "subject": "companion: serve roboto from the repo so a google fonts outage cannot fail the build",
+          "files": "src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:09",
+          "sha": "481cf6e",
+          "subject": "companion: drop a suggestion list under mileage from/to as the driver types",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        }
+      ]
+    },
     {
       "slug": "epic-hopper",
       "file": "2026-10-29-epic-hopper.md",
@@ -159,39 +199,6 @@
           "sha": "2967e76",
           "subject": "companion: put every AscentBot list item on its own line",
           "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        }
-      ]
-    },
-    {
-      "slug": "admiring-hawking",
-      "file": "2026-10-29-admiring-hawking.md",
-      "branch": "claude/admiring-hawking-b4zgzx",
-      "status": "shipped",
-      "started": "2026-10-29T19:04:37Z",
-      "updated": "2026-10-29T19:22:07Z",
-      "goal": "",
-      "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "19:04",
-          "sha": "95921a8",
-          "subject": "companion: let mileage from/to take office, shop or a job name",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "19:09",
-          "sha": "2b1af8c",
-          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "19:22",
-          "sha": "3fa4372",
-          "subject": "companion: serve roboto from the repo so a google fonts outage cannot fail the build",
-          "files": "src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx"
         }
       ]
     },
