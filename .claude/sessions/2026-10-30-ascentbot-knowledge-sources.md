@@ -2,9 +2,9 @@
 slug: ascentbot-knowledge-sources
 repo: ascent-companion
 branch: claude/ascentbot-knowledge-sources-ad9sio
-status: in-progress
+status: shipped
 started: 2026-10-30T15:05:09Z
-updated: 2026-10-30T15:05:18Z
+updated: 2026-10-30T15:05:31Z
 goal: 
 next: Ask the bot a money question in a job space as a Full-access user, and add a test person on Jobs only to confirm the bot declines money.
 ---
