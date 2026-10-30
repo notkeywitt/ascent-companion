@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/admiring-hawking-b4zgzx
 status: shipped
 started: 2026-10-29T19:04:37Z
-updated: 2026-10-29T19:22:07Z
+updated: 2026-10-30T14:09:19Z
 goal: 
 next: none — mileage plain-language From/To shipped; watch for ambiguous job names in the field
 ---
@@ -18,5 +18,7 @@ next: none — mileage plain-language From/To shipped; watch for ambiguous job n
   CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts
 - 2026-10-29 19:22 · `3fa4372` companion: serve roboto from the repo so a google fonts outage cannot fail the build
   src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx
+- 2026-10-30 14:09 · `481cf6e` companion: drop a suggestion list under mileage from/to as the driver types
+  CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts
 
 ## Notes
