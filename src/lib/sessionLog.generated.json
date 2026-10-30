@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-10-30T17:22:46Z",
+  "generatedAt": "2026-10-30T17:54:49Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "ascentbot-knowledge-sources",
+      "file": "2026-10-30-ascentbot-knowledge-sources.md",
+      "branch": "claude/ascentbot-knowledge-sources-ad9sio",
+      "status": "shipped",
+      "started": "2026-10-30T15:05:09Z",
+      "updated": "2026-10-30T17:54:49Z",
+      "goal": "",
+      "next": "Ask the bot a money question in a job space as a Full-access user, and add a test person on Jobs only to confirm the bot declines money.",
+      "commits": [
+        {
+          "date": "2026-10-30",
+          "time": "15:05",
+          "sha": "238b820",
+          "subject": "companion: ascentbot answers money questions, with roles and an access page",
+          "files": "CODEBASE_MAP.md, src/app/api/ascentbot/route.ts, src/app/api/google-chat/route.ts, src/app/ascentbot/AscentBotAccess.tsx, src/app/ascentbot/page.tsx, src/db/index.ts, +11 more"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "17:54",
+          "sha": "1e09266",
+          "subject": "companion: log what each chat space message carries, to test email forwards",
+          "files": "src/lib/chatSync.ts"
+        }
+      ]
+    },
     {
       "slug": "ascentbot-architecture",
       "file": "2026-10-28-ascentbot-architecture.md",
@@ -67,25 +93,6 @@
           "sha": "6791246",
           "subject": "companion: ascentbot splits lists joined by any bullet dot, and logs what it sent",
           "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        }
-      ]
-    },
-    {
-      "slug": "ascentbot-knowledge-sources",
-      "file": "2026-10-30-ascentbot-knowledge-sources.md",
-      "branch": "claude/ascentbot-knowledge-sources-ad9sio",
-      "status": "shipped",
-      "started": "2026-10-30T15:05:09Z",
-      "updated": "2026-10-30T15:05:31Z",
-      "goal": "",
-      "next": "Ask the bot a money question in a job space as a Full-access user, and add a test person on Jobs only to confirm the bot declines money.",
-      "commits": [
-        {
-          "date": "2026-10-30",
-          "time": "15:05",
-          "sha": "238b820",
-          "subject": "companion: ascentbot answers money questions, with roles and an access page",
-          "files": "CODEBASE_MAP.md, src/app/api/ascentbot/route.ts, src/app/api/google-chat/route.ts, src/app/ascentbot/AscentBotAccess.tsx, src/app/ascentbot/page.tsx, src/db/index.ts, +11 more"
         }
       ]
     },

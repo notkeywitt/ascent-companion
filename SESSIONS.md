@@ -26,14 +26,14 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 46d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 47d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [ascentbot-knowledge-sources](.claude/sessions/2026-10-30-ascentbot-knowledge-sources.md) | 2026-10-30 | 2 | — |
 | [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | 2026-10-30 | 8 | — |
-| [ascentbot-knowledge-sources](.claude/sessions/2026-10-30-ascentbot-knowledge-sources.md) | 2026-10-30 | 1 | — |
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-30 | 5 | — |
 | [epic-hopper](.claude/sessions/2026-10-29-epic-hopper.md) | 2026-10-30 | 7 | — |
 | [intelligent-rubin](.claude/sessions/2026-10-29-intelligent-rubin.md) | 2026-10-29 | 3 | — |
