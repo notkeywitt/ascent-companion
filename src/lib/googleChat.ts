@@ -4,15 +4,17 @@
  * Google posts every event to /api/google-chat (route.ts verifies Google's
  * signed token first). This module holds the rest:
  *
- *  - who may ask (`PILOT` — four people while the first space is tried out);
+ *  - who may ask, and what each person's answers draw on: botAccess.ts holds
+ *    the rules, botUsers.ts the rows, /ascentbot the page that edits them;
  *  - the slash commands, which answer from the same read-only JobTread tools as
  *    the /chat Assistant (chatTools.ts) and make NO Claude call, so they cost
  *    nothing;
  *  - the Google Chat formatting rules handed to Claude for an @mention.
  *
  * WHAT IT IS FOR: decisions and details about a job ("what tile did we choose?",
- * "when is the plumber scheduled?"). Money questions belong in the Ascent app,
- * so the bot is not given the money tools (`BOT_TOOLS`).
+ * "when is the plumber scheduled?"), and — for a person whose role has the
+ * financials area — budget, cost and invoicing questions. The tools each
+ * person is handed decide what they can learn (`botToolNames`).
  *
  * ONE SPACE PER JOB. Someone tells the bot which job a space is for; Claude
  * calls `link_space_to_job` and the link is kept (chatMemory.ts). The team
@@ -42,21 +44,10 @@ import type { ChatEvent } from "@/lib/anthropic";
 
 import { linkSpaceJob, saveTurn, type ChatTurn, type SpaceJob } from "@/lib/chatMemory";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import { recordTypes, type BotArea } from "@/lib/botAccess";
 import { hasAnyWord, toolByName, type ChatTool } from "@/lib/chatTools";
 import { getJobs, type JobRef, type PaveConfig } from "@/lib/jobtread";
 import { money0 } from "@/lib/money";
-
-/** Who may ask, by Workspace email. Widen this when the pilot week goes well. */
-export const PILOT = [
-  "keillor@ascentbuildingco.com",
-  "office@ascentbuildingco.com",
-  "ty@ascentbuildingco.com",
-  "tommy@ascentbuildingco.com",
-  "casey@ascentbuildingco.com",
-];
-
-export const canAsk = (email: string | undefined) =>
-  !!email && PILOT.includes(email.trim().toLowerCase());
 
 /**
  * Slash command ids, as registered on the Chat app's configuration page in the
@@ -180,39 +171,12 @@ export const helpText = () =>
     "• Tell me a decision to remember: \"we went with the Ocean tile for the primary bath\".",
   ].join("\n");
 
-/**
- * The registry tools AscentBot may call — job knowledge, no money. The /chat
- * page keeps the full set.
- */
-export const BOT_TOOLS = [
-  "list_jobs",
-  "get_job_selections",
-  "search_job_scope",
-  "search_job_documents",
-  "search_job_bills",
-  "get_job_time",
-  "get_job_schedule",
-  "get_job_notes",
-  "search_job_memory",
-  "get_job_files",
-  "read_file",
-  "get_calendar",
-  "find_tools",
-  "search_company_records",
-  "get_todos",
-  "find_contact",
-  "search_email",
-  "read_email",
-  "search_drive",
-];
-
 /** Rules added to the system prompt for an answer posted in Google Chat. */
 export const CHAT_SYSTEM = [
   "You are answering in a Google Chat space that the team can read. Here you are called AscentBot.",
   "Here your job is decisions and details about a job: selections, what was decided, the",
-  "schedule, who is coming when. The other rules above about bills and billing do not apply.",
-  "For a money question (cost, budget, invoices, bills), say the Ascent app has it.",
-  "What a bill BOUGHT is not a money question: search_job_bills gives products, never amounts.",
+  "schedule, who is coming when — and money, for a person whose access includes it (the",
+  "access rules at the end say which). You have only the tools this person may use.",
   "- Earlier messages in this space are included above the new one. Use them. They include",
   "  what people said to each other in the space (\"said\"), not only what they asked you.",
   "- Look before you answer: search_job_memory, then the source that fits (selections,",
@@ -238,7 +202,8 @@ export const CHAT_SYSTEM = [
   "- If nothing records the answer, say so plainly. Never guess a selection or a date.",
   "  Then call report_gap once; if it returns sent: true, end with \"I've let the office",
   "  know.\" Not for a",
-  "  question the rules here send elsewhere (money, wages, reviews, discipline).",
+  "  question the rules here send elsewhere (an area this person has no access to, wages,",
+  "  reviews, discipline).",
   "- When someone states a decision or a detail to keep (\"we went with…\", \"the plumber is",
   "  coming Tuesday\"), call save_note with it in plain words, then reply only",
   "  \"Noted for <job>.\" If you can't tell a decision from a question, ask.",
@@ -260,14 +225,8 @@ export const CHAT_SYSTEM = [
   "- A customer's, vendor's or sub's phone, email or address is job information, not",
   "  private: look it up with find_contact and give it. search_company_records 'vendors'",
   "  adds the sub's service, notes and insurance and license documents.",
-  "- The office's own records (employees, vendors, projects, requisitions, safety meetings,",
-  "  plans, pre-cover photos): search_company_records.",
-  "- Staff details are NOT private here. Everyone who can ask you is on the office's own",
-  "  list, and the owner approved sharing every Employees column with them: phone, email,",
-  "  position, hire date, birthday, home address, driver's license. For any question about",
-  "  a staff member, call search_company_records 'employees' with their name and give what",
-  "  it returns. Never refuse a staff detail without looking it up first. If an earlier",
-  "  answer in this space refused one, that answer was wrong; look it up now.",
+  "- The office's own records (vendors, projects, requisitions, safety meetings, plans,",
+  "  pre-cover photos, and employees when this person has staff access): search_company_records.",
   "  \"Where is the blocking in the bath?\": precover_photos with the room, and give the link.",
   "- Never commit the company to a price, date or scope. A staff member's wages, pay rate,",
   "  reviews or discipline don't belong here; point people to the office.",
@@ -440,6 +399,8 @@ export interface BotContext {
   job: SpaceJob | null;
   /** Set once the office has been emailed about this question, by report_gap or the route's fallback. */
   gapReported?: boolean;
+  /** What this asker's role switches on (botAccess.ts). */
+  areas: BotArea[];
 }
 
 const NOT_FOUND = [
@@ -512,6 +473,7 @@ export async function reportGap(ctx: BotContext, question: string, reason: strin
  */
 export function botTools(ctx: BotContext): ChatTool[] {
   return [
+    companyRecordsTool(ctx.areas),
     {
       name: "link_space_to_job",
       description:
@@ -618,6 +580,31 @@ export function botTools(ctx: BotContext): ChatTool[] {
       }),
     },
   ];
+}
+
+/**
+ * search_company_records, narrowed to the record types this asker may read.
+ * Without the staff area the Employees tab is not in the tool's list at all,
+ * and the handler refuses it too, so a guessed record name gets nothing.
+ */
+export function companyRecordsTool(areas: BotArea[]): ChatTool {
+  const base = toolByName("search_company_records")!;
+  const allowed = recordTypes(areas);
+  const props = base.input_schema.properties as Record<string, Record<string, unknown>>;
+  return {
+    ...base,
+    description: allowed.includes("employees")
+      ? base.description
+      : `${base.description} Employees records are not available to this person.`,
+    input_schema: {
+      ...base.input_schema,
+      properties: { ...props, record: { ...props.record, enum: allowed } },
+    },
+    handler: async (cfg, input) =>
+      allowed.includes(String(input.record ?? ""))
+        ? base.handler(cfg, input)
+        : { ok: false, error: "This person has no access to that record. The office can help." },
+  };
 }
 
 const run = async (cfg: PaveConfig, tool: string, input: Record<string, unknown>) =>

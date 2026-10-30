@@ -6054,6 +6054,81 @@ export interface OpenInvoiceRow {
   balance: number;
 }
 
+/** One client document on a job: a proposal, change order, selection or invoice. */
+export interface ClientDocRow {
+  id: string;
+  type: "customerOrder" | "customerInvoice";
+  name: string;
+  number: string;
+  status: string;
+  issueDate: string;
+  dueDate: string;
+  /** Before tax. */
+  price: number;
+  /** What the customer is billed, tax included. */
+  total: number;
+  amountPaid: number;
+  balance: number;
+  /** An order that counts toward the job's budget (contract + change orders). */
+  includeInBudget: boolean;
+}
+
+/**
+ * Every client order and invoice on one job, every status, oldest first. The
+ * contract, the change orders, what was billed, what was paid and what is still
+ * owed — AscentBot's answer to "how much have we invoiced Berger?".
+ *
+ * `amountPaid` and `balance` are READ, never recomputed (see
+ * getOpenCustomerInvoices). Scalars only inside the paged connection, so it
+ * pages at 100 with no 413 risk. Fields confirmed by a live read 2026-10-30.
+ */
+export async function getJobClientDocuments(cfg: PaveConfig, jobId: string): Promise<ClientDocRow[]> {
+  const docs = await pageAll<any>(cfg, {
+    label: "job.documents (client orders and invoices)",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        documents: {
+          $: { where: { and: [["type", "in", ["customerOrder", "customerInvoice"]]] }, ...args },
+          nextPage: {},
+          nodes: {
+            id: {},
+            type: {},
+            name: {},
+            number: {},
+            status: {},
+            issueDate: {},
+            dueDate: {},
+            price: {},
+            priceWithTax: {},
+            amountPaid: {},
+            balance: {},
+            includeInBudget: {},
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.documents,
+  });
+  const num = (v: unknown) => (typeof v === "number" ? v : 0);
+  return docs
+    .map((d) => ({
+      id: String(d.id ?? ""),
+      type: d.type === "customerInvoice" ? ("customerInvoice" as const) : ("customerOrder" as const),
+      name: String(d.name ?? ""),
+      number: d.number != null ? String(d.number) : "",
+      status: String(d.status ?? ""),
+      issueDate: d.issueDate ? String(d.issueDate).slice(0, 10) : "",
+      dueDate: d.dueDate ? String(d.dueDate).slice(0, 10) : "",
+      price: num(d.price),
+      total: typeof d.priceWithTax === "number" ? d.priceWithTax : num(d.price),
+      amountPaid: num(d.amountPaid),
+      balance: num(d.balance),
+      includeInBudget: d.includeInBudget === true,
+    }))
+    .sort((a, b) => a.issueDate.localeCompare(b.issueDate));
+}
+
 /**
  * Every job's UNINVOICED TIME cost for one billing month, keyed by job id — the
  * other half of "to be invoiced". A client invoice pulls logged labor along with

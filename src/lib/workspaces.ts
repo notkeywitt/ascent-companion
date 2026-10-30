@@ -156,6 +156,7 @@ export const WORKSPACES: Workspace[] = [
     desc: "Access, the app's wording and look, and the audit trails.",
     tabs: [
       tab("admin", "/admin", "Access", "Who can sign in, and what each role can open"),
+      tab("ascentbot", "/ascentbot", "AscentBot", "Who can ask the Chat bot, and what each role's answers may include"),
       // Pairs joined by a PageTabs row (stage 6): Look & Text opens Page Text
       // (Theme beside it), Audit opens System Logs (Financial Journal beside it).
       tab("page-copy", "/admin/copy", "Look & Text", "Reword the app's on-screen text, and tune the palette"),

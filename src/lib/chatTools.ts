@@ -40,12 +40,24 @@ import {
   getJobTimeLines,
   getJobScopeLines,
   getOpenToDos,
+  getJobCostDetail,
+  getJobCostContributors,
+  getJobClientDocuments,
+  getOpenCustomerInvoices,
+  getVendorBills,
   type ScopeLine,
   type JobTimeLine,
   findContacts,
   type DraftBill,
 } from "@/lib/jobtread";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import {
+  summarizeClientDocs,
+  summarizeCostLines,
+  summarizeJobFinancials,
+  summarizeOpenInvoices,
+  summarizeVendorBills,
+} from "@/lib/botFinancials";
 import { searchJobMemory } from "@/lib/chatMemory";
 import { searchSpecDocs } from "@/lib/specDocs";
 import { readFile } from "@/lib/fileReader";
@@ -402,6 +414,98 @@ export const CHAT_TOOLS: ChatTool[] = [
       return Object.entries(byCode)
         .map(([code, v]) => ({ code, ...v }))
         .sort((a, b) => a.remaining - b.remaining); // most over-budget first
+    },
+  },
+  {
+    name: "get_job_financials",
+    description:
+      "A job's money picture from JobTread: budget (approved contract + change orders, at " +
+      "cost), spent on bills (approved + pending), labor cost and hours, invoiced to the " +
+      "client, and budget left — in total, per CSI division, and per cost code. With words, " +
+      "only the matching codes or divisions ('framing', '06', 'elec'). Use for 'are we over " +
+      "budget on Berger?', 'how much have we spent on electrical?'. Requires a job_id.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) =>
+      summarizeJobFinancials(await getJobCostDetail(cfg, String(input.job_id)), wordsOf(input)),
+  },
+  {
+    name: "get_job_cost_lines",
+    description:
+      "The vendor-bill lines behind a job's spent figures, with amounts: vendor, bill number, " +
+      "date, status, line name, cost code and cost, newest first, plus totals by vendor and " +
+      "by cost code. Words match the code, vendor or line name ('06 10', 'sunset', 'lumber'). " +
+      "Labor is given as hours and cost per code only, never per person. Requires a job_id.",
+    input_schema: {
+      type: "object",
+      properties: { ...JOB_PROP, ...WORDS_PROP },
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) =>
+      summarizeCostLines(await getJobCostContributors(cfg, String(input.job_id)), wordsOf(input)),
+  },
+  {
+    name: "get_client_documents",
+    description:
+      "A job's client documents with amounts, oldest first: the proposal, change orders and " +
+      "selections (orders), and every client invoice with its total, amount paid and balance. " +
+      "Also the totals: contract value, invoiced, paid and still owed. Use for 'how much have " +
+      "we billed the Bergers?', 'what is the contract on Keeler?', 'has invoice 379 been paid?'. " +
+      "Requires a job_id.",
+    input_schema: {
+      type: "object",
+      properties: JOB_PROP,
+      required: ["job_id"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => summarizeClientDocs(await getJobClientDocuments(cfg, String(input.job_id))),
+  },
+  {
+    name: "get_open_invoices",
+    description:
+      "Every client invoice still owed across all jobs (accounts receivable): job, customer, " +
+      "invoice number, dates, total, paid, balance and days past due, most overdue first, with " +
+      "totals by age. Words narrow to a job or customer. Use for 'who owes us money?'.",
+    input_schema: {
+      type: "object",
+      properties: WORDS_PROP,
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) =>
+      summarizeOpenInvoices(await getOpenCustomerInvoices(cfg), pacificDay(new Date().toISOString()), wordsOf(input)),
+  },
+  {
+    name: "get_vendor_bills",
+    description:
+      "One vendor's bills across every job, with amounts: date, bill number, job, status, " +
+      "amount, newest first, plus totals by job and by year. Use for 'how much have we spent " +
+      "with Sunset this year?'. Pass the vendor as named; since (YYYY-MM-DD) narrows by date.",
+    input_schema: {
+      type: "object",
+      properties: {
+        vendor: { type: "string", description: "The vendor's name, or part of it." },
+        since: { type: "string", description: "Optional. YYYY-MM-DD; only bills issued on or after it." },
+      },
+      required: ["vendor"],
+      additionalProperties: false,
+    },
+    handler: async (cfg, input) => {
+      const words = String(input.vendor ?? "").toLowerCase().split(/\s+/).filter(Boolean);
+      const hits = (await getVendors(cfg)).filter((v) => words.length && words.every((w) => v.name.toLowerCase().includes(w)));
+      if (hits.length !== 1) {
+        return {
+          found: false,
+          reason: hits.length ? "Several vendors match. Ask which one." : "No vendor matches.",
+          matches: hits.slice(0, 10).map((v) => v.name),
+        };
+      }
+      const since = /^\d{4}-\d{2}-\d{2}$/.test(String(input.since ?? "")) ? String(input.since) : "";
+      return { vendor: hits[0].name, ...summarizeVendorBills(await getVendorBills(cfg, hits[0].id), since) };
     },
   },
   {

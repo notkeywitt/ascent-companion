@@ -505,6 +505,11 @@ export const VIEWS: ViewDef[] = [
   // non-admin who POSTs /api/actions directly.
   { id: "actions", label: "Actions", group: "System", paths: ["/actions", "/api/actions"] },
   { id: "admin", label: "Access", group: "System", paths: ["/admin"] },
+  // AscentBot — who may ask the Google Chat bot and which areas (financials,
+  // staff records, the office mailbox) each role's answers may draw on.
+  // ADMIN-ONLY (ADMIN_MENU below): it hands out money and staff details. The
+  // API prefix is listed so a non-admin can't edit the list by calling it.
+  { id: "ascentbot", label: "AscentBot", group: "System", paths: ["/ascentbot", "/api/ascentbot"] },
   // Page Text — the office-editable on-screen copy (src/lib/copy.ts). Its own
   // gate rather than riding on "admin": editing wording is a much smaller thing
   // to hand out than the access-control console, so it can be granted to an
@@ -586,6 +591,7 @@ const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "payments"];
 // gets these by default (a per-user grant can still hand them to an individual).
 const ADMIN_MENU: string[] = [
   "admin",
+  "ascentbot",
   "logs",
   "journal",
   "ai-cost",

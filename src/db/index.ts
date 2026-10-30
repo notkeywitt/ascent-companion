@@ -1,6 +1,7 @@
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
+import { BOT_SEED_ROLES, BOT_SEED_USERS } from "@/lib/botAccess";
 
 // The libSQL client and its Drizzle wrapper are built LAZILY — on first use, not
 // at module import.
@@ -1249,6 +1250,48 @@ async function applySchema() {
       seen_at TEXT NOT NULL
     )
   `);
+  // AscentBot's roles and askers (see schema.ts botRoles / botUsers). Seeded
+  // ONLY when bot_users is first created, so a person or role the admin
+  // removes later never comes back on its own.
+  const hadBotUsers = await getClient().execute(
+    `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'bot_users'`,
+  );
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bot_roles (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      areas TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bot_users (
+      email TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      role_id TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 1,
+      added_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )
+  `);
+  if (!hadBotUsers.rows.length) {
+    const now = new Date().toISOString();
+    await getClient().batch(
+      [
+        ...BOT_SEED_ROLES.map((r) => ({
+          sql: `INSERT OR IGNORE INTO bot_roles (id, name, areas, created_at) VALUES (?, ?, ?, ?)`,
+          args: [r.id, r.name, JSON.stringify(r.areas), now],
+        })),
+        ...BOT_SEED_USERS.map((email) => ({
+          sql: `INSERT OR IGNORE INTO bot_users (email, name, role_id, active, added_by, created_at, updated_at)
+                VALUES (?, '', 'full', 1, 'pilot', ?, ?)`,
+          args: [email, now, now],
+        })),
+      ],
+      "write",
+    );
+  }
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

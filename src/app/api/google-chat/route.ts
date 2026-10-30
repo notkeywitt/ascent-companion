@@ -9,11 +9,9 @@ import { getSpaceJob, recentTurns, rememberChatUser, saveTurn, startOver, type S
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import {
   answerCollector,
-  BOT_TOOLS,
   CHAT_SYSTEM,
   botTools,
   buildHistory,
-  canAsk,
   helpText,
   isStartOver,
   jobLine,
@@ -27,6 +25,8 @@ import {
   type BotContext,
   type GoogleChatEvent,
 } from "@/lib/googleChat";
+import { accessSystem, botToolNames, NOT_ALLOWED } from "@/lib/botAccess";
+import { getBotAccess } from "@/lib/botUsers";
 import { LONG_READ, readerTime } from "@/lib/fileReader";
 import { canPostLater, canReadSpaces, postToChat, vercelOidcToken } from "@/lib/googleChatPost";
 import { syncSpace } from "@/lib/chatSync";
@@ -136,8 +136,8 @@ function askClaude(
       jobId: ctx.job?.jobId,
       model: process.env.GOOGLE_CHAT_MODEL?.trim() || "claude-haiku-5-5",
       feature: "google-chat",
-      extraSystem: `${CHAT_SYSTEM}\n\n${jobContext}`,
-      tools: BOT_TOOLS,
+      extraSystem: `${CHAT_SYSTEM}\n${accessSystem(ctx.areas)}\n\n${jobContext}`,
+      tools: botToolNames(ctx.areas),
       extraTools: botTools(ctx),
       escalate: escalation(),
       onEvent: answer.onEvent,
@@ -184,15 +184,20 @@ export async function POST(req: NextRequest) {
   // Learn the asker's name, so messages read from the space can say who wrote them.
   await quietly("remembering the asker", rememberChatUser(ask.user, ask.name, ask.email), undefined);
 
-  if (!canAsk(ask.email)) {
-    return reply("Sorry, I only answer the pilot group for now. Ask the office to add you.");
-  }
+  // Who may ask, and what they may see, is the AscentBot page's list (botUsers.ts).
+  // A failed read refuses: an unknown asker must never get the full tool set.
+  const access = await quietly("reading the asker's access", getBotAccess(ask.email), null);
+  if (!access) return reply(NOT_ALLOWED);
   if (!hasGrant()) return reply("I can't reach JobTread right now (JT_GRANT_KEY is not set).");
 
   try {
     const cfg = getPaveConfig();
     const linked = await quietly<SpaceJob | null>("reading the space's job", getSpaceJob(ask.space), null);
-    if (ask.kind === "command") return reply(await runCommand(cfg, ask.commandId, ask.arg, linked));
+    if (ask.kind === "command") {
+      // Every slash command answers in dollars.
+      if (!access.areas.includes("financials")) return reply("Those commands show money, and your access doesn't include financials. The office can help.");
+      return reply(await runCommand(cfg, ask.commandId, ask.arg, linked));
+    }
 
     if (/^(help|\?)$/i.test(ask.text)) return reply(helpText());
     if (isStartOver(ask.text)) {
@@ -219,7 +224,15 @@ export async function POST(req: NextRequest) {
       quietly("reading the space's history", recentTurns(ask.space), []),
       linked ? getJobs(cfg) : Promise.resolve([]),
     ]);
-    const ctx: BotContext = { cfg, space: ask.space, thread: ask.thread, email: ask.email, name: ask.name, job: linked };
+    const ctx: BotContext = {
+      cfg,
+      space: ask.space,
+      thread: ask.thread,
+      email: ask.email,
+      name: ask.name,
+      job: linked,
+      areas: access.areas,
+    };
     const jobContext = `${todayLine()}\n${jobLine(
       jobs.find((j) => j.id === linked?.jobId),
       linked,

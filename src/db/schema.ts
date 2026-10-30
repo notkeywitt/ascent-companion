@@ -1683,3 +1683,32 @@ export const chatUsers = sqliteTable("chat_users", {
   email: text("email").notNull().default(""),
   seenAt: text("seen_at").notNull(),
 });
+
+/**
+ * Who may ask AscentBot and what their answers may draw on (src/lib/botAccess.ts,
+ * src/lib/botUsers.ts; edited on /ascentbot, admin only).
+ *
+ * bot_roles  a named set of areas ("financials", "staff", "email"). Job
+ *            knowledge is not an area: every allowed asker has it.
+ * bot_users  one row per Workspace email, pointing at a role. `active` = 0
+ *            keeps the row and the role but stops the bot answering them.
+ *
+ * Seeded once, when the tables are first created: roles "Full access" and
+ * "Jobs only", and the five pilot askers on Full access.
+ */
+export const botRoles = sqliteTable("bot_roles", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  areas: text("areas").notNull().default("[]"), // JSON BotArea[]
+  createdAt: text("created_at").notNull(),
+});
+
+export const botUsers = sqliteTable("bot_users", {
+  email: text("email").primaryKey(), // lower-case
+  name: text("name").notNull().default(""),
+  roleId: text("role_id").notNull(),
+  active: integer("active").notNull().default(1),
+  addedBy: text("added_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});

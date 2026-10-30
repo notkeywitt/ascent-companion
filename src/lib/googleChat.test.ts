@@ -26,13 +26,12 @@ vi.mock("@/lib/jobtread", async (orig) => ({
 import type { ChatTurn } from "./chatMemory";
 import { CHAT_TOOLS, groupScopeLines, hasAnyWord, shapeCalendar, summarizeJobTime } from "./chatTools";
 import type { JobRef, PaveConfig } from "./jobtread";
+import { ALL_AREAS, accessSystem, AREA_TOOLS, botToolNames, cleanAreas, recordTypes } from "./botAccess";
 import {
   answerCollector,
   listLines,
-  BOT_TOOLS,
   botTools,
   buildHistory,
-  canAsk,
   jobLine,
   isStartOver,
   looksRefused,
@@ -69,16 +68,6 @@ describe("parseEvent", () => {
 
   it("greets on being added to a space", () => {
     expect(parseEvent({ type: "ADDED_TO_SPACE" }).kind).toBe("added");
-  });
-});
-
-describe("canAsk", () => {
-  it("lets the pilot group ask, in any case, and no one else", () => {
-    expect(canAsk("Casey@ascentbuildingco.com")).toBe(true);
-    expect(canAsk("sam@ascentbuildingco.com")).toBe(false);
-    expect(canAsk("keillor@ascentbuildingco.com.evil.com")).toBe(false);
-    expect(canAsk("")).toBe(false);
-    expect(canAsk(undefined)).toBe(false);
   });
 });
 
@@ -206,7 +195,7 @@ describe("botTools", () => {
   beforeEach(() => {
     linkSpaceJob.mockClear();
     saveTurn.mockClear();
-    ctx = { cfg, space: "spaces/S1", thread: "", email: "ty@ascentbuildingco.com", name: "Ty", job: null };
+    ctx = { cfg, space: "spaces/S1", thread: "", email: "ty@ascentbuildingco.com", name: "Ty", job: null, areas: ALL_AREAS };
   });
 
   it("links one match and asks about several", async () => {
@@ -261,13 +250,78 @@ describe("looksUnanswered", () => {
   });
 });
 
-describe("BOT_TOOLS", () => {
-  it("names only registry tools, and no money tool", () => {
-    const names = new Set(CHAT_TOOLS.map((t) => t.name));
-    expect(BOT_TOOLS.filter((n) => !names.has(n))).toEqual([]);
-    for (const money of ["get_unbilled", "get_coding_queue", "get_bill_detail", "get_job_budget", "get_cost_to_complete"]) {
-      expect(BOT_TOOLS).not.toContain(money);
-    }
+describe("botToolNames", () => {
+  const names = new Set(CHAT_TOOLS.map((t) => t.name));
+  const money = AREA_TOOLS.financials;
+
+  it("names only registry tools, for every area", () => {
+    expect(botToolNames(ALL_AREAS).filter((n) => !names.has(n))).toEqual([]);
+  });
+
+  it("hands a jobs-only asker no money tool and no mailbox", () => {
+    const jobs = botToolNames([]);
+    for (const t of [...money, "search_email", "read_email"]) expect(jobs).not.toContain(t);
+    expect(jobs).toContain("get_job_selections");
+  });
+
+  it("hands financials the money tools, and only those on top", () => {
+    const fin = botToolNames(["financials"]);
+    for (const t of money) expect(fin).toContain(t);
+    expect(fin).not.toContain("search_email");
+  });
+
+  it("never lists search_company_records: botTools hands a narrowed copy", () => {
+    expect(botToolNames(ALL_AREAS)).not.toContain("search_company_records");
+    expect(botTools({ cfg: {} as PaveConfig, space: "", thread: "", email: "", name: "", job: null, areas: [] }).map((t) => t.name)).toContain(
+      "search_company_records",
+    );
+  });
+});
+
+describe("company records by access", () => {
+  const records = (areas: typeof ALL_AREAS) =>
+    botTools({ cfg: {} as PaveConfig, space: "", thread: "", email: "", name: "", job: null, areas }).find(
+      (t) => t.name === "search_company_records",
+    )!;
+
+  it("leaves employees out of the list without staff access, and refuses a guess", async () => {
+    const t = records(["financials"]);
+    const record = (t.input_schema.properties as { record: { enum: string[] } }).record;
+    expect(record.enum).not.toContain("employees");
+    callAppsScriptOrThrow.mockClear();
+    expect(await t.handler({} as PaveConfig, { record: "employees", words: "ty" })).toMatchObject({ ok: false });
+    expect(callAppsScriptOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("reads employees with staff access", async () => {
+    const t = records(["staff"]);
+    expect(recordTypes(["staff"])).toContain("employees");
+    await t.handler({} as PaveConfig, { record: "employees", words: "ty" });
+    expect(callAppsScriptOrThrow).toHaveBeenLastCalledWith(expect.objectContaining({ action: "chatRecords", record: "employees" }), expect.anything());
+  });
+});
+
+describe("accessSystem", () => {
+  it("tells a jobs-only asker to send money and staff questions to the office", () => {
+    const s = accessSystem([]);
+    expect(s).toMatch(/no access to financials/);
+    expect(s).toMatch(/no access to staff records/);
+    expect(s).toMatch(/no access to the office mailbox/);
+  });
+
+  it("names the money tools for an asker with financials", () => {
+    const s = accessSystem(ALL_AREAS);
+    expect(s).toMatch(/get_job_financials/);
+    expect(s).not.toMatch(/no access/);
+  });
+});
+
+describe("cleanAreas", () => {
+  it("keeps known areas once, in order, from an array or JSON", () => {
+    expect(cleanAreas(["email", "bogus", "financials", "email"])).toEqual(["financials", "email"]);
+    expect(cleanAreas('["staff"]')).toEqual(["staff"]);
+    expect(cleanAreas("not json")).toEqual([]);
+    expect(cleanAreas(null)).toEqual([]);
   });
 });
 
@@ -407,7 +461,7 @@ describe("find_tools and get_todos", () => {
 
 describe("get_mileage", () => {
   it("asks as the person asking, and totals miles by driver and job", async () => {
-    const ctx = { cfg: {} as PaveConfig, space: "spaces/S1", thread: "", email: "ty@ascentbuildingco.com", name: "Ty", job: null };
+    const ctx = { cfg: {} as PaveConfig, space: "spaces/S1", thread: "", email: "ty@ascentbuildingco.com", name: "Ty", job: null, areas: ALL_AREAS };
     callAppsScriptOrThrow.mockResolvedValueOnce({
       ok: true,
       trips: [
