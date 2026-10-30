@@ -261,7 +261,7 @@ describe("botToolNames", () => {
 
   it("hands a jobs-only asker no money tool and no mailbox", () => {
     const jobs = botToolNames([]);
-    for (const t of [...money, "search_email", "read_email"]) expect(jobs).not.toContain(t);
+    for (const t of [...money, "search_email", "read_email", "read_email_attachment"]) expect(jobs).not.toContain(t);
     expect(jobs).toContain("get_job_selections");
   });
 

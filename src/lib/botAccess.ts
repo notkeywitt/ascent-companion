@@ -111,7 +111,7 @@ export const AREA_TOOLS: Record<BotArea, string[]> = {
     "get_cost_to_complete",
   ],
   staff: [],
-  email: ["search_email", "read_email"],
+  email: ["search_email", "read_email", "read_email_attachment"],
 };
 
 /** The registry tools one asker is handed. */
@@ -171,7 +171,13 @@ export function accessSystem(areas: BotArea[]): string {
       "  birthday or license, say the office can help. Give no staff detail.",
     );
   }
-  if (!on("email")) {
+  if (on("email")) {
+    lines.push(
+      "- An email's PDF attachment (an estimate, invoice or quote): read_email gives each",
+      "  attachment an attachmentId; open it with read_email_attachment before you say an",
+      "  amount or detail is not recorded.",
+    );
+  } else {
     lines.push("- This person has no access to the office mailbox. Don't say what any email contains.");
   }
   return lines.join("\n");

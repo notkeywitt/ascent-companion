@@ -76,6 +76,22 @@ describe("readFile", () => {
     expect(r).toEqual({ error: expect.stringMatching(/Apps Script side is deployed/) });
   });
 
+  it("reads an email attachment by its id from kept text, and refuses any other id", async () => {
+    kept.rows = [{ key: "mail:1a184a3b1abcbe68:0", name: "Est_2313.pdf", pages: 1, text: doc(1, () => "Window washing: $640"), note: "", readAt: "2026-10-01T00:00:00Z" }];
+    expect(await readFile(cfg, { mailAttachment: "1A184A3B1ABCBE68:0" }, { words: ["washing"] })).toMatchObject({ name: "Est_2313.pdf", hits: 1 });
+    expect(await readFile(cfg, { mailAttachment: "../../etc:0" })).toEqual({ error: expect.stringMatching(/attachmentId/) });
+    expect(callAppsScriptOrThrow).not.toHaveBeenCalled();
+  });
+
+  it("fetches an attachment it has not read through the mail bridge", async () => {
+    callAppsScriptOrThrow.mockRejectedValueOnce(new Error("Unknown action"));
+    await expect(readFile(cfg, { mailAttachment: "1a18d7c759ac99ad:1" })).rejects.toThrow();
+    expect(callAppsScriptOrThrow).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "chatMailAttachment", attachmentId: "1a18d7c759ac99ad:1" }),
+      expect.anything(),
+    );
+  });
+
   it("needs a file to read", async () => {
     expect(await readFile(cfg, {})).toEqual({ error: expect.stringMatching(/Drive link or a JobTread file id/) });
   });

@@ -10,13 +10,15 @@ import { extractPdfText } from "@/lib/pdfLinks";
 import { findSnippets, pageText, scanText } from "@/lib/specDocs";
 
 /**
- * AscentBot's file reader: open ONE file — a Drive file (from search_drive) or
- * a JobTread attachment (from get_job_files) — and hand back its text a few
- * pages at a time, or the pages that mention some words.
+ * AscentBot's file reader: open ONE file — a Drive file (from search_drive), a
+ * JobTread attachment (from get_job_files) or a PDF attached to an office email
+ * (from read_email) — and hand back its text a few pages at a time, or the
+ * pages that mention some words.
  *
  * The bytes come the way the rest of the app already fetches them: a Drive file
  * through the Apps Script bridge (JobFiles.js exports a Doc, Sheet or Slides
- * file to PDF), a JobTread file from its cdn.jobtread.com link and nowhere else.
+ * file to PDF), a JobTread file from its cdn.jobtread.com link and nowhere else,
+ * an email attachment through the same bridge (ChatSearch.js chatMailAttachment).
  * A Drive file must sit under JOB_FOLDERS_DRIVE_ID, the same tree search_drive
  * keeps to: a link inside an email or a document cannot send the bot to the
  * rest of the office's Drive.
@@ -24,7 +26,7 @@ import { findSnippets, pageText, scanText } from "@/lib/specDocs";
  * reads a short one (`ocrScanWithClaude`).
  *
  * The text is kept in `file_texts`, so the next page or the next question costs
- * no second fetch. A JobTread file never changes; a Drive file is read again
+ * no second fetch. A JobTread file or an email attachment never changes; a Drive file is read again
  * after DRIVE_FRESH_MS. A failed read is never kept, so it is tried again.
  *
  * The waits are short by default: Google Chat gives an inline answer 25 s, and
@@ -56,7 +58,12 @@ export interface FileSource {
   drive?: string;
   /** A JobTread file id. */
   jobtreadFileId?: string;
+  /** An email attachment, "<messageId>:<index>" from read_email. */
+  mailAttachment?: string;
 }
+
+/** The attachment ids chatReadThread hands out: a Gmail message id and an index. */
+const MAIL_ATTACHMENT_ID = /^[0-9a-f]{8,24}:\d{1,3}$/;
 
 interface Read {
   key: string;
@@ -106,6 +113,16 @@ async function fetchDrive(id: string): Promise<Omit<Read, "key"> | string> {
   return { name: String(pdf.name ?? ""), ...t };
 }
 
+async function fetchMail(attachmentId: string): Promise<Omit<Read, "key"> | string> {
+  const pdf = await callAppsScriptOrThrow<{ name?: string; data: string }>(
+    { action: "chatMailAttachment", attachmentId },
+    { timeoutMs: limits().fetchMs, retry: false },
+  );
+  const bytes = new Uint8Array(Buffer.from(pdf.data, "base64"));
+  if (bytes.length > BYTES_MAX) return `"${pdf.name ?? "The attachment"}" is over 20 MB.`;
+  return { name: String(pdf.name ?? ""), ...(await textOf(bytes)) };
+}
+
 async function fetchJobTread(cfg: PaveConfig, fileId: string): Promise<Omit<Read, "key"> | string> {
   const f = await getFileById(cfg, fileId);
   if (!f) return "JobTread has no file with that id.";
@@ -123,17 +140,23 @@ async function fetchJobTread(cfg: PaveConfig, fileId: string): Promise<Omit<Read
 
 /** The file's text, from `file_texts` when fresh, else fetched and kept. A string is why it can't be read. */
 export async function readFileText(cfg: PaveConfig, src: FileSource): Promise<Read | string> {
-  const driveId = src.drive ? driveIdFromLink(src.drive) : "";
+  const mailId = String(src.mailAttachment ?? "").trim().toLowerCase();
+  if (mailId && !MAIL_ATTACHMENT_ID.test(mailId)) return "Pass an attachmentId from read_email.";
+  const driveId = !mailId && src.drive ? driveIdFromLink(src.drive) : "";
   const jtId = String(src.jobtreadFileId ?? "").trim();
-  if (!driveId && !/^[\w-]{6,40}$/.test(jtId)) return "Pass a Drive link or a JobTread file id.";
-  const key = driveId ? `drive:${driveId}` : `jobtread:${jtId}`;
+  if (!mailId && !driveId && !/^[\w-]{6,40}$/.test(jtId)) return "Pass a Drive link or a JobTread file id.";
+  const key = mailId ? `mail:${mailId}` : driveId ? `drive:${driveId}` : `jobtread:${jtId}`;
 
   await ensureDb();
   const [kept] = await db.select().from(fileTexts).where(eq(fileTexts.key, key)).limit(1);
   const fresh = kept && (!driveId || Date.now() - Date.parse(kept.readAt) < DRIVE_FRESH_MS);
   if (kept && fresh) return kept;
 
-  const got = driveId ? await fetchDrive(driveId) : await fetchJobTread(cfg, jtId);
+  const got = mailId
+    ? await fetchMail(mailId)
+    : driveId
+      ? await fetchDrive(driveId)
+      : await fetchJobTread(cfg, jtId);
   if (typeof got === "string") return got;
   const values = { ...got, text: got.text.slice(0, TEXT_MAX), readAt: new Date().toISOString() };
   // A scan left unread is not kept: a later read with more time may read it.
