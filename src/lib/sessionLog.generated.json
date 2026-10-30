@@ -1,33 +1,14 @@
 {
-  "generatedAt": "2026-10-30T15:05:31Z",
+  "generatedAt": "2026-10-30T17:22:46Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "ascentbot-knowledge-sources",
-      "file": "2026-10-30-ascentbot-knowledge-sources.md",
-      "branch": "claude/ascentbot-knowledge-sources-ad9sio",
-      "status": "shipped",
-      "started": "2026-10-30T15:05:09Z",
-      "updated": "2026-10-30T15:05:31Z",
-      "goal": "",
-      "next": "Ask the bot a money question in a job space as a Full-access user, and add a test person on Jobs only to confirm the bot declines money.",
-      "commits": [
-        {
-          "date": "2026-10-30",
-          "time": "15:05",
-          "sha": "238b820",
-          "subject": "companion: ascentbot answers money questions, with roles and an access page",
-          "files": "CODEBASE_MAP.md, src/app/api/ascentbot/route.ts, src/app/api/google-chat/route.ts, src/app/ascentbot/AscentBotAccess.tsx, src/app/ascentbot/page.tsx, src/db/index.ts, +11 more"
-        }
-      ]
-    },
     {
       "slug": "ascentbot-architecture",
       "file": "2026-10-28-ascentbot-architecture.md",
       "branch": "claude/ascentbot-architecture-08o3ez",
       "status": "shipped",
       "started": "2026-10-28T05:54:35Z",
-      "updated": "2026-10-30T14:24:13Z",
+      "updated": "2026-10-30T17:22:46Z",
       "goal": "",
       "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
       "commits": [
@@ -79,6 +60,32 @@
           "sha": "a25a84e",
           "subject": "companion: ascentbot \"start over\", and retry any answer that looked nothing up",
           "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "17:22",
+          "sha": "6791246",
+          "subject": "companion: ascentbot splits lists joined by any bullet dot, and logs what it sent",
+          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
+    {
+      "slug": "ascentbot-knowledge-sources",
+      "file": "2026-10-30-ascentbot-knowledge-sources.md",
+      "branch": "claude/ascentbot-knowledge-sources-ad9sio",
+      "status": "shipped",
+      "started": "2026-10-30T15:05:09Z",
+      "updated": "2026-10-30T15:05:31Z",
+      "goal": "",
+      "next": "Ask the bot a money question in a job space as a Full-access user, and add a test person on Jobs only to confirm the bot declines money.",
+      "commits": [
+        {
+          "date": "2026-10-30",
+          "time": "15:05",
+          "sha": "238b820",
+          "subject": "companion: ascentbot answers money questions, with roles and an access page",
+          "files": "CODEBASE_MAP.md, src/app/api/ascentbot/route.ts, src/app/api/google-chat/route.ts, src/app/ascentbot/AscentBotAccess.tsx, src/app/ascentbot/page.tsx, src/db/index.ts, +11 more"
         }
       ]
     },
