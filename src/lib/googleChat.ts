@@ -163,18 +163,18 @@ export function matchJobs(jobs: JobRef[], query: string): JobRef[] {
   return scored.filter((x) => x.n === best).map((x) => x.j);
 }
 
-/** The gold star, drawn in a code block so Chat keeps its spacing. */
+/** The gold star, shooting, drawn in a code block so Chat keeps its spacing. */
 export const GOLD_STAR = [
-  "            *",
-  "           ***",
-  "          *****",
-  "  *********************",
-  "    *****************",
-  "      *************",
-  "       ***********",
-  "      *****   *****",
-  "     ***         ***",
-  "    *               *",
+  "                                  *",
+  "                                 ***",
+  "                                *****",
+  "                        *********************",
+  "             .   .  ' ~~  *****************",
+  "       .  '   ~~~~~~~~~~~~  *************",
+  "   .    ~~~~~~~~~~~~~~~~~~~  ***********",
+  "      '   ~~~~~~~~~~~~~~~   *****   *****",
+  "  .     '    ~~~~~~~~~     ***         ***",
+  "         .        '       *               *",
 ].join("\n");
 
 const GOLD_STAR_ASK = /^\s*gold\s*star\b[\s,:;!.-]*(?:for\s+|to\s+)?(.*?)[\s!.]*$/i;
