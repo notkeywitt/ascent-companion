@@ -24,7 +24,7 @@ vi.mock("@/lib/jobtread", async (orig) => ({
 }));
 
 import type { ChatTurn } from "./chatMemory";
-import { CHAT_TOOLS, groupScopeLines, hasAnyWord, summarizeJobTime } from "./chatTools";
+import { CHAT_TOOLS, groupScopeLines, hasAnyWord, shapeCalendar, summarizeJobTime } from "./chatTools";
 import type { JobRef, PaveConfig } from "./jobtread";
 import {
   answerCollector,
@@ -34,6 +34,7 @@ import {
   buildHistory,
   canAsk,
   jobLine,
+  looksRefused,
   looksUnanswered,
   matchJobs,
   parseEvent,
@@ -438,5 +439,50 @@ describe("listLines", () => {
   });
   it("turns dash and star items into • items", () => {
     expect(listLines("Due:\n- A - $500\n* B")).toBe("Due:\n• A - $500\n• B");
+  });
+});
+
+describe("listLines with unusual spaces", () => {
+  it("splits items joined by a no-break or narrow space", () => {
+    for (const sp of ["\u00a0", "\u202f", "\u2009"]) {
+      expect(listLines(`Here:\n\n• Moon (Ty)${sp}•${sp}Garden (Casey)`)).toBe("Here:\n\n• Moon (Ty)\n• Garden (Casey)");
+    }
+  });
+});
+
+describe("looksRefused", () => {
+  it("catches the staff-details refusal, not an ordinary answer", () => {
+    expect(
+      looksRefused("I can't share that either. Staff birthdays and personal details aren't something I can look up here."),
+    ).toBe(true);
+    expect(looksRefused("Ty's birthday is March 4.")).toBe(false);
+  });
+});
+
+describe("shapeCalendar", () => {
+  const ev = (o: Record<string, unknown>) => ({ calendarName: "Ty", ...o });
+  const events = [
+    // 1:30 PM Pacific Oct 30 = 20:30 UTC
+    ev({ title: "Ferron biweekly OAC", start: "2026-10-30T20:30:00Z", end: "2026-10-30T21:30:00Z", startLabel: "1:30 PM", endLabel: "2:30 PM" }),
+    ev({ title: "Ferron biweekly OAC", calendarName: "Casey", start: "2026-10-30T20:30:00Z", end: "2026-10-30T21:30:00Z", startLabel: "1:30 PM", endLabel: "2:30 PM" }),
+    // 6 PM Pacific Oct 29 = 01:00 UTC Oct 30: still Oct 29 in Pacific
+    ev({ title: "Evening walkthrough", start: "2026-10-30T01:00:00Z", end: "2026-10-30T02:00:00Z", startLabel: "6:00 PM", endLabel: "7:00 PM" }),
+    // All day Oct 28 through Nov 7 (Pacific midnights)
+    ev({ title: "Moon Spring, Insulation", allDay: true, start: "2026-10-28T07:00:00Z", end: "2026-11-08T08:00:00Z", startLabel: "All day" }),
+    ev({ title: "Yoga", start: "2026-10-30T15:00:00Z", end: "2026-10-30T16:00:00Z", startLabel: "8:00 AM", endLabel: "9:00 AM" }),
+  ];
+
+  it("lists one Pacific day in time order, all-day first, one line per event", () => {
+    const day = shapeCalendar(events, { date: "2026-10-30" });
+    expect(day.map((d) => d.title)).toEqual(["Moon Spring, Insulation", "Yoga", "Ferron biweekly OAC"]);
+    expect(day[0]).toMatchObject({ time: "All day", from: "2026-10-28", through: "2026-11-07", weekday: "Fri" });
+    expect(day[2]).toMatchObject({ time: "1:30 PM – 2:30 PM", calendars: "Ty, Casey" });
+  });
+
+  it("keeps an evening event on its Pacific day, not the UTC one", () => {
+    expect(shapeCalendar(events, { date: "2026-10-29" }).map((d) => d.title)).toEqual([
+      "Moon Spring, Insulation",
+      "Evening walkthrough",
+    ]);
   });
 });

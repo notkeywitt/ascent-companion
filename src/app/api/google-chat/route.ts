@@ -16,6 +16,7 @@ import {
   canAsk,
   helpText,
   jobLine,
+  looksRefused,
   looksUnanswered,
   parseEvent,
   reportGap,
@@ -98,11 +99,13 @@ const LATER_MS = 270_000;
 
 /**
  * The larger model for a hard question: rounds after the second, and a retry
- * when the small model's answer gives up. "off" keeps every round on the small one.
+ * when the small model's answer gives up or refuses. "off" keeps every round on the small one.
  */
 function escalation() {
   const model = process.env.GOOGLE_CHAT_HARD_MODEL?.trim() || "claude-sonnet-5-5";
-  return model === "off" ? undefined : { model, afterRounds: 2, retryIf: looksUnanswered };
+  return model === "off"
+    ? undefined
+    : { model, afterRounds: 2, retryIf: (text: string) => looksUnanswered(text) || looksRefused(text) };
 }
 
 const sleep = (ms: number) => new Promise<null>((done) => setTimeout(() => done(null), ms));

@@ -79,6 +79,73 @@ export interface ChatTool extends ChatToolDef {
  *  costs. Nothing is ever added on top. */
 const billAmount = (b: DraftBill) => b.cost ?? 0;
 
+/** One event as the Apps Script `digestCalendar` action returns it. */
+export interface CalendarEvent {
+  calendarName?: string;
+  title?: string;
+  location?: string;
+  allDay?: boolean;
+  start?: string; // ISO, UTC
+  end?: string; // ISO, UTC; an all-day event's end is the next midnight
+  startLabel?: string; // "8:00 AM" Pacific, "All day"
+  endLabel?: string;
+}
+
+/** The Pacific calendar date (YYYY-MM-DD) of an instant. */
+export function pacificDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+}
+
+const weekday = (day: string) =>
+  new Date(`${day}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
+
+/**
+ * Calendar events as AscentBot answers from them: in Pacific dates, in time
+ * order (all-day first on a day), one entry per event even when it sits on
+ * several calendars, and — with `date` — only the events that cover that day.
+ * The raw ISO times are UTC, which made an evening question read as tomorrow.
+ */
+export function shapeCalendar(events: CalendarEvent[], opts: { date?: string; words?: string[] } = {}) {
+  const merged = new Map<string, { e: CalendarEvent; from: string; through: string; calendars: string[] }>();
+  for (const e of events) {
+    if (!e.start || !hasAnyWord(`${e.title ?? ""} ${e.location ?? ""} ${e.calendarName ?? ""}`, opts.words ?? [])) continue;
+    const from = pacificDay(e.start);
+    // The end is exclusive: an all-day event ending at the next midnight ends the day before.
+    const through = e.end ? pacificDay(new Date(Date.parse(e.end) - 1).toISOString()) : from;
+    if (opts.date && (opts.date < from || opts.date > through)) continue;
+    const key = `${e.title ?? ""}|${e.start}|${e.end ?? ""}`;
+    const hit = merged.get(key);
+    if (hit) {
+      if (e.calendarName && !hit.calendars.includes(e.calendarName)) hit.calendars.push(e.calendarName);
+    } else {
+      merged.set(key, { e, from, through: through < from ? from : through, calendars: e.calendarName ? [e.calendarName] : [] });
+    }
+  }
+  return [...merged.values()]
+    .sort((a, b) => {
+      const da = opts.date ?? a.from;
+      const db = opts.date ?? b.from;
+      if (da !== db) return da < db ? -1 : 1;
+      if (!!a.e.allDay !== !!b.e.allDay) return a.e.allDay ? -1 : 1;
+      return (a.e.start ?? "") < (b.e.start ?? "") ? -1 : 1;
+    })
+    .slice(0, 60)
+    .map(({ e, from, through, calendars }) => ({
+      date: opts.date || from,
+      weekday: weekday(opts.date || from),
+      time: e.allDay
+        ? "All day"
+        : [e.startLabel, e.endLabel].filter(Boolean).join(" – ") || pacificTime(e.start ?? ""),
+      title: e.title ?? "",
+      calendars: calendars.join(", "),
+      ...(through !== from ? { from, through } : {}),
+      ...(e.location ? { location: e.location } : {}),
+    }));
+}
+
+const pacificTime = (iso: string) =>
+  iso ? new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Los_Angeles" }) : "";
+
 /** The words a lookup is narrowed by. */
 const wordsOf = (input: Record<string, unknown>) =>
   String(input.words ?? "")
@@ -807,38 +874,33 @@ export const CHAT_TOOLS: ChatTool[] = [
   {
     name: "get_calendar",
     description:
-      "Events on the office's shared Google calendars (office, Ty, Casey, time off) from " +
-      "today forward: date, time, calendar, title and location. Use for site visits, " +
-      "inspections and who is out. Calendar titles may name the job or the trade.",
+      "Events on the office's shared Google calendars (office, Ty, Casey, time off), in " +
+      "time order: Pacific date and weekday, time ('All day' or '8:00 AM – 9:00 AM'), " +
+      "title, whose calendars, location, and 'through' for a multi-day event. With date " +
+      "(YYYY-MM-DD): only that day, including multi-day events that cover it. Without: " +
+      "from today on. Use for 'what's on the calendar today?', site visits, inspections " +
+      "and who is out.",
     input_schema: {
       type: "object",
       properties: {
-        days: { type: "number", description: "How many days ahead, 1-31. Defaults to 14." },
+        date: { type: "string", description: "Optional. One Pacific day, YYYY-MM-DD, e.g. today's date." },
+        days: { type: "number", description: "Without date: how many days ahead, 1-31. Defaults to 14." },
         ...WORDS_PROP,
       },
       additionalProperties: false,
     },
     handler: async (_cfg, input) => {
-      const days = Math.min(Math.max(Math.round(Number(input.days) || 14), 1), 31);
+      const date = /^\d{4}-\d{2}-\d{2}$/.test(String(input.date ?? "")) ? String(input.date) : "";
+      const today = pacificDay(new Date().toISOString());
+      // The read always starts at today's Pacific midnight; reach far enough to cover `date`.
+      const ahead = date ? Math.round((Date.parse(date) - Date.parse(today)) / 86_400_000) + 1 : 0;
+      const days = Math.min(Math.max(date ? ahead : Math.round(Number(input.days) || 14), 1), 31);
       const cal = DIGEST_SETTINGS["calendar-events"].config;
-      const r = await callAppsScriptOrThrow<{
-        events?: { calendarName?: string; title?: string; location?: string; allDay?: boolean; start?: string; end?: string }[];
-      }>(
+      const r = await callAppsScriptOrThrow<{ events?: CalendarEvent[] }>(
         { action: "digestCalendar", days, calendarIds: cal.calendarIds, calendarNames: cal.calendarNames, includePrimary: false },
         SEARCH_OPTS,
       );
-      const words = wordsOf(input);
-      return (r.events ?? [])
-        .filter((e) => hasAnyWord(`${e.title ?? ""} ${e.location ?? ""} ${e.calendarName ?? ""}`, words))
-        .slice(0, 60)
-        .map((e) => ({
-          calendar: e.calendarName ?? "",
-          title: e.title ?? "",
-          start: e.start ?? "",
-          end: e.end ?? "",
-          ...(e.allDay ? { allDay: true } : {}),
-          ...(e.location ? { location: e.location } : {}),
-        }));
+      return shapeCalendar(r.events ?? [], { date, words: wordsOf(input) });
     },
   },
   {
