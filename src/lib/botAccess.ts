@@ -86,6 +86,7 @@ export const JOB_TOOLS = [
   "get_job_schedule",
   "get_job_notes",
   "search_job_memory",
+  "search_team_chat",
   "get_job_files",
   "read_file",
   "get_calendar",

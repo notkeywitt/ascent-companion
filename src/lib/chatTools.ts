@@ -58,7 +58,7 @@ import {
   summarizeOpenInvoices,
   summarizeVendorBills,
 } from "@/lib/botFinancials";
-import { searchJobMemory } from "@/lib/chatMemory";
+import { searchJobMemory, searchTeamChat } from "@/lib/chatMemory";
 import { searchSpecDocs } from "@/lib/specDocs";
 import { readFile } from "@/lib/fileReader";
 import { orgDay } from "@/lib/orgTime";
@@ -827,9 +827,9 @@ export const CHAT_TOOLS: ChatTool[] = [
   {
     name: "search_job_memory",
     description:
-      "What was said about a job in its Google Chat space: decisions AscentBot was asked to " +
-      "remember, earlier questions and its answers, and (when space reading is on) what " +
-      "people said to each other there, newest first, each with who and when. " +
+      "What was said about a job in its Google Chat space or the job's own Signal group: " +
+      "decisions AscentBot was asked to remember, earlier questions and its answers, and " +
+      "what people said to each other there, newest first, each with who and when. " +
       "Check this for any decision or detail before saying nothing is recorded.",
     input_schema: {
       type: "object",
@@ -838,6 +838,20 @@ export const CHAT_TOOLS: ChatTool[] = [
       additionalProperties: false,
     },
     handler: async (_cfg, input) => searchJobMemory(String(input.job_id), String(input.words ?? "")),
+  },
+  {
+    name: "search_team_chat",
+    description:
+      "The team's Signal group messages: job groups and the general crew/office groups, " +
+      "newest first, each with the chat name, who and when. General groups are not filed " +
+      "under a job, so search by the job or client name plus the topic (e.g. 'Smith tile'). " +
+      "Use after search_job_memory for decisions and details people texted each other.",
+    input_schema: {
+      type: "object",
+      properties: WORDS_PROP,
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) => searchTeamChat(String(input.words ?? "")),
   },
   {
     name: "get_job_files",

@@ -1,7 +1,9 @@
 /**
  * AscentBot's memory — which job a Google Chat space is about, and what was
  * said there: questions, answers, decisions it was told to keep, and (kind
- * "said", once space reading is on) what people said to each other.
+ * "said", once space reading is on) what people said to each other. Signal
+ * group messages land here too, as "said" turns in a "signal:<chat>" space
+ * (signalImport.ts).
  *
  * Companion DB only (tables chat_space_jobs, chat_turns, chat_space_sync,
  * chat_users). Nothing here touches JobTread. Server-only.
@@ -151,4 +153,56 @@ export async function searchJobMemory(jobId: string, words: string, limit = 20):
     .orderBy(desc(chatTurns.at))
     .limit(limit);
   return rows.map((r) => ({ kind: r.kind as TurnKind, author: r.author, text: r.text, at: r.at }));
+}
+
+/** The `thread` values of these that are already stored. Signal messages keep their id there. */
+export async function storedThreads(threads: string[]): Promise<Set<string>> {
+  const ids = [...new Set(threads.filter(Boolean))];
+  if (!ids.length) return new Set();
+  await ensureDb();
+  const rows = await db.select({ thread: chatTurns.thread }).from(chatTurns).where(inArray(chatTurns.thread, ids));
+  return new Set(rows.map((r) => r.thread));
+}
+
+/** Store many turns in one insert. Each needs its own `at`. */
+export async function saveTurns(
+  turns: { space: string; thread: string; jobId: string; kind: TurnKind; author: string; text: string; at: string }[],
+): Promise<void> {
+  const rows = turns.filter((t) => t.space && t.text.trim()).map((t) => ({ ...t, text: t.text.trim() }));
+  if (!rows.length) return;
+  await ensureDb();
+  await db.insert(chatTurns).values(rows);
+}
+
+/** A Signal message found by searchTeamChat: a turn plus the chat it was said in. */
+export interface TeamChatTurn extends ChatTurn {
+  chat: string;
+}
+
+/**
+ * Every Signal message, from job groups and office groups alike, that contains
+ * ANY of the words, newest first. Office groups carry no job, so a job is found
+ * by its name in the words ("Smith tile").
+ */
+export async function searchTeamChat(words: string, limit = 30): Promise<TeamChatTurn[]> {
+  const terms = words
+    .split(/\s+/)
+    .map((w) => w.replace(/[%_]/g, "").trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  await ensureDb();
+  const signal = like(chatTurns.space, "signal:%");
+  const rows = await db
+    .select()
+    .from(chatTurns)
+    .where(terms.length ? and(signal, or(...terms.map((w) => like(chatTurns.text, `%${w}%`)))) : signal)
+    .orderBy(desc(chatTurns.at))
+    .limit(limit);
+  return rows.map((r) => ({
+    chat: r.space.slice("signal:".length),
+    kind: r.kind as TurnKind,
+    author: r.author,
+    text: r.text,
+    at: r.at,
+  }));
 }
