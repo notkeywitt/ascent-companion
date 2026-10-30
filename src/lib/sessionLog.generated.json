@@ -1,61 +1,14 @@
 {
-  "generatedAt": "2026-10-30T14:15:02Z",
+  "generatedAt": "2026-10-30T14:21:50Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "admiring-hawking",
-      "file": "2026-10-29-admiring-hawking.md",
-      "branch": "claude/admiring-hawking-b4zgzx",
-      "status": "shipped",
-      "started": "2026-10-29T19:04:37Z",
-      "updated": "2026-10-30T14:15:02Z",
-      "goal": "",
-      "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "19:04",
-          "sha": "95921a8",
-          "subject": "companion: let mileage from/to take office, shop or a job name",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "19:09",
-          "sha": "2b1af8c",
-          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "19:22",
-          "sha": "3fa4372",
-          "subject": "companion: serve roboto from the repo so a google fonts outage cannot fail the build",
-          "files": "src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:09",
-          "sha": "481cf6e",
-          "subject": "companion: drop a suggestion list under mileage from/to as the driver types",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:15",
-          "sha": "a9d2115",
-          "subject": "companion: drop the my work tab strip from the miles page",
-          "files": "src/lib/workspaces.ts"
-        }
-      ]
-    },
     {
       "slug": "ascentbot-architecture",
       "file": "2026-10-28-ascentbot-architecture.md",
       "branch": "claude/ascentbot-architecture-08o3ez",
       "status": "shipped",
       "started": "2026-10-28T05:54:35Z",
-      "updated": "2026-10-30T14:08:24Z",
+      "updated": "2026-10-30T14:21:50Z",
       "goal": "",
       "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
       "commits": [
@@ -100,6 +53,60 @@
           "sha": "e72aa39",
           "subject": "companion: ascentbot lists calendar days in order, drops preamble, retries refusals",
           "files": "src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:21",
+          "sha": "a25a84e",
+          "subject": "companion: ascentbot \"start over\", and retry any answer that looked nothing up",
+          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
+    {
+      "slug": "admiring-hawking",
+      "file": "2026-10-29-admiring-hawking.md",
+      "branch": "claude/admiring-hawking-b4zgzx",
+      "status": "shipped",
+      "started": "2026-10-29T19:04:37Z",
+      "updated": "2026-10-30T14:15:02Z",
+      "goal": "",
+      "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "19:04",
+          "sha": "95921a8",
+          "subject": "companion: let mileage from/to take office, shop or a job name",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:09",
+          "sha": "2b1af8c",
+          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:22",
+          "sha": "3fa4372",
+          "subject": "companion: serve roboto from the repo so a google fonts outage cannot fail the build",
+          "files": "src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:09",
+          "sha": "481cf6e",
+          "subject": "companion: drop a suggestion list under mileage from/to as the driver types",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:15",
+          "sha": "a9d2115",
+          "subject": "companion: drop the my work tab strip from the miles page",
+          "files": "src/lib/workspaces.ts"
         }
       ]
     },
