@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/admiring-hawking-b4zgzx
 status: shipped
 started: 2026-10-29T19:04:37Z
-updated: 2026-10-30T14:11:55Z
+updated: 2026-10-30T14:15:01Z
 goal: 
 next: none — mileage plain-language From/To shipped; watch for ambiguous job names in the field
 ---
@@ -20,5 +20,7 @@ next: none — mileage plain-language From/To shipped; watch for ambiguous job n
   src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx
 - 2026-10-30 14:09 · `481cf6e` companion: drop a suggestion list under mileage from/to as the driver types
   CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts
+- 2026-10-30 14:15 · `a9d2115` companion: drop the my work tab strip from the miles page
+  src/lib/workspaces.ts
 
 ## Notes
