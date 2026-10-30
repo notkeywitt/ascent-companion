@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascentbot-knowledge-sources-ad9sio
 status: shipped
 started: 2026-10-30T15:05:09Z
-updated: 2026-10-30T22:17:20Z
+updated: 2026-10-30T22:21:27Z
 goal: 
 next: Say '@AscentBot gold star for <name>' in a space and check the star keeps its shape.
 ---
@@ -20,6 +20,8 @@ next: Say '@AscentBot gold star for <name>' in a space and check the star keeps 
   src/lib/botAccess.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, src/lib/googleChat.test.ts
 - 2026-10-30 22:17 · `fcd88fd` companion: ascentbot answers "gold star" with a star
   src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts
+- 2026-10-30 22:21 · `8deddc6` companion: make ascentbot's gold star a shooting star
+  src/lib/googleChat.ts
 
 ## Notes
 - 2026-10-30 15:05 — Financials, staff records and the office mailbox are bot areas; job knowledge is the base. Enforced by the tool set, not the prompt.
