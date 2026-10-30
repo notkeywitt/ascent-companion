@@ -36,6 +36,7 @@ import {
   isStartOver,
   looksRefused,
   looksUnanswered,
+  oddChars,
   matchJobs,
   parseEvent,
   summarizeMileage,
@@ -581,5 +582,23 @@ describe("history leaves out what would mislead the model", () => {
     const h = buildHistory([t("reset", "(start over)"), t("question", "hi")], { name: "Keillor", text: "q" });
     expect(h.map((m) => m.role)).toEqual(["user"]);
     expect(h[0].content).not.toMatch(/start over/);
+  });
+});
+
+describe("listLines with other bullet dots", () => {
+  it("splits items joined by a middle dot or other dots in a list line", () => {
+    expect(listLines("Here:\n\n· Moon (Ty) · Garden (Casey)")).toBe("Here:\n\n• Moon (Ty)\n• Garden (Casey)");
+    expect(listLines("• A ∙ B ● C")).toBe("• A\n• B\n• C");
+  });
+
+  it("leaves a middle dot inside an ordinary sentence alone", () => {
+    expect(listLines("Fri · 8 AM is fine.")).toBe("Fri · 8 AM is fine.");
+  });
+});
+
+describe("oddChars", () => {
+  it("names the non-ASCII characters an answer carries", () => {
+    expect(oddChars("• A\u00a0• B")).toBe("U+2022×2 U+00A0×1");
+    expect(oddChars("plain")).toBe("");
   });
 });

@@ -213,8 +213,10 @@ export const CHAT_SYSTEM = [
   "- You cannot change JobTread. save_note and link_space_to_job only write to your own memory;",
   "  report_gap only emails the office.",
   "- Google Chat formatting: *bold* uses single asterisks, _italic_ underscores.",
-  "  No markdown tables, no headings, no [text](url) links. Use • for list items,",
-  "  each on its own line.",
+  "  No markdown tables, no headings, no [text](url) links.",
+  "- Three or more items (events, people, products, steps) are always a list: each item",
+  "  on its own line, starting with \"• \". Never run items together in one sentence or",
+  "  one line.",
   "- Keep the answer under 15 lines. Lead with the answer. No preamble: never describe",
   "  which tools you used, what you checked, an earlier answer or a correction. Say how",
   "  you know only by naming the source next to the fact, or when someone asks.",
@@ -314,18 +316,44 @@ export function answerCollector() {
   };
 }
 
+/** Other dots a model uses as bullets; "·" (middle dot) is also used inside text, so it splits only in a list line. */
+const OTHER_BULLETS = "●◦▪∙‧";
+const LIST_LINE = /^[^\S\n]*[•●◦▪∙‧·][^\S\n]/;
+
 /**
- * Puts each list item on its own line; the model sometimes runs them together.
- * A "- " or "* " item at the start of a line becomes "• " too, so every list
- * reads the same. Google Chat shows each line break as sent.
+ * Puts each list item on its own line; the model sometimes runs them together
+ * ("• Moon (Ty) • Garden (Casey)"). A "- ", "* " or other dot item at the start
+ * of a line becomes "• ", so every list reads the same. Google Chat shows each
+ * line break as sent.
+ *
+ * [^\S\n] is any space but a line break: the model often puts a no-break or
+ * narrow space (U+00A0, U+202F) around a bullet, which a plain [ \t] misses.
  */
 export function listLines(text: string): string {
-  // [^\S\n] is any space but a line break: the model often puts a no-break or
-  // narrow space (U+00A0, U+202F) before a "•", which a plain [ \t] misses.
   return text
-    .replace(/^[^\S\n]*[-*][^\S\n]+(?=\S)/gm, "• ")
     .replace(/([^\s])[^\S\n]*•[^\S\n]*/g, "$1\n• ")
-    .replace(/^[^\S\n]*•[^\S\n]*/gm, "• ");
+    .split("\n")
+    .map((line) => {
+      const l = line.replace(/^[^\S\n]*[-*][^\S\n]+(?=\S)/, "• ");
+      const dots = LIST_LINE.test(l) ? `${OTHER_BULLETS}·` : OTHER_BULLETS;
+      return l
+        .replace(new RegExp(`([^\\s])[^\\S\\n]+[${dots}][^\\S\\n]+(?=\\S)`, "g"), "$1\n• ")
+        .replace(/^[^\S\n]*[•●◦▪∙‧·][^\S\n]*/gm, "• ");
+    })
+    .join("\n");
+}
+
+/**
+ * The characters outside plain ASCII in an answer, as code points, for the log:
+ * when a reply's layout comes out wrong, this shows what the model actually sent.
+ */
+export function oddChars(text: string): string {
+  const seen = new Map<string, number>();
+  for (const ch of text) {
+    const cp = ch.codePointAt(0)!;
+    if (cp > 126 && cp !== 8217) seen.set(ch, (seen.get(ch) ?? 0) + 1);
+  }
+  return [...seen].map(([ch, n]) => `U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}×${n}`).join(" ");
 }
 
 /** Today in Pacific, so "today" and "last month" resolve to real dates. */

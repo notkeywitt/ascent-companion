@@ -16,6 +16,7 @@ import {
   isStartOver,
   jobLine,
   looksRefused,
+  oddChars,
   looksUnanswered,
   parseEvent,
   reportGap,
@@ -144,7 +145,12 @@ function askClaude(
     });
   // With a way to answer later, the file reader may take longer over a long scan.
   return (later ? readerTime.run(LONG_READ, run) : run()).then(
-    () => answer.text() || "I couldn't find an answer to that.",
+    () => {
+      const text = answer.text() || "I couldn't find an answer to that.";
+      // The layout as sent: line count and any non-ASCII characters (bullets, odd spaces).
+      console.log(`[google-chat] answer: ${text.split("\n").length} lines; ${oddChars(text) || "plain ASCII"}`);
+      return text;
+    },
     (e) => {
       console.error(`[google-chat] answer failed: ${e instanceof Error ? e.message : e}`);
       return "Something went wrong looking that up. Try again, or use the Assistant page in the app.";
