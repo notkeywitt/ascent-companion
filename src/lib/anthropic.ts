@@ -93,7 +93,14 @@ export interface RunChatOptions {
    * `reset` event) and the larger model writes it again from the same lookups.
    * One-way: once on the larger model, the loop stays there.
    */
-  escalate?: { model: string; afterRounds: number; retryIf?: (text: string) => boolean };
+  escalate?: {
+    model: string;
+    afterRounds: number;
+    /** Whether to withdraw the small model's answer; `usedTools` is false when it looked nothing up. */
+    retryIf?: (text: string, usedTools: boolean) => boolean;
+    /** Added to the system prompt for the larger model's retry, saying what the first answer got wrong. */
+    hint?: string;
+  };
 }
 
 /**
@@ -153,13 +160,15 @@ export async function runChat({
   const tag = `[chat:${feature}]`;
 
   let big = false;
+  let usedTools = false;
+  let retryHint = "";
   for (let iter = 0; iter < MAX_ITERATIONS; iter++) {
     const roundStart = Date.now();
     if (escalate && iter >= escalate.afterRounds) big = true;
     const roundModel = big && escalate ? escalate.model : model;
     const stream: RoundStream =
       big && escalate
-        ? bigRound(escalate.model, system, tools, convo)
+        ? bigRound(escalate.model, retryHint ? `${system}\n\n${retryHint}` : system, tools, convo)
         : client().messages.stream({
             model,
             max_tokens: MAX_TOKENS,
@@ -182,12 +191,14 @@ export async function runChat({
     trackClaudeUsage(feature, roundModel, message.usage, jobId ?? "");
 
     // The small model gave up: withdraw its answer and let the larger one try from the same lookups.
-    if (escalate && !big && message.stop_reason !== "tool_use" && escalate.retryIf?.(roundText)) {
-      console.log(`${tag} escalating to ${escalate.model}: the answer gave up`);
+    if (escalate && !big && message.stop_reason !== "tool_use" && escalate.retryIf?.(roundText, usedTools)) {
+      console.log(`${tag} escalating to ${escalate.model}: the answer gave up${usedTools ? "" : " without a lookup"}`);
       onEvent({ type: "reset" });
       big = true;
+      retryHint = usedTools ? "" : (escalate.hint ?? "");
       continue;
     }
+    if (message.stop_reason === "tool_use") usedTools = true;
     convo.push({ role: "assistant", content: message.content });
 
     if (message.stop_reason !== "tool_use") {

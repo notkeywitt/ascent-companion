@@ -90,4 +90,29 @@ describe("runChat escalate", () => {
     await run();
     expect(calls.every((c) => c.model === "small" && !c.beta)).toBe(true);
   });
+
+  it("retries an answer given with no lookup at all, and tells the larger model so", async () => {
+    script.push(
+      { text: "I can't share that.", stop: "end_turn" },
+      { text: "", stop: "tool_use", tool: "look" },
+      { text: "Ty's birthday is March 4.", stop: "end_turn" },
+    );
+    const seen: boolean[] = [];
+    const events = await run({
+      model: "big",
+      afterRounds: 2,
+      retryIf: (_t, usedTools) => (seen.push(usedTools), !usedTools),
+      hint: "Look it up first.",
+    });
+    expect(seen).toEqual([false]);
+    expect(calls.map((c) => c.model)).toEqual(["small", "big", "big"]);
+    const text = events.reduce((t, e) => (e.type === "reset" ? "" : e.type === "text" ? t + e.text : t), "");
+    expect(text).toBe("Ty's birthday is March 4.");
+  });
+
+  it("does not retry an answer that came after a lookup", async () => {
+    script.push({ text: "", stop: "tool_use", tool: "look" }, { text: "Done.", stop: "end_turn" });
+    await run({ model: "big", afterRounds: 2, retryIf: (_t, usedTools) => !usedTools });
+    expect(calls.map((c) => c.model)).toEqual(["small", "small"]);
+  });
 });

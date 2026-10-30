@@ -5,7 +5,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 
 import { readUsageByMonth } from "@/lib/aiUsage";
 import { runChat } from "@/lib/anthropic";
-import { getSpaceJob, recentTurns, rememberChatUser, saveTurn, type SpaceJob } from "@/lib/chatMemory";
+import { getSpaceJob, recentTurns, rememberChatUser, saveTurn, startOver, type SpaceJob } from "@/lib/chatMemory";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import {
   answerCollector,
@@ -15,12 +15,14 @@ import {
   buildHistory,
   canAsk,
   helpText,
+  isStartOver,
   jobLine,
   looksRefused,
   looksUnanswered,
   parseEvent,
   reportGap,
   runCommand,
+  START_OVER_REPLY,
   todayLine,
   type BotContext,
   type GoogleChatEvent,
@@ -99,13 +101,23 @@ const LATER_MS = 270_000;
 
 /**
  * The larger model for a hard question: rounds after the second, and a retry
- * when the small model's answer gives up or refuses. "off" keeps every round on the small one.
+ * when the small model's answer gives up, refuses or used no lookup. "off" keeps every round on the small one.
  */
 function escalation() {
   const model = process.env.GOOGLE_CHAT_HARD_MODEL?.trim() || "claude-sonnet-5-5";
-  return model === "off"
+    return model === "off"
     ? undefined
-    : { model, afterRounds: 2, retryIf: (text: string) => looksUnanswered(text) || looksRefused(text) };
+    : {
+        model,
+        afterRounds: 2,
+        // An answer with no lookup behind it is retried too: the small model refuses
+        // or guesses without looking, and its refusal wording varies.
+        retryIf: (text: string, usedTools: boolean) => !usedTools || looksUnanswered(text) || looksRefused(text),
+        hint:
+          "Your first answer looked nothing up. Do not answer from memory and do not refuse. " +
+          "Call the matching lookup first, then answer from what it returns. For a staff member's " +
+          "details, call search_company_records with record 'employees' and their name.",
+      };
 }
 
 const sleep = (ms: number) => new Promise<null>((done) => setTimeout(() => done(null), ms));
@@ -183,6 +195,10 @@ export async function POST(req: NextRequest) {
     if (ask.kind === "command") return reply(await runCommand(cfg, ask.commandId, ask.arg, linked));
 
     if (/^(help|\?)$/i.test(ask.text)) return reply(helpText());
+    if (isStartOver(ask.text)) {
+      await quietly("starting over", startOver(ask.space, ask.thread, linked?.jobId ?? "", ask.name), undefined);
+      return reply(START_OVER_REPLY);
+    }
     if (!process.env.ANTHROPIC_API_KEY) return reply("AI answers are off for now. Ask the office.");
     if (await overMonthlyCap()) return reply("This month's AI budget for chat is used up. Ask the office.");
 

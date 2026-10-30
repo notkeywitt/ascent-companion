@@ -7,13 +7,14 @@
  * chat_users). Nothing here touches JobTread. Server-only.
  */
 
-import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, like, ne, or } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
 import { chatSpaceJobs, chatSpaceSync, chatTurns, chatUsers } from "@/db/schema";
 
 /** "said" = a message between people in the space, read by chatSync.ts. */
-export type TurnKind = "question" | "answer" | "note" | "said";
+/** "reset" = someone said "start over": the history before it is dropped (see recentTurns). */
+export type TurnKind = "question" | "answer" | "note" | "said" | "reset";
 
 export interface ChatTurn {
   kind: TurnKind;
@@ -43,17 +44,32 @@ export async function linkSpaceJob(space: string, job: SpaceJob, email: string):
     .onConflictDoUpdate({ target: chatSpaceJobs.space, set: row });
 }
 
-/** The space's newest turns, oldest first. */
+/**
+ * The space's newest turns, oldest first, from the latest "start over" on. The
+ * reset only clears what the bot reads back as the conversation. Kept
+ * decisions stay in search_job_memory.
+ */
 export async function recentTurns(space: string, limit = 20): Promise<ChatTurn[]> {
   if (!space) return [];
   await ensureDb();
+  const [mark] = await db
+    .select({ id: chatTurns.id })
+    .from(chatTurns)
+    .where(and(eq(chatTurns.space, space), eq(chatTurns.kind, "reset")))
+    .orderBy(desc(chatTurns.id))
+    .limit(1);
   const rows = await db
     .select()
     .from(chatTurns)
-    .where(eq(chatTurns.space, space))
+    .where(and(eq(chatTurns.space, space), mark ? gt(chatTurns.id, mark.id) : undefined))
     .orderBy(desc(chatTurns.at), desc(chatTurns.id))
     .limit(limit);
   return rows.reverse().map((r) => ({ kind: r.kind as TurnKind, author: r.author, text: r.text, at: r.at }));
+}
+
+/** Mark a fresh start in a space: later answers read nothing said before this. */
+export async function startOver(space: string, thread: string, jobId: string, author: string): Promise<void> {
+  await saveTurn({ space, thread, jobId, kind: "reset", author, text: "(start over)" });
 }
 
 export async function saveTurn(t: {
@@ -129,8 +145,8 @@ export async function searchJobMemory(jobId: string, words: string, limit = 20):
     .from(chatTurns)
     .where(
       terms.length
-        ? and(eq(chatTurns.jobId, jobId), or(...terms.map((w) => like(chatTurns.text, `%${w}%`))))
-        : eq(chatTurns.jobId, jobId),
+        ? and(eq(chatTurns.jobId, jobId), ne(chatTurns.kind, "reset"), or(...terms.map((w) => like(chatTurns.text, `%${w}%`))))
+        : and(eq(chatTurns.jobId, jobId), ne(chatTurns.kind, "reset")),
     )
     .orderBy(desc(chatTurns.at))
     .limit(limit);

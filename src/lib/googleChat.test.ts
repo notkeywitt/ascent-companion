@@ -34,6 +34,7 @@ import {
   buildHistory,
   canAsk,
   jobLine,
+  isStartOver,
   looksRefused,
   looksUnanswered,
   matchJobs,
@@ -484,5 +485,47 @@ describe("shapeCalendar", () => {
       "Moon Spring, Insulation",
       "Evening walkthrough",
     ]);
+  });
+});
+
+describe("isStartOver", () => {
+  it("takes a whole-message reset, and nothing else", () => {
+    for (const t of ["start over", "Start over.", "please start fresh", "new chat", "Forget this conversation", "reset", "clear chat", "start a new thread"]) {
+      expect(isStartOver(t), t).toBe(true);
+    }
+    for (const t of ["when do we start over at Smith?", "reset the breaker panel schedule", "what's Ty's birthday?", "new chat room for Smith"]) {
+      expect(isStartOver(t), t).toBe(false);
+    }
+  });
+});
+
+describe("history leaves out what would mislead the model", () => {
+  const at = "2026-10-30T14:00:00.000Z";
+  const t = (kind: ChatTurn["kind"], text: string, author = "Keillor"): ChatTurn => ({ kind, author, text, at });
+
+  it("drops an answer that refused, keeping the question", () => {
+    const h = buildHistory(
+      [t("question", "what's Ty's birthday?"), t("answer", "I can't share that. Staff birthdays aren't something I can look up here.", "")],
+      { name: "Keillor", text: "what's Ty's birthday?" },
+    );
+    expect(h).toHaveLength(1);
+    expect(h[0].role).toBe("user");
+    expect(h[0].content).not.toMatch(/can't share/);
+  });
+
+  it("catches the wording variants that slipped past", () => {
+    for (const r of [
+      "Staff birthdays aren't something I can share here.",
+      "That's not something I can look up.",
+      "I don't share personal details.",
+    ]) {
+      expect(looksRefused(r), r).toBe(true);
+    }
+  });
+
+  it("skips a reset marker", () => {
+    const h = buildHistory([t("reset", "(start over)"), t("question", "hi")], { name: "Keillor", text: "q" });
+    expect(h.map((m) => m.role)).toEqual(["user"]);
+    expect(h[0].content).not.toMatch(/start over/);
   });
 });

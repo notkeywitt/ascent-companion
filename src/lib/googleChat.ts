@@ -273,6 +273,18 @@ export const CHAT_SYSTEM = [
   "  reviews or discipline don't belong here; point people to the office.",
 ].join("\n");
 
+/**
+ * "start over", "new chat", "forget this conversation": the whole message, so a
+ * question that merely contains the words is not taken for a reset.
+ */
+const START_OVER =
+  /^\s*(please\s+)?(start\s+(over|fresh|again|a\s+new\s+(chat|conversation|thread))|new\s+(chat|conversation|thread)|fresh\s+start|(forget|clear|reset)(\s+(this|our|the|everything|all))?(\s+(chat|conversation|thread|history))?)\s*[.!]?\s*$/i;
+
+export const isStartOver = (text: string) => START_OVER.test(text);
+
+export const START_OVER_REPLY =
+  "Starting fresh. I'll ignore everything said in this chat before now. Decisions already saved for a job stay saved.";
+
 /** One mileage trip as the Mileage tab holds it, keyed by its header. */
 type MileageRow = Record<string, unknown>;
 
@@ -406,6 +418,9 @@ export function buildHistory(
     else out.push({ role, content });
   };
   for (const t of kept) {
+    if (t.kind === "reset") continue;
+    // A refusal is not fed back: the model copies its own earlier "I can't share that".
+    if (t.kind === "answer" && looksRefused(t.text)) continue;
     const role = t.kind === "answer" ? "assistant" : "user";
     if (role === "assistant" && !out.length) continue; // Claude's turn can't come first
     push(role, said(t));
@@ -442,7 +457,8 @@ const NOT_FOUND = [
  */
 const REFUSED = [
   /\b(can'?t|cannot|won'?t|unable to|not able to) (share|give|provide|disclose|look up)\b/i,
-  /\bnot something I can\b/i,
+  /\b(isn'?t|aren'?t|is not|are not|not) something I can\b/i,
+  /\bI (don'?t|do not) (share|give out|provide)\b/i,
   /\b(private|confidential|personal) (information|details?)\b/i,
 ];
 
