@@ -49,6 +49,16 @@ BATCH = 200
 # safety-number changes, timers, calls) is skipped.
 TALK_TYPES = ("incoming", "outgoing")
 
+# Run by any other Python (./signal_sync.py, python3 signal_sync.py)? Restart
+# under the venv install.sh made, which holds sqlcipher3 and cryptography.
+VENV_PYTHON = STATE_DIR / "venv" / "bin" / "python"
+try:
+    import sqlcipher3  # noqa: F401
+except ImportError:
+    if VENV_PYTHON.exists() and Path(sys.prefix).resolve() != (STATE_DIR / "venv").resolve():
+        os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), os.path.abspath(__file__), *sys.argv[1:]])
+    raise SystemExit("sqlcipher3 is missing. Run install.sh first (see README.md).")
+
 
 def log(msg):
     print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} {msg}", flush=True)
