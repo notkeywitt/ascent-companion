@@ -21,6 +21,12 @@ import { listSpaceMessages, type ChatApiMessage } from "@/lib/googleChatPost";
 /** How far back the first read of a space goes. */
 const FIRST_READ_DAYS = 90;
 
+/** Fields every plain message carries. Anything else is logged by name. */
+const KNOWN_FIELDS = new Set([
+  "name", "sender", "createTime", "lastUpdateTime", "text", "formattedText", "thread", "space",
+  "argumentText", "annotations", "threadReply", "retentionSettings", "slashCommand",
+]);
+
 /** Is this message for the bot (stored by the event route) or from it? Then skip it. */
 export function isBotTraffic(m: ChatApiMessage): boolean {
   if (m.sender?.type === "BOT") return true;
@@ -39,11 +45,16 @@ export async function syncSpace(space: string, jobId: string, oidcToken: string,
   let stored = 0;
   for (const m of messages) {
     const text = (m.text ?? "").trim();
+    // What a message carries besides text (an email forwarded from Gmail, a file,
+    // a card): field names and text length only, never the content.
+    const extra = Object.keys(m).filter((k) => !KNOWN_FIELDS.has(k));
+    if (extra.length) console.log(`[chat-sync] ${space} message ${m.name}: text ${text.length} chars; also ${extra.join(", ")}`);
     if (!text || isBotTraffic(m)) continue;
     const author = names.get(m.sender?.name ?? "") || m.sender?.displayName || "Someone";
     await saveTurn({ space, thread: m.thread?.name ?? "", jobId, kind: "said", author, text, at: m.createTime });
     stored++;
   }
+  console.log(`[chat-sync] ${space}: read ${messages.length}, stored ${stored}`);
   // The newest time read, kept or skipped: the next read starts after it either way.
   await setSpaceSyncedTo(space, messages[messages.length - 1].createTime);
   return stored;
