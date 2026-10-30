@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T14:11:56Z",
+  "generatedAt": "2026-10-30T14:15:02Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/admiring-hawking-b4zgzx",
       "status": "shipped",
       "started": "2026-10-29T19:04:37Z",
-      "updated": "2026-10-30T14:11:55Z",
+      "updated": "2026-10-30T14:15:02Z",
       "goal": "",
       "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
       "commits": [
@@ -39,6 +39,13 @@
           "sha": "481cf6e",
           "subject": "companion: drop a suggestion list under mileage from/to as the driver types",
           "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:15",
+          "sha": "a9d2115",
+          "subject": "companion: drop the my work tab strip from the miles page",
+          "files": "src/lib/workspaces.ts"
         }
       ]
     },
