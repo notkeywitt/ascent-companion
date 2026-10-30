@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/ascentbot-knowledge-sources-ad9sio
 status: shipped
 started: 2026-10-30T15:05:09Z
-updated: 2026-10-30T18:34:36Z
+updated: 2026-10-30T18:34:37Z
 goal: 
 next: Ask AscentBot about a PDF attached to an office email (e.g. the Sea Glass window washing estimate) and confirm it reads it.
 ---

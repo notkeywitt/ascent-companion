@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-30T17:54:49Z",
+  "generatedAt": "2026-10-30T18:34:38Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/ascentbot-knowledge-sources-ad9sio",
       "status": "shipped",
       "started": "2026-10-30T15:05:09Z",
-      "updated": "2026-10-30T17:54:49Z",
+      "updated": "2026-10-30T18:34:37Z",
       "goal": "",
-      "next": "Ask the bot a money question in a job space as a Full-access user, and add a test person on Jobs only to confirm the bot declines money.",
+      "next": "Ask AscentBot about a PDF attached to an office email (e.g. the Sea Glass window washing estimate) and confirm it reads it.",
       "commits": [
         {
           "date": "2026-10-30",
@@ -25,6 +25,13 @@
           "sha": "1e09266",
           "subject": "companion: log what each chat space message carries, to test email forwards",
           "files": "src/lib/chatSync.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "18:34",
+          "sha": "9c65fcc",
+          "subject": "companion: ascentbot reads a pdf attached to an office email",
+          "files": "src/lib/botAccess.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, src/lib/googleChat.test.ts"
         }
       ]
     },
