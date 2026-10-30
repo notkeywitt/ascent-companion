@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { driveMainWindowToDoc } from "@/components/BillingSummary";
-import { CountBadge, ListCard, ListRow, MetaLine, SectionHeading } from "@/components/ui";
+import { Chip, CountBadge, ListCard, ListRow, MetaLine, SectionHeading } from "@/components/ui";
 import { cached, sunsetGreenCounts } from "@/lib/homeFacts";
 import { money0 as money } from "@/lib/money";
+import { countNewRequisitions } from "@/lib/requisitionsSeen";
 
 /**
  * TODAY — what needs this person, one row per queue, each with its count.
@@ -44,6 +45,8 @@ interface Row {
   href: string;
   count: number;
   detail: string;
+  /** How many of `count` arrived since this person last opened the page. */
+  fresh?: number;
 }
 
 type Queue = {
@@ -54,7 +57,7 @@ type Queue = {
   officeOnly?: boolean;
   label: string;
   href: string;
-  load: () => Promise<{ count: number; detail: string }>;
+  load: () => Promise<{ count: number; detail: string; fresh?: number }>;
 };
 
 async function getJson(url: string) {
@@ -146,8 +149,11 @@ const QUEUES: Queue[] = [
     href: "/requisitions?status=Requested",
     load: async () => {
       const j = await cached("requisitions", 5 * MIN, () => getJson("/api/requisitions"));
-      const n = ((j.requisitions ?? []) as Record<string, string>[]).filter((r) => !r.Status || r.Status === "Requested").length;
-      return { count: n, detail: `${plural(n, "request")} to order` };
+      const rows = (j.requisitions ?? []) as Record<string, string>[];
+      const n = rows.filter((r) => !r.Status || r.Status === "Requested").length;
+      // Counted against the mark on every Home load, not inside the cache, so
+      // a visit to /requisitions clears it at once.
+      return { count: n, detail: `${plural(n, "request")} to order`, fresh: countNewRequisitions(rows) };
     },
   },
   {
@@ -191,8 +197,8 @@ export function TodayQueue() {
     setSettled(0);
     for (const q of mine) {
       q.load()
-        .then(({ count, detail }) => {
-          if (alive && count > 0) setRows((m) => ({ ...m, [q.key]: { key: q.key, label: q.label, href: q.href, count, detail } }));
+        .then(({ count, detail, fresh }) => {
+          if (alive && count > 0) setRows((m) => ({ ...m, [q.key]: { key: q.key, label: q.label, href: q.href, count, detail, fresh } }));
         })
         .catch(() => {})
         .finally(() => alive && setSettled((n) => n + 1));
@@ -236,7 +242,18 @@ export function TodayQueue() {
                 {open && <DraftList bills={list} />}
               </div>
             ) : (
-              <ListRow key={r.key} href={r.href} label={r.label} desc={r.detail} badge={<CountBadge n={r.count} />} />
+              <ListRow
+                key={r.key}
+                href={r.href}
+                label={r.label}
+                desc={r.detail}
+                badge={
+                  <>
+                    {!!r.fresh && <Chip tone="accent">{r.fresh} new</Chip>}
+                    <CountBadge n={r.count} />
+                  </>
+                }
+              />
             ),
           )}
         </ListCard>

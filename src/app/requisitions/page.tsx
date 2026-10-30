@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { JobPicker } from "@/components/JobPicker";
+import { markRequisitionsSeen } from "@/lib/requisitionsSeen";
 import {
   Banner,
   Button,
@@ -23,8 +24,9 @@ import {
  * it through its status lifecycle. One free-text description box per request (the
  * owner's chosen structure). The page adapts to `isOffice` from the API: a lead
  * sees only their own requests (read-only status), the office sees every request
- * and can change status + add office notes. No JobTread write, no email — this is
- * pure capture + tracking in the Project Database "Requisitions" tab.
+ * and can change status + add office notes. No JobTread write. Apps Script emails
+ * the office each new request; the office opening this page clears Home's "new"
+ * mark (lib/requisitionsSeen). Storage is the Project Database "Requisitions" tab.
  */
 
 // A requisition row as returned by Apps Script: an object keyed by sheet header,
@@ -118,6 +120,7 @@ function Requisitions() {
       setStatuses(json.statuses ?? []);
       setEmployees(json.employees ?? []);
       setIsOffice(!!json.isOffice);
+      if (json.isOffice) markRequisitionsSeen(json.requisitions ?? []);
     } catch (e) {
       setLoadErr(e instanceof Error ? e.message : "Could not load requisitions.");
     } finally {
