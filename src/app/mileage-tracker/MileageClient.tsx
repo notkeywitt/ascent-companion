@@ -17,7 +17,8 @@ import {
   type TripPoint,
 } from "@/lib/mileageTrip";
 import { tripMiles } from "@/lib/mileageRoute";
-import { KNOWN_PLACES, placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
+import { placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
+import { PlaceInput } from "./PlaceInput";
 import {
   Banner,
   Card,
@@ -839,13 +840,6 @@ export function MileageClient({
   // What a From/To text names: a job (Office and Shop are jobs), or an address.
   const fromMatch = useMemo(() => resolvePlace(fromPlace, jobs), [fromPlace, jobs]);
   const toMatch = useMemo(() => resolvePlace(toPlace, jobs), [toPlace, jobs]);
-  const placeOptions = useMemo(
-    () =>
-      Array.from(new Set([...KNOWN_PLACES.map((p) => p.label), ...jobs.map(placeLabel)])).sort((a, b) =>
-        a.localeCompare(b),
-      ),
-    [jobs],
-  );
 
   function onRoundTrip(on: boolean) {
     setRoundTrip(on);
@@ -1150,40 +1144,33 @@ export function MileageClient({
                   Use where I am
                 </button>
               </div>
-              <Input
+              <PlaceInput
                 id="mlg-from"
                 value={fromPlace}
-                onChange={(e) => {
-                  setFromPlace(e.target.value);
+                onChange={(v) => {
+                  setFromPlace(v);
                   setOneWay(null);
                 }}
+                jobs={jobs}
                 placeholder="Office, Shop, Sunset, a job, or an address"
-                list="mlg-places"
-                autoComplete="off"
               />
               <PlaceHint match={fromMatch} />
             </div>
 
             <div>
               <Label htmlFor="mlg-to">To</Label>
-              <Input
+              <PlaceInput
                 id="mlg-to"
                 value={toPlace}
-                onChange={(e) => {
-                  setToPlace(e.target.value);
+                onChange={(v) => {
+                  setToPlace(v);
                   setOneWay(null);
                 }}
+                jobs={jobs}
                 placeholder="Office, Shop, Sunset, a job, or an address"
-                list="mlg-places"
-                autoComplete="off"
               />
               <PlaceHint match={toMatch} />
             </div>
-            <datalist id="mlg-places">
-              {placeOptions.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
 
             <div className="flex items-center justify-between gap-3">
               <Toggle checked={roundTrip} onChange={onRoundTrip} label="Round trip" />
