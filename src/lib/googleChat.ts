@@ -163,19 +163,8 @@ export function matchJobs(jobs: JobRef[], query: string): JobRef[] {
   return scored.filter((x) => x.n === best).map((x) => x.j);
 }
 
-/** The gold star, shooting, drawn in a code block so Chat keeps its spacing. */
-export const GOLD_STAR = [
-  "                                  *",
-  "                                 ***",
-  "                                *****",
-  "                        *********************",
-  "             .   .  ' ~~  *****************",
-  "       .  '   ~~~~~~~~~~~~  *************",
-  "   .    ~~~~~~~~~~~~~~~~~~~  ***********",
-  "      '   ~~~~~~~~~~~~~~~   *****   *****",
-  "  .     '    ~~~~~~~~~     ***         ***",
-  "         .        '       *               *",
-].join("\n");
+/** The gold star, shooting, as a text-message line: a sparkle trail ending in the star. */
+export const GOLD_STAR = ".𖥔 ݁ ˖ִ ✧༄˖°. .𖥔 ݁ ˖ִ ✦༄˖°. ˖ ⋆ ★ 🌠";
 
 const GOLD_STAR_ASK = /^\s*gold\s*star\b[\s,:;!.-]*(?:for\s+|to\s+)?(.*?)[\s!.]*$/i;
 
@@ -187,7 +176,7 @@ export function goldStar(text: string): string | null {
   const m = GOLD_STAR_ASK.exec(text);
   if (!m) return null;
   const who = m[1].trim().slice(0, 60);
-  return `\`\`\`\n${GOLD_STAR}\n\`\`\`\n*Gold star${who ? ` for ${who}` : ""}!*`;
+  return `${GOLD_STAR}\n*Gold star${who ? ` for ${who}` : ""}!*`;
 }
 
 export const helpText = () =>

@@ -606,8 +606,8 @@ describe("oddChars", () => {
 });
 
 describe("goldStar", () => {
-  it("draws the star in a code block, and names who it is for", () => {
-    expect(goldStar("gold star")).toBe("```\n" + GOLD_STAR + "\n```\n*Gold star!*");
+  it("sends the star line, and names who it is for", () => {
+    expect(goldStar("gold star")).toBe(GOLD_STAR + "\n*Gold star!*");
     expect(goldStar("Gold Star for Ty!")).toMatch(/\*Gold star for Ty!\*$/);
     expect(goldStar("goldstar, Casey")).toMatch(/for Casey!/);
   });
