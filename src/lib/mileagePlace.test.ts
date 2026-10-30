@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { KNOWN_PLACES, placeLabel, resolvePlace, type PlaceJob } from "./mileagePlace";
+import { KNOWN_PLACES, placeLabel, resolvePlace, suggestPlaces, type PlaceJob } from "./mileagePlace";
 
 const SHOP_ADDR = "4223 Center Rd, Lopez Island, WA 98261, USA";
 const jobs: PlaceJob[] = [
@@ -104,5 +104,45 @@ describe("placeLabel", () => {
       const m = resolvePlace(placeLabel(j), jobs);
       expect(m.kind === "named" && m.job?.id).toBe(j.id);
     }
+  });
+});
+
+describe("suggestPlaces", () => {
+  const labels = (text: string) => suggestPlaces(text, jobs).map((s) => s.label);
+
+  it("suggests nothing until the driver types", () => {
+    expect(labels("")).toEqual([]);
+    expect(labels("  ")).toEqual([]);
+  });
+
+  it("matches the start of a word, part-typed", () => {
+    expect(labels("sun")).toEqual(["Sunset Builders Supply"]);
+    expect(labels("sh")).toEqual(["Shop"]);
+    expect(labels("berg ma")).toEqual(["Kevin Berger - Main House"]);
+    expect(labels("lv")).toEqual(["Lopez Village Market"]);
+    expect(labels("du")).toEqual(["Lopez Dump"]);
+  });
+
+  it("puts a name that starts with the text first", () => {
+    expect(labels("off")).toEqual(["Office", "Island Dental - Dental Office Remodel"]);
+    expect(labels("main")).toEqual(["Ann Gormley - Main House", "Kevin Berger - Main House"]);
+  });
+
+  it("carries the address to show under each one", () => {
+    expect(suggestPlaces("dump", jobs)[0]).toEqual({
+      label: "Lopez Dump",
+      address: "2419 Fisherman Bay Rd, Lopez Island, WA 98261",
+      kind: "place",
+    });
+  });
+
+  it("every suggestion resolves back to one place", () => {
+    for (const s of suggestPlaces("o", jobs, 50)) {
+      expect(resolvePlace(s.label, jobs).kind).toBe("named");
+    }
+  });
+
+  it("stops at the limit", () => {
+    expect(suggestPlaces("l", jobs, 2)).toHaveLength(2);
   });
 });

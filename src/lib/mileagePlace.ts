@@ -136,3 +136,48 @@ function pick(hits: PlaceJob[]): PlaceMatch {
 }
 
 const named = (p: KnownPlace): PlaceMatch => ({ kind: "named", label: p.label, address: p.address });
+
+export interface PlaceSuggestion {
+  /** The text the field takes when the driver picks it; it resolves back here. */
+  label: string;
+  /** Shown under the label so the driver can tell two jobs apart. */
+  address: string;
+  kind: "place" | "job";
+}
+
+/**
+ * The list under a From/To field while the driver types. Every typed word must
+ * START a word of the place: "sun" finds Sunset, "berg ma" finds Berger - Main
+ * House. A place whose name starts with the text comes first, then the known
+ * places, then by name. Empty text suggests nothing.
+ */
+export function suggestPlaces(text: string, jobs: PlaceJob[], limit = 8): PlaceSuggestion[] {
+  const want = tokens(text).filter((t) => !FILLER.has(t));
+  if (!want.length) return [];
+  const q = want.join(" ");
+
+  const candidates = [
+    ...KNOWN_PLACES.map((p) => ({ label: p.label, address: p.address, kind: "place" as const, names: [p.label, ...p.aliases] })),
+    ...jobs.map((j) => ({
+      label: placeLabel(j),
+      address: placeJobAddress(j),
+      kind: "job" as const,
+      names: [placeLabel(j), j.name, `${j.name} ${j.customer ?? ""} ${j.number ?? ""}`],
+    })),
+  ];
+
+  const seen = new Set<string>();
+  const out: (PlaceSuggestion & { rank: number })[] = [];
+  for (const c of candidates) {
+    if (seen.has(c.label)) continue;
+    const hay = tokens(c.names.join(" "));
+    if (!want.every((w) => hay.some((h) => h.startsWith(w)))) continue;
+    seen.add(c.label);
+    const starts = c.names.some((n) => norm(n).startsWith(q));
+    out.push({ label: c.label, address: c.address, kind: c.kind, rank: (starts ? 0 : 2) + (c.kind === "place" ? 0 : 1) });
+  }
+  return out
+    .sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label))
+    .slice(0, limit)
+    .map(({ label, address, kind }) => ({ label, address, kind }));
+}
