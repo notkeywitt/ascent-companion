@@ -90,9 +90,6 @@ export function AppHeader() {
       ref={measure}
       className="sticky top-0 z-20 border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
     >
-      {/* Ochre marquee hairline — the brand's gold highlight, carried across
-          every page as the app's top rule. */}
-      <div className="h-0.5 bg-brand" aria-hidden />
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
         {/* Every page this person can open, by workspace — on a phone only. From
             `pad` up the sidebar lists the workspaces and carries the Account

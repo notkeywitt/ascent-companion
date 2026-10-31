@@ -229,7 +229,11 @@ const GripIcon = () => (
    on the iPhone (2026-10-29), twice. */
 const BUMP_W = 76;
 const BUMP_H = 16;
-const BUMP_EDGE = "M0 16 C4.5 16 6.5 14.8 8.3 12.3 L13.4 4.6 C15.3 1.8 17.4 0.5 21.5 0.5 H54.5 C58.6 0.5 60.7 1.8 62.6 4.6 L67.7 12.3 C69.5 14.8 71.5 16 76 16";
+/* The edge ends at y 16.5, not 16: a 1px stroke centred there covers the same
+   pixel row as the 1px top line it meets, so the joint has no step. */
+const BUMP_EDGE = "M0 16.5 C4.5 16.5 6.5 14.8 8.3 12.3 L13.4 4.6 C15.3 1.8 17.4 0.5 21.5 0.5 H54.5 C58.6 0.5 60.7 1.8 62.6 4.6 L67.7 12.3 C69.5 14.8 71.5 16.5 76 16.5";
+/* The bar's outline: one colour for the top line and the tab's edge. */
+const EDGE = "rgb(212 212 212 / 0.55)";
 /* One drawer row: a 4.5rem cell. The open drawer is its rows plus 0.75rem. */
 const DRAWER_ROW_REM = 4.5;
 
@@ -374,7 +378,7 @@ export function TabBar() {
       >
         <span aria-hidden className="absolute inset-0 bg-neutral-950/60 backdrop-blur-xl" />
         {/* No drawer: a plain top line. */}
-        {more.length === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-px bg-neutral-300/40" />}
+        {more.length === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-px" style={{ background: EDGE }} />}
         {/* The drawer's tab: a soft bump (16px) above the bar's top line, over
             an h-3 strip. --tabbar-h counts both. */}
         {more.length > 0 && (
@@ -387,8 +391,8 @@ export function TabBar() {
             className="group relative block h-3 w-full"
           >
             {/* The top line, in two halves that meet the tab's edge. */}
-            <span aria-hidden className="absolute left-0 top-0 h-px bg-neutral-300/40" style={{ right: `calc(50% + ${BUMP_W / 2}px)` }} />
-            <span aria-hidden className="absolute right-0 top-0 h-px bg-neutral-300/40" style={{ left: `calc(50% + ${BUMP_W / 2}px)` }} />
+            <span aria-hidden className="absolute left-0 top-0 h-px" style={{ background: EDGE, right: `calc(50% + ${BUMP_W / 2}px)` }} />
+            <span aria-hidden className="absolute right-0 top-0 h-px" style={{ background: EDGE, left: `calc(50% + ${BUMP_W / 2}px)` }} />
             <svg
               aria-hidden
               viewBox={`0 0 ${BUMP_W} ${BUMP_H}`}
@@ -396,7 +400,7 @@ export function TabBar() {
               style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
             >
               <path d={`${BUMP_EDGE} Z`} className="fill-neutral-950/80 transition group-active:fill-neutral-800/90" />
-              <path d={BUMP_EDGE} fill="none" stroke="rgb(212 212 212 / 0.75)" strokeWidth={1} />
+              <path d={BUMP_EDGE} fill="none" stroke={EDGE} strokeWidth={1} />
             </svg>
             <span className="absolute inset-x-0 -top-2.5 flex justify-center">
               <GripIcon />
