@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [drawer-outline-top-line](.claude/sessions/2026-10-31-drawer-outline-top-line.md) | 2026-10-31 | 1 | — |
 | [ascentbot-knowledge-sources](.claude/sessions/2026-10-30-ascentbot-knowledge-sources.md) | 2026-10-30 | 6 | — |
 | [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | 2026-10-30 | 8 | — |
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-30 | 5 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [wizardly-goodall](.claude/sessions/2026-10-23-wizardly-goodall.md) | 2026-10-23 | 1 | New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Dr… |
 | [jobtread-email-records](.claude/sessions/2026-10-20-jobtread-email-records.md) | 2026-10-20 | 2 | — |
 | [kevin-berger-invoice-review](.claude/sessions/2026-10-19-kevin-berger-invoice-review.md) | 2026-10-19 | 6 | Turn Kevin Berger's invoice disputes into review checks, and run the review on … |
-| [todo-assignees](.claude/sessions/2026-10-19-todo-assignees.md) | 2026-10-19 | 3 | Home to-dos show details and assignees |

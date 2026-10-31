@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-10-30T22:29:07Z",
+  "generatedAt": "2026-10-31T00:04:09Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "drawer-outline-top-line",
+      "file": "2026-10-31-drawer-outline-top-line.md",
+      "branch": "claude/drawer-outline-top-line-zrm15c",
+      "status": "shipped",
+      "started": "2026-10-31T00:04:08Z",
+      "updated": "2026-10-31T00:04:09Z",
+      "goal": "",
+      "next": "check the tab outline on the iPhone",
+      "commits": [
+        {
+          "date": "2026-10-31",
+          "time": "00:04",
+          "sha": "5d53422",
+          "subject": "companion: even out the tab bar outline, drop the header's top rule",
+          "files": "src/components/AppHeader.tsx, src/components/TabBar.tsx"
+        }
+      ]
+    },
     {
       "slug": "ascentbot-knowledge-sources",
       "file": "2026-10-30-ascentbot-knowledge-sources.md",

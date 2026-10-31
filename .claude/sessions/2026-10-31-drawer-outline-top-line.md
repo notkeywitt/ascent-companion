@@ -2,9 +2,9 @@
 slug: drawer-outline-top-line
 repo: ascent-companion
 branch: claude/drawer-outline-top-line-zrm15c
-status: in-progress
+status: shipped
 started: 2026-10-31T00:04:08Z
-updated: 2026-10-31T00:04:08Z
+updated: 2026-10-31T00:04:09Z
 goal: 
 next: check the tab outline on the iPhone
 ---
