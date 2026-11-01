@@ -41,7 +41,8 @@ import { money0 } from "@/lib/money";
  *     "Customer - Job", each with its ring swatch and the billing month's
  *     amount to invoice. From `lg` it scrolls inside itself, ending at the
  *     window's foot.
- *   • Beside it, on top: the rings card, one fixed height — Total / Bills /
+ *   • Beside it, on top: the picked job's card (links, Schedule / Bills switch),
+ *     then the rings card, one fixed height — Total / Bills /
  *     Labor, a legend, a Bills ring and a Labor ring. No job picked: every job
  *     in the picked month, a slice per job. A job picked: that job by cost code
  *     (Tracking Sheets' colour rules), with a Month / All time switch. The
@@ -250,6 +251,55 @@ export function JobsHub() {
             </aside>
 
             <div className="min-w-0 space-y-6">
+              {/* The picked job's card — name, links, the Schedule / Bills switch —
+                  leads the column; the rings follow it. */}
+              {selected && (
+                <Card className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="text-base font-semibold tracking-tight">
+                      {jobLabel(selected)}
+                    </div>
+                    <MetaLine
+                      items={[
+                        selected.phase,
+                        (toInvoice?.totals[selected.id] ?? 0) > 0 &&
+                          `${money0(toInvoice!.totals[selected.id])} to invoice`,
+                        canTrackingSheet && (
+                          <Link
+                            key="sheet"
+                            href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
+                            className="font-semibold text-accent hover:underline dark:text-accent-soft"
+                          >
+                            Tracking sheet →
+                          </Link>
+                        ),
+                        <Link
+                          key="job"
+                          href={`/job-board/${encodeURIComponent(selected.id)}`}
+                          className="font-semibold text-accent hover:underline dark:text-accent-soft"
+                        >
+                          Job page →
+                        </Link>,
+                      ]}
+                    />
+                  </div>
+                  {canTrackingSheet && (
+                    <Segmented
+                      label="Show"
+                      value={view}
+                      onChange={setView}
+                      options={[
+                        { value: "schedule", label: "Schedule" },
+                        { value: "bills", label: "Bills" },
+                      ]}
+                    />
+                  )}
+                  <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
+                    Close
+                  </Button>
+                </Card>
+              )}
+
               {selected ? (
                 <JobRings
                   key={selected.id}
@@ -271,50 +321,6 @@ export function JobsHub() {
               <div className="min-w-0 space-y-3">
                 {selected ? (
                   <>
-                    <Card className="flex items-start gap-3">
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="text-base font-semibold tracking-tight">
-                          {jobLabel(selected)}
-                        </div>
-                        <MetaLine
-                          items={[
-                            selected.phase,
-                            (toInvoice?.totals[selected.id] ?? 0) > 0 &&
-                              `${money0(toInvoice!.totals[selected.id])} to invoice`,
-                            canTrackingSheet && (
-                              <Link
-                                key="sheet"
-                                href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
-                                className="font-semibold text-accent hover:underline dark:text-accent-soft"
-                              >
-                                Tracking sheet →
-                              </Link>
-                            ),
-                            <Link
-                              key="job"
-                              href={`/job-board/${encodeURIComponent(selected.id)}`}
-                              className="font-semibold text-accent hover:underline dark:text-accent-soft"
-                            >
-                              Job page →
-                            </Link>,
-                          ]}
-                        />
-                      </div>
-                      {canTrackingSheet && (
-                        <Segmented
-                          label="Show"
-                          value={view}
-                          onChange={setView}
-                          options={[
-                            { value: "schedule", label: "Schedule" },
-                            { value: "bills", label: "Bills" },
-                          ]}
-                        />
-                      )}
-                      <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
-                        Close
-                      </Button>
-                    </Card>
                     {view === "bills" && canTrackingSheet ? (
                       <>
                         <div ref={setBillsSlot} />
