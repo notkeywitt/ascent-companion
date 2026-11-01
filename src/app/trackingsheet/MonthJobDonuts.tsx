@@ -85,6 +85,26 @@ export function MonthJobDonuts({
 }
 
 /**
+ * The all-jobs card's slices, one per job, biggest month first, each with its
+ * colour. Exported so a page that lists the jobs beside the rings (Jobs Hub)
+ * paints the same swatch the ring does.
+ */
+export function monthJobRows(jobs: MonthJobCost[]) {
+  return jobs
+    .map((j) => {
+      const r = withoutSalesTax(j.rows);
+      return {
+        key: j.jobId,
+        label: j.customerName ? `${j.customerName} - ${j.jobName}` : j.jobName,
+        bills: r.reduce((n, x) => n + x.bills, 0),
+        labor: r.reduce((n, x) => n + x.labor, 0),
+      };
+    })
+    .sort((a, b) => b.bills + b.labor - (a.bills + a.labor))
+    .map((r, i) => ({ ...r, color: `var(--viz-${(i % 7) + 1})` }));
+}
+
+/**
  * Every job's month added together: one Bills ring and one Labor ring, one
  * slice per JOB, labelled "Customer - Job" (the job name alone without a
  * customer). Each job's figures are its card's own (sales tax out of bills).
@@ -98,26 +118,30 @@ export function MonthJobDonuts({
  *
  * Clicking a slice, or its legend row, opens that job's Tracking Sheet on `ym`.
  */
-export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string }) {
+export function MonthTotalCard({
+  jobs,
+  ym,
+  legend = true,
+  onSelect,
+}: {
+  jobs: MonthJobCost[];
+  ym: string;
+  /** False when the page lists the jobs beside the card (Jobs Hub, with monthJobColors). */
+  legend?: boolean;
+  /** A slice's click; opens that job's Tracking Sheet when not given. */
+  onSelect?: (jobId: string) => void;
+}) {
   const router = useRouter();
-  const openJob = (jobId: string) =>
-    router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`);
-  const rows = jobs
-    .map((j) => {
-      const r = withoutSalesTax(j.rows);
-      return {
-        key: j.jobId,
-        label: j.customerName ? `${j.customerName} - ${j.jobName}` : j.jobName,
-        bills: r.reduce((n, x) => n + x.bills, 0),
-        labor: r.reduce((n, x) => n + x.labor, 0),
-      };
-    })
-    .sort((a, b) => b.bills + b.labor - (a.bills + a.labor));
+  const openJob =
+    onSelect ??
+    ((jobId: string) =>
+      router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`));
+  const rows = monthJobRows(jobs);
   const bills = rows.reduce((n, r) => n + r.bills, 0);
   const labor = rows.reduce((n, r) => n + r.labor, 0);
   const slices = (field: "bills" | "labor") =>
     rows
-      .map((r, i) => ({ key: r.key, label: r.label, value: r[field], color: `var(--viz-${(i % 7) + 1})` }))
+      .map((r) => ({ key: r.key, label: r.label, value: r[field], color: r.color }))
       .filter((x) => x.value > 0);
   return (
     <Card className="flex flex-col gap-3">
@@ -138,8 +162,8 @@ export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string 
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 pad:mx-auto pad:max-w-xl">
-        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" onSelect={openJob} />
-        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" onSelect={openJob} />
+        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" onSelect={openJob} legend={legend} />
+        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" onSelect={openJob} legend={legend} />
       </div>
     </Card>
   );
@@ -151,6 +175,7 @@ export function useMonthJobs(ym: string) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!ym) return; // the caller is still learning which month (Jobs Hub)
     let alive = true;
     const [y, m] = ym.split("-");
     setJobs(null);

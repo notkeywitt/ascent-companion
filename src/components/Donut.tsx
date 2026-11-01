@@ -47,6 +47,7 @@ export function Donut({
   onDetailWanted,
   onSelect,
   selectedKey = null,
+  legend = true,
 }: {
   slices: DonutSlice[];
   title?: string;
@@ -72,6 +73,8 @@ export function Donut({
   onSelect?: (sliceKey: string) => void;
   /** Which slice is picked, so the ring can mark it. */
   selectedKey?: string | null;
+  /** False when the page names the slices elsewhere (Jobs Hub's job list carries the swatches). */
+  legend?: boolean;
 }) {
   // Which arc is lifted. Hover on a pointer; a tap toggles it, since the rings
   // are read on a phone too and there is no hover there.
@@ -237,7 +240,7 @@ export function Donut({
       )}
 
       {/* Legend — identity is never color-alone. Sorted by value desc. */}
-      {positive.length > 0 && (
+      {legend && positive.length > 0 && (
         <ul className="mt-3 w-full space-y-1">
           {positive
             .slice()
