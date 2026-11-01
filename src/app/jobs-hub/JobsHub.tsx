@@ -40,12 +40,13 @@ import { money0 } from "@/lib/money";
  *     "Customer - Job", each with its ring swatch and the billing month's
  *     amount to invoice. From `lg` it scrolls inside itself, ending at the
  *     window's foot.
- *   • Right of it, a header: the picked job's card (links, Bills / Schedule
- *     switch) over the rings card (Total / Bills / Labor, a legend, a Bills
- *     ring and a Labor ring — every job in the picked month, or the picked job
- *     by cost code with a Month / All time switch), beside the map card: a
- *     small Lopez Island map (no legend), one size in both views, and under it the job's details
- *     (the Job Board's card, /api/job-board) with an Edit link to JobTread.
+ *   • Right of it, the header: ONE card of one height. Across its top the
+ *     picked job's name, links and Bills / Schedule switch; under that, side
+ *     by side, the rings (Total / Bills / Labor, a legend, a Bills ring and a
+ *     Labor ring — every job in the picked month, or the picked job by cost
+ *     code with a Month / All time switch), a small Lopez Island map (no
+ *     legend, one size in both views) and the job's details (the Job Board's
+ *     card, /api/job-board) with an Edit link to JobTread.
  *   • Under the header, the main window. Bills (the default): the job's
  *     Tracking Sheet, embedded — its bills and labor column and its coding
  *     drawer side by side; the sheet's own rings stay out. Schedule: the job's
@@ -249,90 +250,91 @@ export function JobsHub() {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="min-w-0 space-y-6">
-              {selected && (
-                <Card className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="text-base font-semibold tracking-tight">
-                      {jobLabel(selected)}
-                    </div>
-                    <MetaLine
-                      items={[
-                        selected.phase,
-                        (toInvoice?.totals[selected.id] ?? 0) > 0 &&
-                          `${money0(toInvoice!.totals[selected.id])} to invoice`,
-                        canTrackingSheet && (
-                          <Link
-                            key="sheet"
-                            href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
-                            className="font-semibold text-accent hover:underline dark:text-accent-soft"
-                          >
-                            Tracking sheet →
-                          </Link>
-                        ),
+          {/* ONE card, one height (owner, 2026-11-01): the picked job's name,
+              links and Bills / Schedule switch across the top; under it the
+              rings, the map and the job's details side by side. */}
+          <Card pad={false} className="overflow-hidden">
+            {selected && (
+              <div className="flex items-start gap-3 border-b border-line-soft px-4 py-3">
+                <div className="min-w-0 flex-1 space-y-1">
+                  <div className="text-base font-semibold tracking-tight">{jobLabel(selected)}</div>
+                  <MetaLine
+                    items={[
+                      selected.phase,
+                      (toInvoice?.totals[selected.id] ?? 0) > 0 &&
+                        `${money0(toInvoice!.totals[selected.id])} to invoice`,
+                      canTrackingSheet && (
                         <Link
-                          key="job"
-                          href={`/job-board/${encodeURIComponent(selected.id)}`}
+                          key="sheet"
+                          href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
                           className="font-semibold text-accent hover:underline dark:text-accent-soft"
                         >
-                          Job page →
-                        </Link>,
-                      ]}
-                    />
-                  </div>
-                  {canTrackingSheet && (
-                    <Segmented
-                      label="Show"
-                      value={view}
-                      onChange={switchView}
-                      options={[
-                        { value: "bills", label: "Bills" },
-                        { value: "schedule", label: "Schedule" },
-                      ]}
-                    />
-                  )}
-                  <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
-                    Close
-                  </Button>
-                </Card>
-              )}
-
-              {selected ? (
-                <JobRings
-                  key={selected.id}
-                  job={selected}
-                  monthSelect={monthSelect}
-                  monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
-                />
-              ) : monthJobs ? (
-                <RingsCard
-                  caption="All jobs"
-                  items={monthJobRows(monthJobs)}
-                  control={monthSelect}
-                  onSelect={pick}
-                />
-              ) : (
-                <Skeleton className="h-48 w-full rounded-xl" />
-              )}
-            </div>
-
-            {/* The map is one size in both views. */}
-            <Card className="space-y-3 self-start">
-              <div className="mx-auto w-[160px]">
-                {jobs ? (
-                  <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
+                          Tracking sheet →
+                        </Link>
+                      ),
+                      <Link
+                        key="job"
+                        href={`/job-board/${encodeURIComponent(selected.id)}`}
+                        className="font-semibold text-accent hover:underline dark:text-accent-soft"
+                      >
+                        Job page →
+                      </Link>,
+                    ]}
+                  />
+                </div>
+                {canTrackingSheet && (
+                  <Segmented
+                    label="Show"
+                    value={view}
+                    onChange={switchView}
+                    options={[
+                      { value: "bills", label: "Bills" },
+                      { value: "schedule", label: "Schedule" },
+                    ]}
+                  />
+                )}
+                <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
+                  Close
+                </Button>
+              </div>
+            )}
+            <div className="flex flex-col divide-y divide-line-soft xl:h-64 xl:flex-row xl:divide-x xl:divide-y-0">
+              <div className="min-h-0 min-w-0 flex-1 p-4">
+                {selected ? (
+                  <JobRings
+                    key={selected.id}
+                    job={selected}
+                    monthSelect={monthSelect}
+                    monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
+                  />
+                ) : monthJobs ? (
+                  <RingsCard
+                    caption="All jobs"
+                    items={monthJobRows(monthJobs)}
+                    control={monthSelect}
+                    onSelect={pick}
+                  />
                 ) : (
-                  <Loading />
+                  <Skeleton className="h-full min-h-40 w-full rounded-xl" />
                 )}
               </div>
+              {/* The map is one size in both views. */}
+              <div className="flex shrink-0 justify-center p-4">
+                <div className="w-[130px]">
+                  {jobs ? (
+                    <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
+                  ) : (
+                    <Loading />
+                  )}
+                </div>
+              </div>
               {selected && (
-                <div className="border-t border-line-soft pt-3">
+                <div className="min-h-0 overflow-y-auto p-4 xl:w-[280px] xl:shrink-0">
                   <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
                 </div>
               )}
-            </Card>
-          </div>
+            </div>
+          </Card>
 
           {/* THE MAIN WINDOW */}
           {selected ? (
@@ -378,8 +380,8 @@ interface RingItem {
 }
 
 /**
- * The top row's rings card, one fixed height whatever it holds: Total, Bills
- * and Labor; a legend that scrolls inside the card; the Bills and Labor rings.
+ * The header card's rings section, filling the card's one height: Total, Bills
+ * and Labor; a legend that scrolls inside it; the Bills and Labor rings.
  */
 function RingsCard({
   caption,
@@ -400,7 +402,7 @@ function RingsCard({
       .filter((r) => r[field] > 0)
       .map((r) => ({ key: r.key, label: r.label, value: r[field], color: r.color }));
   return (
-    <Card className="flex flex-col gap-4 lg:h-48 lg:flex-row lg:gap-8">
+    <div className="flex h-full flex-col gap-4 lg:flex-row lg:gap-8">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
@@ -460,7 +462,7 @@ function RingsCard({
           onSelect={onSelect}
         />
       </div>
-    </Card>
+    </div>
   );
 }
 
@@ -551,7 +553,7 @@ function JobRings({
   // its month's drafts the same way. Without them a job whose only bills are
   // drafts read $0 all time and more than that in its month (Gormley - Studio).
   const rows = scope === "month" ? monthRows : toDate && withDrafts(toDate, monthRows);
-  if (!rows) return <Skeleton className="h-48 w-full rounded-xl" />;
+  if (!rows) return <Skeleton className="h-full min-h-40 w-full rounded-xl" />;
   return (
     <RingsCard
       caption=""
