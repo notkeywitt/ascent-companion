@@ -1994,6 +1994,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           it frames the list under it: the rail answers "is there room in
           06 20 00", these answer "what is this month made of". Folded on
           a phone, open from lg. */}
+      {/* Not in an embed: the Jobs page draws its own rings above. */}
+      {!embed && (
       <CostDonuts
         month={costDonutMonthRows}
         jobToDate={costDonutRows}
@@ -2020,6 +2022,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           if (scope === "job") ensureContributors();
         }}
       />
+      )}
     
       {/* THE LISTS' OWN ROW — what is being filtered on the left, how the
           bills are arranged on the right.

@@ -48,8 +48,9 @@ import { money0 } from "@/lib/money";
  *     line each — "Customer - Job", phase, the billing month's amount to
  *     invoice. From `lg` it scrolls inside itself, ending at the window's foot.
  *   • Right of the list: the picked job's overview (cost by division, schedule),
- *     or — the Schedule / Bills switch — its Tracking Sheet's coding drawer, with
- *     the sheet's bills column taking the details card's place under the map.
+ *     or — the Schedule / Bills switch — its Tracking Sheet's bills and labor
+ *     column, with the sheet's coding drawer in the details card's place under
+ *     a smaller map. The sheet's own rings stay out (the top row has them).
  *   • Far right, from xl: the Lopez Island map, its own column, its top in line
  *     with the top row; under it the picked job's details (address, number,
  *     schedule start and expected finish — the Job Board's card, /api/job-board).
@@ -78,8 +79,8 @@ export function JobsHub() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   /**
    * Schedule (the job's overview and details) or Bills — the job's Tracking
-   * Sheet, embedded: its coding drawer takes the overview's place and its bills
-   * column takes the details card's, under the map. The board draws into these
+   * Sheet, embedded: its bills and labor column takes the overview's place and
+   * its coding drawer takes the details card's, under the map. The board draws into these
    * two nodes (Board's `embed`), so every save, approve and recode is the
    * Tracking Sheet's own, unchanged.
    */
@@ -178,7 +179,7 @@ export function JobsHub() {
       {/* From xl the map is its own right-hand column, its top in line with the
           top row's cards; everything else sits to its left. */}
       <div
-        className={`grid gap-6 ${view === "bills" && selected ? "xl:grid-cols-[minmax(0,1fr)_440px]" : "xl:grid-cols-[minmax(0,1fr)_340px]"}`}
+        className={`grid gap-6 ${view === "bills" && selected ? "xl:grid-cols-[minmax(0,1fr)_560px]" : "xl:grid-cols-[minmax(0,1fr)_340px]"}`}
       >
         <div className="min-w-0">
           <div className="mb-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)]">
@@ -321,7 +322,7 @@ export function JobsHub() {
                     </Card>
                     {view === "bills" && canTrackingSheet ? (
                       <>
-                        <div ref={setCodingSlot} />
+                        <div ref={setBillsSlot} />
                         {/* Keyed by job and month: a new pick is a fresh board.
                             Staged coding survives it — the board restores
                             unsynced work on load and says so. */}
@@ -352,10 +353,17 @@ export function JobsHub() {
           className={`min-w-0 space-y-4 self-start ${view === "bills" && selected ? "" : "xl:sticky xl:top-4"}`}
         >
           <Card>
-            {jobs ? <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} /> : <Loading />}
+            {/* Smaller in Bills mode: the coding card under it needs the height. */}
+            <div className={view === "bills" && selected ? "mx-auto max-w-[220px]" : ""}>
+              {jobs ? (
+                <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} />
+              ) : (
+                <Loading />
+              )}
+            </div>
           </Card>
           {view === "bills" && selected && canTrackingSheet ? (
-            <div ref={setBillsSlot} />
+            <div ref={setCodingSlot} />
           ) : (
             <JobDetails
               job={selected}
