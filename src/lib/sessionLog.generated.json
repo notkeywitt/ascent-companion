@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T23:29:53Z",
+  "generatedAt": "2026-11-01T23:37:30Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T23:29:53Z",
+      "updated": "2026-11-01T23:37:30Z",
       "goal": "",
       "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
@@ -815,6 +815,13 @@
           "time": "15:29",
           "sha": "c7d6842",
           "subject": "companion: jobs page all-jobs totals leave out ascent's own jobs",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "15:37",
+          "sha": "d84f2e2",
+          "subject": "companion: jobs page one-hue all-jobs rings with hover cards, wider details",
           "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
