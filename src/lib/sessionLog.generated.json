@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T18:03:04Z",
+  "generatedAt": "2026-11-01T18:08:39Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T18:03:04Z",
+      "updated": "2026-11-01T18:08:39Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub map column + job details card. Open: keep or drop the left job list; Expected completion = schedule end unless owner names a field.",
+      "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -739,6 +739,13 @@
           "sha": "44dab8a",
           "subject": "companion: jobs page plain title, no subtitle, narrower job list",
           "files": "src/app/jobs-hub/JobsHub.tsx, src/lib/views.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "10:06",
+          "sha": "0427af8",
+          "subject": "companion: jobs page schedule/bills toggle embeds the tracking sheet's coding and bills columns",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
         }
       ]
     },
