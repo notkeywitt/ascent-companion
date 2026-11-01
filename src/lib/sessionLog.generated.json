@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T22:12:50Z",
+  "generatedAt": "2026-11-01T22:46:35Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T22:12:50Z",
+      "updated": "2026-11-01T22:46:35Z",
       "goal": "",
       "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
@@ -795,6 +795,13 @@
           "sha": "50db619",
           "subject": "companion: jobs page header is one card of one height",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "14:46",
+          "sha": "37ad980",
+          "subject": "companion: jobs page title picker, details under a bigger map, wider coding column",
+          "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
