@@ -7,13 +7,12 @@ import { Donut } from "@/components/Donut";
 
 import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
+import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
 import { LopezMap } from "@/components/LopezMap";
 import {
   Button,
   Card,
   EmptyState,
-  ListCard,
-  ListRow,
   Loading,
   MetaLine,
   PageHeader,
@@ -26,7 +25,7 @@ import { Board } from "@/app/trackingsheet/Board";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import type { MonthCodeRow } from "@/lib/monthCostByJob";
 import { billingMonths } from "@/lib/billingMonths";
-import { PHASE_COLORS, type MapJob } from "@/lib/lopezMap";
+import type { MapJob } from "@/lib/lopezMap";
 import { scheduleHeadline, shortDate, type JobsPageCard } from "@/lib/jobBoard";
 import { jtJobUrl } from "@/lib/jtLinks";
 import { money0 } from "@/lib/money";
@@ -35,12 +34,9 @@ import { money0 } from "@/lib/money";
  * Jobs Hub — the desktop screen for every job at once (owner, 2026-11-01; the
  * Figma draft is "Ascent — Jobs Hub (desktop draft)").
  *
- *   • Left, from the top: ONE list of the working jobs, grouped by Phase
- *     (Active, then PreCon), A–Z by the customer's last name inside a group —
- *     "Customer - Job", each with its ring swatch and the billing month's
- *     amount to invoice. From `lg` it scrolls inside itself, ending at the
- *     window's foot.
- *   • Right of it, the header: ONE card of one height. Across its top the
+ *   • The title is Tracking Sheets' job picker ("All Jobs" until a job is
+ *     picked), with its phase filter and amounts to invoice.
+ *   • Under it, the header: ONE card of one height. Across its top the
  *     picked job's name, links and Bills / Schedule switch; under that, side
  *     by side, the rings (Total / Bills / Labor, a legend, a Bills ring and a
  *     Labor ring — every job in the picked month, or the picked job by cost
@@ -52,19 +48,13 @@ import { money0 } from "@/lib/money";
  *     drawer side by side; the sheet's own rings stay out. Schedule: the job's
  *     overview (cost by division, schedule).
  *
- * A row, a ring slice or a dot picks the job.
+ * The picker, a ring slice or a dot picks the job.
  *
  * Every write is the embedded Tracking Sheet's own; nothing here writes.
  */
 
-/** The working phases, in list order — the ones the map colours. */
-const WORKING = [...new Set(PHASE_COLORS.map((p) => p.phase))];
-
 type HubJob = MapJob & { customer?: string | null };
 const jobLabel = (j: HubJob) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
-/** A–Z by the customer's last name ("Genna Gormley" → "Gormley"), then the job. */
-const sortKey = (j: HubJob) =>
-  `${(j.customer ?? "").trim().split(/\s+/).pop() ?? ""} ${j.customer ?? ""} ${j.name}`.toLowerCase();
 
 interface ToInvoice {
   ym: string;
@@ -139,14 +129,7 @@ export function JobsHub() {
     </div>
   );
   const { jobs: monthJobs } = useMonthJobs(ym);
-  const colors = useMemo(
-    () => new Map(monthJobRows(monthJobs ?? []).map((r) => [r.key, r.color])),
-    [monthJobs],
-  );
 
-  const working = (jobs ?? [])
-    .filter((j) => WORKING.includes(j.phase ?? ""))
-    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
 
@@ -163,209 +146,145 @@ export function JobsHub() {
   };
   useEffect(() => setHeldHeight(undefined), [selectedId]);
 
-  // From `lg` the job list scrolls inside itself, sized to end at the bottom of
-  // the window when the page is at its top — every job is reachable without
-  // scrolling the page. Measured, because what sits above it (header, top row)
-  // has no fixed height.
-  const listRef = useRef<HTMLDivElement>(null);
-  const [listMax, setListMax] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    const fit = () => {
-      const el = listRef.current;
-      if (!el || !window.matchMedia("(min-width: 1024px)").matches) return setListMax(undefined);
-      const top = el.getBoundingClientRect().top + window.scrollY;
-      setListMax(Math.max(240, window.innerHeight - top - 24));
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [jobs, monthJobs, selectedId]);
-
   return (
     <main
       ref={mainRef}
       className="w-full px-4 pb-10 pt-5 pad:px-7"
       style={{ minHeight: heldHeight }}
     >
-      {/* No peak mark on this page (owner, 2026-11-01): a plain title. */}
-      <PageHeader titleSlot={<h1 className="text-xl font-bold tracking-tight">Jobs</h1>} />
+      {/* The title IS the job picker, as on Tracking Sheets: "All Jobs" until a
+          job is picked. */}
+      <PageHeader
+        titleSlot={
+          <JobPicker
+            variant="title"
+            value={selectedId ?? ""}
+            onChange={(id) => setSelectedId(id || null)}
+            placeholder="All Jobs"
+            allLabel="All Jobs"
+            allDescription="Every job's month, side by side"
+            showPhaseFilter
+            defaultPhases={WORKING_PHASES}
+            showToBeInvoiced={canTrackingSheet}
+          />
+        }
+      />
 
-      {/* The job list down the left; to its right a header — the picked job's
-          card and the rings, beside the map card (map + the job's details) —
-          and under the header the main window: Bills (the job's Tracking
-          Sheet) or Schedule. */}
-      <div className="grid gap-6 lg:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="min-w-0 space-y-2">
-          {!jobs ? (
-            <Loading />
-          ) : working.length === 0 ? (
-            <EmptyState>No job has Phase set to Active or PreCon.</EmptyState>
-          ) : (
-            <div ref={listRef} className="space-y-3 overflow-y-auto" style={{ maxHeight: listMax }}>
-              {/* Grouped by Phase, in the map's order; A–Z by the customer's
-                last name inside a group (owner, 2026-11-01). */}
-              {WORKING.map((phase) => {
-                const group = working.filter((j) => j.phase === phase);
-                if (group.length === 0) return null;
-                return (
-                  <div key={phase} className="space-y-1">
-                    <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                      {phase} · {group.length}
-                    </div>
-                    <ListCard>
-                      {group.map((j) => {
-                        const owed = toInvoice?.totals[j.id] ?? 0;
-                        const swatch = colors.get(j.id);
-                        return (
-                          <ListRow
-                            key={j.id}
-                            label={
-                              <span className="inline-flex items-center gap-2">
-                                {/* The ring's colour for this job; no swatch = no cost this month. */}
-                                <span
-                                  aria-hidden
-                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                  style={{ background: swatch ?? "transparent" }}
-                                />
-                                {jobLabel(j)}
-                              </span>
-                            }
-                            trailing={
-                              owed > 0 ? (
-                                <span className="text-[12px] tabular-nums">{money0(owed)}</span>
-                              ) : undefined
-                            }
-                            selected={j.id === selectedId}
-                            chevron={false}
-                            onClick={() => pick(j.id)}
-                          />
-                        );
-                      })}
-                    </ListCard>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </aside>
-
-        <div className="min-w-0 space-y-6">
-          {/* ONE card, one height (owner, 2026-11-01): the picked job's name,
-              links and Bills / Schedule switch across the top; under it the
-              rings, the map and the job's details side by side. */}
-          <Card pad={false} className="overflow-hidden">
-            {selected && (
-              <div className="flex items-start gap-3 border-b border-line-soft px-4 py-3">
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="text-base font-semibold tracking-tight">{jobLabel(selected)}</div>
-                  <MetaLine
-                    items={[
-                      selected.phase,
-                      (toInvoice?.totals[selected.id] ?? 0) > 0 &&
-                        `${money0(toInvoice!.totals[selected.id])} to invoice`,
-                      canTrackingSheet && (
-                        <Link
-                          key="sheet"
-                          href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
-                          className="font-semibold text-accent hover:underline dark:text-accent-soft"
-                        >
-                          Tracking sheet →
-                        </Link>
-                      ),
+      <div className="min-w-0 space-y-6">
+        {/* ONE card, one height (owner, 2026-11-01): the picked job's name,
+            links and Bills / Schedule switch across the top; under it the
+            rings, the map and the job's details side by side. */}
+        <Card pad={false} className="overflow-hidden">
+          {selected && (
+            <div className="flex items-start gap-3 border-b border-line-soft px-4 py-3">
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="text-base font-semibold tracking-tight">{jobLabel(selected)}</div>
+                <MetaLine
+                  items={[
+                    selected.phase,
+                    (toInvoice?.totals[selected.id] ?? 0) > 0 &&
+                      `${money0(toInvoice!.totals[selected.id])} to invoice`,
+                    canTrackingSheet && (
                       <Link
-                        key="job"
-                        href={`/job-board/${encodeURIComponent(selected.id)}`}
+                        key="sheet"
+                        href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
                         className="font-semibold text-accent hover:underline dark:text-accent-soft"
                       >
-                        Job page →
-                      </Link>,
-                    ]}
-                  />
-                </div>
-                {canTrackingSheet && (
-                  <Segmented
-                    label="Show"
-                    value={view}
-                    onChange={switchView}
-                    options={[
-                      { value: "bills", label: "Bills" },
-                      { value: "schedule", label: "Schedule" },
-                    ]}
-                  />
-                )}
-                <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
-                  Close
-                </Button>
+                        Tracking sheet →
+                      </Link>
+                    ),
+                    <Link
+                      key="job"
+                      href={`/job-board/${encodeURIComponent(selected.id)}`}
+                      className="font-semibold text-accent hover:underline dark:text-accent-soft"
+                    >
+                      Job page →
+                    </Link>,
+                  ]}
+                />
               </div>
-            )}
-            <div className="flex flex-col divide-y divide-line-soft xl:h-64 xl:flex-row xl:divide-x xl:divide-y-0">
-              <div className="min-h-0 min-w-0 flex-1 p-4">
-                {selected ? (
-                  <JobRings
-                    key={selected.id}
-                    job={selected}
-                    monthSelect={monthSelect}
-                    monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
-                  />
-                ) : monthJobs ? (
-                  <RingsCard
-                    caption="All jobs"
-                    items={monthJobRows(monthJobs)}
-                    control={monthSelect}
-                    onSelect={pick}
-                  />
-                ) : (
-                  <Skeleton className="h-full min-h-40 w-full rounded-xl" />
-                )}
-              </div>
-              {/* The map is one size in both views. */}
-              <div className="flex shrink-0 justify-center p-4">
-                <div className="w-[130px]">
-                  {jobs ? (
-                    <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
-                  ) : (
-                    <Loading />
-                  )}
-                </div>
-              </div>
-              {selected && (
-                <div className="min-h-0 overflow-y-auto p-4 xl:w-[280px] xl:shrink-0">
-                  <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
-                </div>
+              {canTrackingSheet && (
+                <Segmented
+                  label="Show"
+                  value={view}
+                  onChange={switchView}
+                  options={[
+                    { value: "bills", label: "Bills" },
+                    { value: "schedule", label: "Schedule" },
+                  ]}
+                />
+              )}
+              <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
+                Close
+              </Button>
+            </div>
+          )}
+          <div className="flex flex-col divide-y divide-line-soft xl:flex-row xl:divide-x xl:divide-y-0">
+            <div className="min-h-0 min-w-0 flex-1 p-4">
+              {selected ? (
+                <JobRings
+                  key={selected.id}
+                  job={selected}
+                  monthSelect={monthSelect}
+                  monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
+                />
+              ) : monthJobs ? (
+                <RingsCard
+                  caption="All jobs"
+                  items={monthJobRows(monthJobs)}
+                  control={monthSelect}
+                  onSelect={pick}
+                />
+              ) : (
+                <Skeleton className="h-full min-h-40 w-full rounded-xl" />
               )}
             </div>
-          </Card>
-
-          {/* THE MAIN WINDOW */}
-          {selected ? (
-            view === "bills" && canTrackingSheet ? (
-              <>
-                {/* The board draws its bills and labor column into the left
-                    slot and its coding drawer into the right. */}
-                <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-                  <div ref={setBillsSlot} className="min-w-0" />
-                  <div ref={setCodingSlot} className="min-w-0" />
-                </div>
-                {/* Keyed by job and month: a new pick is a fresh board. Staged
-                    coding survives it — the board restores unsynced work on
-                    load and says so. */}
-                {ym && (
-                  <Suspense fallback={null}>
-                    <Board
-                      key={`${selected.id}-${ym}`}
-                      embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
-                    />
-                  </Suspense>
+            {/* The map (one size in both views) with the job's details directly
+                under it. This column sets the card's height; the rings stretch to it. */}
+            <div className="space-y-3 p-4 xl:w-[300px] xl:shrink-0">
+              <div className="mx-auto w-[170px]">
+                {jobs ? (
+                  <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
+                ) : (
+                  <Loading />
                 )}
-              </>
-            ) : (
-              /* Keyed so a new job starts its own fetch rather than showing the last one's. */
-              <JobOverview key={selected.id} jobId={selected.id} />
-            )
+              </div>
+              {selected && (
+                <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
+              )}
+            </div>
+          </div>
+        </Card>
+
+        {/* THE MAIN WINDOW */}
+        {selected ? (
+          view === "bills" && canTrackingSheet ? (
+            <>
+              {/* The board draws its bills and labor column into the left
+                  slot and its coding drawer into the right. */}
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+                <div ref={setBillsSlot} className="min-w-0" />
+                <div ref={setCodingSlot} className="min-w-0" />
+              </div>
+              {/* Keyed by job and month: a new pick is a fresh board. Staged
+                  coding survives it — the board restores unsynced work on
+                  load and says so. */}
+              {ym && (
+                <Suspense fallback={null}>
+                  <Board
+                    key={`${selected.id}-${ym}`}
+                    embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
+                  />
+                </Suspense>
+              )}
+            </>
           ) : (
-            <EmptyState>Pick a job from the list, a ring or the map.</EmptyState>
-          )}
-        </div>
+            /* Keyed so a new job starts its own fetch rather than showing the last one's. */
+            <JobOverview key={selected.id} jobId={selected.id} />
+          )
+        ) : (
+          <EmptyState>Pick a job from the list, a ring or the map.</EmptyState>
+        )}
       </div>
     </main>
   );
@@ -418,31 +337,33 @@ function RingsCard({
           <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">Labor</dt>
           <dd className="text-[13px]">{money0(labor)}</dd>
         </dl>
-        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
-          {shown.map((r) => (
-            <li key={r.key}>
-              <button
-                type="button"
-                disabled={!onSelect}
-                onClick={() => onSelect?.(r.key)}
-                className="flex w-full items-center gap-2 text-left text-[13px] enabled:hover:underline"
-              >
-                <span
-                  aria-hidden
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: r.color }}
-                />
-                <span className="min-w-0 flex-1 truncate">{r.label}</span>
-                <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
-                  {money0(r.bills + r.labor)}
-                </span>
-              </button>
-            </li>
-          ))}
-          {shown.length === 0 && (
-            <li className="text-[13px] text-neutral-500">No bills or labor.</li>
-          )}
-        </ul>
+        <div className="relative min-h-16 flex-1">
+          <ul className="absolute inset-0 space-y-1 overflow-y-auto pr-1">
+            {shown.map((r) => (
+              <li key={r.key}>
+                <button
+                  type="button"
+                  disabled={!onSelect}
+                  onClick={() => onSelect?.(r.key)}
+                  className="flex w-full items-center gap-2 text-left text-[13px] enabled:hover:underline"
+                >
+                  <span
+                    aria-hidden
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ background: r.color }}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{r.label}</span>
+                  <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                    {money0(r.bills + r.labor)}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {shown.length === 0 && (
+              <li className="text-[13px] text-neutral-500">No bills or labor.</li>
+            )}
+          </ul>
+        </div>
       </div>
       <div className="flex shrink-0 justify-center gap-6">
         <Donut
