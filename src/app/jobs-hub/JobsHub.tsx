@@ -21,13 +21,12 @@ import {
   Segmented,
   Select,
   Skeleton,
-  StatementBlock,
 } from "@/components/ui";
 import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
 import { Board } from "@/app/trackingsheet/Board";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import type { MonthCodeRow } from "@/lib/monthCostByJob";
-import { billingMonths, monthLabel } from "@/lib/billingMonths";
+import { billingMonths } from "@/lib/billingMonths";
 import { PHASE_COLORS, type MapJob } from "@/lib/lopezMap";
 import { scheduleHeadline, shortDate, type JobsPageCard } from "@/lib/jobBoard";
 import { jtJobUrl } from "@/lib/jtLinks";
@@ -37,16 +36,17 @@ import { money0 } from "@/lib/money";
  * Jobs Hub — the desktop screen for every job at once (owner, 2026-11-01; the
  * Figma draft is "Ascent — Jobs Hub (desktop draft)").
  *
- *   • Top row, one fixed height: "To be invoiced" (the billing month) over the
- *     list column, and the rings card across the rest (the Figma draft's
- *     summary row). The card reads Total / Bills / Labor, a legend, then a
- *     Bills ring and a Labor ring. No job picked — every job in the picked
- *     month, a slice per job. A job picked — that job by cost code (Tracking
- *     Sheets' colour rules), with a Month / All time switch. The month picker
- *     shows whenever the card is on a month; it starts on the billing month.
- *   • Left: ONE continuous list of the working jobs (Active, then PreCon), a
- *     line each — "Customer - Job", phase, the billing month's amount to
- *     invoice. From `lg` it scrolls inside itself, ending at the window's foot.
+ *   • Left, from the top: ONE list of the working jobs, grouped by Phase
+ *     (Active, then PreCon), A–Z by the customer's last name inside a group —
+ *     "Customer - Job", each with its ring swatch and the billing month's
+ *     amount to invoice. From `lg` it scrolls inside itself, ending at the
+ *     window's foot.
+ *   • Beside it, on top: the rings card, one fixed height — Total / Bills /
+ *     Labor, a legend, a Bills ring and a Labor ring. No job picked: every job
+ *     in the picked month, a slice per job. A job picked: that job by cost code
+ *     (Tracking Sheets' colour rules), with a Month / All time switch. The
+ *     month picker shows whenever the card is on a month; it starts on the
+ *     billing month.
  *   • Right of the list: the picked job's overview (cost by division, schedule),
  *     or — the Schedule / Bills switch — its Tracking Sheet's bills and labor
  *     column, with the sheet's coding drawer in the details card's place under
@@ -64,6 +64,9 @@ const WORKING = [...new Set(PHASE_COLORS.map((p) => p.phase))];
 
 type HubJob = MapJob & { customer?: string | null };
 const jobLabel = (j: HubJob) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+/** A–Z by the customer's last name ("Genna Gormley" → "Gormley"), then the job. */
+const sortKey = (j: HubJob) =>
+  `${(j.customer ?? "").trim().split(/\s+/).pop() ?? ""} ${j.customer ?? ""} ${j.name}`.toLowerCase();
 
 interface ToInvoice {
   ym: string;
@@ -145,11 +148,7 @@ export function JobsHub() {
 
   const working = (jobs ?? [])
     .filter((j) => WORKING.includes(j.phase ?? ""))
-    .sort(
-      (a, b) =>
-        WORKING.indexOf(a.phase ?? "") - WORKING.indexOf(b.phase ?? "") ||
-        jobLabel(a).localeCompare(jobLabel(b)),
-    );
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
 
@@ -182,43 +181,7 @@ export function JobsHub() {
         className={`grid gap-6 ${view === "bills" && selected ? "xl:grid-cols-[minmax(0,1fr)_560px]" : "xl:grid-cols-[minmax(0,1fr)_340px]"}`}
       >
         <div className="min-w-0">
-          <div className="mb-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)]">
-            <Card className="lg:h-48">
-              <StatementBlock
-                rule={false}
-                label={`To be invoiced${toInvoice?.ym ? ` · ${monthLabel(toInvoice.ym)}` : ""}`}
-                value={
-                  toInvoice
-                    ? money0(
-                        selected
-                          ? (toInvoice.totals[selected.id] ?? 0)
-                          : Object.values(toInvoice?.totals ?? {}).reduce((n, v) => n + v, 0),
-                      )
-                    : "—"
-                }
-                sub={selected ? jobLabel(selected) : "Bills and time not yet on a client invoice"}
-              />
-            </Card>
-            {selected ? (
-              <JobRings
-                key={selected.id}
-                job={selected}
-                monthSelect={monthSelect}
-                monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
-              />
-            ) : monthJobs ? (
-              <RingsCard
-                caption="All jobs"
-                items={monthJobRows(monthJobs)}
-                control={monthSelect}
-                onSelect={pick}
-              />
-            ) : (
-              <Skeleton className="h-48 w-full rounded-xl" />
-            )}
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)]">
+          <div className="grid gap-6 lg:grid-cols-[232px_minmax(0,1fr)]">
             <aside className="min-w-0 space-y-2">
               <SectionHeading
                 trailing={
@@ -236,45 +199,75 @@ export function JobsHub() {
               ) : (
                 <div
                   ref={listRef}
-                  className="overflow-y-auto rounded-xl"
+                  className="space-y-3 overflow-y-auto"
                   style={{ maxHeight: listMax }}
                 >
-                  <ListCard>
-                    {working.map((j) => {
-                      const owed = toInvoice?.totals[j.id] ?? 0;
-                      const swatch = colors.get(j.id);
-                      return (
-                        <ListRow
-                          key={j.id}
-                          label={
-                            <span className="inline-flex items-center gap-2">
-                              {/* The ring's colour for this job; no swatch = no cost this month. */}
-                              <span
-                                aria-hidden
-                                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                style={{ background: swatch ?? "transparent" }}
+                  {/* Grouped by Phase, in the map's order; A–Z by the customer's
+                      last name inside a group (owner, 2026-11-01). */}
+                  {WORKING.map((phase) => {
+                    const group = working.filter((j) => j.phase === phase);
+                    if (group.length === 0) return null;
+                    return (
+                      <div key={phase} className="space-y-1">
+                        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                          {phase} · {group.length}
+                        </div>
+                        <ListCard>
+                          {group.map((j) => {
+                            const owed = toInvoice?.totals[j.id] ?? 0;
+                            const swatch = colors.get(j.id);
+                            return (
+                              <ListRow
+                                key={j.id}
+                                label={
+                                  <span className="inline-flex items-center gap-2">
+                                    {/* The ring's colour for this job; no swatch = no cost this month. */}
+                                    <span
+                                      aria-hidden
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                      style={{ background: swatch ?? "transparent" }}
+                                    />
+                                    {jobLabel(j)}
+                                  </span>
+                                }
+                                trailing={
+                                  owed > 0 ? (
+                                    <span className="text-[12px] tabular-nums">{money0(owed)}</span>
+                                  ) : undefined
+                                }
+                                selected={j.id === selectedId}
+                                chevron={false}
+                                onClick={() => pick(j.id)}
                               />
-                              {jobLabel(j)}
-                            </span>
-                          }
-                          desc={j.phase}
-                          trailing={
-                            owed > 0 ? (
-                              <span className="text-[12px] tabular-nums">{money0(owed)}</span>
-                            ) : undefined
-                          }
-                          selected={j.id === selectedId}
-                          chevron={false}
-                          onClick={() => pick(j.id)}
-                        />
-                      );
-                    })}
-                  </ListCard>
+                            );
+                          })}
+                        </ListCard>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </aside>
 
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-6">
+              {selected ? (
+                <JobRings
+                  key={selected.id}
+                  job={selected}
+                  monthSelect={monthSelect}
+                  monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
+                />
+              ) : monthJobs ? (
+                <RingsCard
+                  caption="All jobs"
+                  items={monthJobRows(monthJobs)}
+                  control={monthSelect}
+                  onSelect={pick}
+                />
+              ) : (
+                <Skeleton className="h-48 w-full rounded-xl" />
+              )}
+
               <div className="min-w-0 space-y-3">
                 {selected ? (
                   <>
@@ -290,6 +283,7 @@ export function JobsHub() {
                               `${money0(toInvoice!.totals[selected.id])} to invoice`,
                             canTrackingSheet && (
                               <Link
+                                key="sheet"
                                 href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
                                 className="font-semibold text-accent hover:underline dark:text-accent-soft"
                               >
@@ -297,6 +291,7 @@ export function JobsHub() {
                               </Link>
                             ),
                             <Link
+                              key="job"
                               href={`/job-board/${encodeURIComponent(selected.id)}`}
                               className="font-semibold text-accent hover:underline dark:text-accent-soft"
                             >
