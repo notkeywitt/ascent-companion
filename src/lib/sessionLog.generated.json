@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T18:20:48Z",
+  "generatedAt": "2026-11-01T18:22:22Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T18:20:48Z",
+      "updated": "2026-11-01T18:22:22Z",
       "goal": "",
       "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
@@ -760,6 +760,13 @@
           "sha": "96acf20",
           "subject": "companion: jobs page list at the top, grouped by phase, sorted by customer last name",
           "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "10:22",
+          "sha": "8dcea05",
+          "subject": "companion: jobs page job card above the rings card",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
