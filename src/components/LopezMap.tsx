@@ -27,11 +27,15 @@ export function LopezMap({
   selectedId,
   onSelect,
   className = "",
+  legend = true,
 }: {
   jobs: MapJob[];
   selectedId?: string | null;
   onSelect?: (jobId: string) => void;
   className?: string;
+  /** The phase swatches under the map. The © OpenStreetMap credit prints either
+   *  way — the coastline is ODbL data and the licence asks for it. */
+  legend?: boolean;
 }) {
   const { places, offMap } = useMemo(() => placeJobs(jobs), [jobs]);
   const selected = places.find((p) => p.jobs.some((j) => j.id === selectedId));
@@ -100,19 +104,19 @@ export function LopezMap({
         ))}
       </svg>
       <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
-        {shownPhases.map((p) => (
+        {legend && shownPhases.map((p) => (
           <span key={p.phase} className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
             {p.phase}
           </span>
         ))}
-        {places.some((pl) => phaseColor(pl.phase) === "var(--viz-other)") && (
+        {legend && places.some((pl) => phaseColor(pl.phase) === "var(--viz-other)") && (
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: "var(--viz-other)" }} />
             Other
           </span>
         )}
-        {offMap > 0 && <span>{offMap} not on the map</span>}
+        {legend && offMap > 0 && <span>{offMap} not on the map</span>}
         <span className="ml-auto">© OpenStreetMap</span>
       </figcaption>
     </figure>

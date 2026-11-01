@@ -44,7 +44,7 @@ import { money0 } from "@/lib/money";
  *     switch) over the rings card (Total / Bills / Labor, a legend, a Bills
  *     ring and a Labor ring — every job in the picked month, or the picked job
  *     by cost code with a Month / All time switch), beside the map card: a
- *     small Lopez Island map, one size in both views, and the job's details
+ *     small Lopez Island map (no legend), one size in both views, and under it the job's details
  *     (the Job Board's card, /api/job-board) with an Edit link to JobTread.
  *   • Under the header, the main window. Bills (the default): the job's
  *     Tracking Sheet, embedded — its bills and labor column and its coding
@@ -249,7 +249,7 @@ export function JobsHub() {
         </aside>
 
         <div className="min-w-0 space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_280px]">
             <div className="min-w-0 space-y-6">
               {selected && (
                 <Card className="flex items-start gap-3">
@@ -318,16 +318,16 @@ export function JobsHub() {
             </div>
 
             {/* The map is one size in both views. */}
-            <Card className="flex gap-4 self-start">
-              <div className="w-[160px] shrink-0">
+            <Card className="space-y-3 self-start">
+              <div className="mx-auto w-[160px]">
                 {jobs ? (
-                  <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} />
+                  <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
                 ) : (
                   <Loading />
                 )}
               </div>
               {selected && (
-                <div className="min-w-0 flex-1 border-l border-line-soft pl-4">
+                <div className="border-t border-line-soft pt-3">
                   <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
                 </div>
               )}
