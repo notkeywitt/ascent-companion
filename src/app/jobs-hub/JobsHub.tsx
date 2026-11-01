@@ -54,6 +54,10 @@ import { money0 } from "@/lib/money";
  */
 
 type HubJob = MapJob & { customer?: string | null };
+/** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
+ *  the all-jobs totals: overhead, not client work (owner, 2026-11-01). */
+const isAscentOwn = (customer: string | null | undefined) =>
+  (customer ?? "").trim().toLowerCase() === "ascent";
 const jobLabel = (j: HubJob) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
 
 interface ToInvoice {
@@ -231,7 +235,7 @@ export function JobsHub() {
               ) : monthJobs ? (
                 <RingsCard
                   caption="All jobs"
-                  items={monthJobRows(monthJobs)}
+                  items={monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName)))}
                   control={monthSelect}
                   onSelect={pick}
                 />
