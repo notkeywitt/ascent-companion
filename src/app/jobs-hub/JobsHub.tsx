@@ -365,12 +365,13 @@ function RingsCard({
           </ul>
         </div>
       </div>
+      {/* 240px rings: the 170px-wide map is ~264px tall, less the rings' titles. */}
       <div className="flex shrink-0 justify-center gap-6">
         <Donut
           title="Bills"
           slices={slices("bills")}
           emptyLabel="No bills"
-          size={100}
+          size={240}
           legend={false}
           onSelect={onSelect}
         />
@@ -378,7 +379,7 @@ function RingsCard({
           title="Labor"
           slices={slices("labor")}
           emptyLabel="No labor"
-          size={100}
+          size={240}
           legend={false}
           onSelect={onSelect}
         />
