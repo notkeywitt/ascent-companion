@@ -7,6 +7,9 @@ export interface MonthCodeRow {
   name: string;
   bills: number;
   labor: number;
+  /** Of `bills`, the part on bills still in draft. A job-to-date view adds it to
+   *  the committed total, as the Tracking Sheet's rail does (Jobs Hub). */
+  drafts: number;
 }
 
 export interface MonthJobCost {
@@ -70,7 +73,7 @@ export async function getMonthCostByJob(
     if (!n?.job?.id || !code) return;
     const j = jobFor(n.job);
     let r = j.byCode.get(code);
-    if (!r) j.byCode.set(code, (r = { code, name: codeName, bills: 0, labor: 0 }));
+    if (!r) j.byCode.set(code, (r = { code, name: codeName, bills: 0, labor: 0, drafts: 0 }));
     const cost = Number(n.cost) || 0;
     r[field] += cost;
     j[field] += cost;
@@ -99,15 +102,25 @@ export async function getMonthCostByJob(
                 ...args,
               },
               nextPage: {},
-              nodes: { cost: {}, job: jobNodes, costCode: { number: {}, name: {} } },
+              nodes: {
+                cost: {},
+                job: jobNodes,
+                costCode: { number: {}, name: {} },
+                document: { status: {} },
+              },
             },
           },
         }),
         pick: (r) => r?.organization?.costItems,
       },
       (rows) => {
-        for (const n of rows)
-          add(n, String(n?.costCode?.number ?? "").trim(), n?.costCode?.name ?? "", "bills");
+        for (const n of rows) {
+          const code = String(n?.costCode?.number ?? "").trim();
+          add(n, code, n?.costCode?.name ?? "", "bills");
+          if (n?.document?.status !== "draft") continue;
+          const r = jobs.get(n?.job?.id)?.byCode.get(code);
+          if (r) r.drafts += Number(n.cost) || 0;
+        }
       },
     ),
     pageEach<any>(

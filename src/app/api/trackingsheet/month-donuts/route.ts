@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 const cached = unstable_cache(
   (year: number, month: number) => getMonthCostByJob(getPaveConfig(), year, month),
-  ["trackingsheet-month-donuts"],
+  ["trackingsheet-month-donuts-v2"], // v2: rows carry `drafts`
   { revalidate: 300, tags: ["jt-bills"] },
 );
 

@@ -25,6 +25,7 @@ import {
 } from "@/components/ui";
 import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
+import type { MonthCodeRow } from "@/lib/monthCostByJob";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { PHASE_COLORS, type MapJob } from "@/lib/lopezMap";
 import { money0 } from "@/lib/money";
@@ -426,7 +427,7 @@ function JobRings({
   monthSelect,
 }: {
   job: HubJob;
-  monthRows: CostDonutRow[];
+  monthRows: MonthCodeRow[];
   /** The page's month picker, shown while the month scope is on. */
   monthSelect: React.ReactNode;
 }) {
@@ -459,7 +460,12 @@ function JobRings({
     };
   }, [job.id]);
 
-  const rows = scope === "month" ? monthRows : toDate;
+  // All time is committed bills (approved + pending, the cost tree's basis)
+  // plus the shown month's drafts — the Tracking Sheet's job-to-date ring adds
+  // its month's drafts the same way. Without them a job whose only bills are
+  // drafts read $0 all time and more than that in its month (Gormley - Studio).
+  const rows =
+    scope === "month" ? monthRows : toDate && withDrafts(toDate, monthRows);
   if (!rows) return <Skeleton className="h-52 w-full rounded-xl" />;
   return (
     <RingsCard
@@ -481,4 +487,16 @@ function JobRings({
       }
     />
   );
+}
+
+/** The job-to-date rows with the month's draft-bill cost added, code by code. */
+function withDrafts(toDate: CostDonutRow[], month: MonthCodeRow[]): CostDonutRow[] {
+  const byCode = new Map(toDate.map((r) => [r.code, { ...r }]));
+  for (const m of month) {
+    if (!m.drafts) continue;
+    const r = byCode.get(m.code);
+    if (r) r.bills += m.drafts;
+    else byCode.set(m.code, { code: m.code, name: m.name, bills: m.drafts, labor: 0 });
+  }
+  return [...byCode.values()];
 }
