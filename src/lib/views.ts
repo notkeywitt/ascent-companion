@@ -552,9 +552,11 @@ export const VIEWS: ViewDef[] = [
   // design tool, not a view onto anything. It writes nothing but this device's
   // own localStorage, so the gate is about clutter rather than safety.
   { id: "theme-editor", label: "Theme", group: "System", paths: ["/theme"] },
-  // Scratch page for the Lopez Island map (<LopezMap>) until the desktop board
-  // takes it in. Admin-only; delete with /map-preview.
-  { id: "map-preview", label: "Map Preview", group: "System", paths: ["/map-preview"] },
+  // The desktop screen for every job at once: a compact job list, the month's
+  // rings, one job's overview and the Lopez Island map. It calls only routes
+  // other pages already use and gate, so no API path is listed here.
+  // Office/admin by default.
+  { id: "jobs-hub", label: "Jobs Hub", group: "Office", paths: ["/jobs-hub"] },
 ];
 
 export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
@@ -602,7 +604,6 @@ const ADMIN_MENU: string[] = [
   "bank-details",
   "page-copy",
   "theme-editor",
-  "map-preview",
   // The morning report on "/". Admin-only since 2026-09-08 — see the view's own
   // note above for why dropping the view is what removes the card.
   "digest",
