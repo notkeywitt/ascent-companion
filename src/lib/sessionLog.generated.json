@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T17:48:30Z",
+  "generatedAt": "2026-11-01T18:03:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T17:48:30Z",
+      "updated": "2026-11-01T18:03:04Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub map column + job details card. Still open: which part shows white in dark mode; keep or drop the left job list.",
+      "next": "Owner: check /jobs-hub map column + job details card. Open: keep or drop the left job list; Expected completion = schedule end unless owner names a field.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -732,6 +732,13 @@
           "sha": "f65c2b5",
           "subject": "companion: jobs hub map column with job details card, shorter rings card",
           "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "10:03",
+          "sha": "44dab8a",
+          "subject": "companion: jobs page plain title, no subtitle, narrower job list",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/lib/views.ts, src/lib/workspaces.ts"
         }
       ]
     },
