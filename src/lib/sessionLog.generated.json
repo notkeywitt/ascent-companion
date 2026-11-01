@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T18:08:39Z",
+  "generatedAt": "2026-11-01T18:15:01Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T18:08:39Z",
+      "updated": "2026-11-01T18:15:01Z",
       "goal": "",
       "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
@@ -745,6 +745,13 @@
           "time": "10:06",
           "sha": "0427af8",
           "subject": "companion: jobs page schedule/bills toggle embeds the tracking sheet's coding and bills columns",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "10:14",
+          "sha": "08dab09",
+          "subject": "companion: jobs page bills mode puts coding under a smaller map, bills list in the middle",
           "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
         }
       ]
