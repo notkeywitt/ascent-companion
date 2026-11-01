@@ -39,8 +39,9 @@ export function project(lat: number, lng: number): { x: number; y: number } | nu
 }
 
 /**
- * Phase → dot colour. The categorical --viz set (globals.css), never the brand
- * hue: a chart wants neutral categories. Listed in the order a shared address
+ * Phase → dot colour. Only the jobs being built or priced get a colour (owner,
+ * 2026-11-01); every other phase is grey. The categorical --viz set
+ * (globals.css), never the brand hue. Listed in the order a shared address
  * picks its colour — several jobs at one place draw one dot, in the phase that
  * matters most.
  */
@@ -48,9 +49,6 @@ export const PHASE_COLORS: { phase: string; color: string }[] = [
   { phase: "Active", color: "var(--viz-4)" },
   { phase: "PreCon", color: "var(--viz-2)" },
   { phase: "PreCon Budget", color: "var(--viz-2)" },
-  { phase: "Prospective", color: "var(--viz-5)" },
-  { phase: "Complete", color: "var(--viz-1)" },
-  { phase: "Ascent", color: "var(--viz-6)" },
 ];
 export const OTHER_PHASE_COLOR = "var(--viz-other)";
 
