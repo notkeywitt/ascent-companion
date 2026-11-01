@@ -235,9 +235,12 @@ export function JobsHub() {
               ) : monthJobs ? (
                 <RingsCard
                   caption="All jobs"
-                  items={monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName)))}
+                  items={oneHue(
+                    monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName))),
+                  )}
                   control={monthSelect}
                   onSelect={pick}
+                  hoverCard
                 />
               ) : (
                 <Skeleton className="h-full min-h-40 w-full rounded-xl" />
@@ -245,7 +248,7 @@ export function JobsHub() {
             </div>
             {/* The map (one size in both views) with the job's details directly
                 under it. This column sets the card's height; the rings stretch to it. */}
-            <div className="space-y-3 p-4 xl:w-[300px] xl:shrink-0">
+            <div className="space-y-3 p-4 xl:w-[400px] xl:shrink-0">
               <div className="mx-auto w-[170px]">
                 {jobs ? (
                   <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
@@ -294,6 +297,19 @@ export function JobsHub() {
   );
 }
 
+/**
+ * The all-jobs rings in ONE hue (owner, 2026-11-01): the biggest job at full
+ * strength, each smaller one paler, down to 30%. Mixed toward transparent, not
+ * white, so the ramp reads the same on the light and the dark card.
+ */
+function oneHue<T extends { color: string }>(rows: T[]): T[] {
+  const n = rows.length;
+  return rows.map((r, i) => ({
+    ...r,
+    color: `color-mix(in srgb, var(--viz-1) ${Math.round(100 - (70 * i) / Math.max(n - 1, 1))}%, transparent)`,
+  }));
+}
+
 interface RingItem {
   key: string;
   label: string;
@@ -311,12 +327,27 @@ function RingsCard({
   items,
   control,
   onSelect,
+  hoverCard = false,
 }: {
   caption: string;
   items: RingItem[];
   control?: React.ReactNode;
   onSelect?: (key: string) => void;
+  /** A slice lifts on hover and shows its bills and labor — the cue that a
+   *  click opens it (the all-jobs rings, where a slice is a job). */
+  hoverCard?: boolean;
 }) {
+  const detail = hoverCard
+    ? (key: string) => {
+        const r = items.find((x) => x.key === key);
+        return r
+          ? [
+              { key: "bills", label: "Bills", value: r.bills },
+              { key: "labor", label: "Labor", value: r.labor },
+            ]
+          : [];
+      }
+    : undefined;
   const bills = items.reduce((n, r) => n + r.bills, 0);
   const labor = items.reduce((n, r) => n + r.labor, 0);
   const shown = items.filter((r) => r.bills > 0 || r.labor > 0);
@@ -369,8 +400,9 @@ function RingsCard({
           </ul>
         </div>
       </div>
-      {/* 240px rings: the 170px-wide map is ~264px tall, less the rings' titles. */}
-      <div className="flex shrink-0 justify-center gap-6">
+      {/* 240px rings: the 170px-wide map is ~264px tall, less the rings' titles.
+          Centred in the card's height, which the map and details set. */}
+      <div className="flex shrink-0 justify-center gap-6 self-center">
         <Donut
           title="Bills"
           slices={slices("bills")}
@@ -378,6 +410,7 @@ function RingsCard({
           size={240}
           legend={false}
           onSelect={onSelect}
+          detail={detail}
         />
         <Donut
           title="Labor"
@@ -386,6 +419,7 @@ function RingsCard({
           size={240}
           legend={false}
           onSelect={onSelect}
+          detail={detail}
         />
       </div>
     </div>
@@ -530,7 +564,8 @@ function JobDetails({
 }) {
   const s = card?.schedule ?? null;
   const rows: [string, React.ReactNode][] = [
-    ["Address", card?.address || "—"],
+    // ", USA" says nothing on an island job and costs the address a line.
+    ["Address", card?.address?.replace(/,\s*USA$/, "") || "—"],
     ["Job #", card?.number || "—"],
     ["Phase", job.phase || "—"],
     ["Started", s ? shortDate(s.start, 0) : "Not scheduled"],
