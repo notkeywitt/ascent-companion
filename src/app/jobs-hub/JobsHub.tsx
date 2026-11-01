@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
+import { Donut } from "@/components/Donut";
+
 import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
 import { LopezMap } from "@/components/LopezMap";
@@ -16,10 +18,12 @@ import {
   MetaLine,
   PageHeader,
   SectionHeading,
+  Segmented,
   Skeleton,
+  StatementBlock,
 } from "@/components/ui";
-import { CostDonuts, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
-import { MonthTotalCard, monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
+import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
+import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { monthLabel } from "@/lib/billingMonths";
 import { PHASE_COLORS, type MapJob } from "@/lib/lopezMap";
 import { money0 } from "@/lib/money";
@@ -28,11 +32,12 @@ import { money0 } from "@/lib/money";
  * Jobs Hub — the desktop screen for every job at once (owner, 2026-11-01; the
  * Figma draft is "Ascent — Jobs Hub (desktop draft)").
  *
- *   • Top, full width: the rings. No job picked — the billing month's all-jobs
- *     Bills and Labor rings (Tracking Sheets' MonthTotalCard), with no legend:
- *     the job list below carries each job's swatch. A job picked — that job's
- *     rings by cost code (CostDonuts), whose caption switches between the month
- *     and the job to date.
+ *   • Top row, one fixed height: "To be invoiced" over the list column, and
+ *     the rings card across the rest (the Figma draft's summary row). The card
+ *     reads Total / Bills / Labor, a legend, then a Bills ring and a Labor
+ *     ring. No job picked — every job this billing month, a slice per job. A
+ *     job picked — that job by cost code (Tracking Sheets' colour rules), with
+ *     a This month / All time switch.
  *   • Left: ONE continuous list of the working jobs (Active, then PreCon), a
  *     line each — "Customer - Job", phase, the month's amount to invoice.
  *   • Right: the picked job's overview (cost by division, schedule) beside the
@@ -95,13 +100,26 @@ export function JobsHub() {
     <main className="w-full px-4 pb-10 pt-5 pad:px-7">
       <PageHeader title="Jobs Hub" description="Every working job on one screen — this month's money, the island map, and one job in detail." />
 
-      <div className="mb-6">
+      <div className="mb-6 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+        <Card className="lg:h-64">
+          <StatementBlock
+            rule={false}
+            label={`To be invoiced${ym ? ` · ${monthLabel(ym)}` : ""}`}
+            value={toInvoice ? money0(selected ? (toInvoice.totals[selected.id] ?? 0) : Object.values(toInvoice?.totals ?? {}).reduce((n, v) => n + v, 0)) : "—"}
+            sub={selected ? jobLabel(selected) : "Bills and time not yet on a client invoice"}
+          />
+        </Card>
         {selected ? (
-          <JobRings key={selected.id} job={selected} ym={ym} monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []} />
+          <JobRings
+            key={selected.id}
+            job={selected}
+            ym={ym}
+            monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
+          />
         ) : monthJobs ? (
-          <MonthTotalCard jobs={monthJobs} ym={ym} legend={false} onSelect={pick} />
+          <RingsCard caption={`Jobs${ym ? ` · ${monthLabel(ym)}` : ""}`} items={monthJobRows(monthJobs)} onSelect={pick} />
         ) : (
-          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         )}
       </div>
 
@@ -194,18 +212,115 @@ export function JobsHub() {
   );
 }
 
+interface RingItem {
+  key: string;
+  label: string;
+  bills: number;
+  labor: number;
+  color: string;
+}
+
 /**
- * One job's rings by cost code. The month comes from the all-jobs read already
- * in hand; the job to date is the cost tree's codes (/api/jobs/cost-detail,
- * cached server-side, the same read the overview below makes).
+ * The top row's rings card, one fixed height whatever it holds: Total, Bills
+ * and Labor; a legend that scrolls inside the card; the Bills and Labor rings.
+ */
+function RingsCard({
+  caption,
+  items,
+  control,
+  onSelect,
+}: {
+  caption: string;
+  items: RingItem[];
+  control?: React.ReactNode;
+  onSelect?: (key: string) => void;
+}) {
+  const bills = items.reduce((n, r) => n + r.bills, 0);
+  const labor = items.reduce((n, r) => n + r.labor, 0);
+  const shown = items.filter((r) => r.bills > 0 || r.labor > 0);
+  const slices = (field: "bills" | "labor") =>
+    shown.filter((r) => r[field] > 0).map((r) => ({ key: r.key, label: r.label, value: r[field], color: r.color }));
+  return (
+    <Card className="flex flex-col gap-4 lg:h-64 lg:flex-row lg:gap-8">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            {caption}
+          </div>
+          {control}
+        </div>
+        <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-0.5 tabular-nums">
+          <dt className="text-sm font-semibold">Total</dt>
+          <dd className="text-2xl font-bold tracking-tight">{money0(bills + labor)}</dd>
+          <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">Bills</dt>
+          <dd className="text-[13px]">{money0(bills)}</dd>
+          <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">Labor</dt>
+          <dd className="text-[13px]">{money0(labor)}</dd>
+        </dl>
+        <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
+          {shown.map((r) => (
+            <li key={r.key}>
+              <button
+                type="button"
+                disabled={!onSelect}
+                onClick={() => onSelect?.(r.key)}
+                className="flex w-full items-center gap-2 text-left text-[13px] enabled:hover:underline"
+              >
+                <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: r.color }} />
+                <span className="min-w-0 flex-1 truncate">{r.label}</span>
+                <span className="tabular-nums text-neutral-500 dark:text-neutral-400">{money0(r.bills + r.labor)}</span>
+              </button>
+            </li>
+          ))}
+          {shown.length === 0 && <li className="text-[13px] text-neutral-500">No bills or labor.</li>}
+        </ul>
+      </div>
+      <div className="flex shrink-0 justify-center gap-6">
+        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" legend={false} onSelect={onSelect} />
+        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" legend={false} onSelect={onSelect} />
+      </div>
+    </Card>
+  );
+}
+
+/**
+ * One job's cost codes as ring items, in Tracking Sheets' colours: sales tax
+ * out of bills, the biggest codes in the categorical slots, the rest folded
+ * into one grey "Other cost codes".
+ */
+function codeItems(raw: CostDonutRow[]): RingItem[] {
+  const rows = withoutSalesTax(raw);
+  const colors = buildColorMap(rows);
+  const out: RingItem[] = [];
+  const other: RingItem = { key: "__other", label: "Other cost codes", bills: 0, labor: 0, color: "var(--viz-other)" };
+  for (const r of rows) {
+    const bills = Math.max(r.bills, 0);
+    const labor = Math.max(r.labor, 0);
+    const color = colors.get(r.code);
+    if (color) out.push({ key: r.code, label: r.name ? `${r.code} · ${r.name}` : r.code, bills, labor, color });
+    else {
+      other.bills += bills;
+      other.labor += labor;
+    }
+  }
+  out.sort((a, b) => b.bills + b.labor - (a.bills + a.labor));
+  return other.bills + other.labor > 0 ? [...out, other] : out;
+}
+
+/**
+ * One job's rings by cost code, this billing month or all time. The month
+ * comes from the all-jobs read already in hand; all time is the cost tree's
+ * codes (/api/jobs/cost-detail, cached server-side — the overview below makes
+ * the same read).
  */
 function JobRings({ job, ym, monthRows }: { job: HubJob; ym: string; monthRows: CostDonutRow[] }) {
+  const [scope, setScope] = useState<"month" | "all">("month");
   const [toDate, setToDate] = useState<CostDonutRow[] | null>(null);
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/jobs/cost-detail?jobId=${encodeURIComponent(job.id)}`)
       .then((r) => r.json())
-      .then((d: { error?: string; divisions?: { codes: { number: string; name: string; bills: number; labor: number }[] }[] }) => {
+      .then((d: { divisions?: { codes: { number: string; name: string; bills: number; labor: number }[] }[] }) => {
         if (cancelled) return;
         setToDate(
           (d.divisions ?? []).flatMap((dv) =>
@@ -219,14 +334,23 @@ function JobRings({ job, ym, monthRows }: { job: HubJob; ym: string; monthRows: 
     };
   }, [job.id]);
 
-  if (!toDate) return <Skeleton className="h-48 w-full rounded-xl" />;
+  const rows = scope === "month" ? monthRows : toDate;
+  if (!rows) return <Skeleton className="h-64 w-full rounded-xl" />;
   return (
-    <Card>
-      <div className="mb-2 text-sm font-semibold tracking-tight">{jobLabel(job)}</div>
-      <CostDonuts month={monthRows} jobToDate={toDate} monthLabel={ym ? monthLabel(ym) : ""} />
-      {!monthRows.length && !toDate.some((r) => r.bills || r.labor) && (
-        <p className="text-[12px] text-neutral-500">No bills or labor on this job yet.</p>
-      )}
-    </Card>
+    <RingsCard
+      caption={jobLabel(job)}
+      items={codeItems(rows)}
+      control={
+        <Segmented
+          label="Period"
+          value={scope}
+          onChange={setScope}
+          options={[
+            { value: "month", label: ym ? monthLabel(ym) : "This month" },
+            { value: "all", label: "All time" },
+          ]}
+        />
+      }
+    />
   );
 }

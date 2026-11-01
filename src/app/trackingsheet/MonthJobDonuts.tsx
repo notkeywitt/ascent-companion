@@ -86,8 +86,7 @@ export function MonthJobDonuts({
 
 /**
  * The all-jobs card's slices, one per job, biggest month first, each with its
- * colour. Exported so a page that lists the jobs beside the rings (Jobs Hub)
- * paints the same swatch the ring does.
+ * colour. Exported for Jobs Hub, which draws the same rings in its own card.
  */
 export function monthJobRows(jobs: MonthJobCost[]) {
   return jobs
@@ -118,24 +117,10 @@ export function monthJobRows(jobs: MonthJobCost[]) {
  *
  * Clicking a slice, or its legend row, opens that job's Tracking Sheet on `ym`.
  */
-export function MonthTotalCard({
-  jobs,
-  ym,
-  legend = true,
-  onSelect,
-}: {
-  jobs: MonthJobCost[];
-  ym: string;
-  /** False when the page lists the jobs beside the card (Jobs Hub, with monthJobColors). */
-  legend?: boolean;
-  /** A slice's click; opens that job's Tracking Sheet when not given. */
-  onSelect?: (jobId: string) => void;
-}) {
+export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string }) {
   const router = useRouter();
-  const openJob =
-    onSelect ??
-    ((jobId: string) =>
-      router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`));
+  const openJob = (jobId: string) =>
+    router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`);
   const rows = monthJobRows(jobs);
   const bills = rows.reduce((n, r) => n + r.bills, 0);
   const labor = rows.reduce((n, r) => n + r.labor, 0);
@@ -162,8 +147,8 @@ export function MonthTotalCard({
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3 pad:mx-auto pad:max-w-xl">
-        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" onSelect={openJob} legend={legend} />
-        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" onSelect={openJob} legend={legend} />
+        <Donut title="Bills" slices={slices("bills")} emptyLabel="No bills" onSelect={openJob} />
+        <Donut title="Labor" slices={slices("labor")} emptyLabel="No labor" onSelect={openJob} />
       </div>
     </Card>
   );
