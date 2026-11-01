@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T16:14:22Z",
+  "generatedAt": "2026-11-01T16:15:33Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T16:14:21Z",
+      "updated": "2026-11-01T16:15:33Z",
       "goal": "",
       "next": "Desktop board session: import LopezMap from src/components/LopezMap.tsx, feed it /api/jobs?withPhase=1 and the board's selected job id, then delete /map-preview and its map-preview view (views.ts, workspaces.ts OUTSIDE_WORKSPACES).",
       "commits": [
@@ -683,6 +683,13 @@
           "sha": "64376c0",
           "subject": "companion: add light roads to the lopez map",
           "files": "src/components/LopezMap.tsx, src/lib/lopezMap.ts"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "08:15",
+          "sha": "a7eac60",
+          "subject": "companion: grey out all but active and precon jobs on the lopez map",
+          "files": "src/lib/lopezMap.ts"
         }
       ]
     },
