@@ -159,16 +159,14 @@ export function JobsHub() {
 
   return (
     <main className="w-full px-4 pb-10 pt-5 pad:px-7">
-      <PageHeader
-        title="Jobs Hub"
-        description="Every working job on one screen — this month's money, the island map, and one job in detail."
-      />
+      {/* No peak mark on this page (owner, 2026-11-01): a plain title. */}
+      <PageHeader titleSlot={<h1 className="text-xl font-bold tracking-tight">Jobs</h1>} />
 
       {/* From xl the map is its own right-hand column, its top in line with the
           top row's cards; everything else sits to its left. */}
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0">
-          <div className="mb-6 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="mb-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)]">
             <Card className="lg:h-48">
               <StatementBlock
                 rule={false}
@@ -204,7 +202,7 @@ export function JobsHub() {
             )}
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)]">
             <aside className="min-w-0 space-y-2">
               <SectionHeading
                 trailing={
