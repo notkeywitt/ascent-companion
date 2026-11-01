@@ -2,7 +2,17 @@
 
 import { useMemo } from "react";
 
-import { LOPEZ_COAST, MAP_H, MAP_W, PHASE_COLORS, phaseColor, placeJobs, type MapJob } from "@/lib/lopezMap";
+import {
+  LOPEZ_COAST,
+  LOPEZ_ROADS_MAJOR,
+  LOPEZ_ROADS_MINOR,
+  MAP_H,
+  MAP_W,
+  PHASE_COLORS,
+  phaseColor,
+  placeJobs,
+  type MapJob,
+} from "@/lib/lopezMap";
 
 /**
  * A flat map of Lopez Island with each job as a dot, coloured by its Phase.
@@ -45,6 +55,17 @@ export function LopezMap({
           strokeWidth={2}
           strokeLinejoin="round"
         />
+        {/* Roads one step off the island's fill: there to orient, not to read. */}
+        <g
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="stroke-neutral-200 dark:stroke-neutral-700"
+          aria-hidden
+        >
+          <path d={LOPEZ_ROADS_MINOR} strokeWidth={1.25} />
+          <path d={LOPEZ_ROADS_MAJOR} strokeWidth={2.5} />
+        </g>
         {selected && (
           <circle
             cx={selected.x}
