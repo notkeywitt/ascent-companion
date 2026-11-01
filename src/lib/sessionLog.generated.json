@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T18:37:56Z",
+  "generatedAt": "2026-11-01T18:47:53Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T18:37:56Z",
+      "updated": "2026-11-01T18:47:53Z",
       "goal": "",
       "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
@@ -781,6 +781,13 @@
           "sha": "fa39fc9",
           "subject": "companion: jobs page header layout, bills by default, edit link on details",
           "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "10:47",
+          "sha": "9994cab",
+          "subject": "companion: jobs page map without legend, details under the map",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/components/LopezMap.tsx"
         }
       ]
     },
