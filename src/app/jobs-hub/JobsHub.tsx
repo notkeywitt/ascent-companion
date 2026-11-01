@@ -40,24 +40,20 @@ import { money0 } from "@/lib/money";
  *     "Customer - Job", each with its ring swatch and the billing month's
  *     amount to invoice. From `lg` it scrolls inside itself, ending at the
  *     window's foot.
- *   • Beside it, on top: the picked job's card (links, Schedule / Bills switch),
- *     then the rings card, one fixed height — Total / Bills /
- *     Labor, a legend, a Bills ring and a Labor ring. No job picked: every job
- *     in the picked month, a slice per job. A job picked: that job by cost code
- *     (Tracking Sheets' colour rules), with a Month / All time switch. The
- *     month picker shows whenever the card is on a month; it starts on the
- *     billing month.
- *   • Right of the list: the picked job's overview (cost by division, schedule),
- *     or — the Schedule / Bills switch — its Tracking Sheet's bills and labor
- *     column, with the sheet's coding drawer in the details card's place under
- *     a smaller map. The sheet's own rings stay out (the top row has them).
- *   • Far right, from xl: the Lopez Island map, its own column, its top in line
- *     with the top row; the picked job's details (address, number, schedule
- *     start and expected finish — the Job Board's card, /api/job-board) sit
- *     inside the map card.
- *     A row, a ring slice or a dot picks the job.
+ *   • Right of it, a header: the picked job's card (links, Bills / Schedule
+ *     switch) over the rings card (Total / Bills / Labor, a legend, a Bills
+ *     ring and a Labor ring — every job in the picked month, or the picked job
+ *     by cost code with a Month / All time switch), beside the map card: a
+ *     small Lopez Island map, one size in both views, and the job's details
+ *     (the Job Board's card, /api/job-board) with an Edit link to JobTread.
+ *   • Under the header, the main window. Bills (the default): the job's
+ *     Tracking Sheet, embedded — its bills and labor column and its coding
+ *     drawer side by side; the sheet's own rings stay out. Schedule: the job's
+ *     overview (cost by division, schedule).
  *
- * Read-only. Every write stays on the page it lives on.
+ * A row, a ring slice or a dot picks the job.
+ *
+ * Every write is the embedded Tracking Sheet's own; nothing here writes.
  */
 
 /** The working phases, in list order — the ones the map colours. */
@@ -88,7 +84,7 @@ export function JobsHub() {
    * two nodes (Board's `embed`), so every save, approve and recode is the
    * Tracking Sheet's own, unchanged.
    */
-  const [view, setView] = useState<"schedule" | "bills">("schedule");
+  const [view, setView] = useState<"schedule" | "bills">("bills");
   const [codingSlot, setCodingSlot] = useState<HTMLElement | null>(null);
   const [billsSlot, setBillsSlot] = useState<HTMLElement | null>(null);
 
@@ -193,74 +189,68 @@ export function JobsHub() {
       {/* No peak mark on this page (owner, 2026-11-01): a plain title. */}
       <PageHeader titleSlot={<h1 className="text-xl font-bold tracking-tight">Jobs</h1>} />
 
-      {/* From xl the map is its own right-hand column, its top in line with the
-          top row's cards; everything else sits to its left. */}
-      <div
-        className={`grid gap-6 ${view === "bills" && selected ? "xl:grid-cols-[minmax(0,1fr)_560px]" : "xl:grid-cols-[minmax(0,1fr)_340px]"}`}
-      >
-        <div className="min-w-0">
-          <div className="grid gap-6 lg:grid-cols-[232px_minmax(0,1fr)]">
-            <aside className="min-w-0 space-y-2">
-              {!jobs ? (
-                <Loading />
-              ) : working.length === 0 ? (
-                <EmptyState>No job has Phase set to Active or PreCon.</EmptyState>
-              ) : (
-                <div
-                  ref={listRef}
-                  className="space-y-3 overflow-y-auto"
-                  style={{ maxHeight: listMax }}
-                >
-                  {/* Grouped by Phase, in the map's order; A–Z by the customer's
-                      last name inside a group (owner, 2026-11-01). */}
-                  {WORKING.map((phase) => {
-                    const group = working.filter((j) => j.phase === phase);
-                    if (group.length === 0) return null;
-                    return (
-                      <div key={phase} className="space-y-1">
-                        <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                          {phase} · {group.length}
-                        </div>
-                        <ListCard>
-                          {group.map((j) => {
-                            const owed = toInvoice?.totals[j.id] ?? 0;
-                            const swatch = colors.get(j.id);
-                            return (
-                              <ListRow
-                                key={j.id}
-                                label={
-                                  <span className="inline-flex items-center gap-2">
-                                    {/* The ring's colour for this job; no swatch = no cost this month. */}
-                                    <span
-                                      aria-hidden
-                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                      style={{ background: swatch ?? "transparent" }}
-                                    />
-                                    {jobLabel(j)}
-                                  </span>
-                                }
-                                trailing={
-                                  owed > 0 ? (
-                                    <span className="text-[12px] tabular-nums">{money0(owed)}</span>
-                                  ) : undefined
-                                }
-                                selected={j.id === selectedId}
-                                chevron={false}
-                                onClick={() => pick(j.id)}
-                              />
-                            );
-                          })}
-                        </ListCard>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </aside>
+      {/* The job list down the left; to its right a header — the picked job's
+          card and the rings, beside the map card (map + the job's details) —
+          and under the header the main window: Bills (the job's Tracking
+          Sheet) or Schedule. */}
+      <div className="grid gap-6 lg:grid-cols-[232px_minmax(0,1fr)]">
+        <aside className="min-w-0 space-y-2">
+          {!jobs ? (
+            <Loading />
+          ) : working.length === 0 ? (
+            <EmptyState>No job has Phase set to Active or PreCon.</EmptyState>
+          ) : (
+            <div ref={listRef} className="space-y-3 overflow-y-auto" style={{ maxHeight: listMax }}>
+              {/* Grouped by Phase, in the map's order; A–Z by the customer's
+                last name inside a group (owner, 2026-11-01). */}
+              {WORKING.map((phase) => {
+                const group = working.filter((j) => j.phase === phase);
+                if (group.length === 0) return null;
+                return (
+                  <div key={phase} className="space-y-1">
+                    <div className="px-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                      {phase} · {group.length}
+                    </div>
+                    <ListCard>
+                      {group.map((j) => {
+                        const owed = toInvoice?.totals[j.id] ?? 0;
+                        const swatch = colors.get(j.id);
+                        return (
+                          <ListRow
+                            key={j.id}
+                            label={
+                              <span className="inline-flex items-center gap-2">
+                                {/* The ring's colour for this job; no swatch = no cost this month. */}
+                                <span
+                                  aria-hidden
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                  style={{ background: swatch ?? "transparent" }}
+                                />
+                                {jobLabel(j)}
+                              </span>
+                            }
+                            trailing={
+                              owed > 0 ? (
+                                <span className="text-[12px] tabular-nums">{money0(owed)}</span>
+                              ) : undefined
+                            }
+                            selected={j.id === selectedId}
+                            chevron={false}
+                            onClick={() => pick(j.id)}
+                          />
+                        );
+                      })}
+                    </ListCard>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </aside>
 
+        <div className="min-w-0 space-y-6">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
             <div className="min-w-0 space-y-6">
-              {/* The picked job's card — name, links, the Schedule / Bills switch —
-                  leads the column; the rings follow it. */}
               {selected && (
                 <Card className="flex items-start gap-3">
                   <div className="min-w-0 flex-1 space-y-1">
@@ -297,8 +287,8 @@ export function JobsHub() {
                       value={view}
                       onChange={switchView}
                       options={[
-                        { value: "schedule", label: "Schedule" },
                         { value: "bills", label: "Bills" },
+                        { value: "schedule", label: "Schedule" },
                       ]}
                     />
                   )}
@@ -325,58 +315,54 @@ export function JobsHub() {
               ) : (
                 <Skeleton className="h-48 w-full rounded-xl" />
               )}
+            </div>
 
-              <div className="min-w-0 space-y-3">
-                {selected ? (
-                  <>
-                    {view === "bills" && canTrackingSheet ? (
-                      <>
-                        <div ref={setBillsSlot} />
-                        {/* Keyed by job and month: a new pick is a fresh board.
-                            Staged coding survives it — the board restores
-                            unsynced work on load and says so. */}
-                        {ym && (
-                          <Suspense fallback={null}>
-                            <Board
-                              key={`${selected.id}-${ym}`}
-                              embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
-                            />
-                          </Suspense>
-                        )}
-                      </>
-                    ) : (
-                      /* Keyed so a new job starts its own fetch rather than showing the last one's. */
-                      <JobOverview key={selected.id} jobId={selected.id} />
-                    )}
-                  </>
+            {/* The map is one size in both views. */}
+            <Card className="flex gap-4 self-start">
+              <div className="w-[160px] shrink-0">
+                {jobs ? (
+                  <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} />
                 ) : (
-                  <EmptyState>Pick a job from the list, a ring or the map.</EmptyState>
+                  <Loading />
                 )}
               </div>
-            </div>
-          </div>
-        </div>
-        {/* Sticky only on Schedule: the bills column runs long, and a sticky
-            column taller than the window strands its own foot. */}
-        <div
-          className={`min-w-0 space-y-4 self-start ${view === "bills" && selected ? "" : "xl:sticky xl:top-4"}`}
-        >
-          <Card>
-            {/* Smaller in Bills mode: the coding card under it needs the height. */}
-            <div className={view === "bills" && selected ? "mx-auto max-w-[220px]" : ""}>
-              {jobs ? (
-                <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} />
-              ) : (
-                <Loading />
+              {selected && (
+                <div className="min-w-0 flex-1 border-l border-line-soft pl-4">
+                  <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
+                </div>
               )}
-            </div>
-            {selected && (
-              <div className="mt-3 border-t border-line-soft pt-3">
-                <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
-              </div>
-            )}
-          </Card>
-          {view === "bills" && selected && canTrackingSheet && <div ref={setCodingSlot} />}
+            </Card>
+          </div>
+
+          {/* THE MAIN WINDOW */}
+          {selected ? (
+            view === "bills" && canTrackingSheet ? (
+              <>
+                {/* The board draws its bills and labor column into the left
+                    slot and its coding drawer into the right. */}
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+                  <div ref={setBillsSlot} className="min-w-0" />
+                  <div ref={setCodingSlot} className="min-w-0" />
+                </div>
+                {/* Keyed by job and month: a new pick is a fresh board. Staged
+                    coding survives it — the board restores unsynced work on
+                    load and says so. */}
+                {ym && (
+                  <Suspense fallback={null}>
+                    <Board
+                      key={`${selected.id}-${ym}`}
+                      embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
+                    />
+                  </Suspense>
+                )}
+              </>
+            ) : (
+              /* Keyed so a new job starts its own fetch rather than showing the last one's. */
+              <JobOverview key={selected.id} jobId={selected.id} />
+            )
+          ) : (
+            <EmptyState>Pick a job from the list, a ring or the map.</EmptyState>
+          )}
         </div>
       </div>
     </main>
@@ -622,29 +608,35 @@ function JobDetails({
     ["Started", s ? shortDate(s.start, 0) : "Not scheduled"],
     ["Expected completion", s ? shortDate(s.end, 0) : "Not scheduled"],
     ["Now", scheduleHeadline(s)],
-    [
-      "JobTread",
-      <a
-        key="jt"
-        href={jtJobUrl(job.id)}
-        target="_blank"
-        rel="noreferrer"
-        className="font-semibold text-accent hover:underline dark:text-accent-soft"
-      >
-        Open ↗
-      </a>,
-    ],
   ];
-  return loading ? (
-    <Loading />
-  ) : (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-      {rows.map(([k, v]) => (
-        <div key={k} className="contents">
-          <dt className="text-neutral-500 dark:text-neutral-400">{k}</dt>
-          <dd className="min-w-0">{v}</dd>
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline gap-2">
+        <div className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+          Details
         </div>
-      ))}
-    </dl>
+        {/* JobTread is where a job's address, number and dates are edited. */}
+        <a
+          href={jtJobUrl(job.id)}
+          target="_blank"
+          rel="noreferrer"
+          className="shrink-0 text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
+        >
+          Edit ↗
+        </a>
+      </div>
+      {loading ? (
+        <Loading />
+      ) : (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+          {rows.map(([k, v]) => (
+            <div key={k} className="contents">
+              <dt className="text-neutral-500 dark:text-neutral-400">{k}</dt>
+              <dd className="min-w-0">{v}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
   );
 }
