@@ -185,6 +185,7 @@ export const JOB_PAGES: WorkspaceTab[] = [
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
   changelog: "Help's What's new tab (PageTabs on /help)",
+  "map-preview": "scratch page for the Lopez map; delete once the desktop board carries it",
   "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
   "ai-cost": "Audit's AI Cost tab (PageTabs on /logs)",
