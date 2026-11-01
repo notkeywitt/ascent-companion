@@ -1,317 +1,16 @@
 {
-  "generatedAt": "2026-10-31T00:04:09Z",
+  "generatedAt": "2026-11-01T14:27:03Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "drawer-outline-top-line",
-      "file": "2026-10-31-drawer-outline-top-line.md",
-      "branch": "claude/drawer-outline-top-line-zrm15c",
-      "status": "shipped",
-      "started": "2026-10-31T00:04:08Z",
-      "updated": "2026-10-31T00:04:09Z",
-      "goal": "",
-      "next": "check the tab outline on the iPhone",
-      "commits": [
-        {
-          "date": "2026-10-31",
-          "time": "00:04",
-          "sha": "5d53422",
-          "subject": "companion: even out the tab bar outline, drop the header's top rule",
-          "files": "src/components/AppHeader.tsx, src/components/TabBar.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "ascentbot-knowledge-sources",
-      "file": "2026-10-30-ascentbot-knowledge-sources.md",
-      "branch": "claude/ascentbot-knowledge-sources-ad9sio",
-      "status": "shipped",
-      "started": "2026-10-30T15:05:09Z",
-      "updated": "2026-10-30T22:29:07Z",
-      "goal": "",
-      "next": "Say '@AscentBot gold star for <name>' in a space and check the star keeps its shape.",
-      "commits": [
-        {
-          "date": "2026-10-30",
-          "time": "15:05",
-          "sha": "238b820",
-          "subject": "companion: ascentbot answers money questions, with roles and an access page",
-          "files": "CODEBASE_MAP.md, src/app/api/ascentbot/route.ts, src/app/api/google-chat/route.ts, src/app/ascentbot/AscentBotAccess.tsx, src/app/ascentbot/page.tsx, src/db/index.ts, +11 more"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "17:54",
-          "sha": "1e09266",
-          "subject": "companion: log what each chat space message carries, to test email forwards",
-          "files": "src/lib/chatSync.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "18:34",
-          "sha": "9c65fcc",
-          "subject": "companion: ascentbot reads a pdf attached to an office email",
-          "files": "src/lib/botAccess.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, src/lib/googleChat.test.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "22:17",
-          "sha": "fcd88fd",
-          "subject": "companion: ascentbot answers \"gold star\" with a star",
-          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "22:21",
-          "sha": "8deddc6",
-          "subject": "companion: make ascentbot's gold star a shooting star",
-          "files": "src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "22:29",
-          "sha": "a7e4743",
-          "subject": "companion: make ascentbot's shooting star a one-line text-message trail",
-          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        }
-      ]
-    },
-    {
-      "slug": "ascentbot-architecture",
-      "file": "2026-10-28-ascentbot-architecture.md",
-      "branch": "claude/ascentbot-architecture-08o3ez",
-      "status": "shipped",
-      "started": "2026-10-28T05:54:35Z",
-      "updated": "2026-10-30T17:22:46Z",
-      "goal": "",
-      "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
-      "commits": [
-        {
-          "date": "2026-10-28",
-          "time": "05:54",
-          "sha": "7bd0eaa",
-          "subject": "companion: time each claude round and tool, run a round's tools in parallel",
-          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.ts"
-        },
-        {
-          "date": "2026-10-28",
-          "time": "14:29",
-          "sha": "a74b87a",
-          "subject": "companion: ascentbot answers job decisions and schedule, remembers each job space",
-          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/db/index.ts, src/db/schema.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, +4 more"
-        },
-        {
-          "date": "2026-10-28",
-          "time": "17:05",
-          "sha": "9a6d477",
-          "subject": "companion: ascentbot finds a job when the name comes with \"job\" or extra words",
-          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "20:30",
-          "sha": "72ef214",
-          "subject": "companion: ascentbot searches employees, vendors, projects and other office records",
-          "files": "src/lib/chatTools.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:16",
-          "sha": "fc11393",
-          "subject": "companion: ascentbot looks up staff details instead of refusing them",
-          "files": "src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:08",
-          "sha": "e72aa39",
-          "subject": "companion: ascentbot lists calendar days in order, drops preamble, retries refusals",
-          "files": "src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:21",
-          "sha": "a25a84e",
-          "subject": "companion: ascentbot \"start over\", and retry any answer that looked nothing up",
-          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "17:22",
-          "sha": "6791246",
-          "subject": "companion: ascentbot splits lists joined by any bullet dot, and logs what it sent",
-          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        }
-      ]
-    },
-    {
-      "slug": "admiring-hawking",
-      "file": "2026-10-29-admiring-hawking.md",
-      "branch": "claude/admiring-hawking-b4zgzx",
-      "status": "shipped",
-      "started": "2026-10-29T19:04:37Z",
-      "updated": "2026-10-30T14:15:02Z",
-      "goal": "",
-      "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "19:04",
-          "sha": "95921a8",
-          "subject": "companion: let mileage from/to take office, shop or a job name",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "19:09",
-          "sha": "2b1af8c",
-          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "19:22",
-          "sha": "3fa4372",
-          "subject": "companion: serve roboto from the repo so a google fonts outage cannot fail the build",
-          "files": "src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:09",
-          "sha": "481cf6e",
-          "subject": "companion: drop a suggestion list under mileage from/to as the driver types",
-          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:15",
-          "sha": "a9d2115",
-          "subject": "companion: drop the my work tab strip from the miles page",
-          "files": "src/lib/workspaces.ts"
-        }
-      ]
-    },
-    {
-      "slug": "epic-hopper",
-      "file": "2026-10-29-epic-hopper.md",
-      "branch": "claude/epic-hopper-7lcvmj",
-      "status": "shipped",
-      "started": "2026-10-29T22:25:12Z",
-      "updated": "2026-10-30T14:05:37Z",
-      "goal": "",
-      "next": "owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "22:25",
-          "sha": "e740804",
-          "subject": "companion: make the phone tab bar a drawer with a 4x3 grid of more pages",
-          "files": "src/app/globals.css, src/components/TabBar.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:25",
-          "sha": "10132fc",
-          "subject": "companion: session ledger",
-          "files": ""
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:37",
-          "sha": "0a589ff",
-          "subject": "companion: give the bar drawer's grip a bigger soft bump above the hairline",
-          "files": "src/app/globals.css, src/components/TabBar.tsx"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:46",
-          "sha": "2270253",
-          "subject": "companion: dark blurred glass bar, smaller angular grip bump with a grey outline and dot grip",
-          "files": "src/app/globals.css, src/components/TabBar.tsx"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:55",
-          "sha": "12003de",
-          "subject": "companion: soften the grip bump's corners, grey its dots, lighten the bar glass",
-          "files": "src/components/TabBar.tsx"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "23:01",
-          "sha": "dc3f695",
-          "subject": "companion: round the grip bump's corners more",
-          "files": "src/components/TabBar.tsx"
-        },
-        {
-          "date": "2026-10-30",
-          "time": "14:05",
-          "sha": "5bd367c",
-          "subject": "companion: slide the bar up as a translucent drawer with a soft SVG tab, no clip-path",
-          "files": "src/components/TabBar.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "intelligent-rubin",
-      "file": "2026-10-29-intelligent-rubin.md",
-      "branch": "claude/intelligent-rubin-pksyhq",
-      "status": "shipped",
-      "started": "2026-10-29T20:31:39Z",
-      "updated": "2026-10-29T22:10:31Z",
-      "goal": "",
-      "next": "done: add-tool button shipped",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "20:31",
-          "sha": "baf241f",
-          "subject": "companion: add an add-tool button to the tools page",
-          "files": "src/app/tools/page.tsx"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "21:43",
-          "sha": "3e5a2c0",
-          "subject": "companion: pick a tool photo from the phone, and put tools on the office bar",
-          "files": "src/app/tools/page.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
-        },
-        {
-          "date": "2026-10-29",
-          "time": "22:10",
-          "sha": "683be76",
-          "subject": "companion: add tools to the office and admin rail",
-          "files": "src/lib/workspaces.test.ts, src/lib/workspaces.ts"
-        }
-      ]
-    },
-    {
-      "slug": "gifted-meitner",
-      "file": "2026-10-29-gifted-meitner.md",
-      "branch": "claude/gifted-meitner-r3udjg",
-      "status": "shipped",
-      "started": "2026-10-29T19:29:35Z",
-      "updated": "2026-10-29T19:29:41Z",
-      "goal": "",
-      "next": "none — list fix shipped",
-      "commits": [
-        {
-          "date": "2026-10-29",
-          "time": "19:29",
-          "sha": "2967e76",
-          "subject": "companion: put every AscentBot list item on its own line",
-          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-10-29T18:01:40Z",
+      "updated": "2026-11-01T14:27:03Z",
       "goal": "",
-      "next": "confirm the next AscentBot list answer in Google Chat shows one bullet per line",
+      "next": "Desktop board session: import LopezMap from src/components/LopezMap.tsx, feed it /api/jobs?withPhase=1 and the board's selected job id, then delete /map-preview and its map-preview view (views.ts, workspaces.ts OUTSIDE_WORKSPACES).",
       "commits": [
         {
           "date": "2026-09-03",
@@ -969,6 +668,314 @@
           "time": "11:01",
           "sha": "47375dc",
           "subject": "companion: ascentbot puts each list item on its own line",
+          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "06:27",
+          "sha": "006c271",
+          "subject": "companion: add lopez island job map on a preview page",
+          "files": "src/app/map-preview/MapPreview.tsx, src/app/map-preview/page.tsx, src/components/LopezMap.tsx, src/lib/lopezMap.test.ts, src/lib/lopezMap.ts, src/lib/views.ts, +1 more"
+        }
+      ]
+    },
+    {
+      "slug": "drawer-outline-top-line",
+      "file": "2026-10-31-drawer-outline-top-line.md",
+      "branch": "claude/drawer-outline-top-line-zrm15c",
+      "status": "shipped",
+      "started": "2026-10-31T00:04:08Z",
+      "updated": "2026-10-31T00:04:09Z",
+      "goal": "",
+      "next": "check the tab outline on the iPhone",
+      "commits": [
+        {
+          "date": "2026-10-31",
+          "time": "00:04",
+          "sha": "5d53422",
+          "subject": "companion: even out the tab bar outline, drop the header's top rule",
+          "files": "src/components/AppHeader.tsx, src/components/TabBar.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "ascentbot-knowledge-sources",
+      "file": "2026-10-30-ascentbot-knowledge-sources.md",
+      "branch": "claude/ascentbot-knowledge-sources-ad9sio",
+      "status": "shipped",
+      "started": "2026-10-30T15:05:09Z",
+      "updated": "2026-10-30T22:29:07Z",
+      "goal": "",
+      "next": "Say '@AscentBot gold star for <name>' in a space and check the star keeps its shape.",
+      "commits": [
+        {
+          "date": "2026-10-30",
+          "time": "15:05",
+          "sha": "238b820",
+          "subject": "companion: ascentbot answers money questions, with roles and an access page",
+          "files": "CODEBASE_MAP.md, src/app/api/ascentbot/route.ts, src/app/api/google-chat/route.ts, src/app/ascentbot/AscentBotAccess.tsx, src/app/ascentbot/page.tsx, src/db/index.ts, +11 more"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "17:54",
+          "sha": "1e09266",
+          "subject": "companion: log what each chat space message carries, to test email forwards",
+          "files": "src/lib/chatSync.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "18:34",
+          "sha": "9c65fcc",
+          "subject": "companion: ascentbot reads a pdf attached to an office email",
+          "files": "src/lib/botAccess.ts, src/lib/chatTools.ts, src/lib/fileReader.test.ts, src/lib/fileReader.ts, src/lib/googleChat.test.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "22:17",
+          "sha": "fcd88fd",
+          "subject": "companion: ascentbot answers \"gold star\" with a star",
+          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "22:21",
+          "sha": "8deddc6",
+          "subject": "companion: make ascentbot's gold star a shooting star",
+          "files": "src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "22:29",
+          "sha": "a7e4743",
+          "subject": "companion: make ascentbot's shooting star a one-line text-message trail",
+          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
+    {
+      "slug": "ascentbot-architecture",
+      "file": "2026-10-28-ascentbot-architecture.md",
+      "branch": "claude/ascentbot-architecture-08o3ez",
+      "status": "shipped",
+      "started": "2026-10-28T05:54:35Z",
+      "updated": "2026-10-30T17:22:46Z",
+      "goal": "",
+      "next": "REMIND OWNER — AscentBot phase 2: read every message in a job space (service account, admin-approved chat.app.messages.readonly, spaces.messages.list; chat_turns.thread already kept). Also: check [chat:google-chat] timing logs after the first job-space answers.",
+      "commits": [
+        {
+          "date": "2026-10-28",
+          "time": "05:54",
+          "sha": "7bd0eaa",
+          "subject": "companion: time each claude round and tool, run a round's tools in parallel",
+          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.ts"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "14:29",
+          "sha": "a74b87a",
+          "subject": "companion: ascentbot answers job decisions and schedule, remembers each job space",
+          "files": "CODEBASE_MAP.md, src/app/api/google-chat/route.ts, src/db/index.ts, src/db/schema.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, +4 more"
+        },
+        {
+          "date": "2026-10-28",
+          "time": "17:05",
+          "sha": "9a6d477",
+          "subject": "companion: ascentbot finds a job when the name comes with \"job\" or extra words",
+          "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "20:30",
+          "sha": "72ef214",
+          "subject": "companion: ascentbot searches employees, vendors, projects and other office records",
+          "files": "src/lib/chatTools.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:16",
+          "sha": "fc11393",
+          "subject": "companion: ascentbot looks up staff details instead of refusing them",
+          "files": "src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:08",
+          "sha": "e72aa39",
+          "subject": "companion: ascentbot lists calendar days in order, drops preamble, retries refusals",
+          "files": "src/app/api/google-chat/route.ts, src/lib/chatTools.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:21",
+          "sha": "a25a84e",
+          "subject": "companion: ascentbot \"start over\", and retry any answer that looked nothing up",
+          "files": "src/app/api/google-chat/route.ts, src/lib/anthropic.test.ts, src/lib/anthropic.ts, src/lib/chatMemory.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "17:22",
+          "sha": "6791246",
+          "subject": "companion: ascentbot splits lists joined by any bullet dot, and logs what it sent",
+          "files": "src/app/api/google-chat/route.ts, src/lib/googleChat.test.ts, src/lib/googleChat.ts"
+        }
+      ]
+    },
+    {
+      "slug": "admiring-hawking",
+      "file": "2026-10-29-admiring-hawking.md",
+      "branch": "claude/admiring-hawking-b4zgzx",
+      "status": "shipped",
+      "started": "2026-10-29T19:04:37Z",
+      "updated": "2026-10-30T14:15:02Z",
+      "goal": "",
+      "next": "none — mileage plain-language From/To shipped; watch for ambiguous job names in the field",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "19:04",
+          "sha": "95921a8",
+          "subject": "companion: let mileage from/to take office, shop or a job name",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:09",
+          "sha": "2b1af8c",
+          "subject": "companion: let mileage from/to take sunset, blossom, lvm and the dump",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/lib/help.ts, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "19:22",
+          "sha": "3fa4372",
+          "subject": "companion: serve roboto from the repo so a google fonts outage cannot fail the build",
+          "files": "src/app/fonts/OFL.txt, src/app/fonts/roboto-latin-wght-normal.woff2, src/app/fonts/roboto-mono-latin-wght-normal.woff2, src/app/layout.tsx"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:09",
+          "sha": "481cf6e",
+          "subject": "companion: drop a suggestion list under mileage from/to as the driver types",
+          "files": "CODEBASE_MAP.md, src/app/mileage-tracker/MileageClient.tsx, src/app/mileage-tracker/PlaceInput.tsx, src/lib/mileagePlace.test.ts, src/lib/mileagePlace.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:15",
+          "sha": "a9d2115",
+          "subject": "companion: drop the my work tab strip from the miles page",
+          "files": "src/lib/workspaces.ts"
+        }
+      ]
+    },
+    {
+      "slug": "epic-hopper",
+      "file": "2026-10-29-epic-hopper.md",
+      "branch": "claude/epic-hopper-7lcvmj",
+      "status": "shipped",
+      "started": "2026-10-29T22:25:12Z",
+      "updated": "2026-10-30T14:05:37Z",
+      "goal": "",
+      "next": "owner to try the bar drawer on a phone; tune which 12 pages it lists (drawerFor)",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "22:25",
+          "sha": "e740804",
+          "subject": "companion: make the phone tab bar a drawer with a 4x3 grid of more pages",
+          "files": "src/app/globals.css, src/components/TabBar.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:25",
+          "sha": "10132fc",
+          "subject": "companion: session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:37",
+          "sha": "0a589ff",
+          "subject": "companion: give the bar drawer's grip a bigger soft bump above the hairline",
+          "files": "src/app/globals.css, src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:46",
+          "sha": "2270253",
+          "subject": "companion: dark blurred glass bar, smaller angular grip bump with a grey outline and dot grip",
+          "files": "src/app/globals.css, src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:55",
+          "sha": "12003de",
+          "subject": "companion: soften the grip bump's corners, grey its dots, lighten the bar glass",
+          "files": "src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "23:01",
+          "sha": "dc3f695",
+          "subject": "companion: round the grip bump's corners more",
+          "files": "src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "14:05",
+          "sha": "5bd367c",
+          "subject": "companion: slide the bar up as a translucent drawer with a soft SVG tab, no clip-path",
+          "files": "src/components/TabBar.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "intelligent-rubin",
+      "file": "2026-10-29-intelligent-rubin.md",
+      "branch": "claude/intelligent-rubin-pksyhq",
+      "status": "shipped",
+      "started": "2026-10-29T20:31:39Z",
+      "updated": "2026-10-29T22:10:31Z",
+      "goal": "",
+      "next": "done: add-tool button shipped",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "20:31",
+          "sha": "baf241f",
+          "subject": "companion: add an add-tool button to the tools page",
+          "files": "src/app/tools/page.tsx"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "21:43",
+          "sha": "3e5a2c0",
+          "subject": "companion: pick a tool photo from the phone, and put tools on the office bar",
+          "files": "src/app/tools/page.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-10-29",
+          "time": "22:10",
+          "sha": "683be76",
+          "subject": "companion: add tools to the office and admin rail",
+          "files": "src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        }
+      ]
+    },
+    {
+      "slug": "gifted-meitner",
+      "file": "2026-10-29-gifted-meitner.md",
+      "branch": "claude/gifted-meitner-r3udjg",
+      "status": "shipped",
+      "started": "2026-10-29T19:29:35Z",
+      "updated": "2026-10-29T19:29:41Z",
+      "goal": "",
+      "next": "none — list fix shipped",
+      "commits": [
+        {
+          "date": "2026-10-29",
+          "time": "19:29",
+          "sha": "2967e76",
+          "subject": "companion: put every AscentBot list item on its own line",
           "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
         }
       ]
