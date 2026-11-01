@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T16:12:25Z",
+  "generatedAt": "2026-11-01T16:14:22Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T16:12:25Z",
+      "updated": "2026-11-01T16:14:21Z",
       "goal": "",
       "next": "Desktop board session: import LopezMap from src/components/LopezMap.tsx, feed it /api/jobs?withPhase=1 and the board's selected job id, then delete /map-preview and its map-preview view (views.ts, workspaces.ts OUTSIDE_WORKSPACES).",
       "commits": [
