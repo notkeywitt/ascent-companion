@@ -17,7 +17,6 @@ import {
   Loading,
   MetaLine,
   PageHeader,
-  SectionHeading,
   Segmented,
   Select,
   Skeleton,
@@ -53,8 +52,9 @@ import { money0 } from "@/lib/money";
  *     column, with the sheet's coding drawer in the details card's place under
  *     a smaller map. The sheet's own rings stay out (the top row has them).
  *   • Far right, from xl: the Lopez Island map, its own column, its top in line
- *     with the top row; under it the picked job's details (address, number,
- *     schedule start and expected finish — the Job Board's card, /api/job-board).
+ *     with the top row; the picked job's details (address, number, schedule
+ *     start and expected finish — the Job Board's card, /api/job-board) sit
+ *     inside the map card.
  *     A row, a ring slice or a dot picks the job.
  *
  * Read-only. Every write stays on the page it lives on.
@@ -153,6 +153,19 @@ export function JobsHub() {
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
 
+  // Switching Schedule ↔ Bills swaps a tall column for one still loading, so
+  // the page would shrink and the browser pull the view up. Hold the page at
+  // its height through the switch and put the scroll back; a new job lets go.
+  const mainRef = useRef<HTMLElement>(null);
+  const [heldHeight, setHeldHeight] = useState<number | undefined>(undefined);
+  const switchView = (v: "schedule" | "bills") => {
+    const y = window.scrollY;
+    setHeldHeight(mainRef.current?.offsetHeight);
+    setView(v);
+    requestAnimationFrame(() => window.scrollTo({ top: y }));
+  };
+  useEffect(() => setHeldHeight(undefined), [selectedId]);
+
   // From `lg` the job list scrolls inside itself, sized to end at the bottom of
   // the window when the page is at its top — every job is reachable without
   // scrolling the page. Measured, because what sits above it (header, top row)
@@ -172,7 +185,11 @@ export function JobsHub() {
   }, [jobs, monthJobs, selectedId]);
 
   return (
-    <main className="w-full px-4 pb-10 pt-5 pad:px-7">
+    <main
+      ref={mainRef}
+      className="w-full px-4 pb-10 pt-5 pad:px-7"
+      style={{ minHeight: heldHeight }}
+    >
       {/* No peak mark on this page (owner, 2026-11-01): a plain title. */}
       <PageHeader titleSlot={<h1 className="text-xl font-bold tracking-tight">Jobs</h1>} />
 
@@ -184,15 +201,6 @@ export function JobsHub() {
         <div className="min-w-0">
           <div className="grid gap-6 lg:grid-cols-[232px_minmax(0,1fr)]">
             <aside className="min-w-0 space-y-2">
-              <SectionHeading
-                trailing={
-                  <span className="text-[11px] tabular-nums text-neutral-500">
-                    {working.length}
-                  </span>
-                }
-              >
-                Jobs
-              </SectionHeading>
               {!jobs ? (
                 <Loading />
               ) : working.length === 0 ? (
@@ -287,7 +295,7 @@ export function JobsHub() {
                     <Segmented
                       label="Show"
                       value={view}
-                      onChange={setView}
+                      onChange={switchView}
                       options={[
                         { value: "schedule", label: "Schedule" },
                         { value: "bills", label: "Bills" },
@@ -362,16 +370,13 @@ export function JobsHub() {
                 <Loading />
               )}
             </div>
+            {selected && (
+              <div className="mt-3 border-t border-line-soft pt-3">
+                <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
+              </div>
+            )}
           </Card>
-          {view === "bills" && selected && canTrackingSheet ? (
-            <div ref={setCodingSlot} />
-          ) : (
-            <JobDetails
-              job={selected}
-              card={selected ? details?.get(selected.id) : undefined}
-              loading={!details}
-            />
-          )}
+          {view === "bills" && selected && canTrackingSheet && <div ref={setCodingSlot} />}
         </div>
       </div>
     </main>
@@ -563,7 +568,7 @@ function JobRings({
   if (!rows) return <Skeleton className="h-48 w-full rounded-xl" />;
   return (
     <RingsCard
-      caption={jobLabel(job)}
+      caption=""
       items={codeItems(rows)}
       control={
         <>
@@ -596,7 +601,7 @@ function withDrafts(toDate: CostDonutRow[], month: MonthCodeRow[]): CostDonutRow
 }
 
 /**
- * The picked job's facts, under the map. Started and Expected completion are
+ * The picked job's facts, inside the map card under the map. Started and Expected completion are
  * the ends of the job's JobTread schedule (its Gantt span); a job with nothing
  * dated says so rather than inventing a date.
  */
@@ -605,19 +610,10 @@ function JobDetails({
   card,
   loading,
 }: {
-  job: HubJob | null;
+  job: HubJob;
   card?: JobsPageCard;
   loading: boolean;
 }) {
-  if (!job) {
-    return (
-      <Card>
-        <p className="text-[13px] text-neutral-500 dark:text-neutral-400">
-          Pick a job to see its details.
-        </p>
-      </Card>
-    );
-  }
   const s = card?.schedule ?? null;
   const rows: [string, React.ReactNode][] = [
     ["Address", card?.address || "—"],
@@ -626,32 +622,29 @@ function JobDetails({
     ["Started", s ? shortDate(s.start, 0) : "Not scheduled"],
     ["Expected completion", s ? shortDate(s.end, 0) : "Not scheduled"],
     ["Now", scheduleHeadline(s)],
+    [
+      "JobTread",
+      <a
+        key="jt"
+        href={jtJobUrl(job.id)}
+        target="_blank"
+        rel="noreferrer"
+        className="font-semibold text-accent hover:underline dark:text-accent-soft"
+      >
+        Open ↗
+      </a>,
+    ],
   ];
-  return (
-    <Card className="space-y-3">
-      <div className="flex items-baseline gap-2">
-        <div className="min-w-0 flex-1 text-sm font-semibold tracking-tight">{jobLabel(job)}</div>
-        <a
-          href={jtJobUrl(job.id)}
-          target="_blank"
-          rel="noreferrer"
-          className="shrink-0 text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
-        >
-          JobTread ↗
-        </a>
-      </div>
-      {loading ? (
-        <Loading />
-      ) : (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-          {rows.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-neutral-500 dark:text-neutral-400">{k}</dt>
-              <dd className="min-w-0">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
-    </Card>
+  return loading ? (
+    <Loading />
+  ) : (
+    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
+      {rows.map(([k, v]) => (
+        <div key={k} className="contents">
+          <dt className="text-neutral-500 dark:text-neutral-400">{k}</dt>
+          <dd className="min-w-0">{v}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
