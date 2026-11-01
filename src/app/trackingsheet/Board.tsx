@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { setUrlParam } from "@/lib/urlParam";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -343,7 +344,19 @@ function useIsBelowXl() {
   return below;
 }
 
-export function Board() {
+/**
+ * The Jobs page's way in (owner, 2026-11-01): one job and month, and two DOM
+ * nodes. The board then draws only its bills column into `billsSlot` and its
+ * coding drawer into `codingSlot`, plus its overlays; the URL is not read.
+ */
+export interface BoardEmbed {
+  jobId: string;
+  ym: string;
+  billsSlot: HTMLElement | null;
+  codingSlot: HTMLElement | null;
+}
+
+export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // Office-edited wording (Admin → Page Text); see src/lib/copy.ts.
   const c = useCopy();
   const params = useSearchParams();
@@ -352,9 +365,9 @@ export function Board() {
   const billMove = useBillMove();
   const startBillMove = billMove.start;
   const belowXl = useIsBelowXl();
-  const jobId = params.get("jobId") ?? "";
+  const jobId = embed?.jobId ?? params.get("jobId") ?? "";
 
-  const [ym, setYm] = useState(() => params.get("ym") || defaultYm());
+  const [ym, setYm] = useState(() => embed?.ym || params.get("ym") || defaultYm());
   // Whether the Sunset pane in the by-bill list is expanded. Collapsed by
   // default, same as the Labor block below it — Sunset is the noise you
   // fold away, and its cost is already in every figure on the page regardless.
@@ -1948,6 +1961,717 @@ export function Board() {
     </>
   );
 
+  // The month's bills column (the CENTRE of the board). A variable so the
+  // Jobs page can place it on its own (`embed`); the board renders it in place.
+  const centerCol = (
+    <>
+    {/* ─────────── CENTRE: the month's bills ─────────── */}
+    <section className="min-w-0">
+      {/* The desktop copy of the headline figure — see the mobile one
+          under the page header for why there are two. */}
+      <StatementBlock
+        rule={false}
+        className="mb-4 hidden lg:block"
+        label={c("recode.statement.toBeInvoiced")}
+        value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
+        sub={
+          recon
+            ? `${money(recon.remaining)} approved${
+                recon.draftBillCount > 0
+                  ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
+                      recon.draftBillCount === 1 ? "" : "s"
+                    }`
+                  : ""
+              }`
+            : "checking JobTread…"
+        }
+      />
+    
+      {/* Where the money went, by cost code — bills in one ring, labor in
+          the other. Opens on the SELECTED MONTH, which is what this page
+          is for; the caption switches it to the whole job. It heads the
+          bills column because that is where the eye starts, and because
+          it frames the list under it: the rail answers "is there room in
+          06 20 00", these answer "what is this month made of". Folded on
+          a phone, open from lg. */}
+      <CostDonuts
+        month={costDonutMonthRows}
+        jobToDate={costDonutRows}
+        monthLabel={monthLabel(ym)}
+        detail={donutDetail}
+        // Clicking a slice narrows the list under it. The rings say what
+        // the month is made of; this is the way from that answer into the
+        // bills behind it.
+        onSelect={setBillCodeFilter}
+        selectedKey={billCodeFilter?.key ?? null}
+        // …and the labor ring narrows the LABOR list, through the same
+        // code filter its own dropdown sets. Opening the block is part of
+        // the click: a filter applied to a folded list is a click that
+        // appears to do nothing.
+        onSelectLabor={(sel) => {
+          timeFilters.setCode(sel?.codes[0] ?? "");
+          if (sel) setTimeBlockOpen(true);
+        }}
+        selectedLaborKey={timeFilters.code || null}
+        // The job-scope card needs the whole-job contributors; the month
+        // scope needs nothing. Fetching on first hover keeps a page load
+        // that never touches the rings free of it.
+        onDetailWanted={(scope) => {
+          if (scope === "job") ensureContributors();
+        }}
+      />
+    
+      {/* THE LISTS' OWN ROW — what is being filtered on the left, how the
+          bills are arranged on the right.
+    
+          It used to carry "17 bills · $64,293.88" under a brand rule, and
+          that line said nothing the three block headers below do not say
+          better and per-block. What the spot is FOR is the thing there is
+          no other room for: a filter that silently drops two thirds of
+          the month off the page. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        {billCodeFilter ? (
+          <button
+            type="button"
+            onClick={() => setBillCodeFilter(null)}
+            title="Clear this cost-code filter"
+            className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-accent bg-accent/10 py-1.5 pl-2.5 pr-2 text-left transition hover:bg-accent/20"
+          >
+            {/* The arc's own colour, so the banner and the slice that set
+                it are visibly the same thing. Falls back to the accent
+                when the pick came from the dropdown instead. */}
+            <span
+              aria-hidden
+              className="h-3 w-3 shrink-0 rounded-sm"
+              style={{ backgroundColor: billCodeFilter.color ?? "var(--accent)" }}
+            />
+            <span className="min-w-0 truncate">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+                Filtered to
+              </span>{" "}
+              <span className="text-sm font-semibold">{billCodeFilter.label}</span>
+              <span className="ml-2 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+                {filteredBills.length} of {data?.bills.length ?? 0} bill
+                {data?.bills.length === 1 ? "" : "s"}
+              </span>
+            </span>
+            <span
+              aria-hidden
+              className="shrink-0 text-sm font-semibold text-neutral-500 dark:text-neutral-400"
+            >
+              ✕
+            </span>
+          </button>
+        ) : (
+          <span />
+        )}
+        {/* Grouping switch: one Segmented control, so the three options
+            read as a set. The third is the client-facing rollup — what
+            the month bills, in the shape the customer sees it, and the
+            source of the printed summary. Not a drag surface. */}
+        <Segmented
+          label="Group bills"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "bill", label: "By bill" },
+            { value: "code", label: "By cost code" },
+            { value: "summary", label: "Summary" },
+          ]}
+        />
+      </div>
+    
+      {/* ---- this month's time entries ----
+          Not a drop target: a time entry is coded independently of any
+          bill, and this board's drag only moves bill lines. Everything
+          else about it is Labor Review's list, because it IS Labor
+          Review's list — src/components/TimeEntryList, the same component
+          that page renders. Tick rows to recode a week of them together
+          (the drawer takes the coding column, where a bill is coded, so
+          there's no second layout to learn); tap a row to fix its hours,
+          day, code or job without leaving the month. ---- */}
+      {mode !== "summary" && (
+        <Card id="labor-block" pad={false} className="mb-2 scroll-mt-20 overflow-hidden">
+          {/* The header is a ROW, not one button: the chevron toggles the
+              list and "Add time" opens the dialog, and a button inside a
+              button is invalid markup (the inner click would also fire the
+              outer one). The block itself now renders even with no entries
+              — a month with no labor logged is exactly when the office
+              needs the Add time link. */}
+          <div className="flex w-full items-baseline gap-2 px-3 py-3 lg:py-2">
+            <button
+              type="button"
+              onClick={() => setTimeBlockOpen((v) => !v)}
+              aria-expanded={timeBlockOpen}
+              disabled={monthTime.length === 0}
+              className="min-w-0 flex-1 truncate text-left text-sm font-semibold transition hover:text-accent disabled:cursor-default disabled:hover:text-inherit"
+            >
+              <span
+                aria-hidden
+                className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
+                  timeBlockOpen ? "rotate-90" : ""
+                } ${monthTime.length === 0 ? "opacity-0" : ""}`}
+              >
+                ▶
+              </span>
+              Labor ({monthTime.length} {monthTime.length === 1 ? "entry" : "entries"})
+            </button>
+            {/* Logging FOR somebody — /employee-time can only log for the
+                person signed in, so the office does it here. */}
+            <button
+              type="button"
+              onClick={() => setAddTimeOpen(true)}
+              className="shrink-0 text-xs font-semibold text-accent transition hover:underline"
+            >
+              + Add time
+            </button>
+            <span className="shrink-0 text-sm font-semibold tabular-nums">
+              {money(monthTimeTotal)} · {hoursLabel(monthTimeHours)}
+            </span>
+          </div>
+          {/* The month's COMPANY-WIDE Labor Report used to sit here, on
+              its own hairline row. It now rides in the closing actions
+              (`closingActions`), beside the commit bar's Save Changes, and
+              on the all-jobs view (AllJobs.tsx). */}
+          {timeBlockOpen && monthTime.length > 0 && (
+            <>
+              {/* The list, its filters and its grouping are the SAME
+                  component Labor Review renders — see
+                  src/components/TimeEntryList. The CHECKBOX selects rows
+                  for the coding column's bulk recode; the ROW opens the
+                  single-entry editor (hours, day, code, job, approve),
+                  which is this board's own affordance and the reason a
+                  correction no longer means leaving the month. */}
+              <TimeEntryList
+                filters={timeFilters}
+                jobId={jobId}
+                monthEntries={monthTime}
+                codeOf={timeCodeOf}
+                headroomFor={timeHeadroomFor}
+                // "Changed", not only "moved": a staged hours or pay-type
+                // correction is staged work the Save will write, and a row
+                // that shows nothing looks like it was never touched.
+                isMoved={(t) => timeTouched.has(t.id)}
+                selected={timeSelected}
+                onSelectedChange={setTimeSelected}
+                onFlag={(id, flagged) => void toggleTimeFlag(id, flagged)}
+                onEdit={(id) => {
+                  setOpenDocId(null);
+                  setOpenTimeId((cur) => (cur === id ? null : id));
+                }}
+                editingId={openTimeId}
+              />
+              {/* BELOW xl the coding column isn't rendered, so the recode
+                  drawer sits inline under the rows it acts on. Not a
+                  modal: a sheet that opened on the first tick would cover
+                  the list you are still selecting from. */}
+              {belowXl && timeSelectedEntries.length > 0 && (
+                <div className="border-t border-line-soft p-3">
+                  <div className="mb-2 flex items-baseline justify-between gap-2">
+                    <SectionLabel>Recode time</SectionLabel>
+                    <button
+                      type="button"
+                      onClick={() => setTimeSelected(new Set())}
+                      className="shrink-0 text-[11px] font-semibold text-accent"
+                    >
+                      Clear selection
+                    </button>
+                  </div>
+                  <TimeRecodeCard
+                    entries={timeSelectedEntries}
+                    jobId={jobId}
+                    codeOptions={timeCodeOptions}
+                    leafOf={timeLeafOf}
+                    onPick={stageTimeSelection}
+                    typeOf={timeTypeOf}
+                    onPickRate={stageTimeType}
+                    isStaged={(t) => timeStaged.has(t.id)}
+                    onUndo={undoTimeStage}
+                    onApproved={markTimeApproved}
+                    writes={Boolean(data?.writesEnabled)}
+                  />
+                </div>
+              )}
+    
+            </>
+          )}
+        </Card>
+      )}
+    
+      <BillingSummaryView
+        onOpenBill={openBillInPlace}
+        c={c}
+        jobId={jobId}
+        mode={mode}
+        recon={recon}
+        setSummaryByCsi={setSummaryByCsi}
+        summary={summary}
+        summaryByCsi={summaryByCsi}
+        summaryError={summaryError}
+        summaryLoading={summaryLoading}
+        ym={ym}
+      />
+    
+      <CodeLanesView
+        beginDrag={beginDrag}
+        belowXl={belowXl}
+        onOpenBill={openBillInPlace}
+        c={c}
+        dragLineIds={dragLineIds}
+        dragOverCode={dragOverCode}
+        dropHandlers={dropHandlers}
+        endDrag={endDrag}
+        jobId={jobId}
+        laneRows={laneRows}
+        mode={mode}
+        setOpenDocId={setOpenDocId}
+        setOpenTimeId={setOpenTimeId}
+        staged={staged}
+        ym={ym}
+      />
+    
+      <BillListView
+        billBlockOpen={billBlockOpen}
+        billCodeFilter={billCodeFilter}
+        billCodeOptions={billCodeOptions}
+        c={c}
+        filteredBills={filteredBills}
+        mode={mode}
+        nonSunsetBills={nonSunsetBills}
+        nonSunsetTotal={nonSunsetTotal}
+        renderBillCard={renderBillCard}
+        setBillBlockOpen={setBillBlockOpen}
+        setBillCodeFilter={setBillCodeFilter}
+        setSunsetBlockOpen={setSunsetBlockOpen}
+        sunsetBills={sunsetBills}
+        sunsetBlockOpen={sunsetBlockOpen}
+        sunsetTotal={sunsetTotal}
+      />
+    </section>
+    </>
+  );
+
+  // The coding drawer (the board's RIGHT column) — same reason as centerCol.
+  const codingCol = (
+    <>
+    {/* ─────────── RIGHT: coding drawer ─────────── */}
+    {/* NOT sticky, and the card is not capped (`scrollWithPage`): the
+        owner asked for the bill to scroll with the page rather than
+        inside a window (2026-09-28). A sticky column taller than the
+        viewport would strand its own bottom, so the two go together.
+        An open bill or time entry card is pushed down to the top of the window (`openTop`). */}
+    <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
+      {/* One column, three subjects, in order of how specific the claim
+          is: ONE entry being edited (a row clicked), then a SELECTION
+          being recoded, then the bills. The office codes labor exactly where it
+          codes a bill instead of learning a second layout — and the
+          recode drawer is the same component Labor Review shows, so the
+          two pages move a week of hours identically. */}
+      {openTime && !belowXl ? (
+        <div style={{ paddingTop: openTop }}>
+          {/* No section title: the card names the person and the entry,
+              and a "Labor" caption over it only repeated the block
+              the entry was clicked in. */}
+          <TimeCodingCard
+            entry={openTime}
+            jobId={jobId}
+            codeOptions={timeCodeOptions}
+            writes={Boolean(data?.writesEnabled)}
+            staged={timeEdits[openTime.id]}
+            stagedLeafId={timeStaged.get(openTime.id)}
+            onStage={(patch) => stageTimeEdit(openTime.id, patch)}
+            onSaved={() => {
+              // The write already landed in JobTread, so this is a
+              // re-read, not a sync — and it must keep the staged bill
+              // work, which has nothing to do with the entry just saved.
+              setOpenTimeId(null);
+              load({ preserveStaged: true });
+            }}
+            onClose={() => setOpenTimeId(null)}
+          />
+        </div>
+      ) : timeSelectedEntries.length > 0 ? (
+        <>
+          <div className="mb-2 flex items-baseline justify-between gap-2">
+            <SectionLabel>Recode time</SectionLabel>
+            <button
+              type="button"
+              onClick={() => setTimeSelected(new Set())}
+              className="shrink-0 text-[11px] font-semibold text-accent"
+            >
+              Clear selection
+            </button>
+          </div>
+          <TimeRecodeCard
+            entries={timeSelectedEntries}
+            jobId={jobId}
+            codeOptions={timeCodeOptions}
+            leafOf={timeLeafOf}
+            onPick={stageTimeSelection}
+            typeOf={timeTypeOf}
+            onPickRate={stageTimeType}
+            isStaged={(t) => timeStaged.has(t.id)}
+            onUndo={undoTimeStage}
+            onApproved={markTimeApproved}
+            writes={Boolean(data?.writesEnabled)}
+          />
+        </>
+      ) : (
+        <div style={{ paddingTop: openTop }}>
+          {openBill && openIndex >= 0 && (
+            <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
+              <button
+                type="button"
+                onClick={() => stepBill(-1)}
+                disabled={openIndex === 0}
+                className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
+              >
+                ← Previous
+              </button>
+              <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                Bill {openIndex + 1} of {orderedBills.length}
+              </span>
+              <button
+                type="button"
+                onClick={() => stepBill(1)}
+                disabled={openIndex >= orderedBills.length - 1}
+                className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
+              >
+                Next →
+              </button>
+            </div>
+          )}
+          <BillCodingCard ctl={codingCtl} />
+        </div>
+      )}
+    </section>
+    </>
+  );
+
+  // Every overlay — dialogs, the docked commit bar, the narrow-screen labor
+  // panel. Fixed-position, so where they sit in the DOM does not move them;
+  // gathered so an embedded board (Jobs page) keeps them.
+  const overlays = (
+    <>
+    {billPopup && (
+      <BillPopup
+        key={billPopup.docId}
+        sel={billPopup}
+        fullPageHref={
+          `/bill/${billPopup.docId}?jobId=${encodeURIComponent(jobId)}&from=recode` +
+          `&ym=${encodeURIComponent(ym)}`
+        }
+        nav={
+          billOrder.includes(billPopup.docId)
+            ? {
+                position: billOrder.indexOf(billPopup.docId) + 1,
+                count: billOrder.length,
+                onPrev: () => {
+                  const i = billOrder.indexOf(billPopup.docId);
+                  if (i > 0) openBillInPlace(billOrder[i - 1]);
+                },
+                onNext: () => {
+                  const i = billOrder.indexOf(billPopup.docId);
+                  if (i < billOrder.length - 1) openBillInPlace(billOrder[i + 1]);
+                },
+              }
+            : undefined
+        }
+        onClose={() => {
+          setBillPopup(null);
+          load({ preserveStaged: true });
+        }}
+      />
+    )}
+    {/* THE COMMIT BAR — a compact card docked in the LOWER RIGHT corner, at
+        every width. It carries the staged count, Revert and Save Changes: the
+        write, and nothing else. The month's closing actions — check, sheet
+        push, approve — are one centred row above, since none of them commits
+        the staged coding this bar is about.
+    
+        It used to be `lg:hidden`, with Revert and Save duplicated in the top
+        toolbar and Save duplicated AGAIN in the coding drawer — so the desktop
+        workbench, the one that scrolls furthest, was the only surface with no
+        commit in reach. One bar, three call sites collapsed into it.
+    
+        It was a full-bleed strip until 2026-09-09, and this page runs to
+        110rem: a band that wide floating over the workbench read as an
+        overlay, not as a foot. `dock="right"` sizes it to its buttons and
+        pushes it to the column's right edge instead.
+    
+        It pins above the tab bar (`--tabbar-h`), so it clears the tab bar at
+        desktop widths too. `order-last` keeps it at the bottom of the flex
+        column even though the reconcile block above also claims that order on
+        a phone; both are last in DOM order here, so they stack in source
+        order. */}
+    {jobId && (
+      <StickyActionBar
+        dock="right"
+        className="order-last mt-4 flex-wrap justify-end"
+        onMouseEnter={() => setBarHover(true)}
+        onMouseLeave={() => setBarHover(false)}
+      >
+        {/* The month's closing actions, revealed while the pointer is on the
+            bar — see `barHover`. `hidden lg:flex` keeps them out of the bar on
+            touch, where they have their own row under the columns. */}
+        {/* Hidden, not unmounted, when the pointer leaves: the Labor Report
+            runs for up to four minutes, and unmounting would drop its result. */}
+        <div
+          className={`hidden flex-wrap items-center justify-end gap-2 ${barHover && !noHover ? "lg:flex" : ""}`}
+        >
+          {closingActions}
+        </div>
+        {dirty && (
+          <span className="text-xs font-bold tabular-nums text-warn">
+            {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
+            <span className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
+              Nothing is written until you save
+            </span>
+          </span>
+        )}
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={revertAll}
+              disabled={syncing}
+              className="min-h-11"
+            >
+              Revert
+            </Button>
+          )}
+          {/* The coding commit, and only that. The tracking sheet is pushed
+              by its own button in the closing row — see save(). */}
+          <Button
+            size="sm"
+            onClick={save}
+            disabled={!dirty || syncing}
+            title="Write staged coding to JobTread"
+            className="min-h-11"
+          >
+            {syncing ? "Saving…" : "Save Changes"}
+          </Button>
+        </div>
+      </StickyActionBar>
+    )}
+    {/* The Labor panel, where the coding column doesn't fit. Same
+        component, same behaviour — a bottom sheet on a phone and a centred
+        dialog from sm up, exactly like the cost-code drill-down below, so the
+        Close button lands where the thumb already is. Rendered EITHER here or
+        in the column, never both: two mounts would duplicate its field ids
+        and its state. */}
+    {openTime && belowXl && (
+      // No panel of its own: TimeCodingCard IS a Card.
+      <Dialog label="Edit time entry" bare onClose={() => setOpenTimeId(null)}>
+          <TimeCodingCard
+            entry={openTime}
+            jobId={jobId}
+            codeOptions={timeCodeOptions}
+            writes={Boolean(data?.writesEnabled)}
+            staged={timeEdits[openTime.id]}
+            stagedLeafId={timeStaged.get(openTime.id)}
+            onStage={(patch) => stageTimeEdit(openTime.id, patch)}
+            onSaved={() => {
+              setOpenTimeId(null);
+              load({ preserveStaged: true });
+            }}
+            onClose={() => setOpenTimeId(null)}
+          />
+      </Dialog>
+    )}
+    {/* The Add time dialog. A modal at EVERY width, unlike the edit panel:
+        the panel belongs to the coding column (a bill or an entry is always
+        open there), while adding time is a short errand that ends in a Close
+        — and it must not push the bill being coded out of that column. */}
+    {addTimeOpen && (
+      <Dialog label="Add time" bare onClose={() => setAddTimeOpen(false)}>
+          <AddTimeCard
+            jobId={jobId}
+            jobLabel={jobTitle}
+            codeOptions={timeCodeOptions}
+            writes={Boolean(data?.writesEnabled)}
+            onSaved={() => {
+              setAddTimeOpen(false);
+              // The write already landed in JobTread — a re-read, not a sync,
+              // and it must keep the staged bill work untouched.
+              load({ preserveStaged: true });
+            }}
+            onClose={() => setAddTimeOpen(false)}
+          />
+      </Dialog>
+    )}
+    {/* A dropped-on code with several MEANINGFUL budget rows (Labor vs
+        Materials vs Allowance) is a real coding decision — ask, don't guess. */}
+    {leafPicker && (
+      <Dialog
+        onClose={() => setLeafPicker(null)}
+        title={`Which budget line under ${leafPicker.code}?`}
+        description={
+          <>
+            This cost code has several budget rows. Moving{" "}
+            {leafPicker.lineIds.length === 1 ? "1 line" : `${leafPicker.lineIds.length} lines`}.
+          </>
+        }
+        footer={
+          <Button
+            variant="secondary"
+            className="min-h-11 sm:min-h-0"
+            onClick={() => setLeafPicker(null)}
+          >
+            Cancel
+          </Button>
+        }
+      >
+          {/* Each option is a decision you commit with one tap, so they get
+              full-height rows rather than 34px slivers. */}
+          <ul className="space-y-2">
+            {(leavesByCode.get(leafPicker.code) ?? []).map((leaf) => (
+              <li key={leaf.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    moveLinesToLeaf(leafPicker.lineIds, leaf.id);
+                    setLeafPicker(null);
+                  }}
+                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
+                >
+                  <span className="min-w-0 truncate">
+                    {leaf.detail || leaf.name}
+                    {leaf.costType && (
+                      <span className="ml-1.5 text-xs text-neutral-500 dark:text-neutral-400">
+                        {leaf.costType}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
+                    {money0(leaf.cost ?? 0)}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+      </Dialog>
+    )}
+    {approveOpen && (
+      <Dialog
+        busy={approving}
+        onClose={() => setApproveOpen(false)}
+        title={`Approve ${draftBills.length} draft bill${draftBills.length === 1 ? "" : "s"}?`}
+        description={
+          <>
+            {billingMonths().find((o) => o.value === ym)?.label ?? ym}
+            {jobTitle ? ` · ${jobTitle}` : ""}. Bills move to Pending (approved for payment);
+            Expenses move straight to Approved (paid).
+          </>
+        }
+        footer={
+          // This posts real writes to JobTread, so the confirm button is
+          // full-width in the sheet's thumb zone with Cancel beside it — not
+          // two small pills tucked into a corner.
+          <div className="grid w-full grid-cols-2 gap-2">
+            <Button
+              variant="secondary"
+              className="min-h-11 w-full"
+              onClick={() => setApproveOpen(false)}
+              disabled={approving}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="min-h-11 w-full"
+              onClick={approveDraftBills}
+              disabled={approving || draftBills.length === 0}
+            >
+              {approving
+                ? "Approving…"
+                : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
+            </Button>
+          </div>
+        }
+      >
+          <ul className="space-y-2">
+            {draftBills.map((b) => {
+              const target = approvalTarget(b);
+              const taxOn = billTax(b) > 0;
+              const pushQb = !b.qboIsIgnored;
+              return (
+                <li
+                  key={b.id}
+                  className="rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="min-w-0 truncate font-medium">{b.label}</span>
+                    <span className="shrink-0 tabular-nums font-semibold">{money(b.cost)}</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                    <span>→ {target === "approved" ? "Approved (paid)" : "Pending"}</span>
+                    <span
+                      className={
+                        pushQb
+                          ? "text-ok"
+                          : "text-neutral-500 dark:text-neutral-400"
+                      }
+                    >
+                      Push to QuickBooks: {pushQb ? "On" : "Off"}
+                    </span>
+                    <span
+                      className={
+                        taxOn
+                          ? "text-warn"
+                          : "text-neutral-500 dark:text-neutral-400"
+                      }
+                    >
+                      {SALES_TAX_LINE_NAME}: {taxOn ? money(billTax(b)) : "Off"}
+                    </span>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 dark:border-neutral-700">
+            <SectionLabel>Total</SectionLabel>
+            <span className="text-xl font-bold tabular-nums">
+              {money(draftBills.reduce((s, b) => s + b.cost, 0))}
+            </span>
+          </div>
+          {data && !data.writesEnabled && (
+            <p className="mt-2 text-[11px] text-warn">
+              Writes are disabled on this deployment — this will preview only.
+            </p>
+          )}
+      </Dialog>
+    )}
+    {accessOpen && (
+      <DocumentAccessDialog
+        jobId={jobId}
+        ym={ym}
+        monthLabel={monthLabel(ym)}
+        jobTitle={jobTitle}
+        onClose={() => setAccessOpen(false)}
+      />
+    )}
+    </>
+  );
+
+  if (embed) {
+    return (
+      <>
+        {embed.billsSlot &&
+          createPortal(
+            <div className="space-y-3">
+              {error && <Banner tone="error">{error}</Banner>}
+              {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
+              {data && !loading && centerCol}
+            </div>,
+            embed.billsSlot,
+          )}
+        {embed.codingSlot && data && !loading && createPortal(codingCol, embed.codingSlot)}
+        {overlays}
+      </>
+    );
+  }
+
   return (
     <main className="flex w-full max-w-2xl flex-col px-4 pad:px-7 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
       <InvoicingTabs ym={ym} />
@@ -2214,381 +2938,9 @@ export function Board() {
             trackingTarget={trackingTarget}
           />
 
-          {/* ─────────── CENTRE: the month's bills ─────────── */}
-          <section className="min-w-0">
-            {/* The desktop copy of the headline figure — see the mobile one
-                under the page header for why there are two. */}
-            <StatementBlock
-              rule={false}
-              className="mb-4 hidden lg:block"
-              label={c("recode.statement.toBeInvoiced")}
-              value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
-              sub={
-                recon
-                  ? `${money(recon.remaining)} approved${
-                      recon.draftBillCount > 0
-                        ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
-                            recon.draftBillCount === 1 ? "" : "s"
-                          }`
-                        : ""
-                    }`
-                  : "checking JobTread…"
-              }
-            />
+          {centerCol}
 
-            {/* Where the money went, by cost code — bills in one ring, labor in
-                the other. Opens on the SELECTED MONTH, which is what this page
-                is for; the caption switches it to the whole job. It heads the
-                bills column because that is where the eye starts, and because
-                it frames the list under it: the rail answers "is there room in
-                06 20 00", these answer "what is this month made of". Folded on
-                a phone, open from lg. */}
-            <CostDonuts
-              month={costDonutMonthRows}
-              jobToDate={costDonutRows}
-              monthLabel={monthLabel(ym)}
-              detail={donutDetail}
-              // Clicking a slice narrows the list under it. The rings say what
-              // the month is made of; this is the way from that answer into the
-              // bills behind it.
-              onSelect={setBillCodeFilter}
-              selectedKey={billCodeFilter?.key ?? null}
-              // …and the labor ring narrows the LABOR list, through the same
-              // code filter its own dropdown sets. Opening the block is part of
-              // the click: a filter applied to a folded list is a click that
-              // appears to do nothing.
-              onSelectLabor={(sel) => {
-                timeFilters.setCode(sel?.codes[0] ?? "");
-                if (sel) setTimeBlockOpen(true);
-              }}
-              selectedLaborKey={timeFilters.code || null}
-              // The job-scope card needs the whole-job contributors; the month
-              // scope needs nothing. Fetching on first hover keeps a page load
-              // that never touches the rings free of it.
-              onDetailWanted={(scope) => {
-                if (scope === "job") ensureContributors();
-              }}
-            />
-
-            {/* THE LISTS' OWN ROW — what is being filtered on the left, how the
-                bills are arranged on the right.
-
-                It used to carry "17 bills · $64,293.88" under a brand rule, and
-                that line said nothing the three block headers below do not say
-                better and per-block. What the spot is FOR is the thing there is
-                no other room for: a filter that silently drops two thirds of
-                the month off the page. */}
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-              {billCodeFilter ? (
-                <button
-                  type="button"
-                  onClick={() => setBillCodeFilter(null)}
-                  title="Clear this cost-code filter"
-                  className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-accent bg-accent/10 py-1.5 pl-2.5 pr-2 text-left transition hover:bg-accent/20"
-                >
-                  {/* The arc's own colour, so the banner and the slice that set
-                      it are visibly the same thing. Falls back to the accent
-                      when the pick came from the dropdown instead. */}
-                  <span
-                    aria-hidden
-                    className="h-3 w-3 shrink-0 rounded-sm"
-                    style={{ backgroundColor: billCodeFilter.color ?? "var(--accent)" }}
-                  />
-                  <span className="min-w-0 truncate">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-                      Filtered to
-                    </span>{" "}
-                    <span className="text-sm font-semibold">{billCodeFilter.label}</span>
-                    <span className="ml-2 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
-                      {filteredBills.length} of {data.bills.length} bill
-                      {data.bills.length === 1 ? "" : "s"}
-                    </span>
-                  </span>
-                  <span
-                    aria-hidden
-                    className="shrink-0 text-sm font-semibold text-neutral-500 dark:text-neutral-400"
-                  >
-                    ✕
-                  </span>
-                </button>
-              ) : (
-                <span />
-              )}
-              {/* Grouping switch: one Segmented control, so the three options
-                  read as a set. The third is the client-facing rollup — what
-                  the month bills, in the shape the customer sees it, and the
-                  source of the printed summary. Not a drag surface. */}
-              <Segmented
-                label="Group bills"
-                value={mode}
-                onChange={setMode}
-                options={[
-                  { value: "bill", label: "By bill" },
-                  { value: "code", label: "By cost code" },
-                  { value: "summary", label: "Summary" },
-                ]}
-              />
-            </div>
-
-            {/* ---- this month's time entries ----
-                Not a drop target: a time entry is coded independently of any
-                bill, and this board's drag only moves bill lines. Everything
-                else about it is Labor Review's list, because it IS Labor
-                Review's list — src/components/TimeEntryList, the same component
-                that page renders. Tick rows to recode a week of them together
-                (the drawer takes the coding column, where a bill is coded, so
-                there's no second layout to learn); tap a row to fix its hours,
-                day, code or job without leaving the month. ---- */}
-            {mode !== "summary" && (
-              <Card id="labor-block" pad={false} className="mb-2 scroll-mt-20 overflow-hidden">
-                {/* The header is a ROW, not one button: the chevron toggles the
-                    list and "Add time" opens the dialog, and a button inside a
-                    button is invalid markup (the inner click would also fire the
-                    outer one). The block itself now renders even with no entries
-                    — a month with no labor logged is exactly when the office
-                    needs the Add time link. */}
-                <div className="flex w-full items-baseline gap-2 px-3 py-3 lg:py-2">
-                  <button
-                    type="button"
-                    onClick={() => setTimeBlockOpen((v) => !v)}
-                    aria-expanded={timeBlockOpen}
-                    disabled={monthTime.length === 0}
-                    className="min-w-0 flex-1 truncate text-left text-sm font-semibold transition hover:text-accent disabled:cursor-default disabled:hover:text-inherit"
-                  >
-                    <span
-                      aria-hidden
-                      className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
-                        timeBlockOpen ? "rotate-90" : ""
-                      } ${monthTime.length === 0 ? "opacity-0" : ""}`}
-                    >
-                      ▶
-                    </span>
-                    Labor ({monthTime.length} {monthTime.length === 1 ? "entry" : "entries"})
-                  </button>
-                  {/* Logging FOR somebody — /employee-time can only log for the
-                      person signed in, so the office does it here. */}
-                  <button
-                    type="button"
-                    onClick={() => setAddTimeOpen(true)}
-                    className="shrink-0 text-xs font-semibold text-accent transition hover:underline"
-                  >
-                    + Add time
-                  </button>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums">
-                    {money(monthTimeTotal)} · {hoursLabel(monthTimeHours)}
-                  </span>
-                </div>
-                {/* The month's COMPANY-WIDE Labor Report used to sit here, on
-                    its own hairline row. It now rides in the closing actions
-                    (`closingActions`), beside the commit bar's Save Changes, and
-                    on the all-jobs view (AllJobs.tsx). */}
-                {timeBlockOpen && monthTime.length > 0 && (
-                  <>
-                    {/* The list, its filters and its grouping are the SAME
-                        component Labor Review renders — see
-                        src/components/TimeEntryList. The CHECKBOX selects rows
-                        for the coding column's bulk recode; the ROW opens the
-                        single-entry editor (hours, day, code, job, approve),
-                        which is this board's own affordance and the reason a
-                        correction no longer means leaving the month. */}
-                    <TimeEntryList
-                      filters={timeFilters}
-                      jobId={jobId}
-                      monthEntries={monthTime}
-                      codeOf={timeCodeOf}
-                      headroomFor={timeHeadroomFor}
-                      // "Changed", not only "moved": a staged hours or pay-type
-                      // correction is staged work the Save will write, and a row
-                      // that shows nothing looks like it was never touched.
-                      isMoved={(t) => timeTouched.has(t.id)}
-                      selected={timeSelected}
-                      onSelectedChange={setTimeSelected}
-                      onFlag={(id, flagged) => void toggleTimeFlag(id, flagged)}
-                      onEdit={(id) => {
-                        setOpenDocId(null);
-                        setOpenTimeId((cur) => (cur === id ? null : id));
-                      }}
-                      editingId={openTimeId}
-                    />
-                    {/* BELOW xl the coding column isn't rendered, so the recode
-                        drawer sits inline under the rows it acts on. Not a
-                        modal: a sheet that opened on the first tick would cover
-                        the list you are still selecting from. */}
-                    {belowXl && timeSelectedEntries.length > 0 && (
-                      <div className="border-t border-line-soft p-3">
-                        <div className="mb-2 flex items-baseline justify-between gap-2">
-                          <SectionLabel>Recode time</SectionLabel>
-                          <button
-                            type="button"
-                            onClick={() => setTimeSelected(new Set())}
-                            className="shrink-0 text-[11px] font-semibold text-accent"
-                          >
-                            Clear selection
-                          </button>
-                        </div>
-                        <TimeRecodeCard
-                          entries={timeSelectedEntries}
-                          jobId={jobId}
-                          codeOptions={timeCodeOptions}
-                          leafOf={timeLeafOf}
-                          onPick={stageTimeSelection}
-                          typeOf={timeTypeOf}
-                          onPickRate={stageTimeType}
-                          isStaged={(t) => timeStaged.has(t.id)}
-                          onUndo={undoTimeStage}
-                          onApproved={markTimeApproved}
-                          writes={Boolean(data?.writesEnabled)}
-                        />
-                      </div>
-                    )}
-
-                  </>
-                )}
-              </Card>
-            )}
-
-            <BillingSummaryView
-              onOpenBill={openBillInPlace}
-              c={c}
-              jobId={jobId}
-              mode={mode}
-              recon={recon}
-              setSummaryByCsi={setSummaryByCsi}
-              summary={summary}
-              summaryByCsi={summaryByCsi}
-              summaryError={summaryError}
-              summaryLoading={summaryLoading}
-              ym={ym}
-            />
-
-            <CodeLanesView
-              beginDrag={beginDrag}
-              belowXl={belowXl}
-              onOpenBill={openBillInPlace}
-              c={c}
-              dragLineIds={dragLineIds}
-              dragOverCode={dragOverCode}
-              dropHandlers={dropHandlers}
-              endDrag={endDrag}
-              jobId={jobId}
-              laneRows={laneRows}
-              mode={mode}
-              setOpenDocId={setOpenDocId}
-              setOpenTimeId={setOpenTimeId}
-              staged={staged}
-              ym={ym}
-            />
-
-            <BillListView
-              billBlockOpen={billBlockOpen}
-              billCodeFilter={billCodeFilter}
-              billCodeOptions={billCodeOptions}
-              c={c}
-              filteredBills={filteredBills}
-              mode={mode}
-              nonSunsetBills={nonSunsetBills}
-              nonSunsetTotal={nonSunsetTotal}
-              renderBillCard={renderBillCard}
-              setBillBlockOpen={setBillBlockOpen}
-              setBillCodeFilter={setBillCodeFilter}
-              setSunsetBlockOpen={setSunsetBlockOpen}
-              sunsetBills={sunsetBills}
-              sunsetBlockOpen={sunsetBlockOpen}
-              sunsetTotal={sunsetTotal}
-            />
-          </section>
-
-          {/* ─────────── RIGHT: coding drawer ─────────── */}
-          {/* NOT sticky, and the card is not capped (`scrollWithPage`): the
-              owner asked for the bill to scroll with the page rather than
-              inside a window (2026-09-28). A sticky column taller than the
-              viewport would strand its own bottom, so the two go together.
-              An open bill or time entry card is pushed down to the top of the window (`openTop`). */}
-          <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
-            {/* One column, three subjects, in order of how specific the claim
-                is: ONE entry being edited (a row clicked), then a SELECTION
-                being recoded, then the bills. The office codes labor exactly where it
-                codes a bill instead of learning a second layout — and the
-                recode drawer is the same component Labor Review shows, so the
-                two pages move a week of hours identically. */}
-            {openTime && !belowXl ? (
-              <div style={{ paddingTop: openTop }}>
-                {/* No section title: the card names the person and the entry,
-                    and a "Labor" caption over it only repeated the block
-                    the entry was clicked in. */}
-                <TimeCodingCard
-                  entry={openTime}
-                  jobId={jobId}
-                  codeOptions={timeCodeOptions}
-                  writes={Boolean(data?.writesEnabled)}
-                  staged={timeEdits[openTime.id]}
-                  stagedLeafId={timeStaged.get(openTime.id)}
-                  onStage={(patch) => stageTimeEdit(openTime.id, patch)}
-                  onSaved={() => {
-                    // The write already landed in JobTread, so this is a
-                    // re-read, not a sync — and it must keep the staged bill
-                    // work, which has nothing to do with the entry just saved.
-                    setOpenTimeId(null);
-                    load({ preserveStaged: true });
-                  }}
-                  onClose={() => setOpenTimeId(null)}
-                />
-              </div>
-            ) : timeSelectedEntries.length > 0 ? (
-              <>
-                <div className="mb-2 flex items-baseline justify-between gap-2">
-                  <SectionLabel>Recode time</SectionLabel>
-                  <button
-                    type="button"
-                    onClick={() => setTimeSelected(new Set())}
-                    className="shrink-0 text-[11px] font-semibold text-accent"
-                  >
-                    Clear selection
-                  </button>
-                </div>
-                <TimeRecodeCard
-                  entries={timeSelectedEntries}
-                  jobId={jobId}
-                  codeOptions={timeCodeOptions}
-                  leafOf={timeLeafOf}
-                  onPick={stageTimeSelection}
-                  typeOf={timeTypeOf}
-                  onPickRate={stageTimeType}
-                  isStaged={(t) => timeStaged.has(t.id)}
-                  onUndo={undoTimeStage}
-                  onApproved={markTimeApproved}
-                  writes={Boolean(data?.writesEnabled)}
-                />
-              </>
-            ) : (
-              <div style={{ paddingTop: openTop }}>
-                {openBill && openIndex >= 0 && (
-                  <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
-                    <button
-                      type="button"
-                      onClick={() => stepBill(-1)}
-                      disabled={openIndex === 0}
-                      className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
-                    >
-                      ← Previous
-                    </button>
-                    <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
-                      Bill {openIndex + 1} of {orderedBills.length}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => stepBill(1)}
-                      disabled={openIndex >= orderedBills.length - 1}
-                      className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
-                    >
-                      Next →
-                    </button>
-                  </div>
-                )}
-                <BillCodingCard ctl={codingCtl} />
-              </div>
-            )}
-          </section>
+          {codingCol}
         </SplitGrid>
       )}
 
@@ -2608,36 +2960,6 @@ export function Board() {
         </div>
       )}
 
-      {billPopup && (
-        <BillPopup
-          key={billPopup.docId}
-          sel={billPopup}
-          fullPageHref={
-            `/bill/${billPopup.docId}?jobId=${encodeURIComponent(jobId)}&from=recode` +
-            `&ym=${encodeURIComponent(ym)}`
-          }
-          nav={
-            billOrder.includes(billPopup.docId)
-              ? {
-                  position: billOrder.indexOf(billPopup.docId) + 1,
-                  count: billOrder.length,
-                  onPrev: () => {
-                    const i = billOrder.indexOf(billPopup.docId);
-                    if (i > 0) openBillInPlace(billOrder[i - 1]);
-                  },
-                  onNext: () => {
-                    const i = billOrder.indexOf(billPopup.docId);
-                    if (i < billOrder.length - 1) openBillInPlace(billOrder[i + 1]);
-                  },
-                }
-              : undefined
-          }
-          onClose={() => {
-            setBillPopup(null);
-            load({ preserveStaged: true });
-          }}
-        />
-      )}
 
       {/* THE MONTH'S LAST STEP, on touch: approve the month's draft bills, then
           raise its invoice in JobTread. `order-last` drops it below the columns.
@@ -2653,27 +2975,6 @@ export function Board() {
         </div>
       )}
 
-      {/* THE COMMIT BAR — a compact card docked in the LOWER RIGHT corner, at
-          every width. It carries the staged count, Revert and Save Changes: the
-          write, and nothing else. The month's closing actions — check, sheet
-          push, approve — are one centred row above, since none of them commits
-          the staged coding this bar is about.
-
-          It used to be `lg:hidden`, with Revert and Save duplicated in the top
-          toolbar and Save duplicated AGAIN in the coding drawer — so the desktop
-          workbench, the one that scrolls furthest, was the only surface with no
-          commit in reach. One bar, three call sites collapsed into it.
-
-          It was a full-bleed strip until 2026-09-09, and this page runs to
-          110rem: a band that wide floating over the workbench read as an
-          overlay, not as a foot. `dock="right"` sizes it to its buttons and
-          pushes it to the column's right edge instead.
-
-          It pins above the tab bar (`--tabbar-h`), so it clears the tab bar at
-          desktop widths too. `order-last` keeps it at the bottom of the flex
-          column even though the reconcile block above also claims that order on
-          a phone; both are last in DOM order here, so they stack in source
-          order. */}
       {/* The deposit card, at the foot of the page on every width. `order-last`
           puts it after the workbench (`lg:order-1`); it is DOM-before the
           sticky action bar, which also claims `order-last`, so the bar stays
@@ -2684,105 +2985,8 @@ export function Board() {
         </div>
       )}
 
-      {jobId && (
-        <StickyActionBar
-          dock="right"
-          className="order-last mt-4 flex-wrap justify-end"
-          onMouseEnter={() => setBarHover(true)}
-          onMouseLeave={() => setBarHover(false)}
-        >
-          {/* The month's closing actions, revealed while the pointer is on the
-              bar — see `barHover`. `hidden lg:flex` keeps them out of the bar on
-              touch, where they have their own row under the columns. */}
-          {/* Hidden, not unmounted, when the pointer leaves: the Labor Report
-              runs for up to four minutes, and unmounting would drop its result. */}
-          <div
-            className={`hidden flex-wrap items-center justify-end gap-2 ${barHover && !noHover ? "lg:flex" : ""}`}
-          >
-            {closingActions}
-          </div>
-          {dirty && (
-            <span className="text-xs font-bold tabular-nums text-warn">
-              {stagedCount} staged change{stagedCount === 1 ? "" : "s"}
-              <span className="block text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
-                Nothing is written until you save
-              </span>
-            </span>
-          )}
-          <div className="flex items-center gap-2">
-            {dirty && (
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={revertAll}
-                disabled={syncing}
-                className="min-h-11"
-              >
-                Revert
-              </Button>
-            )}
-            {/* The coding commit, and only that. The tracking sheet is pushed
-                by its own button in the closing row — see save(). */}
-            <Button
-              size="sm"
-              onClick={save}
-              disabled={!dirty || syncing}
-              title="Write staged coding to JobTread"
-              className="min-h-11"
-            >
-              {syncing ? "Saving…" : "Save Changes"}
-            </Button>
-          </div>
-        </StickyActionBar>
-      )}
 
-      {/* The Labor panel, where the coding column doesn't fit. Same
-          component, same behaviour — a bottom sheet on a phone and a centred
-          dialog from sm up, exactly like the cost-code drill-down below, so the
-          Close button lands where the thumb already is. Rendered EITHER here or
-          in the column, never both: two mounts would duplicate its field ids
-          and its state. */}
-      {openTime && belowXl && (
-        // No panel of its own: TimeCodingCard IS a Card.
-        <Dialog label="Edit time entry" bare onClose={() => setOpenTimeId(null)}>
-            <TimeCodingCard
-              entry={openTime}
-              jobId={jobId}
-              codeOptions={timeCodeOptions}
-              writes={Boolean(data?.writesEnabled)}
-              staged={timeEdits[openTime.id]}
-              stagedLeafId={timeStaged.get(openTime.id)}
-              onStage={(patch) => stageTimeEdit(openTime.id, patch)}
-              onSaved={() => {
-                setOpenTimeId(null);
-                load({ preserveStaged: true });
-              }}
-              onClose={() => setOpenTimeId(null)}
-            />
-        </Dialog>
-      )}
 
-      {/* The Add time dialog. A modal at EVERY width, unlike the edit panel:
-          the panel belongs to the coding column (a bill or an entry is always
-          open there), while adding time is a short errand that ends in a Close
-          — and it must not push the bill being coded out of that column. */}
-      {addTimeOpen && (
-        <Dialog label="Add time" bare onClose={() => setAddTimeOpen(false)}>
-            <AddTimeCard
-              jobId={jobId}
-              jobLabel={jobTitle}
-              codeOptions={timeCodeOptions}
-              writes={Boolean(data?.writesEnabled)}
-              onSaved={() => {
-                setAddTimeOpen(false);
-                // The write already landed in JobTread — a re-read, not a sync,
-                // and it must keep the staged bill work untouched.
-                load({ preserveStaged: true });
-              }}
-              onClose={() => setAddTimeOpen(false)}
-            />
-        </Dialog>
-      )}
 
       <CodeDrillSheet
         c={c}
@@ -2796,158 +3000,9 @@ export function Board() {
         setCodeDrill={setCodeDrill}
       />
 
-      {/* A dropped-on code with several MEANINGFUL budget rows (Labor vs
-          Materials vs Allowance) is a real coding decision — ask, don't guess. */}
-      {leafPicker && (
-        <Dialog
-          onClose={() => setLeafPicker(null)}
-          title={`Which budget line under ${leafPicker.code}?`}
-          description={
-            <>
-              This cost code has several budget rows. Moving{" "}
-              {leafPicker.lineIds.length === 1 ? "1 line" : `${leafPicker.lineIds.length} lines`}.
-            </>
-          }
-          footer={
-            <Button
-              variant="secondary"
-              className="min-h-11 sm:min-h-0"
-              onClick={() => setLeafPicker(null)}
-            >
-              Cancel
-            </Button>
-          }
-        >
-            {/* Each option is a decision you commit with one tap, so they get
-                full-height rows rather than 34px slivers. */}
-            <ul className="space-y-2">
-              {(leavesByCode.get(leafPicker.code) ?? []).map((leaf) => (
-                <li key={leaf.id}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      moveLinesToLeaf(leafPicker.lineIds, leaf.id);
-                      setLeafPicker(null);
-                    }}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
-                  >
-                    <span className="min-w-0 truncate">
-                      {leaf.detail || leaf.name}
-                      {leaf.costType && (
-                        <span className="ml-1.5 text-xs text-neutral-500 dark:text-neutral-400">
-                          {leaf.costType}
-                        </span>
-                      )}
-                    </span>
-                    <span className="shrink-0 text-xs tabular-nums text-neutral-500 dark:text-neutral-400">
-                      {money0(leaf.cost ?? 0)}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-        </Dialog>
-      )}
 
-      {approveOpen && (
-        <Dialog
-          busy={approving}
-          onClose={() => setApproveOpen(false)}
-          title={`Approve ${draftBills.length} draft bill${draftBills.length === 1 ? "" : "s"}?`}
-          description={
-            <>
-              {billingMonths().find((o) => o.value === ym)?.label ?? ym}
-              {jobTitle ? ` · ${jobTitle}` : ""}. Bills move to Pending (approved for payment);
-              Expenses move straight to Approved (paid).
-            </>
-          }
-          footer={
-            // This posts real writes to JobTread, so the confirm button is
-            // full-width in the sheet's thumb zone with Cancel beside it — not
-            // two small pills tucked into a corner.
-            <div className="grid w-full grid-cols-2 gap-2">
-              <Button
-                variant="secondary"
-                className="min-h-11 w-full"
-                onClick={() => setApproveOpen(false)}
-                disabled={approving}
-              >
-                Cancel
-              </Button>
-              <Button
-                className="min-h-11 w-full"
-                onClick={approveDraftBills}
-                disabled={approving || draftBills.length === 0}
-              >
-                {approving
-                  ? "Approving…"
-                  : `Approve ${draftBills.length} bill${draftBills.length === 1 ? "" : "s"}`}
-              </Button>
-            </div>
-          }
-        >
-            <ul className="space-y-2">
-              {draftBills.map((b) => {
-                const target = approvalTarget(b);
-                const taxOn = billTax(b) > 0;
-                const pushQb = !b.qboIsIgnored;
-                return (
-                  <li
-                    key={b.id}
-                    className="rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
-                  >
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 truncate font-medium">{b.label}</span>
-                      <span className="shrink-0 tabular-nums font-semibold">{money(b.cost)}</span>
-                    </div>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-neutral-500 dark:text-neutral-400">
-                      <span>→ {target === "approved" ? "Approved (paid)" : "Pending"}</span>
-                      <span
-                        className={
-                          pushQb
-                            ? "text-ok"
-                            : "text-neutral-500 dark:text-neutral-400"
-                        }
-                      >
-                        Push to QuickBooks: {pushQb ? "On" : "Off"}
-                      </span>
-                      <span
-                        className={
-                          taxOn
-                            ? "text-warn"
-                            : "text-neutral-500 dark:text-neutral-400"
-                        }
-                      >
-                        {SALES_TAX_LINE_NAME}: {taxOn ? money(billTax(b)) : "Off"}
-                      </span>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 dark:border-neutral-700">
-              <SectionLabel>Total</SectionLabel>
-              <span className="text-xl font-bold tabular-nums">
-                {money(draftBills.reduce((s, b) => s + b.cost, 0))}
-              </span>
-            </div>
-            {data && !data.writesEnabled && (
-              <p className="mt-2 text-[11px] text-warn">
-                Writes are disabled on this deployment — this will preview only.
-              </p>
-            )}
-        </Dialog>
-      )}
 
-      {accessOpen && (
-        <DocumentAccessDialog
-          jobId={jobId}
-          ym={ym}
-          monthLabel={monthLabel(ym)}
-          jobTitle={jobTitle}
-          onClose={() => setAccessOpen(false)}
-        />
-      )}
+      {overlays}
     </main>
   );
 }

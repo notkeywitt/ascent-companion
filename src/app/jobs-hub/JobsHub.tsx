@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { Donut } from "@/components/Donut";
 
@@ -24,6 +24,7 @@ import {
   StatementBlock,
 } from "@/components/ui";
 import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
+import { Board } from "@/app/trackingsheet/Board";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import type { MonthCodeRow } from "@/lib/monthCostByJob";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
@@ -46,7 +47,9 @@ import { money0 } from "@/lib/money";
  *   • Left: ONE continuous list of the working jobs (Active, then PreCon), a
  *     line each — "Customer - Job", phase, the billing month's amount to
  *     invoice. From `lg` it scrolls inside itself, ending at the window's foot.
- *   • Right of the list: the picked job's overview (cost by division, schedule).
+ *   • Right of the list: the picked job's overview (cost by division, schedule),
+ *     or — the Schedule / Bills switch — its Tracking Sheet's coding drawer, with
+ *     the sheet's bills column taking the details card's place under the map.
  *   • Far right, from xl: the Lopez Island map, its own column, its top in line
  *     with the top row; under it the picked job's details (address, number,
  *     schedule start and expected finish — the Job Board's card, /api/job-board).
@@ -73,6 +76,16 @@ export function JobsHub() {
   /** The Job Board's cards, by job id — address, number and schedule span. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /**
+   * Schedule (the job's overview and details) or Bills — the job's Tracking
+   * Sheet, embedded: its coding drawer takes the overview's place and its bills
+   * column takes the details card's, under the map. The board draws into these
+   * two nodes (Board's `embed`), so every save, approve and recode is the
+   * Tracking Sheet's own, unchanged.
+   */
+  const [view, setView] = useState<"schedule" | "bills">("schedule");
+  const [codingSlot, setCodingSlot] = useState<HTMLElement | null>(null);
+  const [billsSlot, setBillsSlot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -164,7 +177,9 @@ export function JobsHub() {
 
       {/* From xl the map is its own right-hand column, its top in line with the
           top row's cards; everything else sits to its left. */}
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div
+        className={`grid gap-6 ${view === "bills" && selected ? "xl:grid-cols-[minmax(0,1fr)_440px]" : "xl:grid-cols-[minmax(0,1fr)_340px]"}`}
+      >
         <div className="min-w-0">
           <div className="mb-6 grid gap-6 lg:grid-cols-[272px_minmax(0,1fr)]">
             <Card className="lg:h-48">
@@ -289,12 +304,40 @@ export function JobsHub() {
                           ]}
                         />
                       </div>
+                      {canTrackingSheet && (
+                        <Segmented
+                          label="Show"
+                          value={view}
+                          onChange={setView}
+                          options={[
+                            { value: "schedule", label: "Schedule" },
+                            { value: "bills", label: "Bills" },
+                          ]}
+                        />
+                      )}
                       <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
                         Close
                       </Button>
                     </Card>
-                    {/* Keyed so a new job starts its own fetch rather than showing the last one's. */}
-                    <JobOverview key={selected.id} jobId={selected.id} />
+                    {view === "bills" && canTrackingSheet ? (
+                      <>
+                        <div ref={setCodingSlot} />
+                        {/* Keyed by job and month: a new pick is a fresh board.
+                            Staged coding survives it — the board restores
+                            unsynced work on load and says so. */}
+                        {ym && (
+                          <Suspense fallback={null}>
+                            <Board
+                              key={`${selected.id}-${ym}`}
+                              embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
+                            />
+                          </Suspense>
+                        )}
+                      </>
+                    ) : (
+                      /* Keyed so a new job starts its own fetch rather than showing the last one's. */
+                      <JobOverview key={selected.id} jobId={selected.id} />
+                    )}
                   </>
                 ) : (
                   <EmptyState>Pick a job from the list, a ring or the map.</EmptyState>
@@ -303,15 +346,23 @@ export function JobsHub() {
             </div>
           </div>
         </div>
-        <div className="space-y-4 self-start xl:sticky xl:top-4">
+        {/* Sticky only on Schedule: the bills column runs long, and a sticky
+            column taller than the window strands its own foot. */}
+        <div
+          className={`min-w-0 space-y-4 self-start ${view === "bills" && selected ? "" : "xl:sticky xl:top-4"}`}
+        >
           <Card>
             {jobs ? <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} /> : <Loading />}
           </Card>
-          <JobDetails
-            job={selected}
-            card={selected ? details?.get(selected.id) : undefined}
-            loading={!details}
-          />
+          {view === "bills" && selected && canTrackingSheet ? (
+            <div ref={setBillsSlot} />
+          ) : (
+            <JobDetails
+              job={selected}
+              card={selected ? details?.get(selected.id) : undefined}
+              loading={!details}
+            />
+          )}
         </div>
       </div>
     </main>
