@@ -586,3 +586,12 @@ textarea:focus-visible {
     break-inside: avoid;
   }
 }
+
+/* Scrolls, but draws no scroll bar — the Jobs page's panels (owner,
+   2026-11-02). The wheel, the trackpad and the keyboard still scroll them. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

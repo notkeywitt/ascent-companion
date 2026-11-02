@@ -280,7 +280,7 @@ export function JobsHub() {
           {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it. */}
           <Card pad={false} className="flex min-h-0 min-w-0 flex-col overflow-hidden p-3">
             {!jobs && <Loading />}
-            <div className="max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 xl:max-h-none">
+            <div className="no-scrollbar max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto xl:max-h-none">
               {byPhase.map(([phase, list]) => (
                 <section key={phase}>
                   <div className={`px-2 pb-0.5 ${caption}`}>{phase}</div>
@@ -326,7 +326,7 @@ export function JobsHub() {
                       {tab === "sheet" && canTrackingSheet && (
                         <div
                           ref={setSummarySlot}
-                          className="h-full w-[520px] min-w-0 overflow-y-auto"
+                          className="no-scrollbar h-full w-[520px] min-w-0 overflow-y-auto overflow-x-hidden"
                         />
                       )}
                     </div>
@@ -341,7 +341,7 @@ export function JobsHub() {
               // The list's height, with the tabs on their own row at the foot,
               // as on a picked job's card.
               <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
-                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+                <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
                   {idleView === "leads" ? (
                     <HomeLeadBoard storeAs="jobs-hub" />
                   ) : idleView === "jobs" ? (

@@ -184,7 +184,7 @@ export function JobCard({
       {aside ? (
         <div className="flex min-h-0 flex-1 gap-4">
           {/* Scrolls when the card is held to a height (the Jobs page). */}
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto">{body}</div>
+          <div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto">{body}</div>
           <div className="h-full shrink-0">{aside}</div>
         </div>
       ) : (
