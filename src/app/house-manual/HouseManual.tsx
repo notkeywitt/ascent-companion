@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Banner,
   Button,
@@ -25,6 +25,7 @@ import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
   DEFAULT_TITLE_STYLE,
   asManual,
+  driveIdFromLink,
   embedSnippet,
   manualHtml,
   mergeSections,
@@ -237,21 +238,33 @@ function TitleStyleEditor({
  */
 function GalleryEditor({
   gallery: g,
+  at,
   onChange,
+  onMove,
   onRemove,
   onError,
 }: {
   gallery: ManualGallery;
+  /** The preview's key for this gallery (see `manualHtml`'s marks). */
+  at: string;
   onChange: (g: ManualGallery) => void;
+  /** Up (-1) or down (1); absent at that end of the list. */
+  onMove: { up?: () => void; down?: () => void };
   onRemove: () => void;
   onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const hidden = g.photos.filter((p) => !p.shared).length;
   return (
-    <Card className="space-y-2">
+    <Card className="space-y-2" data-edit={at}>
       <div className="flex items-center gap-1">
         <QuietInput aria-label="Gallery title" placeholder="Gallery title" value={g.title} onChange={(e) => onChange({ ...g, title: e.target.value })} />
+        <Button size="xs" variant="ghost" aria-label={`Move ${g.title || "gallery"} up`} disabled={!onMove.up} onClick={onMove.up}>
+          ↑
+        </Button>
+        <Button size="xs" variant="ghost" aria-label={`Move ${g.title || "gallery"} down`} disabled={!onMove.down} onClick={onMove.down}>
+          ↓
+        </Button>
         <RemoveButton label={`Remove ${g.title || "gallery"}`} onClick={onRemove} />
       </div>
       <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -316,10 +329,13 @@ function GalleryEditor({
  */
 function ItemsEditor({
   items,
+  at,
   onChange,
   onUpload,
 }: {
   items: ManualItem[];
+  /** The preview's key prefix for these items, e.g. "s0" (see `manualHtml`'s marks). */
+  at: string;
   onChange: (items: ManualItem[]) => void;
   /** Files a PDF in Drive and returns its link (the page's uploadToDrive). */
   onUpload?: (file: File) => Promise<string | null>;
@@ -332,12 +348,13 @@ function ItemsEditor({
           {items.map((it, j) => {
             const setItem = (patch: Partial<ManualItem>) => onChange(items.map((x, k) => (k === j ? { ...x, ...patch } : x)));
             return (
-              <div key={j} className="flex items-start gap-2 p-2">
+              <div key={j} data-edit={`${at}.i${j}`} className="flex items-start gap-2 p-2">
                 <div className="grid min-w-0 flex-1 gap-1.5 sm:grid-cols-2">
                   <QuietInput aria-label="Item" placeholder="Item (e.g. Dishwasher)" value={it.label} onChange={(e) => setItem({ label: e.target.value })} />
                   <QuietInput aria-label="Link" placeholder="Product link" value={it.url} onChange={(e) => setItem({ url: e.target.value })} />
                   <textarea
                     aria-label="Selection"
+                    data-field="value"
                     placeholder="Selection: product, finish, color, notes…"
                     rows={3}
                     value={it.value}
@@ -426,6 +443,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState<"" | "embed" | "html">("");
   const [published, setPublished] = useState<Published | null>(null);
+  const editorRef = useRef<HTMLDivElement>(null);
 
   useUnsavedChanges(dirty, "This house manual has unsaved changes. Leave without saving?");
 
@@ -475,6 +493,31 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
         : "",
     [manual, published],
   );
+  // The same block, marked so a click in the preview finds its editor field.
+  const previewHtml = useMemo(
+    () =>
+      manual
+        ? manualHtml(asManual(manual)!, published ? { origin: window.location.origin, token: published.token } : undefined, { marks: true })
+        : "",
+    [manual, published],
+  );
+
+  /** Scroll the editor to the field a preview click came from, focus it, and flash its row. */
+  const jumpTo = useCallback((mark: string) => {
+    const [key, field] = mark.split("~");
+    const row = editorRef.current?.querySelector<HTMLElement>(`[data-edit="${CSS.escape(key)}"]`);
+    if (!row) return;
+    const target =
+      (field && row.querySelector<HTMLElement>(`[data-field="${CSS.escape(field)}"]`)) ||
+      (row.matches("input, textarea") ? row : row.querySelector<HTMLElement>("input, textarea")) ||
+      row;
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.focus({ preventScroll: true });
+    const flash = ["ring-2", "ring-accent", "rounded-lg"];
+    row.classList.add(...flash);
+    window.setTimeout(() => row.classList.remove(...flash), 1200);
+  }, []);
+
   const snippet = published && typeof window !== "undefined" ? embedSnippet(window.location.origin, published.token) : "";
   const live = !!published?.at;
   const behind = live && !!saved && saved.updatedAt > published!.at;
@@ -601,6 +644,34 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
     const text = file.name.replace(/\.pdf$/i, "");
     edit((m) => ({ ...m, links: [...m.links, { text, url, pdf: true }] }));
   }
+  /** A gallery already in the manual (same folder) is refreshed in place. */
+  const addGallery = (g: ManualGallery) =>
+    edit((m) => ({
+      ...m,
+      galleries: m.galleries.some((x) => x.folderId === g.folderId)
+        ? m.galleries.map((x) => (x.folderId === g.folderId ? g : x))
+        : [...m.galleries, g],
+    }));
+  // A photo folder pasted straight into Photos, without linking it under Job files.
+  const [folderLink, setFolderLink] = useState("");
+  const [addingFolder, setAddingFolder] = useState(false);
+  async function addFolder() {
+    const id = driveIdFromLink(folderLink);
+    if (!id) {
+      setError("Paste a Google Drive folder link.");
+      return;
+    }
+    setAddingFolder(true);
+    setError("");
+    try {
+      addGallery(await fetchGallery(id));
+      setFolderLink("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAddingFolder(false);
+    }
+  }
   const jobVendorsLeft = vendors.filter((v) => !added.has(v.id));
   const otherVendors = allVendors.filter((v) => !added.has(v.id) && !vendors.some((j) => j.id === v.id));
 
@@ -676,7 +747,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
 
       {manual && !loading && (
         <div className="grid gap-6 lg:grid-cols-2">
-          <div className="min-w-0 space-y-6">
+          <div ref={editorRef} className="min-w-0 space-y-6">
             <JobFiles
               jobId={jobId}
               specLists={specLists}
@@ -685,7 +756,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
               onSources={(sources) => setManual((m) => (m ? { ...m, sources } : m))}
               onImport={(sections) => edit((m) => ({ ...m, sections: mergeSections(m.sections, sections) }))}
               onAddLink={(l) => edit((m) => ({ ...m, links: [...m.links, l] }))}
-              onAddGallery={(g) => edit((m) => ({ ...m, galleries: [...m.galleries.filter((x) => x.folderId !== g.folderId), g] }))}
+              onAddGallery={addGallery}
               onError={setError}
             />
 
@@ -693,6 +764,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
               <SectionHeading>Heading</SectionHeading>
               <Textarea
                 aria-label="Title"
+                data-edit="title"
                 placeholder="Title"
                 rows={1}
                 value={manual.title}
@@ -706,6 +778,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
               />
               <Textarea
                 aria-label="Introduction"
+                data-edit="intro"
                 placeholder="Introduction (optional)"
                 rows={2}
                 value={manual.intro}
@@ -713,7 +786,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
               />
             </section>
 
-            <section className="space-y-2">
+            <section className="space-y-2" data-edit="contacts">
               <SectionHeading>Contacts</SectionHeading>
               {manual.contacts.length > 0 && (
                 <Card pad={false} className="divide-y divide-line-soft">
@@ -721,7 +794,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                     const set = (patch: Partial<ManualContact>) =>
                       edit((m) => ({ ...m, contacts: m.contacts.map((x, k) => (k === i ? { ...x, ...patch } : x)) }));
                     return (
-                      <div key={i} className="flex items-start gap-2 p-2">
+                      <div key={i} data-edit={`c${i}`} className="flex items-start gap-2 p-2">
                         <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
                           <QuietInput aria-label="Trade" placeholder="Trade (e.g. Plumbing)" value={c.trade} onChange={(e) => set({ trade: e.target.value })} />
                           <QuietInput aria-label="Name" placeholder="Name" value={c.name} onChange={(e) => set({ name: e.target.value })} />
@@ -791,6 +864,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                   <div className="flex items-center gap-1">
                     <Input
                       aria-label="Section title"
+                      data-edit={`s${i}`}
                       placeholder="Section title"
                       value={s.title}
                       onChange={(e) => setSection({ title: e.target.value })}
@@ -813,7 +887,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                       onClick={() => edit((m) => ({ ...m, sections: m.sections.filter((_, k) => k !== i) }))}
                     />
                   </div>
-                  <ItemsEditor items={s.items} onChange={(items) => setSection({ items })} onUpload={uploadToDrive} />
+                  <ItemsEditor items={s.items} at={`s${i}`} onChange={(items) => setSection({ items })} onUpload={uploadToDrive} />
                   {s.subsections.map((sub, j) => {
                     const setSub = (patch: Partial<typeof sub>) =>
                       setSection({ subsections: s.subsections.map((x, k) => (k === j ? { ...x, ...patch } : x)) });
@@ -822,6 +896,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                         <div className="flex items-center gap-1">
                           <Input
                             aria-label="Sub-section title"
+                            data-edit={`s${i}.u${j}`}
                             placeholder="Sub-section title (e.g. Laundry)"
                             value={sub.title}
                             onChange={(e) => setSub({ title: e.target.value })}
@@ -850,7 +925,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                             onClick={() => setSection({ subsections: s.subsections.filter((_, k) => k !== j) })}
                           />
                         </div>
-                        <ItemsEditor items={sub.items} onChange={(items) => setSub({ items })} onUpload={uploadToDrive} />
+                        <ItemsEditor items={sub.items} at={`s${i}.u${j}`} onChange={(items) => setSub({ items })} onUpload={uploadToDrive} />
                       </div>
                     );
                   })}
@@ -876,18 +951,42 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
               <SectionHeading>Photos</SectionHeading>
               {manual.galleries.length === 0 && (
                 <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
-                  Link a Drive folder of photos under Job files, then choose Add as photos.
+                  Paste a Drive folder of photos below, or choose Add as photos under Job files. Each folder is its own section.
                 </p>
               )}
               {manual.galleries.map((g, i) => (
                 <GalleryEditor
                   key={g.folderId}
                   gallery={g}
+                  at={`g${i}`}
                   onChange={(next) => edit((m) => ({ ...m, galleries: m.galleries.map((x, k) => (k === i ? next : x)) }))}
+                  onMove={{
+                    up: i > 0 ? () => edit((m) => ({ ...m, galleries: move(m.galleries, i, -1) })) : undefined,
+                    down: i < manual.galleries.length - 1 ? () => edit((m) => ({ ...m, galleries: move(m.galleries, i, 1) })) : undefined,
+                  }}
                   onRemove={() => edit((m) => ({ ...m, galleries: m.galleries.filter((_, k) => k !== i) }))}
                   onError={setError}
                 />
               ))}
+              {/* More than one photo section (owner, 2026-11-02): one per Drive folder. */}
+              <form
+                className="flex items-center gap-1.5"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void addFolder();
+                }}
+              >
+                <QuietInput
+                  aria-label="Photo folder link"
+                  placeholder="Google Drive folder link"
+                  value={folderLink}
+                  onChange={(e) => setFolderLink(e.target.value)}
+                  className="min-w-0 flex-1"
+                />
+                <Button size="xs" variant="ghost" type="submit" disabled={addingFolder || !folderLink.trim()}>
+                  {addingFolder ? "Reading…" : "+ Photo folder"}
+                </Button>
+              </form>
             </section>
 
             <section className="space-y-2">
@@ -898,7 +997,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                     const set = (patch: Partial<typeof l>) =>
                       edit((m) => ({ ...m, links: m.links.map((x, k) => (k === i ? { ...x, ...patch } : x)) }));
                     return (
-                      <div key={i} className="flex items-start gap-2 p-2">
+                      <div key={i} data-edit={`l${i}`} className="flex items-start gap-2 p-2">
                         <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
                           <QuietInput aria-label="Link text" placeholder={l.pdf ? "Text (e.g. Dishwasher manual)" : "Text (e.g. Pre-cover photos)"} value={l.text} onChange={(e) => set({ text: e.target.value })} />
                           <QuietInput
@@ -947,11 +1046,23 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
 
           <div className="min-w-0 space-y-3 lg:sticky lg:top-4 lg:self-start">
             <SectionHeading>Preview</SectionHeading>
-            {/* The block as Squarespace will render it, in a page's default type. */}
+            {/* The block as Squarespace will render it, in a page's default type.
+                Click a part to jump to its field (owner, 2026-11-02). The frame
+                runs no script; same-origin only lets this page hear the click. */}
             <iframe
               title="House manual preview"
-              sandbox=""
-              srcDoc={`<!doctype html><meta charset="utf-8"><body style="margin:24px;font:16px/1.6 Helvetica,Arial,sans-serif;color:#111;background:#fff">${html}</body>`}
+              sandbox="allow-same-origin"
+              srcDoc={`<!doctype html><meta charset="utf-8"><style>[data-at]{cursor:pointer}[data-at]:hover{background:#f4f1ea}</style><body style="margin:24px;font:16px/1.6 Helvetica,Arial,sans-serif;color:#111;background:#fff">${previewHtml}</body>`}
+              onLoad={(e) => {
+                e.currentTarget.contentDocument?.addEventListener("click", (ev) => {
+                  const t = ev.target as Element | null;
+                  const el = t?.closest?.("[data-at]");
+                  if (!el) return;
+                  // A summary still opens its section; a link no longer navigates.
+                  if (!t?.closest("summary")) ev.preventDefault();
+                  jumpTo(el.getAttribute("data-at") ?? "");
+                });
+              }}
               className="h-[70vh] w-full rounded-lg border border-line bg-white"
             />
             {published && (

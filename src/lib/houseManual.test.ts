@@ -216,3 +216,34 @@ describe("item PDFs", () => {
     expect(manualHtml(m)).not.toContain('class="am-pdf"');
   });
 });
+
+describe("preview marks", () => {
+  const m = asManual({
+    title: "T",
+    sections: [
+      {
+        title: "Kitchen",
+        // The blank first item is skipped, so the second keeps its own index.
+        items: [{ label: "", value: "" }, { label: "Sink", value: "Kohler" }],
+        subsections: [{ title: "Pantry", items: [{ label: "Shelf", value: "Oak" }] }],
+      },
+    ],
+    galleries: [],
+    links: [{ text: "Site", url: "https://example.com" }],
+  })!;
+
+  it("marks each part with its editor key, item indexes unshifted by skipped rows", () => {
+    const html = manualHtml(m, undefined, { marks: true });
+    expect(html).toContain('<h2 style="');
+    expect(html).toContain('data-at="title"');
+    expect(html).toContain('<summary data-at="s0">Kitchen');
+    expect(html).toContain('<dt data-at="s0.i1">Sink</dt><dd data-at="s0.i1~value">');
+    expect(html).toContain('data-at="s0.u0">Pantry');
+    expect(html).toContain('<dt data-at="s0.u0.i0">Shelf');
+    expect(html).toContain('<span data-at="l0">');
+  });
+
+  it("leaves the published block unmarked", () => {
+    expect(manualHtml(m)).not.toContain("data-at");
+  });
+});

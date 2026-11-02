@@ -349,9 +349,17 @@ const CSS = `
 
 const dl = (rows: string[]) => (rows.length ? `<dl>${rows.join("")}</dl>` : "");
 
-function details(title: string, body: string): string {
-  return body ? `<details><summary>${esc(title)}</summary>${body}</details>` : "";
+function details(title: string, body: string, attr = ""): string {
+  return body ? `<details><summary${attr}>${esc(title)}</summary>${body}</details>` : "";
 }
+
+/**
+ * The builder's preview marks each part with the editor field it came from
+ * (`data-at`), so a click in the preview jumps to that field. `null` for the
+ * published block and the copied HTML, which carry no marks.
+ */
+type Mark = ((key: string) => string) | null;
+const marker = (on?: boolean): Mark => (on ? (key) => ` data-at="${esc(key)}"` : null);
 
 /** An item's PDF, beside its selection — only once the page has a token. */
 function itemPdf(i: ManualItem, host?: ManualHost): string {
@@ -359,10 +367,15 @@ function itemPdf(i: ManualItem, host?: ManualHost): string {
   return id && host ? ` <a class="am-pdf" href="${esc(host.origin + pdfPath(host.token, id))}" target="_blank" rel="noopener">PDF</a>` : "";
 }
 
-const itemRows = (items: ManualItem[], host?: ManualHost) =>
+/** `at` is the items' editor key prefix, e.g. "s0" or "s0.u1". */
+const itemRows = (items: ManualItem[], host: ManualHost | undefined, mark: Mark, at: string) =>
   items
-    .filter((i) => i.label.trim() || i.value.trim())
-    .map((i) => `<dt>${esc(i.label)}</dt><dd>${link(i.value, i.url)}${itemPdf(i, host)}</dd>`);
+    .map((i, j) => ({ i, k: `${at}.i${j}` }))
+    .filter(({ i }) => i.label.trim() || i.value.trim())
+    .map(
+      ({ i, k }) =>
+        `<dt${mark?.(k) ?? ""}>${esc(i.label)}</dt><dd${mark?.(`${k}~value`) ?? ""}>${link(i.value, i.url)}${itemPdf(i, host)}</dd>`,
+    );
 
 /**
  * The title's inline style. Every value has already been through `asManual`,
@@ -385,52 +398,60 @@ export function titleCss(t: TitleStyle): string {
   return css.filter(Boolean).join(";");
 }
 
-/** The manual as one paste-ready HTML block (scoped styles + content). */
-export function manualHtml(m: HouseManual, host?: ManualHost): string {
+/** The manual as one paste-ready HTML block (scoped styles + content).
+ *  `opts.marks` is for the builder's preview only — see `Mark`. */
+export function manualHtml(m: HouseManual, host?: ManualHost, opts: { marks?: boolean } = {}): string {
+  const mark = marker(opts.marks);
+  const at = (key: string) => mark?.(key) ?? "";
   const contacts = m.contacts
-    .filter((c) => c.name.trim())
-    .map((c) => {
+    .map((c, i) => ({ c, k: `c${i}` }))
+    .filter(({ c }) => c.name.trim())
+    .map(({ c, k }) => {
       const lines = [link(c.name, c.url)];
       if (c.phone.trim()) lines.push(`<a href="${esc(telHref(c.phone))}">${esc(c.phone)}</a>`);
       if (c.email.trim()) lines.push(`<a href="mailto:${esc(c.email.trim())}">${esc(c.email)}</a>`);
-      return `<dt>${esc(c.trade)}</dt><dd>${lines.map((l) => `<span>${l}</span>`).join("")}</dd>`;
+      return `<dt${at(k)}>${esc(c.trade)}</dt><dd${at(k)}>${lines.map((l) => `<span>${l}</span>`).join("")}</dd>`;
     });
-  const sections = m.sections.map((s) =>
+  const sections = m.sections.map((s, i) =>
     details(
       s.title,
-      dl(itemRows(s.items, host)) +
+      dl(itemRows(s.items, host, mark, `s${i}`)) +
         s.subsections
-          .map((sub) => {
-            const rows = itemRows(sub.items, host);
-            return rows.length ? `<h4 class="am-sub">${esc(sub.title)}</h4>${dl(rows)}` : "";
+          .map((sub, k) => {
+            const rows = itemRows(sub.items, host, mark, `s${i}.u${k}`);
+            return rows.length ? `<h4 class="am-sub"${at(`s${i}.u${k}`)}>${esc(sub.title)}</h4>${dl(rows)}` : "";
           })
           .join(""),
+      at(`s${i}`),
     ),
   );
   // Only shared photos: an unshared one is a broken image to every visitor.
-  const galleries = m.galleries.map((g) => {
+  const galleries = m.galleries.map((g, i) => {
     const imgs = g.photos
       .filter((p) => p.shared)
       .map(
         (p) =>
           `<a href="${esc(photoUrl(p.id, 2400))}" target="_blank" rel="noopener"><img src="${esc(photoUrl(p.id, 800))}" alt="${esc(p.name.replace(/\.\w+$/, ""))}" loading="lazy"></a>`,
       );
-    return details(g.title || "Photos", imgs.length ? `<div class="am-photos">${imgs.join("")}</div>` : "");
+    return details(g.title || "Photos", imgs.length ? `<div class="am-photos">${imgs.join("")}</div>` : "", at(`g${i}`));
   });
   const links = m.links
-    .map((l) => {
-      if (!l.pdf) return l.text.trim() && safeUrl(l.url) ? link(l.text, l.url) : "";
-      const id = driveIdFromLink(l.url);
-      if (!l.text.trim() || !id) return "";
-      return host ? link(l.text, host.origin + pdfPath(host.token, id)) : escLines(l.text);
+    .map((l, i) => {
+      const html = (() => {
+        if (!l.pdf) return l.text.trim() && safeUrl(l.url) ? link(l.text, l.url) : "";
+        const id = driveIdFromLink(l.url);
+        if (!l.text.trim() || !id) return "";
+        return host ? link(l.text, host.origin + pdfPath(host.token, id)) : escLines(l.text);
+      })();
+      return html && mark ? `<span${at(`l${i}`)}>${html}</span>` : html;
     })
     .filter(Boolean);
   return [
     `<style>${CSS}</style>`,
     `<div class="am">`,
-    m.title.trim() && `<h2 style="${esc(titleCss(m.titleStyle))}">${escLines(m.title)}</h2>`,
-    m.intro.trim() && `<p class="am-intro">${esc(m.intro)}</p>`,
-    details("Contacts", dl(contacts)),
+    m.title.trim() && `<h2 style="${esc(titleCss(m.titleStyle))}"${at("title")}>${escLines(m.title)}</h2>`,
+    m.intro.trim() && `<p class="am-intro"${at("intro")}>${esc(m.intro)}</p>`,
+    details("Contacts", dl(contacts), at("contacts")),
     ...sections,
     ...galleries,
     links.length > 0 && `<p class="am-links">${links.join("")}</p>`,
