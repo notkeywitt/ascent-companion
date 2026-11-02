@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:38:03Z",
+  "generatedAt": "2026-11-02T18:38:39Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:38:02Z",
+      "updated": "2026-11-02T18:38:39Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1096,6 +1096,13 @@
           "sha": "637890b",
           "subject": "companion: mark the jobs dash's picked job more clearly, and reorder house manual contacts",
           "files": "src/app/house-manual/HouseManual.tsx, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:38",
+          "sha": "30182db",
+          "subject": "companion: fix the picked job's accent bar colour",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
