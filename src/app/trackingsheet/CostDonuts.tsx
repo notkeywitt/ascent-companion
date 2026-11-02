@@ -285,10 +285,18 @@ export function CostDonuts({
   // so hiding the block on a quiet month would strand the switch.
   if (!hasCost(month) && !hasCost(jobToDate)) return null;
 
-  const scopeLabel = scope === "month" ? monthLabel : "job to date";
+  const headless = scopeSlot !== undefined;
+  // The Jobs page names the scopes plainly; its month picker already says which
+  // month (owner, 2026-11-02).
+  const scopeLabel = headless
+    ? scope === "month"
+      ? "This Month"
+      : "All Time"
+    : scope === "month"
+      ? monthLabel
+      : "job to date";
   const emptySuffix = scope === "month" ? "this month" : "yet";
 
-  const headless = scopeSlot !== undefined;
   // The scope switch, in the shape the rail's headroom flip already uses on
   // this page: the caption says which scope you are in, and tapping it swaps.
   // Hidden while the block is folded on a phone — a switch for charts you

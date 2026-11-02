@@ -313,8 +313,8 @@ export function JobsHub() {
               </Card>
             )}
             <div className="absolute right-4 top-3 z-10 flex flex-col items-end gap-1">
-              {monthSelect}
               {selected && tab === "sheet" && <div ref={setScopeSlot} />}
+              {monthSelect}
             </div>
             {/* The job's views, in the card's bottom right corner. */}
             {selected && <div className="absolute bottom-3 right-4 z-10">{tabs}</div>}
