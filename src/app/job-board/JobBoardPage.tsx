@@ -104,10 +104,11 @@ export function JobCard({
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
           {/* The name opens the job's own pages (record, cost, specs …) through
-              the job tab row (stage 4); JobTread is the ↗ beside it. */}
+              the job tab row (stage 4); the number and JobTread's ↗ sit right
+              beside it (owner, 2026-11-02). */}
           <Link
             href={`/job-board/${encodeURIComponent(c.id)}`}
-            className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
+            className="min-w-0 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
           >
             {c.name}
           </Link>

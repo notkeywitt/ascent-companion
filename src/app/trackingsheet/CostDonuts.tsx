@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Donut, type DonutDetailRow, type DonutSlice } from "@/components/Donut";
 import { SectionLabel } from "@/components/ui";
 import { SALES_TAX_CSI } from "@/lib/salesTax";
@@ -165,8 +166,12 @@ export function CostDonuts({
   onSelectLabor,
   selectedLaborKey = null,
   ringSize = 120,
+  scopeSlot,
   className = "",
 }: {
+  /** The Jobs page: draw the scope switch here, under its month picker, and
+   *  drop the heading — the card already says what it is (owner, 2026-11-02). */
+  scopeSlot?: HTMLElement | null;
   /** Each ring's diameter, px. The Jobs page's job card draws them larger. */
   ringSize?: number;
   /** The selected month's cost by code — the scope the rings open on. */
@@ -217,7 +222,9 @@ export function CostDonuts({
   // Folded on a phone, exactly as the budget rail beside it is, and for the
   // same reason: two rings and their legends are a screenful, and the bill list
   // under them is the work. Always open from lg, where the column has the room.
-  const [collapsed, setCollapsed] = useState(true);
+  const [foldedByHand, setCollapsed] = useState(true);
+  // Headless on the Jobs page, so there is no heading to unfold it with.
+  const collapsed = foldedByHand && scopeSlot === undefined;
   const [scope, setScope] = useState<"month" | "job">("month");
 
   const rows = useMemo(
@@ -281,12 +288,39 @@ export function CostDonuts({
   const scopeLabel = scope === "month" ? monthLabel : "job to date";
   const emptySuffix = scope === "month" ? "this month" : "yet";
 
+  const headless = scopeSlot !== undefined;
+  // The scope switch, in the shape the rail's headroom flip already uses on
+  // this page: the caption says which scope you are in, and tapping it swaps.
+  // Hidden while the block is folded on a phone — a switch for charts you
+  // cannot see is a trap.
+  const scopeSwitch = (
+    <button
+      type="button"
+      onClick={() => setScope((s) => (s === "month" ? "job" : "month"))}
+      title={
+        scope === "month"
+          ? "Showing the selected month — tap for the whole job"
+          : "Showing the whole job — tap for the selected month"
+      }
+      className={`-my-2 -mr-1 inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:my-0 lg:mr-0 lg:min-h-0 lg:px-0 ${
+        collapsed ? "hidden lg:inline-flex" : ""
+      }`}
+    >
+      {scopeLabel}
+      <span aria-hidden className="text-[9px]">
+        ⇅
+      </span>
+    </button>
+  );
+
   return (
     <section className={className}>
+      {headless && scopeSlot && createPortal(scopeSwitch, scopeSlot)}
       {/* The rail's heading gesture, repeated: the ochre dash plus the label,
           and the label itself is the tap. The hit area overhangs the row
           (`-my-2`) so a 44px target does not stand this heading taller than
           every other one on the page. */}
+      {!headless && (
       <div
         className={`flex items-baseline justify-between gap-2 lg:mb-2 ${collapsed ? "mb-0" : "mb-2"}`}
       >
@@ -299,28 +333,9 @@ export function CostDonuts({
           <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
           <SectionLabel>Cost by cost code</SectionLabel>
         </button>
-        {/* The scope switch, in the shape the rail's headroom flip already uses
-            on this page: the caption says which scope you are in, and tapping
-            it swaps. Hidden while the block is folded on a phone — a switch for
-            charts you cannot see is a trap. */}
-        <button
-          type="button"
-          onClick={() => setScope((s) => (s === "month" ? "job" : "month"))}
-          title={
-            scope === "month"
-              ? "Showing the selected month — tap for the whole job"
-              : "Showing the whole job — tap for the selected month"
-          }
-          className={`-my-2 -mr-1 inline-flex min-h-11 shrink-0 items-center gap-1 px-1 text-[11px] text-neutral-500 transition hover:text-accent dark:text-neutral-400 lg:my-0 lg:mr-0 lg:min-h-0 lg:px-0 ${
-            collapsed ? "hidden lg:inline-flex" : ""
-          }`}
-        >
-          {scopeLabel}
-          <span aria-hidden className="text-[9px]">
-            ⇅
-          </span>
-        </button>
+        {scopeSwitch}
       </div>
+      )}
 
       <div
         className={`mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 ${collapsed ? "hidden lg:grid" : ""}`}

@@ -86,6 +86,8 @@ export function JobsHub() {
   /** Where the Tracking sheet draws its to-be-invoiced figure and rings: the
    *  job card, beside the map (owner, 2026-11-01). */
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
+  /** …and the rings' month / job-to-date switch, under the month picker. */
+  const [scopeSlot, setScopeSlot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,7 +310,10 @@ export function JobsHub() {
                 </div>
               </Card>
             )}
-            <div className="absolute right-4 top-3 z-10">{monthSelect}</div>
+            <div className="absolute right-4 top-3 z-10 flex flex-col items-end gap-1">
+              {monthSelect}
+              {selected && tab === "sheet" && <div ref={setScopeSlot} />}
+            </div>
             {/* The job's views, in the card's bottom right corner. */}
             {selected && <div className="absolute bottom-3 right-4 z-10">{tabs}</div>}
           </div>
@@ -338,7 +343,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot }} />
             </Suspense>
           )
         ) : tab === "plans" ? (

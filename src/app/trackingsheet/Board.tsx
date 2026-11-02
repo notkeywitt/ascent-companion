@@ -356,6 +356,9 @@ export interface BoardEmbed {
   /** Where to draw the to-be-invoiced figure and the rings instead of at the
    *  head of the bills column (the Jobs page's job card). */
   summarySlot?: HTMLElement | null;
+  /** Where the rings' month / job-to-date switch goes (under the Jobs page's
+   *  month picker). */
+  scopeSlot?: HTMLElement | null;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -1978,8 +1981,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         className="mb-4 hidden lg:block"
         label={c("recode.statement.toBeInvoiced")}
         value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
+        // The Jobs page shows the figure alone (owner, 2026-11-02).
         sub={
-          recon
+          embed?.summarySlot
+            ? undefined
+            : recon
             ? `${money(recon.remaining)} approved${
                 recon.draftBillCount > 0
                   ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
@@ -2005,6 +2011,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         monthLabel={monthLabel(ym)}
         detail={donutDetail}
         ringSize={embed?.summarySlot ? 120 : undefined}
+        scopeSlot={embed?.summarySlot ? embed.scopeSlot ?? null : undefined}
         // Clicking a slice narrows the list under it. The rings say what
         // the month is made of; this is the way from that answer into the
         // bills behind it.
