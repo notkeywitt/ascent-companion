@@ -2,9 +2,9 @@
 slug: sunset-statement-reconciliation
 repo: ascent-companion
 branch: claude/sunset-statement-reconciliation-r91e9j
-status: in-progress
+status: shipped
 started: 2026-11-02T22:03:35Z
-updated: 2026-11-02T22:03:35Z
+updated: 2026-11-02T22:03:44Z
 goal: 
 next: after the appscript deploy, link a moved bill on /payments and confirm both statements go green
 ---
