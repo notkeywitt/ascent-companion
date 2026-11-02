@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:08:25Z",
+  "generatedAt": "2026-11-02T18:12:56Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:08:25Z",
+      "updated": "2026-11-02T18:12:55Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1040,6 +1040,13 @@
           "sha": "cde4e01",
           "subject": "companion: list the job's bills and time from all time when the jobs dash rings are on all time",
           "files": "src/app/trackingsheet/AllTimeLists.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/useCodeDrill.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:12",
+          "sha": "4e5642e",
+          "subject": "companion: hold the jobs dash idle card to the list's height, with tabs to home's leads and active jobs",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
