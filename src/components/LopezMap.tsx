@@ -29,7 +29,12 @@ export function LopezMap({
   className = "",
   legend = true,
   pad = 30,
+  color,
+  label = "Map of Lopez Island with job locations",
 }: {
+  /** One colour for every dot, in place of the phase colours. */
+  color?: string;
+  label?: string;
   /** Room around the island, in map units. The Jobs page draws it tighter. */
   pad?: number;
   jobs: MapJob[];
@@ -54,7 +59,7 @@ export function LopezMap({
         viewBox={`${-pad} ${-pad} ${MAP_W + 2 * pad} ${MAP_H + 2 * pad}`}
         className="h-auto w-full"
         role="img"
-        aria-label="Map of Lopez Island with job locations"
+        aria-label={label}
       >
         <path
           d={LOPEZ_COAST}
@@ -82,29 +87,52 @@ export function LopezMap({
             strokeWidth={2}
           />
         )}
-        {places.map((p) => (
-          <circle
-            key={p.key}
-            cx={p.x}
-            cy={p.y}
-            r={11}
-            fill={phaseColor(p.phase)}
-            className={`stroke-white dark:stroke-ink-raised ${onSelect ? "cursor-pointer" : ""}`}
-            strokeWidth={3}
-            tabIndex={onSelect ? 0 : undefined}
-            role={onSelect ? "button" : undefined}
-            aria-label={p.jobs.map((j) => j.name).join(", ")}
-            onClick={() => onSelect?.(p.jobs[0].id)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                onSelect?.(p.jobs[0].id);
-              }
-            }}
-          >
-            <title>{p.jobs.map((j) => `${j.name}${j.phase ? ` — ${j.phase}` : ""}`).join("\n")}</title>
-          </circle>
-        ))}
+        {places.map((p) => {
+          const counted = p.jobs.some((j) => j.count != null);
+          const n = p.jobs.reduce((sum, j) => sum + (j.count ?? 0), 0);
+          const title = p.jobs
+            .map((j) => `${j.name}${j.phase ? ` — ${j.phase}` : ""}${j.count != null ? ` — ${j.count}` : ""}`)
+            .join("\n");
+          return (
+            <g key={p.key}>
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={counted ? 17 : 11}
+                fill={color ?? phaseColor(p.phase)}
+                className={`stroke-white dark:stroke-ink-raised ${onSelect ? "cursor-pointer" : ""}`}
+                strokeWidth={3}
+                tabIndex={onSelect ? 0 : undefined}
+                role={onSelect ? "button" : undefined}
+                aria-label={p.jobs.map((j) => j.name).join(", ")}
+                onClick={() => onSelect?.(p.jobs[0].id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelect?.(p.jobs[0].id);
+                  }
+                }}
+              >
+                <title>{title}</title>
+              </circle>
+              {counted && (
+                <text
+                  x={p.x}
+                  y={p.y}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  fontSize={16}
+                  fontWeight={600}
+                  fill="white"
+                  pointerEvents="none"
+                  aria-hidden
+                >
+                  {n}
+                </text>
+              )}
+            </g>
+          );
+        })}
       </svg>
       <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
         {legend && shownPhases.map((p) => (

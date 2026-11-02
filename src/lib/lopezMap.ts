@@ -58,6 +58,8 @@ export interface MapJob {
   phase?: string | null;
   lat?: number | null;
   lng?: number | null;
+  /** A number to print in the dot, summed per place (the Tools page: tools there). */
+  count?: number;
 }
 
 export interface MapPlace {

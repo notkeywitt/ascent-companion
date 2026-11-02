@@ -3,7 +3,9 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { LopezMap } from "@/components/LopezMap";
 import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
+import type { MapJob } from "@/lib/lopezMap";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
 // "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
@@ -512,6 +514,32 @@ export default function ToolsPage() {
     });
   }, [tools, q, conditionFilter, jobFilter]);
 
+  // The desktop map: one dot per job site, numbered with the tools there. It
+  // follows the search and condition filter but not the job filter, so every
+  // site stays clickable while one is picked.
+  const mapSites = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const counts = new Map<string, number>();
+    let unassigned = 0;
+    tools.forEach((t) => {
+      if (conditionFilter !== "All" && t.condition !== conditionFilter) return;
+      if (
+        needle &&
+        !`${t.id} ${t.name} ${t.type} ${t.toolGroup} ${t.serial} ${t.locationLabel}`
+          .toLowerCase()
+          .includes(needle)
+      )
+        return;
+      if (t.location) counts.set(t.location, (counts.get(t.location) ?? 0) + 1);
+      else unassigned++;
+    });
+    const sites: MapJob[] = Array.from(counts, ([id, count]) => {
+      const p = projects.find((x) => x.id === id);
+      return { id, name: p?.label || id, lat: p?.lat, lng: p?.lng, count };
+    });
+    return { sites, unassigned };
+  }, [tools, projects, q, conditionFilter]);
+
   // Group the filtered tools by ToolType, sorted; tools within a group by name.
   const groups = useMemo(() => {
     const m = new Map<string, Tool[]>();
@@ -931,7 +959,7 @@ export default function ToolsPage() {
   }
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6 xl:max-w-6xl">
       <PageHeader
         title="Tools"
         description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
@@ -996,7 +1024,8 @@ export default function ToolsPage() {
       {loading && <Loading label="Loading tools…" />}
 
       {!loading && !loadErr && (
-        <>
+        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start xl:gap-6">
+          <div className="min-w-0">
           <div className="mb-2 text-xs text-neutral-500">
             {view.length} of {tools.length} tools
             {refreshing && " · refreshing…"}
@@ -1057,7 +1086,27 @@ export default function ToolsPage() {
               </section>
             ))}
           </div>
-        </>
+          </div>
+
+          {/* Desktop only: the Lopez map of where the tools are. A dot picks
+              that job site in the filter; picking it again clears it. */}
+          <aside className="sticky top-6 hidden rounded-xl border border-line bg-white p-3 xl:block dark:bg-ink-raised">
+            <LopezMap
+              jobs={mapSites.sites}
+              selectedId={jobFilter}
+              onSelect={(id) => setJobFilter((cur) => (cur === id ? "All" : id))}
+              legend={false}
+              pad={12}
+              color="var(--viz-1)"
+              label="Map of Lopez Island with tool locations"
+            />
+            {mapSites.unassigned > 0 && (
+              <p className="mt-1 text-xs text-neutral-500">
+                {mapSites.unassigned} unassigned {mapSites.unassigned === 1 ? "tool" : "tools"}
+              </p>
+            )}
+          </aside>
+        </div>
       )}
 
       {/* Scan camera overlay */}
