@@ -7,6 +7,7 @@ import { Banner, Card, SectionHeading, Skeleton } from "@/components/ui";
 import { Donut } from "@/components/Donut";
 import { WORKING_PHASES, type JobRef } from "@/components/JobPicker";
 import type { MonthJobCost } from "@/lib/monthCostByJob";
+import { WARRANTY_CSI, WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { buildColorMap, buildSlices, withoutSalesTax } from "./CostDonuts";
 import { money0 } from "./BillCodingCard";
 import { JobMonthActions, type MonthActions } from "./JobMonthActions";
@@ -104,6 +105,25 @@ export function monthJobRows(jobs: MonthJobCost[]) {
 }
 
 /**
+ * The month's warranty work, every job together. `monthJobRows` leaves it out
+ * of each job; an all-jobs total adds it back as one slice of its own, keyed
+ * WARRANTY_SLICE_KEY. Null when the month has none.
+ */
+export function monthWarrantyRow(jobs: MonthJobCost[]) {
+  let bills = 0;
+  let labor = 0;
+  for (const j of jobs) {
+    for (const r of j.rows) {
+      if (r.code !== WARRANTY_CSI) continue;
+      bills += r.bills;
+      labor += r.labor;
+    }
+  }
+  if (bills <= 0 && labor <= 0) return null;
+  return { key: WARRANTY_SLICE_KEY, label: "Warranty Work", bills, labor, color: "var(--viz-other)" };
+}
+
+/**
  * Every job's month added together: one Bills ring and one Labor ring, one
  * slice per JOB, labelled "Customer - Job" (the job name alone without a
  * customer). Each job's figures are its card's own (sales tax out of bills).
@@ -119,9 +139,13 @@ export function monthJobRows(jobs: MonthJobCost[]) {
  */
 export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string }) {
   const router = useRouter();
-  const openJob = (jobId: string) =>
+  const openJob = (jobId: string) => {
+    if (jobId === WARRANTY_SLICE_KEY) return; // warranty is no one job
     router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`);
-  const rows = monthJobRows(jobs);
+  };
+  // Every job's own figures, plus the month's warranty work as its own slice.
+  const warranty = monthWarrantyRow(jobs);
+  const rows = warranty ? [...monthJobRows(jobs), warranty] : monthJobRows(jobs);
   const bills = rows.reduce((n, r) => n + r.bills, 0);
   const labor = rows.reduce((n, r) => n + r.labor, 0);
   const slices = (field: "bills" | "labor") =>
@@ -195,7 +219,8 @@ function JobCard({
   actions: MonthActions;
 }) {
   const rows = withoutSalesTax(j.rows);
-  // Off the same rows as the rings, so the total leaves out 88 80 00 too.
+  // Off the same rows as the rings, so the total leaves out 88 80 00 and
+  // 88 90 00 too.
   const total = rows.reduce((n, r) => n + r.bills + r.labor, 0);
   const colorMap = buildColorMap(rows);
   return (

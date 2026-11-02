@@ -55,6 +55,8 @@ interface AllBill {
   invoiced: boolean;
   /** The bill's 88 80 00 sales-tax line — inside `cost`, out of TO BE INVOICED. */
   tax: number;
+  /** The bill's 88 90 00 warranty-work lines — inside `cost`, out of TO BE INVOICED. */
+  warranty?: number;
   /** On any non-denied customer invoice, draft included, and whether this
    *  bill's job has an invoice for the month at all — the stripe's two inputs
    *  (billInvoiceState). */
@@ -197,7 +199,7 @@ export function AllBills({ ym }: { ym: string }) {
     () =>
       shown
         .filter((b) => !b.invoiced && b.status !== "draft")
-        .reduce((s, b) => s + b.cost - (b.tax ?? 0), 0),
+        .reduce((s, b) => s + b.cost - (b.tax ?? 0) - (b.warranty ?? 0), 0),
     [shown],
   );
   const monthLabel = billingMonths(15).find((o) => o.value === ym)?.label ?? ym;

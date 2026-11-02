@@ -19,7 +19,8 @@ import { CustomerPopup } from "@/app/clients/CustomerPopup";
 import { BudgetImport } from "@/app/budget-import/BudgetImport";
 import { Specs } from "@/app/specs/Specs";
 import { HouseManualPage } from "@/app/house-manual/HouseManual";
-import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
+import { monthJobRows, monthWarrantyRow, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
+import { WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { billingMonths } from "@/lib/billingMonths";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import type { MapJob } from "@/lib/lopezMap";
@@ -155,7 +156,7 @@ export function JobsHub() {
   );
   const { jobs: monthJobs } = useMonthJobs(ym);
 
-  // Each client job's month: bills and labor, sales tax out.
+  // Each client job's month: bills and labor, sales tax and warranty out.
   const ranked = useMemo(
     () =>
       monthJobs
@@ -164,6 +165,13 @@ export function JobsHub() {
     [monthJobs],
   );
   const byJob = useMemo(() => new Map((ranked ?? []).map((r) => [r.key, r])), [ranked]);
+  // The all-jobs rings: every client job, plus the month's warranty work on
+  // those jobs as one grey slice — in the month's total, on no job.
+  const ringItems = useMemo(() => {
+    if (!ranked || !monthJobs) return ranked;
+    const w = monthWarrantyRow(monthJobs.filter((j) => !isAscentOwn(j.customerName)));
+    return w ? [...ranked, { ...w, laborColor: w.color }] : ranked;
+  }, [ranked, monthJobs]);
   // The list: every working client job, and any other with cost this month.
   const listed = useMemo(
     () =>
@@ -337,9 +345,13 @@ export function JobsHub() {
                     <HomeLeadBoard storeAs="jobs-hub" />
                   ) : idleView === "jobs" ? (
                     <HomeJobBoard />
-                  ) : ranked ? (
+                  ) : ringItems ? (
                     <div className="flex flex-col gap-3">
-                      <MonthRings items={ranked} onSelect={pick} onHover={setHoverId} />
+                      <MonthRings
+                        items={ringItems}
+                        onSelect={(id) => id !== WARRANTY_SLICE_KEY && pick(id)}
+                        onHover={(id) => setHoverId(id === WARRANTY_SLICE_KEY ? null : id)}
+                      />
                     </div>
                   ) : (
                     <Skeleton className="h-48 w-full rounded-xl" />

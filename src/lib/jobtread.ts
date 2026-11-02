@@ -12,6 +12,7 @@
 
 import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
+import { WARRANTY_CSI } from "@/lib/warranty";
 import { splitAddresses } from "@/lib/vendorMail";
 import type { UntaxedLine } from "@/lib/taxableLines";
 import type { JobVendor, JtSpec } from "@/lib/houseManual";
@@ -1382,11 +1383,37 @@ export async function getSalesTaxByDoc(
   month: number,
   jobId?: string,
 ): Promise<Map<string, number>> {
+  return codeCostByDoc(cfg, SALES_TAX_CSI, year, month, jobId);
+}
+
+/**
+ * Each vendor bill's warranty-work (88 90 00) lines, summed per document id —
+ * the same read as getSalesTaxByDoc, for the same reason: warranty is Ascent's
+ * cost, never billed to the client, so every "to be invoiced" figure nets it
+ * out (src/lib/warranty.ts).
+ */
+export async function getWarrantyByDoc(
+  cfg: PaveConfig,
+  year: number,
+  month: number,
+  jobId?: string,
+): Promise<Map<string, number>> {
+  return codeCostByDoc(cfg, WARRANTY_CSI, year, month, jobId);
+}
+
+/** One cost code's vendor-bill lines in a billing month, summed per document. */
+async function codeCostByDoc(
+  cfg: PaveConfig,
+  code: string,
+  year: number,
+  month: number,
+  jobId?: string,
+): Promise<Map<string, number>> {
   const mm = String(month).padStart(2, "0");
   const first = `${year}-${mm}-01`;
   const last = `${year}-${mm}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
   const and: unknown[] = [
-    [["costCode", "number"], "=", SALES_TAX_CSI],
+    [["costCode", "number"], "=", code],
     [["document", "type"], "=", "vendorBill"],
     [["document", "issueDate"], ">=", first],
     [["document", "issueDate"], "<=", last],
@@ -1397,7 +1424,7 @@ export async function getSalesTaxByDoc(
   await pageEach<any>(
     cfg,
     {
-      label: "organization.costItems (sales tax by document)",
+      label: `organization.costItems (${code} by document)`,
       query: (args) => ({
         organization: {
           $: { id: cfg.orgId },
@@ -6301,6 +6328,9 @@ export interface AllJobsBill {
    *  vendor billed), and taken OUT of any "to be invoiced" figure — the client
    *  is never billed the tax Ascent paid. */
   tax: number;
+  /** The bill's 88 90 00 warranty-work lines. Part of `cost`, and out of any
+   *  "to be invoiced" figure the same way — see src/lib/warranty.ts. */
+  warranty: number;
   /** On a customer invoice of ANY status but denied — see `_isOnAnyInvoice`. */
   onInvoice: boolean;
   /** Does an invoice exist for THIS bill's job + month? Derived per job from
@@ -6417,7 +6447,10 @@ export async function getAllBillsForMonth(
   const isInvoiced = _isInvoicedToClient;
   // Each bill's sales-tax line, so a caller can net it out of a "to be
   // invoiced" total (`cost` itself stays what the vendor billed).
-  const taxByDoc = await getSalesTaxByDoc(cfg, year, month);
+  const [taxByDoc, warrantyByDoc] = await Promise.all([
+    getSalesTaxByDoc(cfg, year, month),
+    getWarrantyByDoc(cfg, year, month),
+  ]);
   // Which jobs already have an invoice for this month — read off the FULL walk,
   // before includeInvoiced drops the bills that are on it (see the same note in
   // getJobBillsForMonth).
@@ -6439,6 +6472,7 @@ export async function getAllBillsForMonth(
       status: b.status ?? "",
       invoiced,
       tax: taxByDoc.get(b.id) ?? 0,
+      warranty: warrantyByDoc.get(b.id) ?? 0,
       onInvoice: _isOnAnyInvoice(b),
       monthInvoiceExists: jobsWithInvoice.has(job.id),
       amountPaid: typeof b.amountPaid === "number" ? b.amountPaid : 0,
@@ -6552,9 +6586,16 @@ export async function getInvoiceReconciliation(
   //    Every cost here is NET OF SALES TAX: a bill's JobTread cost includes its
   //    88 80 00 line, and that tax is never billed to the client, so counting it
   //    would leave `remaining` permanently short of zero by the month's tax.
-  const taxByDoc = await getSalesTaxByDoc(cfg, year, month, jobId);
+  //    Net of WARRANTY WORK too (88 90 00): Ascent's cost, billed to no client
+  //    (src/lib/warranty.ts). The time walk below skips warranty entries.
+  const [taxByDoc, warrantyByDoc] = await Promise.all([
+    getSalesTaxByDoc(cfg, year, month, jobId),
+    getWarrantyByDoc(cfg, year, month, jobId),
+  ]);
   const netCost = (b: { id: string; cost?: number }) =>
-    Math.round(((b.cost ?? 0) - (taxByDoc.get(b.id) ?? 0)) * 100) / 100;
+    Math.round(
+      ((b.cost ?? 0) - (taxByDoc.get(b.id) ?? 0) - (warrantyByDoc.get(b.id) ?? 0)) * 100,
+    ) / 100;
 
   const monthBills: { cost: number; invIds: string[] }[] = [];
   let draftBillsCost = 0;
@@ -6620,6 +6661,7 @@ export async function getInvoiceReconciliation(
               id: {},
               cost: {},
               startedAt: {},
+              costItem: { costCode: { number: {} } },
               referencedDocuments: { nodes: { id: {}, type: {}, status: {} } },
             },
           },
@@ -6629,7 +6671,9 @@ export async function getInvoiceReconciliation(
     },
     (rows) => {
       for (const t of rows) {
-        if (inMonth(t.startedAt)) monthTime.push({ cost: t.cost ?? 0, invIds: invRefIds(t) });
+        if (!inMonth(t.startedAt)) continue;
+        if (String(t.costItem?.costCode?.number ?? "").trim() === WARRANTY_CSI) continue;
+        monthTime.push({ cost: t.cost ?? 0, invIds: invRefIds(t) });
       }
     },
   );

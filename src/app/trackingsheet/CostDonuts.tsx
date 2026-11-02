@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Donut, type DonutDetailRow, type DonutSlice } from "@/components/Donut";
 import { SectionLabel } from "@/components/ui";
 import { SALES_TAX_CSI } from "@/lib/salesTax";
+import { WARRANTY_CSI } from "@/lib/warranty";
 import { money } from "./BillCodingCard";
 
 /**
@@ -103,11 +104,15 @@ export function buildColorMap(rows: CostDonutRow[]): Map<string, string> {
   return map;
 }
 
-/** The rows with 88 80 00's bill money taken out. Sales tax paid rides on
- *  nearly every bill, so on the Bills ring it is a slice that says nothing
- *  about where the job's money went — and it would claim a colour slot. */
+/** The rows a job's client is billed for. 88 80 00's bill money comes out:
+ *  sales tax paid rides on nearly every bill, so on the Bills ring it is a
+ *  slice that says nothing about where the job's money went — and it would
+ *  claim a colour slot. 88 90 00 comes out whole: warranty work is Ascent's
+ *  cost, not the job's (src/lib/warranty.ts). */
 export function withoutSalesTax(rows: CostDonutRow[]): CostDonutRow[] {
-  return rows.map((r) => (r.code === SALES_TAX_CSI ? { ...r, bills: 0 } : r));
+  return rows
+    .filter((r) => r.code !== WARRANTY_CSI)
+    .map((r) => (r.code === SALES_TAX_CSI ? { ...r, bills: 0 } : r));
 }
 
 /** Slices for one field, folding un-slotted codes into "Other". */
