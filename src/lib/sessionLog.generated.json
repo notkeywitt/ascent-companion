@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T05:33:53Z",
+  "generatedAt": "2026-11-02T05:45:35Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T05:33:53Z",
+      "updated": "2026-11-02T05:45:35Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub new header card (list, middle, map at 380px) and the Plans/Photos tabs on a job with plans (Berger - Bunkhouse).",
+      "next": "Owner: check /jobs-hub without the top picker (list A-Z, no dots, smaller rings above totals). Fix comment typo 'total),.' in JobsHub.tsx twoFamilies doc with the next change.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -850,6 +850,13 @@
           "time": "21:33",
           "sha": "7c0fb9e",
           "subject": "companion: jobs page drops the picker and list dots, rings above totals",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "21:45",
+          "sha": "29ec7ea",
+          "subject": "companion: jobs list card sets the header height, rings and map scale to it",
           "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
