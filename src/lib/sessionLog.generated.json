@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T19:48:31Z",
+  "generatedAt": "2026-11-02T19:58:06Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T19:48:31Z",
+      "updated": "2026-11-02T19:58:06Z",
       "goal": "",
-      "next": "Add a vendor's address in JobTread (account → Locations) and confirm the header search finds it within 30 min.",
+      "next": "On a desktop (xl width), open /payments: confirm the statement PDF loads in the right pane and a warning invoice opens its coding popup; close it and see the reconcile refresh.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1201,6 +1201,20 @@
           "sha": "3f90f52",
           "subject": "companion: mark a vendor's name with a green dot in every bill list when their coi is on file",
           "files": "src/app/api/vendor-coi/route.ts, src/app/bill-search/BillSearch.tsx, src/app/bills/BillsBrowser.tsx, src/app/needs-project/NotInJobTread.tsx, src/app/needs-review/FlaggedBills.tsx, src/app/office/page.tsx, +8 more"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "11:53",
+          "sha": "e679211",
+          "subject": "companion: dock the statement pdf beside sunset statements and code warning invoices in a popup",
+          "files": "src/app/api/sunset-statements/[id]/pdf/route.ts, src/app/payments/page.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "11:58",
+          "sha": "c14d6ee",
+          "subject": "companion: let a house manual line carry several named pdfs, reading the old single pdf in",
+          "files": "src/app/house-manual/HouseManual.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
         }
       ]
     },
