@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T17:30:26Z",
+  "generatedAt": "2026-11-02T17:32:38Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T17:30:26Z",
+      "updated": "2026-11-02T17:32:38Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -956,6 +956,13 @@
           "sha": "21038e3",
           "subject": "companion: tidy the jobs dash card header and rings",
           "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:32",
+          "sha": "d84b074",
+          "subject": "companion: let the tools map fill the right side off its card, and compact the filters",
+          "files": "src/app/tools/page.tsx"
         }
       ]
     },
