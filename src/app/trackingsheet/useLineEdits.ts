@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetState
 import { descriptionForCode, round2, type BillMath, type LineEdit } from "@/lib/billLineMath";
 import { buildCombine, type CombineRequest } from "@/lib/combineLines";
 import type { BillRef, BoardPayload, JobBillLine } from "./Board";
+import { postSplitBill } from "@/lib/splitBillClient";
 
 /**
  * The open bill's LINE actions on the Tracking Sheets board: Apply a code to
@@ -309,6 +310,14 @@ export function useLineEdits({
     }
   };
 
+  /** Split a bill (the coding card's ✂ Split bill) — see /api/split-bill. */
+  const splitBill = async (docId: string, lineIds: string[]) => {
+    setSyncMsg(null);
+    const r = await postSplitBill(docId, lineIds);
+    setSyncMsg({ tone: r.ok ? "success" : "error", text: r.text });
+    if (r.ok) await load({ preserveStaged: true });
+  };
+
   return {
     addLine,
     addLineMsg,
@@ -319,6 +328,7 @@ export function useLineEdits({
     bulkCode,
     buybackId,
     buybackLineById,
+    splitBill,
     canCombine,
     cancelCombine,
     combineCodeSet,

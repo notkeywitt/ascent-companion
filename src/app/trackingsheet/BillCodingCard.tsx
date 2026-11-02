@@ -305,6 +305,10 @@ export interface CodingCardCtl {
   /** Move ONE line to the Shop bill. Returns when that write has settled, so
       the picker below can walk a multi-line selection in order. */
   buybackLineById: (l: CodingLine, name: string, extended: number) => Promise<void>;
+  /** Split the bill: the given lines move to a new draft bill on the same job
+      (/api/split-bill). The host reloads and says what happened. Absent on a
+      host that has not wired it, and then the button does not show. */
+  splitBill?: (docId: string, lineIds: string[]) => Promise<void>;
 
   deletingLineId: string;
   deleteLineById: (id: string, label: string) => void;
@@ -419,6 +423,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     cancelCombine,
     buybackId,
     buybackLineById,
+    splitBill,
     deletingLineId,
     deleteLineById,
     deleteLineMsg,
@@ -518,6 +523,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   const [buybackOpen, setBuybackOpen] = useState(false);
   const [buybackSel, setBuybackSel] = useState<string[]>([]);
   const [buybackRunning, setBuybackRunning] = useState(false);
+  const [splitOpen, setSplitOpen] = useState(false);
+  const [splitSel, setSplitSel] = useState<string[]>([]);
+  const [splitRunning, setSplitRunning] = useState(false);
   // "Buy back the entire bill" reassigns to Ascent - Shop, so the browser needs
   // that job's id. /api/shop-job resolves it the same way buyback itself does
   // (by name, server-side), so the UI never grows a second idea of which job
@@ -642,6 +650,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     setCombineOpen(false);
     setBuybackOpen(false);
     setBuybackSel([]);
+    setSplitOpen(false);
+    setSplitSel([]);
     setCreateFileOpen(false);
     setCreateFileDesc("");
     setCreateFileMsg("");
@@ -691,6 +701,53 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
       {buybackRunning ? "Buying back…" : "→ Buy back"}
     </Button>
   ) : null;
+
+  // SPLIT (owner, 2026-11-02): same gates as buyback — draft, writes on — and a
+  // second line, since a split needs one to stay and one to go.
+  const showSplit = Boolean(bill && math.isDraft && writes && lines.length > 1 && splitBill);
+  /** A ticked line with unsaved coding would move with JobTread's old values. */
+  const splitUnsaved = buybackRows.filter(
+    (r) => splitSel.includes(r.line.id) && (staged.has(r.line.id) || edits[r.line.id] !== undefined),
+  );
+  const splitTotal = buybackRows
+    .filter((r) => splitSel.includes(r.line.id))
+    .reduce((sum, r) => sum + r.extended, 0);
+  const splitBlocked =
+    splitSel.length === 0
+      ? "Tick the lines that go on the new bill."
+      : splitSel.length >= lines.length
+        ? "Leave at least one line on this bill."
+        : combinePending
+          ? "Save or cancel the staged combine first."
+          : splitUnsaved.length > 0
+            ? "Save the coding on the ticked lines first — the split copies what JobTread holds."
+            : "";
+  const splitButton = showSplit ? (
+    <Button
+      variant="outline"
+      size="sm"
+      disabled={splitRunning}
+      onClick={() => {
+        setSplitSel([]);
+        setSplitOpen(true);
+      }}
+      title="Move some lines onto a new draft bill on this job"
+    >
+      {splitRunning ? <Spinner className="mr-1.5" /> : null}
+      {splitRunning ? "Splitting…" : "✂ Split bill"}
+    </Button>
+  ) : null;
+  const runSplit = async () => {
+    if (!bill || !splitBill || splitBlocked || splitRunning) return;
+    setSplitRunning(true);
+    try {
+      await splitBill(bill.id, splitSel);
+    } finally {
+      setSplitRunning(false);
+      setSplitSel([]);
+      setSplitOpen(false);
+    }
+  };
 
   const runBuyback = async () => {
     const picked = buybackRows.filter((r) => buybackSel.includes(r.line.id));
@@ -1576,7 +1633,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               {/* Flag and Buy back stay on the bill: they are what you do to it.
             The needs-review note, Drive, client access and Void are in the
             bill's actions (`billActions` below). */}
-              {(review || buybackButton) && (
+              {(review || buybackButton || splitButton) && (
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3 dark:border-neutral-800">
                   {review && (
                     <Button
@@ -1590,6 +1647,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     </Button>
                   )}
                   {buybackButton}
+                  {splitButton}
                 </div>
               )}
 
@@ -1718,6 +1776,64 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </li>
               ))}
             </ul>
+        </Dialog>
+      )}
+
+      {/* Split — tick the lines that go on the new bill. Nothing writes until
+          the button at the foot. */}
+      {splitOpen && showSplit && (
+        <Dialog
+          label="Split bill"
+          size="sm"
+          busy={splitRunning}
+          onClose={() => setSplitOpen(false)}
+          title="Split this bill"
+          description={
+            <>
+              Ticked lines move to a new draft bill on this job: same vendor, same dates, invoice
+              number with “-2”, and a copy of the PDF. The rest stay here. This writes to JobTread
+              straight away.
+            </>
+          }
+          footer={
+            <>
+              <span className="mr-auto text-[11px] tabular-nums text-neutral-500">
+                {splitBlocked && splitSel.length > 0
+                  ? splitBlocked
+                  : splitSel.length === 0
+                    ? "Nothing selected"
+                    : `${splitSel.length} line${splitSel.length === 1 ? "" : "s"} · ${money(splitTotal)}`}
+              </span>
+              <Button variant="secondary" size="xs" disabled={splitRunning} onClick={() => setSplitOpen(false)}>
+                Cancel
+              </Button>
+              <Button size="xs" disabled={Boolean(splitBlocked) || splitRunning} onClick={() => void runSplit()}>
+                {splitRunning ? <Spinner className="mr-1.5" /> : null}
+                {splitRunning ? "Splitting…" : "Split"}
+              </Button>
+            </>
+          }
+        >
+          <ul className="-mx-1 px-1">
+            {buybackRows.map((r) => (
+              <li key={r.line.id} className="border-t border-line-soft first:border-0 dark:border-neutral-800">
+                <label className="flex cursor-pointer items-start gap-2 py-2">
+                  <Checkbox
+                    checked={splitSel.includes(r.line.id)}
+                    disabled={splitRunning}
+                    onChange={() =>
+                      setSplitSel((sel) =>
+                        sel.includes(r.line.id) ? sel.filter((x) => x !== r.line.id) : [...sel, r.line.id],
+                      )
+                    }
+                    className="mt-0.5"
+                  />
+                  <span className="min-w-0 flex-1 text-xs">{r.name}</span>
+                  <span className="shrink-0 text-xs font-semibold tabular-nums">{money(r.extended)}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
         </Dialog>
       )}
 

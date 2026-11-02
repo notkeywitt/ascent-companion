@@ -40,6 +40,7 @@ import {
 } from "@/lib/codingDraft";
 import { isTaxRecoverable, SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
 import { money } from "@/lib/money";
+import { postSplitBill } from "@/lib/splitBillClient";
 
 interface Line {
   id: string;
@@ -1329,6 +1330,15 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
     buybackLineById: async (l, name, extended) => {
       const real = lineById(l.id);
       if (real) await buybackLineById(real, name, extended);
+    },
+    splitBill: async (id, lineIds) => {
+      setSaveMsg("");
+      const r = await postSplitBill(id, lineIds);
+      setSaveMsg(r.text);
+      if (r.ok) {
+        await loadBill();
+        reloadJtWindow();
+      }
     },
 
     deletingLineId: deletingId,

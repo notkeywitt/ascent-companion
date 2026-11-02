@@ -43,6 +43,7 @@ import {
   saveDraft,
 } from "@/lib/codingDraft";
 import { SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
+import { postSplitBill } from "@/lib/splitBillClient";
 
 /**
  * The two side columns of the needs-coding workbench — the budget rail and the
@@ -1423,6 +1424,12 @@ export function DraftCodingPanel({
     cancelCombine,
     buybackId,
     buybackLineById,
+    splitBill: async (id: string, lineIds: string[]) => {
+      setDeleteLineMsg("");
+      const r = await postSplitBill(id, lineIds);
+      setDeleteLineMsg(r.text);
+      if (r.ok) await reload();
+    },
     deletingLineId,
     deleteLineById,
     deleteLineMsg,
