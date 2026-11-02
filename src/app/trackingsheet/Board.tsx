@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { setUrlParam } from "@/lib/urlParam";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -345,15 +344,14 @@ function useIsBelowXl() {
 }
 
 /**
- * The Jobs page's way in (owner, 2026-11-01): one job and month, and two DOM
- * nodes. The board then draws only its bills column into `billsSlot` and its
- * coding drawer into `codingSlot`, plus its overlays; the URL is not read.
+ * The Jobs page's way in (owner, 2026-11-01): one job and month. The board
+ * draws exactly what /trackingsheet draws for that job and month, less the
+ * Invoicing tabs and the page header (the Jobs page picks the job and month
+ * itself); the job and month come from here, not the URL.
  */
 export interface BoardEmbed {
   jobId: string;
   ym: string;
-  billsSlot: HTMLElement | null;
-  codingSlot: HTMLElement | null;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -1961,8 +1959,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     </>
   );
 
-  // The month's bills column (the CENTRE of the board). A variable so the
-  // Jobs page can place it on its own (`embed`); the board renders it in place.
+  // The month's bills column (the CENTRE of the board).
   const centerCol = (
     <>
     {/* ─────────── CENTRE: the month's bills ─────────── */}
@@ -1994,8 +1991,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           it frames the list under it: the rail answers "is there room in
           06 20 00", these answer "what is this month made of". Folded on
           a phone, open from lg. */}
-      {/* Not in an embed: the Jobs page draws its own rings above. */}
-      {!embed && (
+      {(
       <CostDonuts
         month={costDonutMonthRows}
         jobToDate={costDonutRows}
@@ -2353,7 +2349,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
   // Every overlay — dialogs, the docked commit bar, the narrow-screen labor
   // panel. Fixed-position, so where they sit in the DOM does not move them;
-  // gathered so an embedded board (Jobs page) keeps them.
+  // gathered in one place.
   const overlays = (
     <>
     {billPopup && (
@@ -2657,84 +2653,76 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     </>
   );
 
-  if (embed) {
-    return (
-      <>
-        {embed.billsSlot &&
-          createPortal(
-            <div className="space-y-3">
-              {error && <Banner tone="error">{error}</Banner>}
-              {loading && <Loading label={c("recode.loading.billsAndBudget")} />}
-              {data && !loading && centerCol}
-            </div>,
-            embed.billsSlot,
-          )}
-        {embed.codingSlot && data && !loading && createPortal(codingCol, embed.codingSlot)}
-        {overlays}
-      </>
-    );
-  }
-
+  // Embedded (the Jobs page): the same column, without the page's own frame.
+  const Frame = embed ? "div" : "main";
   return (
-    <main className="flex w-full max-w-2xl flex-col px-4 pad:px-7 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]">
-      <InvoicingTabs ym={ym} />
+    <Frame
+      className={
+        embed
+          ? "flex w-full flex-col pb-[calc(6rem+env(safe-area-inset-bottom))]"
+          : "flex w-full max-w-2xl flex-col px-4 pad:px-7 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 lg:max-w-[110rem]"
+      }
+    >
+      {!embed && <InvoicingTabs ym={ym} />}
       {/* The title IS the picker — this page's subject is one job, so the name
           of the job and the control that changes it are the same thing. The
           address is INSIDE the title slot, not the header's `description`: the
           toolbar wraps below the title on a phone, so a description would print
           the address under the whole toolbar instead of under the job it
           names. */}
-      <PageHeader
-        titleSlot={
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="flex min-w-0 items-center gap-2">
-              <JobPicker
-                variant="title"
-                value={jobId}
-                onChange={onPickJob}
-                fallbackLabel={headerTitle}
-                allLabel="All jobs"
-                allDescription="Every job's month, side by side"
-                showPhaseFilter
-                defaultPhases={WORKING_PHASES}
-                showToBeInvoiced={can("recode")}
-              />
-              {/* The month, in the empty half of the title line — it used to
-                  take a labelled full-width row of its own under the address,
-                  which is a lot of phone for one word and a year. Home's
-                  picker, so the month reads the same on both pages. */}
-              <MonthPicker
-                value={ym}
-                options={billingMonths()}
-                onChange={(next) => {
-                  setYm(next);
-                  setUrlParam("ym", next);
-                }}
-                className="ml-auto min-h-11 shrink-0 lg:hidden"
-              />
+      {!embed && (
+        <PageHeader
+          titleSlot={
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="flex min-w-0 items-center gap-2">
+                <JobPicker
+                  variant="title"
+                  value={jobId}
+                  onChange={onPickJob}
+                  fallbackLabel={headerTitle}
+                  allLabel="All jobs"
+                  allDescription="Every job's month, side by side"
+                  showPhaseFilter
+                  defaultPhases={WORKING_PHASES}
+                  showToBeInvoiced={can("recode")}
+                />
+                {/* The month, in the empty half of the title line — it used to
+                    take a labelled full-width row of its own under the address,
+                    which is a lot of phone for one word and a year. Home's
+                    picker, so the month reads the same on both pages. */}
+                <MonthPicker
+                  value={ym}
+                  options={billingMonths()}
+                  onChange={(next) => {
+                    setYm(next);
+                    setUrlParam("ym", next);
+                  }}
+                  className="ml-auto min-h-11 shrink-0 lg:hidden"
+                />
+              </div>
+              {headerAddress && (
+                <p className="mt-1 truncate text-sm text-neutral-500 dark:text-neutral-400">
+                  {headerAddress}
+                </p>
+              )}
             </div>
-            {headerAddress && (
-              <p className="mt-1 truncate text-sm text-neutral-500 dark:text-neutral-400">
-                {headerAddress}
-              </p>
-            )}
-          </div>
-        }
-        actionsClassName="w-full min-w-0 items-center lg:w-auto"
-        actions={
-          // The toolbar carries the month and nothing else. Revert, Save
-          // Changes and the staged-change count moved to the docked action bar
-          // at the foot of the screen, which is now rendered at EVERY width:
-          // the commit belongs where the coding happens, and the top of the
-          // page is the one place you are not looking after dragging a line.
-          <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
-            {/* The desktop copy of the month. */}
-            <div className="flex w-full min-w-0 flex-col gap-1.5 lg:w-52">
-              {monthSelect("hidden lg:block w-full", "recode-month")}
+          }
+          actionsClassName="w-full min-w-0 items-center lg:w-auto"
+          actions={
+            // The toolbar carries the month and nothing else. Revert, Save
+            // Changes and the staged-change count moved to the docked action bar
+            // at the foot of the screen, which is now rendered at EVERY width:
+            // the commit belongs where the coding happens, and the top of the
+            // page is the one place you are not looking after dragging a line.
+            <div className="flex w-full min-w-0 flex-col gap-3 lg:w-auto lg:flex-row lg:flex-wrap lg:items-center lg:justify-end">
+              {/* The desktop copy of the month. */}
+              <div className="flex w-full min-w-0 flex-col gap-1.5 lg:w-52">
+                {monthSelect("hidden lg:block w-full", "recode-month")}
+              </div>
             </div>
-          </div>
-        }
-      />
+          }
+        />
+      )}
 
       {/* The month's headline figure — the one number worth reading from arm's
           length, so on a phone it comes FIRST, directly under the address, with
@@ -3006,6 +2994,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
 
       {overlays}
-    </main>
+    </Frame>
   );
 }

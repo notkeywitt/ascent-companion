@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { Donut } from "@/components/Donut";
@@ -15,12 +14,11 @@ import { LopezMap } from "@/components/LopezMap";
 import { Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
 import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
 import { Board } from "@/app/trackingsheet/Board";
+import { JobCard } from "@/app/job-board/JobBoardPage";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
-import type { MonthCodeRow } from "@/lib/monthCostByJob";
 import { billingMonths } from "@/lib/billingMonths";
 import type { MapJob } from "@/lib/lopezMap";
-import { scheduleHeadline, shortDate, type JobsPageCard } from "@/lib/jobBoard";
-import { jtJobUrl } from "@/lib/jtLinks";
+import type { JobsPageCard } from "@/lib/jobBoard";
 import { money0 } from "@/lib/money";
 
 import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
@@ -35,11 +33,11 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  *     each with its month total. That card's height is the row's; the rest
  *     sit on the page and scale to it. Right: the month's Bills and Labor
  *     rings with the totals under them — every job, or the picked job by cost
- *     code — and, once a job is picked, its details, cost to date and next
- *     to-dos above the rings and the tabs below.
+ *     code — and, once a job is picked, its Job Board card above the rings
+ *     and the tabs below.
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
- *     the picked tab: Tracking sheet (the job's sheet, embedded — its bills and
- *     labor column and its coding drawer), Schedule (the job's overview),
+ *     the picked tab: Tracking sheet (the job's /trackingsheet, embedded whole
+ *     but for its tabs and header), Schedule (the job's overview),
  *     Plans or Photos (the job's JobTread plan sheets and photos).
  *
  * A list row, a ring slice or a map dot picks the job; picking it again closes it.
@@ -69,7 +67,6 @@ const sortName = (customer: string | null | undefined) => {
 
 const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
-const linkCls = "font-semibold text-accent hover:underline dark:text-accent-soft";
 
 export function JobsHub() {
   const canTrackingSheet = useAccess().can("recode");
@@ -79,8 +76,6 @@ export function JobsHub() {
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>(canTrackingSheet ? "sheet" : "schedule");
-  const [codingSlot, setCodingSlot] = useState<HTMLElement | null>(null);
-  const [billsSlot, setBillsSlot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -266,13 +261,15 @@ export function JobsHub() {
 
           <div className="flex min-w-0 flex-col gap-4">
             {selected && (
-              <JobInfo
-                key={selected.id}
-                job={selected}
-                card={details?.get(selected.id)}
-                detailsLoading={!details}
-                monthRows={selectedMonth ?? []}
-              />
+              /* The job's card from the Job Board page: who and where, the
+                 schedule now, the newest open to-dos. */
+              <>
+                {details?.get(selected.id) ? (
+                  <JobCard c={details.get(selected.id)!} />
+                ) : details ? null : (
+                  <Skeleton className="h-40 w-full rounded-xl" />
+                )}
+              </>
             )}
             <div className="flex items-center gap-3">
               <div className={`min-w-0 flex-1 truncate ${caption}`}>
@@ -304,25 +301,15 @@ export function JobsHub() {
             </div>
           </>
         ) : tab === "sheet" && canTrackingSheet ? (
-          <>
-            {/* The board draws its bills and labor column into the left
-                slot and its coding drawer into the right. */}
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-              <div ref={setBillsSlot} className="min-w-0" />
-              <div ref={setCodingSlot} className="min-w-0" />
-            </div>
-            {/* Keyed by job and month: a new pick is a fresh board. Staged
-                coding survives it — the board restores unsynced work on
-                load and says so. */}
-            {ym && (
-              <Suspense fallback={null}>
-                <Board
-                  key={`${selected.id}-${ym}`}
-                  embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
-                />
-              </Suspense>
-            )}
-          </>
+          /* The job's Tracking Sheet, as /trackingsheet draws it, less its
+             tabs and header. Keyed by job and month: a new pick is a fresh
+             board. Staged coding survives it — the board restores unsynced
+             work on load and says so. */
+          ym && (
+            <Suspense fallback={null}>
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym }} />
+            </Suspense>
+          )
         ) : tab === "plans" ? (
           <JobPlans state={files} />
         ) : tab === "photos" ? (
@@ -503,176 +490,5 @@ function Rings({ items, onSelect }: { items: RingItem[]; onSelect?: (key: string
         </div>
       </div>
     </>
-  );
-}
-
-/**
- * The picked job, above its rings: its name; its details beside its cost to
- * date and next to-dos.
- */
-function JobInfo({
-  job,
-  card,
-  detailsLoading,
-  monthRows,
-}: {
-  job: HubJob;
-  card?: JobsPageCard;
-  detailsLoading: boolean;
-  monthRows: MonthCodeRow[];
-}) {
-  const [toDate, setToDate] = useState<CostDonutRow[] | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/jobs/cost-detail?jobId=${encodeURIComponent(job.id)}`)
-      .then((r) => r.json())
-      .then(
-        (d: {
-          divisions?: { codes: { number: string; name: string; bills: number; labor: number }[] }[];
-        }) => {
-          if (cancelled) return;
-          setToDate(
-            (d.divisions ?? []).flatMap((dv) =>
-              dv.codes.map((c) => ({
-                code: c.number,
-                name: c.name,
-                bills: c.bills,
-                labor: c.labor,
-              })),
-            ),
-          );
-        },
-      )
-      .catch(() => !cancelled && setToDate([]));
-    return () => {
-      cancelled = true;
-    };
-  }, [job.id]);
-
-  // Committed bills (approved + pending, the cost tree's basis) plus the shown
-  // month's drafts — the same sum the Tracking Sheet's job-to-date ring makes.
-  // Without them a job whose only bills are drafts read $0 to date and more
-  // than that in its month (Gormley - Studio).
-  const rows = toDate && withoutSalesTax(withDrafts(toDate, monthRows));
-  const bills = rows?.reduce((n, r) => n + Math.max(r.bills, 0), 0) ?? 0;
-  const labor = rows?.reduce((n, r) => n + Math.max(r.labor, 0), 0) ?? 0;
-  const todos = card?.todos.slice(0, 3) ?? [];
-
-  return (
-    <div className="space-y-3">
-      <div className="truncate text-base font-semibold tracking-tight">{jobLabel(job)}</div>
-      <div className="grid gap-6 sm:grid-cols-2">
-        <JobDetails job={job} card={card} loading={detailsLoading} />
-        <div className="min-w-0 space-y-4">
-          <div>
-            <div className={caption}>Cost to date</div>
-            {rows ? (
-              <>
-                <div className="text-2xl font-bold tabular-nums tracking-tight">
-                  {money0(bills + labor)}
-                </div>
-                <div className="text-[12px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                  Bills {money0(bills)} · Labor {money0(labor)}
-                </div>
-              </>
-            ) : (
-              <Skeleton className="mt-1 h-10 w-40 rounded-md" />
-            )}
-          </div>
-          <div>
-            <div className="flex items-baseline gap-2">
-              <div className={`min-w-0 flex-1 ${caption}`}>Next to-dos</div>
-              <Link
-                href={`/job-board/${encodeURIComponent(job.id)}`}
-                className={`text-[12px] ${linkCls}`}
-              >
-                All →
-              </Link>
-            </div>
-            {detailsLoading ? (
-              <Loading />
-            ) : todos.length === 0 ? (
-              <div className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
-                No open to-dos.
-              </div>
-            ) : (
-              <ul className="mt-1 space-y-1">
-                {todos.map((t) => (
-                  <li key={t.id} className="flex items-baseline gap-3 text-[13px]">
-                    <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                    {t.due && (
-                      <span className="shrink-0 text-[12px] text-neutral-500 dark:text-neutral-400">
-                        {shortDate(t.due)}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/** The job-to-date rows with the month's draft-bill cost added, code by code. */
-function withDrafts(toDate: CostDonutRow[], month: MonthCodeRow[]): CostDonutRow[] {
-  const byCode = new Map(toDate.map((r) => [r.code, { ...r }]));
-  for (const m of month) {
-    if (!m.drafts) continue;
-    const r = byCode.get(m.code);
-    if (r) r.bills += m.drafts;
-    else byCode.set(m.code, { code: m.code, name: m.name, bills: m.drafts, labor: 0 });
-  }
-  return [...byCode.values()];
-}
-
-/**
- * The picked job's facts. Started and Expected completion are the ends of the
- * job's JobTread schedule (its Gantt span); a job with nothing dated says so
- * rather than inventing a date. Edit opens the job in JobTread, where they are
- * edited.
- */
-function JobDetails({
-  job,
-  card,
-  loading,
-}: {
-  job: HubJob;
-  card?: JobsPageCard;
-  loading: boolean;
-}) {
-  if (loading) return <Loading />;
-  const s = card?.schedule ?? null;
-  const rows: [string, React.ReactNode][] = [
-    ["Phase", job.phase || "—"],
-    ["Started", s ? shortDate(s.start, 0) : "Not scheduled"],
-    ["Expected completion", s ? shortDate(s.end, 0) : "Not scheduled"],
-    ["Now", scheduleHeadline(s)],
-  ];
-  return (
-    <div className="min-w-0 space-y-2 text-[13px]">
-      {/* ", USA" says nothing on an island job and costs the address a line. */}
-      <div>{card?.address?.replace(/,\s*USA$/, "") || "No address"}</div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
-        {rows.map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">{k}</dt>
-            <dd className="min-w-0">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="text-right">
-        <a
-          href={jtJobUrl(job.id)}
-          target="_blank"
-          rel="noreferrer"
-          className={`text-[12px] ${linkCls}`}
-        >
-          Edit ↗
-        </a>
-      </div>
-    </div>
   );
 }

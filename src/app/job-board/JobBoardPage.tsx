@@ -90,7 +90,7 @@ function ToDoLine({ t }: { t: JobToDo }) {
   );
 }
 
-function JobCard({ c }: { c: JobsPageCard }) {
+export function JobCard({ c }: { c: JobsPageCard }) {
   return (
     // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
     // cell sets the width (`pad:w-auto` is emitted after the bare width).
