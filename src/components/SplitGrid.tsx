@@ -31,11 +31,11 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 /** Width of one handle track, in px. It IS the gutter at xl (`xl:gap-x-0`). */
 const HANDLE_PX = 20;
 /**
- * Width of the first track once `hideFirst` closes it — room for a reopen tab
- * plus its gutter. Keep in step with the caller's own `lg:` column class; the
- * two are the same measurement at two breakpoints (Board.tsx, `railHidden`).
+ * Width of the first track once `hideFirst` closes it: none — the reopen
+ * control rides in the next column's heading row (owner, 2026-11-02). Keep in
+ * step with the caller's own `lg:` column class (Board.tsx, `railHidden`).
  */
-const CLOSED_PX = 56;
+const CLOSED_PX = 0;
 const MIN_FR = 0.4;
 const KEY = "ts.cols";
 /**

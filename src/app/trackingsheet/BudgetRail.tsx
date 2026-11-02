@@ -97,33 +97,13 @@ export function BudgetRail({
               BUTTON does the sticking, with the whole row to travel in. */}
           <section
             className={`min-w-0 ${
-              railHidden ? "lg:pr-3" : "overflow-hidden lg:sticky sticky-below-header lg:self-start"
+              railHidden ? "" : "overflow-hidden lg:sticky sticky-below-header lg:self-start"
             }`}
           >
-            {/* THE WAY BACK, in the column the rail vacated. Desktop only:
-                below lg the track is the whole width and the rail folds under
-                its own heading instead, so a second control there would mean
-                almost the same thing twice.
-
-                The gutter is the section's own `lg:pr-3`, not a margin here: at
-                xl the grid sets `gap-x-0` and the handle track beside a closed
-                rail is 0px, so without it the tab butts straight against the
-                "to be invoiced" card. Padding the column keeps the button's
-                width and the track's width the same conversation. */}
-            {railHidden && (
-              <button
-                type="button"
-                onClick={toggleRailHidden}
-                title="Show the budget column"
-                className="sticky-below-header hidden w-full items-center justify-center gap-1.5 rounded-lg border border-line bg-cream/95 py-3 text-[11px] font-semibold text-neutral-500 shadow-sm transition hover:border-accent hover:text-accent dark:bg-ink-raised dark:text-neutral-400 lg:sticky lg:flex [writing-mode:vertical-rl]"
-              >
-                <span aria-hidden className="text-[9px] [writing-mode:horizontal-tb]">
-                  →
-                </span>
-                Budget
-              </button>
-            )}
-
+            {/* THE WAY BACK is no longer here: closed, this column is 0px and
+                the "— Budget →" label at the head of the bills list reopens it
+                (Board.tsx), so the bills line up with the page's left edge
+                (owner, 2026-11-02). */}
             {/* The rail proper. `lg:hidden` rather than unmounted, because
                 below lg `railHidden` means nothing and the rail is still the
                 only budget on the page there. */}

@@ -2070,6 +2070,24 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           no other room for: a filter that silently drops two thirds of
           the month off the page. */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
+        {/* The budget column's way back, styled as the page's headings, in
+            this row so it costs no height (owner, 2026-11-02). Desktop
+            only: below lg the rail folds under its own heading. */}
+        {railHidden && (
+          <button
+            type="button"
+            onClick={toggleRailHidden}
+            title="Show the budget column"
+            className="hidden shrink-0 items-center gap-2.5 transition hover:text-accent lg:flex"
+          >
+            <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-brand" />
+            <SectionLabel>Budget</SectionLabel>
+            <span aria-hidden className="text-[9px] text-neutral-500 dark:text-neutral-400">
+              →
+            </span>
+          </button>
+        )}
         {billCodeFilter ? (
           <button
             type="button"
@@ -2102,9 +2120,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               ✕
             </span>
           </button>
-        ) : (
-          <span />
-        )}
+        ) : null}
+        </div>
         {/* Grouping switch: one Segmented control, so the three options
             read as a set. The third is the client-facing rollup — what
             the month bills, in the shape the customer sees it, and the
@@ -2944,7 +2961,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {data && !loading && (
         <SplitGrid
           className={`lg:order-1 ${
-            railHidden ? "lg:grid-cols-[3.5rem_minmax(0,1fr)]" : "lg:grid-cols-2"
+            railHidden ? "lg:grid-cols-[0px_minmax(0,1fr)] lg:gap-x-0" : "lg:grid-cols-2"
           }`}
           hideFirst={railHidden}
           thirdOpen={Boolean(openDocId)}
