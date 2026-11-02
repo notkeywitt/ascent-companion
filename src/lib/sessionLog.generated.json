@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T06:12:36Z",
+  "generatedAt": "2026-11-02T07:02:14Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T06:12:35Z",
+      "updated": "2026-11-02T07:02:14Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub Tracking sheet tab matches /trackingsheet (rail, bills, coding, reconcile, deposit) and the Job Board card above the rings.",
+      "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -893,6 +893,13 @@
           "sha": "6cdc033",
           "subject": "companion: jobs page header is the list and the job card with the map",
           "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "23:02",
+          "sha": "cb820ab",
+          "subject": "companion: jobs page header cards, map and rings link, slide-away menu rail",
+          "files": "src/app/globals.css, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/layout.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, +4 more"
         }
       ]
     },
