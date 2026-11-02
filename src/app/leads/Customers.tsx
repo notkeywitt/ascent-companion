@@ -15,7 +15,7 @@ import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
  *   Leads          — the follow-up board (was the Leads page)
  *   All customers  — every customer and job, editable (was Directory's list)
  * Each section shows only to someone who holds its view. A job's record stays
- * at /clients?jobId — the job tab row's "Record".
+ * at /clients?jobId — the job tab row's "Job Details".
  */
 const SECTIONS = [
   { id: "leads", label: "Leads", view: "leads" },

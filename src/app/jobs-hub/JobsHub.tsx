@@ -257,7 +257,7 @@ export function JobsHub() {
         { value: "photos" as const, label: "Photos" },
         // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
         // Each shows only to someone who holds its view.
-        ...(can("clients") ? [{ value: "record" as const, label: "Record" }] : []),
+        ...(can("clients") ? [{ value: "record" as const, label: "Job Details" }] : []),
         ...(can("budget-import") ? [{ value: "budget" as const, label: "Budget Import" }] : []),
         ...(can("specs") ? [{ value: "specs" as const, label: "Specifications" }] : []),
         ...(can("house-manual") ? [{ value: "manual" as const, label: "House Manual" }] : []),

@@ -60,6 +60,19 @@ export interface ManualLink {
 export const pdfPath = (token: string, fileId: string) =>
   `/m/${encodeURIComponent(token)}/file/${encodeURIComponent(fileId)}`;
 
+/**
+ * The app's two production domains (Vercel). The office runs the Assistant as
+ * an installed app from one of them, and an installed app claims every link
+ * on its own domain — so a homeowner-facing PDF link on that domain opened in
+ * the Assistant's window on the office's computer (owner, 2026-11-02). A PDF
+ * link therefore points at the OTHER domain: same app, same route, but a site
+ * the installed app does not own, so it opens in the browser.
+ */
+const PROD_ORIGINS = ["https://assistant.ascentbuildingco.com", "https://ascent-companion.vercel.app"];
+export function pdfOrigin(origin: string): string {
+  return PROD_ORIGINS.includes(origin) ? PROD_ORIGINS.find((o) => o !== origin)! : origin;
+}
+
 /** Where a published page lives, for its PDF links. Absent (the builder's
  *  preview before a first publish), a PDF link prints as text. */
 export interface ManualHost {
@@ -364,7 +377,7 @@ const marker = (on?: boolean): Mark => (on ? (key) => ` data-at="${esc(key)}"` :
 /** An item's PDF, beside its selection — only once the page has a token. */
 function itemPdf(i: ManualItem, host?: ManualHost): string {
   const id = i.pdf ? driveIdFromLink(i.pdf) : "";
-  return id && host ? ` <a class="am-pdf" href="${esc(host.origin + pdfPath(host.token, id))}" target="_blank" rel="noopener">PDF</a>` : "";
+  return id && host ? ` <a class="am-pdf" href="${esc(pdfOrigin(host.origin) + pdfPath(host.token, id))}" target="_blank" rel="noopener">PDF</a>` : "";
 }
 
 /** `at` is the items' editor key prefix, e.g. "s0" or "s0.u1". */
@@ -441,7 +454,7 @@ export function manualHtml(m: HouseManual, host?: ManualHost, opts: { marks?: bo
         if (!l.pdf) return l.text.trim() && safeUrl(l.url) ? link(l.text, l.url) : "";
         const id = driveIdFromLink(l.url);
         if (!l.text.trim() || !id) return "";
-        return host ? link(l.text, host.origin + pdfPath(host.token, id)) : escLines(l.text);
+        return host ? link(l.text, pdfOrigin(host.origin) + pdfPath(host.token, id)) : escLines(l.text);
       })();
       return html && mark ? `<span${at(`l${i}`)}>${html}</span>` : html;
     })

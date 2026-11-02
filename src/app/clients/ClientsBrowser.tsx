@@ -121,7 +121,7 @@ export function ClientsBrowser({
   const [showClosed, setShowClosed] = useState(false);
   const [needsTagOnly, setNeedsTagOnly] = useState(false);
   const [view, setView] = useState<View>(jobId ? { kind: "job", id: jobId } : { kind: "list" });
-  // ?jobId opens that job's record — the job tab row's "Record" (stage 4).
+  // ?jobId opens that job's record — the job tab row's "Job Details" (stage 4).
   useEffect(() => {
     if (jobId) return;
     const id = (new URLSearchParams(window.location.search).get("jobId") ?? "").trim();
@@ -229,7 +229,7 @@ export function ClientsBrowser({
         <>
           {view.kind === "job" && <JobTabs jobId={view.id} />}
           <PageHeader
-            title={view.kind === "job" ? "Record" : "Directory"}
+            title={view.kind === "job" ? "Job Details" : "Directory"}
             titleSlot={embedded ? <span className="sr-only">All customers</span> : undefined}
             description={embedded ? undefined : "Every customer and job in JobTread — the record, not the cost. Edit it here."}
           />

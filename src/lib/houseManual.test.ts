@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TITLE_STYLE, galleryFrom, asManual, draftManual, driveIdFromLink, embedSnippet, manualHtml, PUBLIC_TOKEN, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
+import { DEFAULT_TITLE_STYLE, pdfOrigin, galleryFrom, asManual, draftManual, driveIdFromLink, embedSnippet, manualHtml, PUBLIC_TOKEN, mergeSections, titleCss, type HouseManual } from "@/lib/houseManual";
 import type { SpecList, SpecRow } from "@/lib/specList";
 
 const row = (over: Partial<SpecRow>): SpecRow => ({
@@ -245,5 +245,13 @@ describe("preview marks", () => {
 
   it("leaves the published block unmarked", () => {
     expect(manualHtml(m)).not.toContain("data-at");
+  });
+});
+
+describe("pdfOrigin", () => {
+  it("serves PDFs from the production domain the installed app does not own", () => {
+    expect(pdfOrigin("https://assistant.ascentbuildingco.com")).toBe("https://ascent-companion.vercel.app");
+    expect(pdfOrigin("https://ascent-companion.vercel.app")).toBe("https://assistant.ascentbuildingco.com");
+    expect(pdfOrigin("http://localhost:3000")).toBe("http://localhost:3000");
   });
 });

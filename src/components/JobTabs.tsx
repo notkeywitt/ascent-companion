@@ -12,7 +12,7 @@ import { Tabs } from "@/components/ui";
  */
 const TABS = [
   { view: "job-board", href: "/job-board/", label: "Overview" },
-  { view: "clients", href: "/clients", label: "Record" },
+  { view: "clients", href: "/clients", label: "Job Details" },
   { view: "jobs", href: "/jobs", label: "Job Cost" },
   { view: "budget-import", href: "/budget-import", label: "Budget Import" },
   { view: "specs", href: "/specs", label: "Specifications" },
