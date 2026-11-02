@@ -2,9 +2,9 @@
 slug: tool-tracker-qr-scanning
 repo: ascent-companion
 branch: claude/tool-tracker-qr-scanning-hr8uyx
-status: in-progress
+status: shipped
 started: 2026-11-02T17:11:29Z
-updated: 2026-11-02T17:11:29Z
+updated: 2026-11-02T17:11:30Z
 goal: 
 next: deploy the Apps Script side (Tools.js updateTool newToolId) so a tool ID change sticks
 ---

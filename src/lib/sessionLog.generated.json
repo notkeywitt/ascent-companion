@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-02T07:02:14Z",
+  "generatedAt": "2026-11-02T17:11:30Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "tool-tracker-qr-scanning",
+      "file": "2026-11-02-tool-tracker-qr-scanning.md",
+      "branch": "claude/tool-tracker-qr-scanning-hr8uyx",
+      "status": "shipped",
+      "started": "2026-11-02T17:11:29Z",
+      "updated": "2026-11-02T17:11:30Z",
+      "goal": "",
+      "next": "deploy the Apps Script side (Tools.js updateTool newToolId) so a tool ID change sticks",
+      "commits": [
+        {
+          "date": "2026-11-02",
+          "time": "17:11",
+          "sha": "f2f90ed",
+          "subject": "companion: scan a QR sticker into a tool's ID in the new-tool and edit dialogs",
+          "files": "src/app/tools/page.tsx, src/lib/help.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
