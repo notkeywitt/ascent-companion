@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:00:50Z",
+  "generatedAt": "2026-11-02T18:05:50Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:00:50Z",
+      "updated": "2026-11-02T18:05:50Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1026,6 +1026,13 @@
           "sha": "40a1446",
           "subject": "companion: open a job's customer in a pop-up from the jobs dash, read-only until editable is on",
           "files": "src/app/clients/CustomerPanel.tsx, src/app/clients/CustomerPopup.tsx, src/app/clients/RecordEditor.tsx, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:05",
+          "sha": "7420400",
+          "subject": "companion: zoom the jobs dash map 2x onto the picked job, with finer roads",
+          "files": "scripts/build-lopez-roads.mjs, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/components/LopezMap.tsx, src/lib/lopezMap.ts"
         }
       ]
     },
