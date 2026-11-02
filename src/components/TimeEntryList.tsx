@@ -391,11 +391,32 @@ export function useTimeFilters(
  * have to find first isn't one you use. Every option is drawn from what the
  * month actually contains, so no combination lands on an empty list by accident.
  */
+/** The Group switch on its own, for a caller that seats it in its own header
+ *  (the Tracking Sheet's Labor row) and passes `hideGroup` to the list. */
+export function TimeGroupSwitch({ filters }: { filters: TimeFilters }) {
+  return (
+    <Segmented
+      label="Group by"
+      value={filters.groupBy}
+      onChange={filters.setGroupBy}
+      options={[
+        { value: "none", label: "None" },
+        { value: "date", label: "Date" },
+        { value: "employee", label: "Employee" },
+        { value: "code", label: "Cost code" },
+      ]}
+    />
+  );
+}
+
 export function TimeFilterStrip({
   filters,
+  hideGroup = false,
   className = "",
 }: {
   filters: TimeFilters;
+  /** The caller shows TimeGroupSwitch elsewhere. */
+  hideGroup?: boolean;
   className?: string;
 }) {
   const f = filters;
@@ -536,20 +557,12 @@ export function TimeFilterStrip({
         </div>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] uppercase tracking-wide text-neutral-400">Group</span>
-        <Segmented
-          label="Group by"
-          value={f.groupBy}
-          onChange={f.setGroupBy}
-          options={[
-            { value: "none", label: "None" },
-            { value: "date", label: "Date" },
-            { value: "employee", label: "Employee" },
-            { value: "code", label: "Cost code" },
-          ]}
-        />
-      </div>
+      {!hideGroup && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-neutral-400">Group</span>
+          <TimeGroupSwitch filters={f} />
+        </div>
+      )}
     </div>
   );
 }
@@ -727,6 +740,8 @@ function TimeCalendar({
 
 export interface TimeEntryListProps {
   filters: TimeFilters;
+  /** The Group switch is drawn by the caller (TimeGroupSwitch). */
+  hideGroup?: boolean;
   /** The job these entries belong to, so a row's ↗ opens THAT job's time page
    *  rather than the org's. Omitted → the org-wide one (lib/jtLinks). */
   jobId?: string;
@@ -797,6 +812,7 @@ function RowBody({
 
 export function TimeEntryList({
   filters,
+  hideGroup = false,
   jobId,
   monthEntries,
   codeOf,
@@ -875,7 +891,7 @@ export function TimeEntryList({
 
   return (
     <>
-      <TimeFilterStrip filters={f} />
+      <TimeFilterStrip filters={f} hideGroup={hideGroup} />
 
       {/* What's on screen when that isn't the whole month, and what narrowed it,
           in words. A range especially: "12 of 87 shown" reads as a mistake until

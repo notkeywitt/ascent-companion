@@ -49,6 +49,7 @@ import { TimeCodingCard } from "./TimeCodingCard";
 import { AllTimeLists } from "./AllTimeLists";
 import {
   TimeEntryList,
+  TimeGroupSwitch,
   TimeRecodeCard,
   type CodeHeadroom,
   type TimeEntryRow,
@@ -2188,6 +2189,12 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               </span>
               Labor ({monthTime.length} {monthTime.length === 1 ? "entry" : "entries"})
             </button>
+            {/* Group sits in the header, not under the filters (owner, 2026-11-02). */}
+            {timeBlockOpen && monthTime.length > 0 && (
+              <div className="shrink-0 self-center">
+                <TimeGroupSwitch filters={timeFilters} />
+              </div>
+            )}
             {/* Logging FOR somebody — /employee-time can only log for the
                 person signed in, so the office does it here. */}
             <button
@@ -2216,6 +2223,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                   correction no longer means leaving the month. */}
               <TimeEntryList
                 filters={timeFilters}
+                hideGroup
                 jobId={jobId}
                 monthEntries={monthTime}
                 codeOf={timeCodeOf}
