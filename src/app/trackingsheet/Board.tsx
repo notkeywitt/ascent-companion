@@ -364,6 +364,9 @@ export interface BoardEmbed {
   /** Called when the job's to-be-invoiced figure CHANGES after it first loads
    *  (labor moved off, a bill voided), so the Jobs page re-reads its list. */
   onFigureChange?: () => void;
+  /** Told when the rings switch between This Month and All Time, so the Jobs
+   *  page can hide what only a month uses (its month picker and Sync). */
+  onScopeChange?: (scope: "month" | "job") => void;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -2083,7 +2086,14 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         detail={donutDetail}
         ringSize={embed?.summarySlot ? 120 : undefined}
         scopeSlot={embed?.summarySlot ? embed.scopeSlot ?? null : undefined}
-        onScopeChange={embed ? setRingScope : undefined}
+        onScopeChange={
+          embed
+            ? (s) => {
+                setRingScope(s);
+                embed.onScopeChange?.(s);
+              }
+            : undefined
+        }
         // Clicking a slice narrows the list under it. The rings say what
         // the month is made of; this is the way from that answer into the
         // bills behind it.

@@ -103,6 +103,10 @@ export function JobsHub() {
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
   /** …and the rings' month / job-to-date switch, under the month picker. */
   const [scopeSlot, setScopeSlot] = useState<HTMLElement | null>(null);
+  /** The rings' scope. All Time has no month, so the month picker and the
+   *  month's Sync hide then (owner, 2026-11-02). A new board starts on This
+   *  Month, so a new job or month does too. */
+  const [ringScope, setRingScope] = useState<"month" | "job">("month");
 
   useEffect(() => {
     let cancelled = false;
@@ -269,6 +273,9 @@ export function JobsHub() {
     />
   );
 
+  useEffect(() => setRingScope("month"), [selectedId, ym]);
+  const allTimeOn = !!selectedId && tab === "sheet" && ringScope === "job";
+
   return (
     <main
       ref={mainRef}
@@ -379,10 +386,10 @@ export function JobsHub() {
               {/* Sync, left of the month it syncs (owner, 2026-11-02): the
                   Tracking Sheets page's own — every wired sheet and the
                   month's Labor Report. */}
-              {selected && ym && <SyncAllTrackingSheetsFor ym={ym} className="max-w-56 text-right" />}
+              {selected && ym && !allTimeOn && <SyncAllTrackingSheetsFor ym={ym} className="max-w-56 text-right" />}
               <div className="flex flex-col items-end gap-1">
                 {selected && tab === "sheet" && <div ref={setScopeSlot} />}
-                {(selected || idleView === "month") && monthSelect}
+                {(selected || idleView === "month") && !allTimeOn && monthSelect}
               </div>
             </div>
           </div>
@@ -412,7 +419,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope }} />
             </Suspense>
           )
         ) : tab === "plans" ? (
