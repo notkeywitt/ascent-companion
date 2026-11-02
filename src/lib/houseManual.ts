@@ -29,9 +29,15 @@ export interface ManualItem {
   label: string;
   value: string;
   url: string;
-  /** A Drive file link for the item's PDF (a product manual, a warranty),
+  /** The item's PDFs (a product manual, a warranty), each a Drive file link
    *  served by the page itself like a PDF link (owner, 2026-11-02). */
-  pdf?: string;
+  pdfs?: ManualItemPdf[];
+}
+
+/** One of an item's PDFs. `text` names it on the page; blank prints "PDF". */
+export interface ManualItemPdf {
+  text: string;
+  url: string;
 }
 
 /** A titled group of items inside a section (e.g. Appliances › Laundry). */
@@ -253,8 +259,14 @@ export function asManual(v: unknown): HouseManual | null {
   const o = v as Record<string, unknown>;
   const s = (x: unknown) => (typeof x === "string" ? x : "");
   const arr = (x: unknown) => (Array.isArray(x) ? (x as Record<string, unknown>[]).filter((y) => y && typeof y === "object") : []);
+  // An item saved before it could hold several PDFs carries one `pdf` link.
+  const pdfs = (i: Record<string, unknown>) =>
+    [...(s(i.pdf) ? [{ text: "", url: s(i.pdf) }] : []), ...arr(i.pdfs).map((p) => ({ text: s(p.text), url: s(p.url) }))];
   const items = (x: unknown) =>
-    arr(x).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url), ...(s(i.pdf) ? { pdf: s(i.pdf) } : {}) }));
+    arr(x).map((i) => {
+      const p = pdfs(i);
+      return { label: s(i.label), value: s(i.value), url: s(i.url), ...(p.length ? { pdfs: p } : {}) };
+    });
   const t = (o.titleStyle && typeof o.titleStyle === "object" ? o.titleStyle : {}) as Record<string, unknown>;
   const d = DEFAULT_TITLE_STYLE;
   const num = (x: unknown, fallback: number, min: number, max: number) =>
@@ -374,10 +386,17 @@ function details(title: string, body: string, attr = ""): string {
 type Mark = ((key: string) => string) | null;
 const marker = (on?: boolean): Mark => (on ? (key) => ` data-at="${esc(key)}"` : null);
 
-/** An item's PDF, beside its selection — only once the page has a token. */
-function itemPdf(i: ManualItem, host?: ManualHost): string {
-  const id = i.pdf ? driveIdFromLink(i.pdf) : "";
-  return id && host ? ` <a class="am-pdf" href="${esc(pdfOrigin(host.origin) + pdfPath(host.token, id))}" target="_blank" rel="noopener">PDF</a>` : "";
+/** An item's PDFs, beside its selection — only once the page has a token. */
+function itemPdfs(i: ManualItem, host?: ManualHost): string {
+  if (!host) return "";
+  return (i.pdfs ?? [])
+    .map((p) => ({ p, id: driveIdFromLink(p.url) }))
+    .filter(({ id }) => id)
+    .map(
+      ({ p, id }) =>
+        ` <a class="am-pdf" href="${esc(pdfOrigin(host.origin) + pdfPath(host.token, id))}" target="_blank" rel="noopener">${esc(p.text.trim() || "PDF")}</a>`,
+    )
+    .join("");
 }
 
 /** `at` is the items' editor key prefix, e.g. "s0" or "s0.u1". */
@@ -387,7 +406,7 @@ const itemRows = (items: ManualItem[], host: ManualHost | undefined, mark: Mark,
     .filter(({ i }) => i.label.trim() || i.value.trim())
     .map(
       ({ i, k }) =>
-        `<dt${mark?.(k) ?? ""}>${esc(i.label)}</dt><dd${mark?.(`${k}~value`) ?? ""}>${link(i.value, i.url)}${itemPdf(i, host)}</dd>`,
+        `<dt${mark?.(k) ?? ""}>${esc(i.label)}</dt><dd${mark?.(`${k}~value`) ?? ""}>${link(i.value, i.url)}${itemPdfs(i, host)}</dd>`,
     );
 
 /**

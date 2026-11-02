@@ -35,6 +35,7 @@ import {
   type ManualContact,
   type ManualGallery,
   type ManualItem,
+  type ManualItemPdf,
   type TitleStyle,
 } from "@/lib/houseManual";
 import { JobFiles, fetchGallery, type SpecListRef } from "./JobFiles";
@@ -361,34 +362,62 @@ function ItemsEditor({
                     onChange={(e) => setItem({ value: e.target.value })}
                     className={`${quietInputCls} min-h-[4.5rem] w-full resize-y [field-sizing:content] sm:col-span-2`}
                   />
-                  {/* The item's PDF (owner, 2026-11-02): a Drive link, or a
-                      file uploaded to Drive. The page serves it with no login. */}
-                  <div className="flex min-w-0 items-center gap-1.5 sm:col-span-2">
-                    <QuietInput
-                      aria-label="PDF"
-                      placeholder="PDF — a Google Drive file link"
-                      value={it.pdf ?? ""}
-                      onChange={(e) => setItem({ pdf: e.target.value })}
-                      className="min-w-0 flex-1"
-                    />
+                  {/* The item's PDFs (owner, 2026-11-02): Drive links, or files
+                      uploaded to Drive. The page serves each with no login. */}
+                  {(it.pdfs ?? []).map((p, k) => {
+                    const setPdf = (patch: Partial<ManualItemPdf>) =>
+                      setItem({ pdfs: (it.pdfs ?? []).map((x, n) => (n === k ? { ...x, ...patch } : x)) });
+                    return (
+                      <div key={k} className="flex min-w-0 items-center gap-1.5 sm:col-span-2">
+                        <QuietInput
+                          aria-label="PDF name"
+                          placeholder="Name (PDF)"
+                          value={p.text}
+                          onChange={(e) => setPdf({ text: e.target.value })}
+                          className="w-36 shrink-0"
+                        />
+                        <QuietInput
+                          aria-label="PDF link"
+                          placeholder="Google Drive file link"
+                          value={p.url}
+                          onChange={(e) => setPdf({ url: e.target.value })}
+                          className="min-w-0 flex-1"
+                        />
+                        <RemoveButton
+                          label={`Remove ${p.text || "PDF"}`}
+                          onClick={() => setItem({ pdfs: (it.pdfs ?? []).filter((_, n) => n !== k) })}
+                        />
+                      </div>
+                    );
+                  })}
+                  <div className="flex flex-wrap gap-1 sm:col-span-2">
+                    <Button size="xs" variant="ghost" onClick={() => setItem({ pdfs: [...(it.pdfs ?? []), { text: "", url: "" }] })}>
+                      + PDF link
+                    </Button>
                     {onUpload && (
                       <label
-                        className={`${btn("ghost", "xs")} shrink-0 cursor-pointer ${uploading === j ? "pointer-events-none opacity-40" : ""}`}
+                        className={`${btn("ghost", "xs")} cursor-pointer ${uploading === j ? "pointer-events-none opacity-40" : ""}`}
                       >
-                        {uploading === j ? "Uploading…" : "Upload"}
+                        {uploading === j ? "Uploading…" : "+ Upload PDFs"}
                         <input
                           type="file"
                           accept="application/pdf,.pdf"
+                          multiple
                           className="sr-only"
                           disabled={uploading !== null}
                           onChange={async (e) => {
-                            const f = e.target.files?.[0];
+                            const files = [...(e.target.files ?? [])];
                             e.target.value = "";
-                            if (!f) return;
+                            if (!files.length) return;
                             setUploading(j);
-                            const url = await onUpload(f);
+                            const added: ManualItemPdf[] = [];
+                            // One at a time: each is its own request, under the upload cap.
+                            for (const f of files) {
+                              const url = await onUpload(f);
+                              if (url) added.push({ text: f.name.replace(/\.pdf$/i, ""), url });
+                            }
                             setUploading(null);
-                            if (url) setItem({ pdf: url });
+                            if (added.length) setItem({ pdfs: [...(it.pdfs ?? []), ...added] });
                           }}
                         />
                       </label>

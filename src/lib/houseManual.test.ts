@@ -206,8 +206,33 @@ describe("item PDFs", () => {
     ],
   })!;
 
-  it("keeps the item's pdf through asManual", () => {
-    expect(m.sections[0].items[0].pdf).toContain("1-ExUZUmpi");
+  it("reads an item saved with one pdf as a list of one", () => {
+    expect(m.sections[0].items[0].pdfs).toEqual([{ text: "", url: expect.stringContaining("1-ExUZUmpi") }]);
+  });
+
+  it("links several pdfs on one item, each by its name, PDF when blank", () => {
+    const two = asManual({
+      sections: [
+        {
+          title: "Kitchen",
+          items: [
+            {
+              label: "Range",
+              value: "Wolf",
+              pdfs: [
+                { text: "Manual", url: "https://drive.google.com/file/d/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL/view" },
+                { text: "", url: "https://drive.google.com/file/d/2-SecondFileIdAbcdefgh/view" },
+                { text: "Not a Drive link", url: "nope" },
+              ],
+            },
+          ],
+        },
+      ],
+    })!;
+    const html = manualHtml(two, { origin: "https://app.example", token: "abcdefgh12345678abcd_-" });
+    expect(html).toContain('/file/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL" target="_blank" rel="noopener">Manual</a>');
+    expect(html).toContain('/file/2-SecondFileIdAbcdefgh" target="_blank" rel="noopener">PDF</a>');
+    expect(html).not.toContain("Not a Drive link");
   });
 
   it("links the page's own file path beside the selection", () => {
