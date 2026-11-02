@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T17:51:53Z",
+  "generatedAt": "2026-11-02T17:59:11Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T17:51:53Z",
+      "updated": "2026-11-02T17:59:11Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1005,6 +1005,20 @@
           "sha": "43e33d3",
           "subject": "companion: ask before a jobs dash job or tab switch drops unsaved edits",
           "files": "src/app/jobs-hub/JobsHub.tsx, src/lib/useUnsavedChanges.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:59",
+          "sha": "e5c8fa6",
+          "subject": "companion: give the jobs dash card's tabs their own centred row",
+          "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:59",
+          "sha": "30bb19a",
+          "subject": "companion: stay on the page when leave-without-saving is cancelled",
+          "files": "src/components/RouteLoadingScreen.tsx, src/lib/useUnsavedChanges.ts"
         }
       ]
     },
