@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T05:45:35Z",
+  "generatedAt": "2026-11-02T05:52:38Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T05:45:35Z",
+      "updated": "2026-11-02T05:52:38Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub without the top picker (list A-Z, no dots, smaller rings above totals). Fix comment typo 'total),.' in JobsHub.tsx twoFamilies doc with the next change.",
+      "next": "Owner: check /jobs-hub header row — list card sets height, rings and map scale on the background; job picked shows details, cost to date, to-dos, rings by cost code, tabs.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -858,6 +858,13 @@
           "sha": "29ec7ea",
           "subject": "companion: jobs list card sets the header height, rings and map scale to it",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "21:52",
+          "sha": "5eecbf5",
+          "subject": "companion: jobs list grouped by phase, zoomed scan covers the small scan",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/BillCodingCard.tsx"
         }
       ]
     },
