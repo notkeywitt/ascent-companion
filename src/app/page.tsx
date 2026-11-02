@@ -14,6 +14,7 @@ import { HomeMasthead } from "@/components/HomeMasthead";
 import { HomeActions } from "@/components/HomeActions";
 import { TodayQueue } from "@/components/TodayQueue";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
+import { JobsHub } from "@/app/jobs-hub/JobsHub";
 
 /**
  * The Assistant's front page — Today.
@@ -63,6 +64,24 @@ function Home() {
       .catch(() => router.replace("/employee-time"));
   }, [access.role, router]);
   const needsProject = useNeedsProjectCount();
+
+  /* ADMIN and OFFICE land on the Jobs page (owner, 2026-11-02). Home's own
+     pieces it does not carry stay on top: the masthead (it sets the billing
+     month), the phone buttons and the two stuck-bill banners. The queue, both
+     to-do lists, and the job and lead boards are already on the Jobs page. */
+  if ((access.role === "admin" || access.role === "office") && access.can("jobs-hub")) {
+    return (
+      <>
+        <div className="w-full px-4 pt-3 pad:px-7 pad:pt-5">
+          <HomeMasthead />
+          <HomeActions />
+          <StuckVendorBanner />
+          <NeedsProjectBanner state={needsProject} />
+        </div>
+        <JobsHub />
+      </>
+    );
+  }
 
   return (
     <main className="w-full max-w-2xl px-4 pb-10 pt-3 pad:max-w-none pad:pt-5 pad:px-7">
