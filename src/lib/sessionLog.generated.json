@@ -1,33 +1,14 @@
 {
-  "generatedAt": "2026-11-02T17:11:30Z",
+  "generatedAt": "2026-11-02T17:28:06Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "tool-tracker-qr-scanning",
-      "file": "2026-11-02-tool-tracker-qr-scanning.md",
-      "branch": "claude/tool-tracker-qr-scanning-hr8uyx",
-      "status": "shipped",
-      "started": "2026-11-02T17:11:29Z",
-      "updated": "2026-11-02T17:11:30Z",
-      "goal": "",
-      "next": "deploy the Apps Script side (Tools.js updateTool newToolId) so a tool ID change sticks",
-      "commits": [
-        {
-          "date": "2026-11-02",
-          "time": "17:11",
-          "sha": "f2f90ed",
-          "subject": "companion: scan a QR sticker into a tool's ID in the new-tool and edit dialogs",
-          "files": "src/app/tools/page.tsx, src/lib/help.ts"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T07:02:14Z",
+      "updated": "2026-11-02T17:28:06Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -690,6 +671,41 @@
           "files": "src/lib/googleChat.test.ts, src/lib/googleChat.ts"
         },
         {
+          "date": "2026-10-30",
+          "time": "11:38",
+          "sha": "c7c9246",
+          "subject": "companion: ascentbot keeps the team's signal group messages, sent twice a day from the office mac",
+          "files": ".env.example, CODEBASE_MAP.md, scripts/signal-sync/README.md, scripts/signal-sync/install.sh, scripts/signal-sync/signal_sync.py, src/app/api/google-chat/signal-import/route.ts, +6 more"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "11:45",
+          "sha": "e83008b",
+          "subject": "companion: signal sync restarts itself under its venv when run by the system python",
+          "files": "scripts/signal-sync/signal_sync.py"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "11:56",
+          "sha": "883d2f4",
+          "subject": "companion: mark new requisitions on home until the office opens the page",
+          "files": "CODEBASE_MAP.md, src/app/requisitions/page.tsx, src/components/TodayQueue.tsx, src/lib/requisitionsSeen.test.ts, src/lib/requisitionsSeen.ts"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "12:09",
+          "sha": "bd633e6",
+          "subject": "companion: signal sync posts to the live vercel address, not an unregistered domain",
+          "files": "scripts/signal-sync/signal_sync.py"
+        },
+        {
+          "date": "2026-10-30",
+          "time": "12:19",
+          "sha": "5244f5e",
+          "subject": "companion: assign signal chats to jobs on the ascentbot page; new chats wait there until set",
+          "files": "CODEBASE_MAP.md, scripts/signal-sync/README.md, scripts/signal-sync/install.sh, scripts/signal-sync/signal_sync.py, src/app/api/ascentbot/route.ts, src/app/api/ascentbot/signal/route.ts, +9 more"
+        },
+        {
           "date": "2026-11-01",
           "time": "06:27",
           "sha": "006c271",
@@ -919,6 +935,39 @@
           "sha": "cb820ab",
           "subject": "companion: jobs page header cards, map and rings link, slide-away menu rail",
           "files": "src/app/globals.css, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/layout.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, +4 more"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:26",
+          "sha": "c9567b7",
+          "subject": "companion: signal sync runs hourly and at login, since the mac sleeps through fixed times",
+          "files": "CODEBASE_MAP.md, scripts/signal-sync/README.md, scripts/signal-sync/install.sh, src/app/api/google-chat/signal-import/route.ts, src/app/ascentbot/SignalChats.tsx, src/lib/signalImport.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:28",
+          "sha": "87e4e8b",
+          "subject": "companion: show tool locations on the lopez map on the desktop tools page",
+          "files": "src/app/tools/page.tsx, src/components/LopezMap.tsx, src/lib/lopezMap.ts"
+        }
+      ]
+    },
+    {
+      "slug": "tool-tracker-qr-scanning",
+      "file": "2026-11-02-tool-tracker-qr-scanning.md",
+      "branch": "claude/tool-tracker-qr-scanning-hr8uyx",
+      "status": "shipped",
+      "started": "2026-11-02T17:11:29Z",
+      "updated": "2026-11-02T17:11:30Z",
+      "goal": "",
+      "next": "deploy the Apps Script side (Tools.js updateTool newToolId) so a tool ID change sticks",
+      "commits": [
+        {
+          "date": "2026-11-02",
+          "time": "17:11",
+          "sha": "f2f90ed",
+          "subject": "companion: scan a QR sticker into a tool's ID in the new-tool and edit dialogs",
+          "files": "src/app/tools/page.tsx, src/lib/help.ts"
         }
       ]
     },
