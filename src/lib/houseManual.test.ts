@@ -195,3 +195,24 @@ describe("PDF links", () => {
     expect(html).not.toContain("/file/");
   });
 });
+
+describe("item PDFs", () => {
+  const m = asManual({
+    sections: [
+      {
+        title: "Kitchen",
+        items: [{ label: "Dishwasher", value: "Bosch 800", url: "", pdf: "https://drive.google.com/file/d/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL/view" }],
+      },
+    ],
+  })!;
+
+  it("keeps the item's pdf through asManual", () => {
+    expect(m.sections[0].items[0].pdf).toContain("1-ExUZUmpi");
+  });
+
+  it("links the page's own file path beside the selection", () => {
+    const html = manualHtml(m, { origin: "https://app.example", token: "abcdefgh12345678abcd_-" });
+    expect(html).toContain('class="am-pdf" href="https://app.example/m/abcdefgh12345678abcd_-/file/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL"');
+    expect(manualHtml(m)).not.toContain("am-pdf");
+  });
+});

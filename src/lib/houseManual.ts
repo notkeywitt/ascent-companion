@@ -29,6 +29,9 @@ export interface ManualItem {
   label: string;
   value: string;
   url: string;
+  /** A Drive file link for the item's PDF (a product manual, a warranty),
+   *  served by the page itself like a PDF link (owner, 2026-11-02). */
+  pdf?: string;
 }
 
 /** A titled group of items inside a section (e.g. Appliances › Laundry). */
@@ -237,7 +240,8 @@ export function asManual(v: unknown): HouseManual | null {
   const o = v as Record<string, unknown>;
   const s = (x: unknown) => (typeof x === "string" ? x : "");
   const arr = (x: unknown) => (Array.isArray(x) ? (x as Record<string, unknown>[]).filter((y) => y && typeof y === "object") : []);
-  const items = (x: unknown) => arr(x).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url) }));
+  const items = (x: unknown) =>
+    arr(x).map((i) => ({ label: s(i.label), value: s(i.value), url: s(i.url), ...(s(i.pdf) ? { pdf: s(i.pdf) } : {}) }));
   const t = (o.titleStyle && typeof o.titleStyle === "object" ? o.titleStyle : {}) as Record<string, unknown>;
   const d = DEFAULT_TITLE_STYLE;
   const num = (x: unknown, fallback: number, min: number, max: number) =>
@@ -338,6 +342,7 @@ const CSS = `
 .am .am-photos a{display:block;text-decoration:none}
 .am .am-photos img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
 .am .am-links{text-align:center;margin:2em 0 0}
+.am .am-pdf{margin-left:.5em;font-size:.85em;white-space:nowrap}
 .am .am-links a{margin:0 .75em}
 @media (max-width:600px){.am dl{grid-template-columns:1fr;gap:.2em}.am dd{margin-bottom:.9em}}
 `.trim();
@@ -348,10 +353,16 @@ function details(title: string, body: string): string {
   return body ? `<details><summary>${esc(title)}</summary>${body}</details>` : "";
 }
 
-const itemRows = (items: ManualItem[]) =>
+/** An item's PDF, beside its selection — only once the page has a token. */
+function itemPdf(i: ManualItem, host?: ManualHost): string {
+  const id = i.pdf ? driveIdFromLink(i.pdf) : "";
+  return id && host ? ` <a class="am-pdf" href="${esc(host.origin + pdfPath(host.token, id))}" target="_blank" rel="noopener">PDF</a>` : "";
+}
+
+const itemRows = (items: ManualItem[], host?: ManualHost) =>
   items
     .filter((i) => i.label.trim() || i.value.trim())
-    .map((i) => `<dt>${esc(i.label)}</dt><dd>${link(i.value, i.url)}</dd>`);
+    .map((i) => `<dt>${esc(i.label)}</dt><dd>${link(i.value, i.url)}${itemPdf(i, host)}</dd>`);
 
 /**
  * The title's inline style. Every value has already been through `asManual`,
@@ -387,10 +398,10 @@ export function manualHtml(m: HouseManual, host?: ManualHost): string {
   const sections = m.sections.map((s) =>
     details(
       s.title,
-      dl(itemRows(s.items)) +
+      dl(itemRows(s.items, host)) +
         s.subsections
           .map((sub) => {
-            const rows = itemRows(sub.items);
+            const rows = itemRows(sub.items, host);
             return rows.length ? `<h4 class="am-sub">${esc(sub.title)}</h4>${dl(rows)}` : "";
           })
           .join(""),

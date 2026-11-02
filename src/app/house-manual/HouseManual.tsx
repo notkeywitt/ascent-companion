@@ -314,7 +314,17 @@ function GalleryEditor({
  * A list of items: the item's name, its selection as a paragraph that grows
  * with its text (and drags taller), and the product link.
  */
-function ItemsEditor({ items, onChange }: { items: ManualItem[]; onChange: (items: ManualItem[]) => void }) {
+function ItemsEditor({
+  items,
+  onChange,
+  onUpload,
+}: {
+  items: ManualItem[];
+  onChange: (items: ManualItem[]) => void;
+  /** Files a PDF in Drive and returns its link (the page's uploadToDrive). */
+  onUpload?: (file: File) => Promise<string | null>;
+}) {
+  const [uploading, setUploading] = useState<number | null>(null);
   return (
     <>
       {items.length > 0 && (
@@ -334,6 +344,39 @@ function ItemsEditor({ items, onChange }: { items: ManualItem[]; onChange: (item
                     onChange={(e) => setItem({ value: e.target.value })}
                     className={`${quietInputCls} min-h-[4.5rem] w-full resize-y [field-sizing:content] sm:col-span-2`}
                   />
+                  {/* The item's PDF (owner, 2026-11-02): a Drive link, or a
+                      file uploaded to Drive. The page serves it with no login. */}
+                  <div className="flex min-w-0 items-center gap-1.5 sm:col-span-2">
+                    <QuietInput
+                      aria-label="PDF"
+                      placeholder="PDF — a Google Drive file link"
+                      value={it.pdf ?? ""}
+                      onChange={(e) => setItem({ pdf: e.target.value })}
+                      className="min-w-0 flex-1"
+                    />
+                    {onUpload && (
+                      <label
+                        className={`${btn("ghost", "xs")} shrink-0 cursor-pointer ${uploading === j ? "pointer-events-none opacity-40" : ""}`}
+                      >
+                        {uploading === j ? "Uploading…" : "Upload"}
+                        <input
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          className="sr-only"
+                          disabled={uploading !== null}
+                          onChange={async (e) => {
+                            const f = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!f) return;
+                            setUploading(j);
+                            const url = await onUpload(f);
+                            setUploading(null);
+                            if (url) setItem({ pdf: url });
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
                 </div>
                 {/* Reorder an item within its section (owner, 2026-11-02). */}
                 <Button
@@ -524,10 +567,11 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
   // A PDF from this computer: filed in Drive, then linked as a PDF link (owner,
   // 2026-11-02). See /api/house-manual/upload.
   const [uploadingPdf, setUploadingPdf] = useState(false);
-  async function uploadPdf(file: File | undefined) {
-    if (!file || !manual) return;
+  /** Files a PDF in Drive and hands back its link, or null when it failed (the
+   *  error banner says why). The Links list and each item's PDF both use it. */
+  async function uploadToDrive(file: File): Promise<string | null> {
+    if (!manual) return null;
     setError("");
-    setUploadingPdf(true);
     try {
       const pdfBase64 = await new Promise<string>((resolve, reject) => {
         const r = new FileReader();
@@ -542,13 +586,20 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
           body: JSON.stringify({ jobName: manual.title, fileName: file.name, pdfBase64 }),
         }),
       );
-      const text = file.name.replace(/\.pdf$/i, "");
-      edit((m) => ({ ...m, links: [...m.links, { text, url: b.file.url, pdf: true }] }));
+      return String(b.file.url);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setUploadingPdf(false);
+      return null;
     }
+  }
+  async function uploadPdf(file: File | undefined) {
+    if (!file) return;
+    setUploadingPdf(true);
+    const url = await uploadToDrive(file);
+    setUploadingPdf(false);
+    if (!url) return;
+    const text = file.name.replace(/\.pdf$/i, "");
+    edit((m) => ({ ...m, links: [...m.links, { text, url, pdf: true }] }));
   }
   const jobVendorsLeft = vendors.filter((v) => !added.has(v.id));
   const otherVendors = allVendors.filter((v) => !added.has(v.id) && !vendors.some((j) => j.id === v.id));
@@ -762,7 +813,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                       onClick={() => edit((m) => ({ ...m, sections: m.sections.filter((_, k) => k !== i) }))}
                     />
                   </div>
-                  <ItemsEditor items={s.items} onChange={(items) => setSection({ items })} />
+                  <ItemsEditor items={s.items} onChange={(items) => setSection({ items })} onUpload={uploadToDrive} />
                   {s.subsections.map((sub, j) => {
                     const setSub = (patch: Partial<typeof sub>) =>
                       setSection({ subsections: s.subsections.map((x, k) => (k === j ? { ...x, ...patch } : x)) });
@@ -799,7 +850,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                             onClick={() => setSection({ subsections: s.subsections.filter((_, k) => k !== j) })}
                           />
                         </div>
-                        <ItemsEditor items={sub.items} onChange={(items) => setSub({ items })} />
+                        <ItemsEditor items={sub.items} onChange={(items) => setSub({ items })} onUpload={uploadToDrive} />
                       </div>
                     );
                   })}
