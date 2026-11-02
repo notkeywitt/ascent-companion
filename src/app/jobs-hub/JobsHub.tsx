@@ -347,6 +347,9 @@ function twoFamilies<T extends { color: string }>(rows: T[]): (T & { laborColor:
   }));
 }
 
+/** 30000 → "30,000" — the split's figures, no "$" (the total carries it). */
+const whole = (n: number) => Math.round(n).toLocaleString("en-US");
+
 interface RingItem {
   key: string;
   label: string;
@@ -437,8 +440,11 @@ function RingsCard({
                     )}
                   </span>
                   <span className="min-w-0 flex-1 truncate">{r.label}</span>
-                  <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
+                  <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
                     {money0(r.bills + r.labor)}
+                    {/* All jobs: the split after the total — "$100,000 (30,000/70,000)",
+                        bills then labor, the order of the two dots. */}
+                    {r.laborColor && ` (${whole(r.bills)}/${whole(r.labor)})`}
                   </span>
                 </button>
               </li>
