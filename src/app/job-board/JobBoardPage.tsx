@@ -91,13 +91,16 @@ function ToDoLine({ t }: { t: JobToDo }) {
 }
 
 /** `aside` sits in the card's right column — the Jobs page's to-be-invoiced
- *  figure (owner, 2026-11-01). */
+ *  figure (owner, 2026-11-01). `links` sits under the address — the Jobs
+ *  page's buttons to the job's own pages (owner, 2026-11-02). */
 export function JobCard({
   c,
   aside,
+  links,
 }: {
   c: JobsPageCard;
   aside?: React.ReactNode;
+  links?: React.ReactNode;
 }) {
   const body = (
     <>
@@ -132,6 +135,7 @@ export function JobCard({
         <div className="line-clamp-2 text-[11px] text-neutral-500 dark:text-neutral-400">
           {c.address || "No address in JobTread"}
         </div>
+        {links}
       </div>
 
       <ScheduleNow c={c} />

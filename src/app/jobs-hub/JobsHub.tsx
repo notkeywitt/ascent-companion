@@ -13,6 +13,7 @@ import { LopezMap } from "@/components/LopezMap";
 import { Card, Loading, Segmented, Skeleton } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
+import { JobPageLinks } from "@/components/JobTabs";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { billingMonths } from "@/lib/billingMonths";
 import type { MapJob } from "@/lib/lopezMap";
@@ -283,6 +284,7 @@ export function JobsHub() {
               details?.get(selected.id) ? (
                 <JobCard
                   c={details.get(selected.id)!}
+                  links={<JobPageLinks jobId={selected.id} className="mt-2" />}
                   aside={
                     <div className="flex h-full items-start gap-6 pb-10">
                       {tab === "sheet" && canTrackingSheet && (
