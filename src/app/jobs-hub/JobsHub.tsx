@@ -7,12 +7,14 @@ import { Donut } from "@/components/Donut";
 
 import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
+import { HomeTodos } from "@/components/HomeTodos";
+import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
+import { TodayQueue } from "@/components/TodayQueue";
 import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
 import { LopezMap } from "@/components/LopezMap";
 import {
   Button,
   Card,
-  EmptyState,
   Loading,
   MetaLine,
   PageHeader,
@@ -43,7 +45,8 @@ import { money0 } from "@/lib/money";
  *     code with a Month / All time switch), a small Lopez Island map (no
  *     legend, one size in both views) and the job's details (the Job Board's
  *     card, /api/job-board) with an Edit link to JobTread.
- *   • Under the header, the main window. Bills (the default): the job's
+ *   • Under the header, the main window. No job picked: Home's "Needs you"
+ *     queue and to-dos. Bills (the default once a job is picked): the job's
  *     Tracking Sheet, embedded — its bills and labor column and its coding
  *     drawer side by side; the sheet's own rings stay out. Schedule: the job's
  *     overview (cost by division, schedule).
@@ -235,7 +238,7 @@ export function JobsHub() {
               ) : monthJobs ? (
                 <RingsCard
                   caption="All jobs"
-                  items={oneHue(
+                  items={twoFamilies(
                     monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName))),
                   )}
                   control={monthSelect}
@@ -290,7 +293,17 @@ export function JobsHub() {
             <JobOverview key={selected.id} jobId={selected.id} />
           )
         ) : (
-          <EmptyState>Pick a job from the list, a ring or the map.</EmptyState>
+          /* No job picked: Home's "Needs you" queue and to-dos. Each is the
+             home page's own component and gates itself by view. */
+          <div className="grid gap-6 xl:grid-cols-2">
+            <div className="min-w-0">
+              <TodayQueue />
+            </div>
+            <div className="min-w-0">
+              <HomeTodos />
+              <TodayOfficeTodos />
+            </div>
+          </div>
         )}
       </div>
     </main>
@@ -298,15 +311,39 @@ export function JobsHub() {
 }
 
 /**
- * The all-jobs rings in ONE hue (owner, 2026-11-01): the biggest job at full
- * strength, each smaller one paler, down to 30%. Mixed toward transparent, not
- * white, so the ramp reads the same on the light and the dark card.
+ * The all-jobs rings' colours (owner, 2026-11-01): Bills and Labor each get a
+ * family of their own so the two rings never read as one — Bills warm, Labor
+ * cool — distinct hues rather than a gradient, which was hard to tell apart.
+ * Tableau 20's warm and cool halves, so every slot reads on the light and the
+ * dark card. A job keeps the same slot in both families (its rank by the
+ * month's total), and its legend row shows both dots. ponytail: 8 slots per
+ * family; colours repeat from the 9th job, and the legend still names each.
  */
-function oneHue<T extends { color: string }>(rows: T[]): T[] {
-  const n = rows.length;
+const BILL_COLORS = [
+  "#F28E2B",
+  "#E15759",
+  "#EDC948",
+  "#FF9D9A",
+  "#B6992D",
+  "#FFBE7D",
+  "#9D7660",
+  "#D37295",
+];
+const LABOR_COLORS = [
+  "#4E79A7",
+  "#59A14F",
+  "#76B7B2",
+  "#A0CBE8",
+  "#8CD17D",
+  "#499894",
+  "#B07AA1",
+  "#86BCB6",
+];
+function twoFamilies<T extends { color: string }>(rows: T[]): (T & { laborColor: string })[] {
   return rows.map((r, i) => ({
     ...r,
-    color: `color-mix(in srgb, var(--viz-1) ${Math.round(100 - (70 * i) / Math.max(n - 1, 1))}%, transparent)`,
+    color: BILL_COLORS[i % BILL_COLORS.length],
+    laborColor: LABOR_COLORS[i % LABOR_COLORS.length],
   }));
 }
 
@@ -316,6 +353,8 @@ interface RingItem {
   bills: number;
   labor: number;
   color: string;
+  /** The Labor ring's colour, when it differs from the Bills ring's. */
+  laborColor?: string;
 }
 
 /**
@@ -354,7 +393,12 @@ function RingsCard({
   const slices = (field: "bills" | "labor") =>
     shown
       .filter((r) => r[field] > 0)
-      .map((r) => ({ key: r.key, label: r.label, value: r[field], color: r.color }));
+      .map((r) => ({
+        key: r.key,
+        label: r.label,
+        value: r[field],
+        color: field === "labor" ? (r.laborColor ?? r.color) : r.color,
+      }));
   return (
     <div className="flex h-full flex-col gap-4 lg:flex-row lg:gap-8">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
@@ -382,11 +426,16 @@ function RingsCard({
                   onClick={() => onSelect?.(r.key)}
                   className="flex w-full items-center gap-2 text-left text-[13px] enabled:hover:underline"
                 >
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ background: r.color }}
-                  />
+                  {/* Bills dot, then the Labor dot where the rings differ. */}
+                  <span className="flex shrink-0 gap-0.5" aria-hidden>
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.color }} />
+                    {r.laborColor && (
+                      <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ background: r.laborColor }}
+                      />
+                    )}
+                  </span>
                   <span className="min-w-0 flex-1 truncate">{r.label}</span>
                   <span className="tabular-nums text-neutral-500 dark:text-neutral-400">
                     {money0(r.bills + r.labor)}
