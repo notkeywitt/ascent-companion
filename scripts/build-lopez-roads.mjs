@@ -8,9 +8,9 @@
  * Secondary + tertiary roads are MAJOR. Unclassified, residential, living
  * streets and named service roads are MINOR. Driveways, parking aisles, tracks
  * and trails stay out. A way with most of its points off the coastline
- * (Decatur, Shaw) is dropped. Points keep one decimal and are simplified to
- * 0.25 map units, so the roads still hold their shape with the map zoomed in
- * (the Jobs page zooms to a picked job).
+ * (Decatur, Shaw) is dropped. Points keep two decimals and are simplified to
+ * 0.08 map units, so the roads still hold their shape with the map zoomed in
+ * 3× (the Jobs page zooms to a picked job).
  */
 import { readFileSync, writeFileSync } from "node:fs";
 
@@ -18,8 +18,9 @@ const FILE = new URL("../src/lib/lopezMap.ts", import.meta.url);
 const SERVERS = [
   "https://overpass.kumi.systems/api/interpreter",
   "https://overpass-api.de/api/interpreter",
+  "https://overpass.private.coffee/api/interpreter",
 ];
-const TOLERANCE = 0.25;
+const TOLERANCE = 0.08;
 
 const src = readFileSync(FILE, "utf8");
 const num = (name) => Number(src.match(new RegExp(`const ${name} = (-?[\\d.]+);`))[1]);
@@ -64,7 +65,7 @@ function simplify(pts) {
   return pts.filter((_, i) => keep[i]);
 }
 
-const r = (n) => String(Math.round(n * 10) / 10);
+const r = (n) => String(Math.round(n * 100) / 100);
 const toPath = (ways) =>
   ways.map((pts) => "M" + pts.map(([x, y]) => `${r(x)} ${r(y)}`).join("L")).join("");
 

@@ -32,12 +32,12 @@ export function LopezMap({
   color,
   label = "Map of Lopez Island with job locations",
   focusId = null,
-  zoom = 2,
+  zoom = 3,
 }: {
   /** The job to zoom in on, centred (the Jobs page's picked job). The dots,
    *  rings and roads keep their size on screen; only the island grows. */
   focusId?: string | null;
-  /** How far `focusId` zooms in: 2 is twice the size (owner, 2026-11-02). */
+  /** How far `focusId` zooms in: 3 is three times the size (owner, 2026-11-02). */
   zoom?: number;
   /** One colour for every dot, in place of the phase colours. */
   color?: string;
