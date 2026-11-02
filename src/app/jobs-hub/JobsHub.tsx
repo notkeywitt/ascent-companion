@@ -16,6 +16,7 @@ import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
 import { CustomerPopup } from "@/app/clients/CustomerPopup";
+import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { BudgetImport } from "@/app/budget-import/BudgetImport";
 import { Specs } from "@/app/specs/Specs";
 import { HouseManualPage } from "@/app/house-manual/HouseManual";
@@ -317,7 +318,16 @@ export function JobsHub() {
               details?.get(selected.id) ? (
                 <JobCard
                   c={details.get(selected.id)!}
-                  footer={tabs}
+                  footer={
+                    // Sync on the left, the views centred (owner, 2026-11-02).
+                    // Sync is the Tracking Sheets page's own: every wired sheet,
+                    // and the month's Labor Report, for the month picked above.
+                    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
+                      <div className="min-w-0">{ym && <SyncAllTrackingSheetsFor ym={ym} />}</div>
+                      {tabs}
+                      <span />
+                    </div>
+                  }
                   nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   aside={
