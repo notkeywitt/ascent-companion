@@ -194,6 +194,65 @@ async function ocrSerialFromFile(file: File): Promise<string> {
   return (json.serial || "").toString().trim();
 }
 
+// The tool id a QR sticker encodes. A sticker holds either the bare id or a URL
+// like ?tool=tool087. Returns "" for a code that carries neither.
+function toolIdFromQr(text: string): string {
+  const raw = text.trim();
+  return (raw.match(/tool=([^&\s]+)/i)?.[1] ?? raw).trim();
+}
+
+// The Tool ID field. The id IS the QR sticker's value, so the field fills from a
+// scan as well as by typing. The scanner opens inline, inside the dialog.
+function ToolIdField({
+  id,
+  value,
+  onChange,
+  scanning,
+  onScanStart,
+  onScanCancel,
+  onDetect,
+  onScanError,
+  msg,
+}: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  scanning: boolean;
+  onScanStart: () => void;
+  onScanCancel: () => void;
+  onDetect: (text: string) => void;
+  onScanError: (message: string) => void;
+  msg?: string;
+}) {
+  return (
+    <div>
+      <Label htmlFor={id}>Tool ID (QR code)</Label>
+      <div className="flex gap-2">
+        <input
+          id={id}
+          value={value}
+          onChange={(ev) => onChange(ev.target.value)}
+          className={inputCls + " flex-1"}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          onClick={scanning ? onScanCancel : onScanStart}
+          title="Scan the tool's QR sticker with the camera"
+        >
+          {scanning ? "Cancel" : "Scan QR"}
+        </Button>
+      </div>
+      {scanning && (
+        <div className="mt-2">
+          <QrScanner onDetect={onDetect} onError={onScanError} />
+        </div>
+      )}
+      {msg && <p className="mt-1 text-xs text-neutral-500">{msg}</p>}
+    </div>
+  );
+}
+
 // A dropdown for an editable option list (Condition / Tool group). Options come from
 // the sheet's "Lists" tab; the trailing "＋ Add new…" entry lets a user type a value
 // that isn't in the list yet — it's set as this tool's value and, once saved, becomes
@@ -360,6 +419,10 @@ export default function ToolsPage() {
   const [createSerialBusy, setCreateSerialBusy] = useState(false);
   const [createSerialMsg, setCreateSerialMsg] = useState("");
 
+  // ---- Tool ID from a QR scan, inside the New tool or Edit dialog -------------
+  const [idScan, setIdScan] = useState<"new" | "edit" | null>(null); // which dialog's scanner is open
+  const [idScanMsg, setIdScanMsg] = useState("");
+
   // Stale-while-revalidate: paint the last session's inventory at once, then
   // replace it with a fresh read. A cached first paint means the spinner only
   // appears on the very first visit; after that the page is usable immediately
@@ -478,8 +541,28 @@ export default function ToolsPage() {
     return withD.map((x) => x.p);
   }, [projects, here]);
 
-  function mergeTool(updated: Tool) {
-    setTools((list) => list.map((t) => (t.id === updated.id ? updated : t)));
+  // `prevId` is the id the list knows the tool by — it differs after a rename.
+  function mergeTool(updated: Tool, prevId: string = updated.id) {
+    setTools((list) => list.map((t) => (t.id === prevId ? updated : t)));
+  }
+
+  // A QR read into the Tool ID field of the New tool or Edit dialog. The id is set
+  // even when another tool holds it; the save refuses it and says why.
+  function onIdScanned(text: string) {
+    const target = idScan;
+    setIdScan(null);
+    const id = toolIdFromQr(text);
+    if (!id) {
+      setIdScanMsg("That QR code didn't contain a tool id — try again.");
+      return;
+    }
+    const self = target === "edit" ? editing?.id : undefined;
+    const owner = tools.find((t) => t.id !== self && t.id.toLowerCase() === id.toLowerCase());
+    if (target === "new") setNewForm((f) => (f ? { ...f, id } : f));
+    else setForm((f) => (f ? { ...f, id } : f));
+    setIdScanMsg(
+      owner ? `“${id}” is already on ${owner.name || owner.id}. Use another sticker.` : `Read “${id}”.`,
+    );
   }
 
   // ---- Edit modal ------------------------------------------------------------
@@ -489,6 +572,8 @@ export default function ToolsPage() {
     setNewPhoto("");
     setSaveErr("");
     setSerialOcrMsg("");
+    setIdScan(null);
+    setIdScanMsg("");
     if (serialFileRef.current) serialFileRef.current.value = "";
   }
 
@@ -496,6 +581,8 @@ export default function ToolsPage() {
     setEditing(null);
     setForm(null);
     setNewPhoto("");
+    setIdScan(null);
+    setIdScanMsg("");
   }
 
   async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
@@ -533,6 +620,16 @@ export default function ToolsPage() {
 
   async function save() {
     if (!form || !editing) return;
+    const newId = form.id.trim();
+    if (!newId) {
+      setSaveErr("Give the tool an ID.");
+      return;
+    }
+    const rename = newId !== editing.id;
+    if (rename && tools.some((t) => t.id !== editing.id && t.id.toLowerCase() === newId.toLowerCase())) {
+      setSaveErr(`A tool with ID "${newId}" already exists.`);
+      return;
+    }
     setSaving(true);
     setSaveErr("");
     try {
@@ -543,29 +640,51 @@ export default function ToolsPage() {
           if (form[k] !== editing[k]) changes[k] = form[k];
         },
       );
+      // A new Tool ID (a new or replaced QR sticker) rides the same call.
       let latest: Tool | null = null;
-      if (Object.keys(changes).length > 0) {
+      if (Object.keys(changes).length > 0 || rename) {
         const res = await fetch("/api/tools", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ toolId: editing.id, fields: changes }),
+          body: JSON.stringify({
+            toolId: editing.id,
+            fields: changes,
+            ...(rename ? { newToolId: newId } : {}),
+          }),
         });
         const json = await res.json();
         if (!res.ok || json.ok === false) throw new Error(json.error || "Save failed.");
         latest = json.tool as Tool;
+        // An Apps Script deploy older than the rename ignores newToolId.
+        if (rename && latest?.id !== newId) {
+          if (latest) mergeTool(latest, editing.id);
+          throw new Error("The other fields saved, but the ID did not change. The back end needs a deploy.");
+        }
       }
-      // 2. New photo, if one was picked.
+      // 2. New photo, if one was picked — under the id the row holds now.
+      let listId = editing.id; // the id the list holds this tool under
       if (newPhoto) {
+        if (latest) {
+          mergeTool(latest, listId); // keep a rename if the photo fails
+          listId = latest.id;
+        }
         const res = await fetch("/api/tools", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ toolId: editing.id, imageBase64: newPhoto, mimeType: "image/jpeg" }),
+          body: JSON.stringify({
+            toolId: latest?.id ?? editing.id,
+            imageBase64: newPhoto,
+            mimeType: "image/jpeg",
+          }),
         });
         const json = await res.json();
-        if (!res.ok || json.ok === false) throw new Error(json.error || "Photo upload failed.");
+        if (!res.ok || json.ok === false) {
+          if (latest) setEditing(latest); // the text save stuck — edit from it now
+          throw new Error(json.error || "Photo upload failed.");
+        }
         latest = json.tool as Tool;
       }
-      if (latest) mergeTool(latest);
+      if (latest) mergeTool(latest, listId);
       closeEdit();
     } catch (e) {
       setSaveErr(e instanceof Error ? e.message : "Save failed.");
@@ -588,6 +707,8 @@ export default function ToolsPage() {
     setCreateErr("");
     setCreateDone(null);
     setCreateSerialMsg("");
+    setIdScan(null);
+    setIdScanMsg("");
   }
 
   function startScan() {
@@ -615,6 +736,8 @@ export default function ToolsPage() {
     setCreateErr("");
     setCreateDone(null);
     setCreateSerialMsg("");
+    setIdScan(null);
+    setIdScanMsg("");
     setScanProjectId("");
     locate();
   }
@@ -657,9 +780,7 @@ export default function ToolsPage() {
 
   function onScan(text: string) {
     setScanning(false);
-    const raw = text.trim();
-    // The sticker may encode the bare id or a URL like ?tool=tool087.
-    const id = (raw.match(/tool=([^&\s]+)/i)?.[1] ?? raw).trim();
+    const id = toolIdFromQr(text);
     if (!id) {
       setScanErr("That QR code didn't contain a tool id — try again.");
       return;
@@ -1090,27 +1211,32 @@ export default function ToolsPage() {
               </>
             ) : (
               <>
-                <div className="mb-1 flex items-baseline justify-between">
-                  <h2 className="text-lg font-bold">New tool</h2>
-                  {!newManual && <span className="text-xs text-neutral-500">ID: {newForm.id}</span>}
-                </div>
+                <h2 className="mb-1 text-lg font-bold">New tool</h2>
                 <p className="mb-3 text-xs text-neutral-500">
                   {newManual
-                    ? "Add its details to register it. The ID is the next free number — match it to the tool's sticker."
+                    ? "Add its details to register it. Tap Scan QR to read the ID off its sticker, or keep the next free number."
                     : "This sticker isn't in the inventory yet — add its details to register it."}
                 </p>
 
-                {newManual && (
-                  <div className="mb-3">
-                    <Label htmlFor="new-tool-id">Tool ID</Label>
-                    <input
-                      id="new-tool-id"
-                      value={newForm.id}
-                      onChange={(ev) => setNewForm({ ...newForm, id: ev.target.value })}
-                      className={inputCls}
-                    />
-                  </div>
-                )}
+                <div className="mb-3">
+                  <ToolIdField
+                    id="new-tool-id"
+                    value={newForm.id}
+                    onChange={(v) => setNewForm({ ...newForm, id: v })}
+                    scanning={idScan === "new"}
+                    onScanStart={() => {
+                      setIdScanMsg("");
+                      setIdScan("new");
+                    }}
+                    onScanCancel={() => setIdScan(null)}
+                    onDetect={onIdScanned}
+                    onScanError={(m) => {
+                      setIdScan(null);
+                      setIdScanMsg(m);
+                    }}
+                    msg={idScanMsg}
+                  />
+                </div>
 
                 {/* Photo */}
                 <div className="mb-4 flex items-center gap-3">
@@ -1247,6 +1373,32 @@ export default function ToolsPage() {
             </>
           }
         >
+
+            <div className="mb-4">
+              <ToolIdField
+                id="edit-tool-id"
+                value={form.id}
+                onChange={(v) => setForm({ ...form, id: v })}
+                scanning={idScan === "edit"}
+                onScanStart={() => {
+                  setIdScanMsg("");
+                  setIdScan("edit");
+                }}
+                onScanCancel={() => setIdScan(null)}
+                onDetect={onIdScanned}
+                onScanError={(m) => {
+                  setIdScan(null);
+                  setIdScanMsg(m);
+                }}
+                msg={idScanMsg}
+              />
+              {form.id.trim() && form.id.trim() !== editing.id && (
+                <p className="mt-1 text-xs text-warn">
+                  Saving changes this tool&apos;s ID to “{form.id.trim()}”. The old sticker ({editing.id})
+                  stops finding it.
+                </p>
+              )}
+            </div>
 
             {/* Photo */}
             <div className="mb-4 flex items-center gap-3">

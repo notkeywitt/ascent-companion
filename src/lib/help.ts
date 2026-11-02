@@ -322,9 +322,27 @@ export const HELP: HelpSection[] = [
         notes: [
           "The name is necessary. The other fields are not.",
           "The sticker code becomes the tool ID.",
-          "Tap **New tool** for a tool that has no sticker.",
+          "Tap **Add tool** to add a tool by hand. Tap **Scan QR** beside **Tool ID** to read its sticker.",
           "The **Scan** button beside **Serial number** reads the serial off the label.",
           "Check a scanned serial yourself. The camera makes mistakes.",
+        ],
+      },
+      {
+        id: "tools-sticker",
+        q: "How do I change a tool's ID or QR sticker?",
+        view: "tools",
+        href: "/tools",
+        keywords: ["tool id", "qr", "sticker", "replace", "relabel", "rename"],
+        steps: [
+          "Open **Tools**.",
+          "Find the tool and tap **Edit**.",
+          "Tap **Scan QR** beside **Tool ID** and point the camera at the new sticker.",
+          "Tap **Save**.",
+        ],
+        notes: [
+          "You can also type the new ID.",
+          "The old sticker stops finding the tool after the save.",
+          "An ID that another tool already has is refused.",
         ],
       },
       {
