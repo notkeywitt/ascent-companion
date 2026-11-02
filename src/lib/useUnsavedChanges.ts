@@ -10,6 +10,9 @@ let guardActive = false;
 
 const DEFAULT_MESSAGE =
   "You have unsaved changes on this bill. Leave without saving? Your changes will be lost.";
+// …and the guarding page's own wording, so a programmatic leave asks the same
+// question the page does (the Jobs page's tabs, around its House Manual).
+let guardMessage = DEFAULT_MESSAGE;
 
 /**
  * Returns true if it's safe to navigate away; otherwise prompts and returns the
@@ -19,7 +22,7 @@ const DEFAULT_MESSAGE =
  *   if (!confirmLeaveIfDirty()) return;
  *   router.replace(...);
  */
-export function confirmLeaveIfDirty(message = DEFAULT_MESSAGE): boolean {
+export function confirmLeaveIfDirty(message = guardMessage): boolean {
   if (!guardActive || typeof window === "undefined") return true;
   return window.confirm(message);
 }
@@ -36,10 +39,12 @@ export function useUnsavedChanges(dirty: boolean, message = DEFAULT_MESSAGE) {
   // Mirror `dirty` into the shared flag so confirmLeaveIfDirty() sees live state.
   useEffect(() => {
     guardActive = dirty;
+    guardMessage = message;
     return () => {
       guardActive = false;
+      guardMessage = DEFAULT_MESSAGE;
     };
-  }, [dirty]);
+  }, [dirty, message]);
 
   // 1. Browser-level leave: refresh, tab/window close, typing a new URL, or any
   //    hard navigation. Shows the browser's native "Leave site?" dialog.

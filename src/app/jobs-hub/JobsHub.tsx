@@ -19,6 +19,7 @@ import { Specs } from "@/app/specs/Specs";
 import { HouseManualPage } from "@/app/house-manual/HouseManual";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { billingMonths } from "@/lib/billingMonths";
+import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import type { MapJob } from "@/lib/lopezMap";
 import type { JobsPageCard } from "@/lib/jobBoard";
 import { money0 } from "@/lib/money";
@@ -187,7 +188,12 @@ export function JobsHub() {
   }, [listed]);
 
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
-  const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
+  // A new job or tab unmounts the view under the header, so an embedded page's
+  // unsaved edits (the House Manual) would go without a word. Ask first.
+  const pick = (id: string) => {
+    if (!confirmLeaveIfDirty()) return;
+    setSelectedId((cur) => (cur === id ? null : id));
+  };
   const files = useJobFiles(selected && (tab === "plans" || tab === "photos") ? selected.id : null);
 
   // Switching tabs swaps a tall view for one still loading, so the page would
@@ -196,6 +202,7 @@ export function JobsHub() {
   const mainRef = useRef<HTMLElement>(null);
   const [heldHeight, setHeldHeight] = useState<number | undefined>(undefined);
   const switchTab = (t: Tab) => {
+    if (t === tab || !confirmLeaveIfDirty()) return;
     const y = window.scrollY;
     setHeldHeight(mainRef.current?.offsetHeight);
     setTab(t);
