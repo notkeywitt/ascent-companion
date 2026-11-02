@@ -5057,7 +5057,10 @@ export function sunsetSwitchBlocker(d: {
   qboDocumentType?: string | null;
   qboId?: string | null;
   mixed?: boolean;
-}): "" | "not draft" | "in QuickBooks" | "already an Expense" | "already a Credit" {
+  externalId?: string | null;
+}): "" | "not draft" | "in QuickBooks" | "already an Expense" | "already a Credit" | "a statement bill" {
+  // A statement bill is the payable, on terms — never an Expense.
+  if (isSunsetStatementBill(d.externalId)) return "a statement bill";
   if (d.status && d.status !== "draft") return "not draft";
   if (d.qboId) return "in QuickBooks";
   if (d.mixed) return "";
@@ -5561,6 +5564,92 @@ async function resolveShopBuybackLeaf(cfg: PaveConfig, shopJobId: string): Promi
     clearJobCostCaches(); // the Shop budget just gained a leaf
     return id as string;
   });
+}
+
+// ---------------------------------------------------------------------------
+// SUNSET STATEMENT BILLS — one draft Bill per monthly statement, on the Office
+// job (owner, 2026-11-02). The statement bill is what gets PAID; the per-job
+// Sunset invoices stay on their jobs for job cost. Its externalId is the
+// statement's sheet ExpID ("STMT-…"), so nothing else mistakes it for an invoice.
+// ---------------------------------------------------------------------------
+
+/** The org cost code "88 70 00 Sunset Statements" every statement bill codes to. */
+export const SUNSET_STATEMENT_CSI = "88 70 00";
+
+/** Is this externalId a statement bill's (the sheet ExpID "STMT-…")? */
+export const isSunsetStatementBill = (externalId?: string | null) =>
+  /^STMT-/i.test(String(externalId ?? "").trim());
+
+/**
+ * The Office job's 88 70 00 budget leaf. Same REFRESH-ON-MISS then
+ * CREATE-ON-MISS as resolveShopBuybackLeaf: a genuine miss adds a $0 leaf, so
+ * a statement bill never lands uncoded.
+ */
+export async function resolveSunsetStatementLeaf(cfg: PaveConfig): Promise<string> {
+  return cachedRef(`sunsetstmt:${cfg.orgId}:${OFFICE_JOB_ID}`, 5 * 60_000, async () => {
+    const find = (items: BudgetItem[]) => items.find((b) => b.number === SUNSET_STATEMENT_CSI)?.id;
+    const hit =
+      find(await getJobBudget(cfg, OFFICE_JOB_ID)) ?? find(await _getJobBudgetUncached(cfg, OFFICE_JOB_ID));
+    if (hit) return hit;
+
+    const costCodeId = await resolveCostCodeId(cfg, SUNSET_STATEMENT_CSI);
+    if (!costCodeId) {
+      throw new Error(`No "${SUNSET_STATEMENT_CSI}" cost code in JobTread — add it, then retry.`);
+    }
+    const created = await pave(cfg, {
+      createCostItem: {
+        $: {
+          jobId: OFFICE_JOB_ID,
+          costCodeId,
+          name: "Sunset Statements",
+          quantity: 0,
+          unitCost: 0,
+          isTaxable: false,
+        },
+        createdCostItem: { id: {} },
+      },
+    });
+    const id = created?.createCostItem?.createdCostItem?.id;
+    if (!id) throw new Error(`Could not add the ${SUNSET_STATEMENT_CSI} budget leaf to the Office job.`);
+    clearJobCostCaches(); // the Office budget just gained a leaf
+    return id as string;
+  });
+}
+
+/**
+ * The statement bills already on the Office job: externalId → doc id. Voided
+ * (denied) bills count too — a voided bill keeps its externalId, and its
+ * statement must not be billed again on its own. Throws on a failed read, so
+ * the caller refuses to create (fail CLOSED, never duplicate).
+ */
+export async function getSunsetStatementBills(cfg: PaveConfig): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  await pageEach<any>(
+    cfg,
+    {
+      label: "job.documents (Sunset statement bills)",
+      size: 50,
+      maxPages: 200,
+      query: (args) => ({
+        job: {
+          $: { id: OFFICE_JOB_ID },
+          documents: {
+            $: { where: { and: [["type", "vendorBill"]] }, ...args },
+            nextPage: {},
+            nodes: { id: {}, externalId: {} },
+          },
+        },
+      }),
+      pick: (r) => r?.job?.documents,
+    },
+    (rows) => {
+      for (const d of rows) {
+        const ext = String(d.externalId ?? "").trim();
+        if (isSunsetStatementBill(ext) && !out.has(ext)) out.set(ext, d.id);
+      }
+    },
+  );
+  return out;
 }
 
 /** The org cost code with this CSI number, or undefined. */

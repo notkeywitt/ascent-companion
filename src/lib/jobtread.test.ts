@@ -670,6 +670,10 @@ describe("sunsetSwitchBlocker", () => {
   it("still switches a bill named Expense that pushes as a Bill", () => {
     expect(sunsetSwitchBlocker({ ...draft, name: "Expense" })).toBe("");
   });
+  it("never switches a statement bill to an Expense", () => {
+    expect(sunsetSwitchBlocker({ ...draft, externalId: "STMT-1a2b3c4d" })).toBe("a statement bill");
+    expect(sunsetSwitchBlocker({ ...draft, externalId: "676708" })).toBe("");
+  });
 });
 
 describe("splitSunsetLines", () => {

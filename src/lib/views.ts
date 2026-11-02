@@ -94,6 +94,8 @@ export const VIEWS: ViewDef[] = [
       // on Sunset Statements, which a lead also holds, so the route rides THIS
       // gate and the panel only shows to a role that has it.
       "/api/sunset-expense",
+      // "Create Bills" on Sunset Statements — same reason, same gate.
+      "/api/sunset-statement-bills",
       "/api/bill-number",
       "/api/bill-issuedate",
       "/api/bill-duedate",

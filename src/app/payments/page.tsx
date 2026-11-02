@@ -6,6 +6,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { SunsetExpenseSwitch } from "@/components/SunsetExpenseSwitch";
+import { SunsetStatementBills } from "@/components/SunsetStatementBills";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { BillPopup } from "@/app/trackingsheet/BillPopup";
 import { useIsWide, type Selection } from "@/app/trackingsheet/DraftWorkbench";
@@ -508,6 +509,9 @@ export default function PaymentsPage() {
 
       {/* A bill write — office/admin only (its route rides the "recode" gate). */}
       {canOpenBill && <SunsetExpenseSwitch />}
+
+      {/* "Create Bills" — a bill write on the same gate. */}
+      {canOpenBill && <SunsetStatementBills />}
 
       <div className="mb-4 flex items-center gap-1.5">
         {FILTERS.map((f) => (
