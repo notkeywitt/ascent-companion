@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
-import { JobOverview } from "@/components/HomeJobBoard";
+import { HomeJobBoard, JobOverview } from "@/components/HomeJobBoard";
+import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeTodos } from "@/components/HomeTodos";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
@@ -80,6 +81,9 @@ export function JobsHub() {
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** What the card shows while no job is picked: the month's rings, or Home's
+   *  Leads or Active Jobs board (owner, 2026-11-02). */
+  const [idleView, setIdleView] = useState<"month" | "leads" | "jobs">("month");
   /** The job whose customer the pop-up shows (owner, 2026-11-02). */
   const [customerOf, setCustomerOf] = useState<string | null>(null);
   /** The list row under the pointer: its dot lights on the map meanwhile. */
@@ -325,19 +329,39 @@ export function JobsHub() {
                 <Skeleton className="h-40 w-full rounded-xl" />
               )
             ) : (
-              <Card className="flex min-h-0 gap-6 overflow-y-auto">
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  {ranked ? (
-                    <MonthRings items={ranked} onSelect={pick} onHover={setHoverId} />
+              // The list's height, with the tabs on their own row at the foot,
+              // as on a picked job's card.
+              <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+                <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+                  {idleView === "leads" ? (
+                    <HomeLeadBoard storeAs="jobs-hub" />
+                  ) : idleView === "jobs" ? (
+                    <HomeJobBoard />
+                  ) : ranked ? (
+                    <div className="flex flex-col gap-3">
+                      <MonthRings items={ranked} onSelect={pick} onHover={setHoverId} />
+                    </div>
                   ) : (
                     <Skeleton className="h-48 w-full rounded-xl" />
                   )}
+                </div>
+                <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">
+                  <Segmented
+                    label="Show"
+                    value={idleView}
+                    onChange={setIdleView}
+                    options={[
+                      { value: "month" as const, label: "This month" },
+                      ...(can("leads") ? [{ value: "leads" as const, label: "Leads" }] : []),
+                      { value: "jobs" as const, label: "Active Jobs" },
+                    ]}
+                  />
                 </div>
               </Card>
             )}
             <div className="absolute right-4 top-3 z-10 flex flex-col items-end gap-1">
               {selected && tab === "sheet" && <div ref={setScopeSlot} />}
-              {monthSelect}
+              {(selected || idleView === "month") && monthSelect}
             </div>
           </div>
           {/* The map, on the page beside the cards (owner, 2026-11-01). */}
