@@ -605,6 +605,30 @@ export default function ToolsPage() {
     if (serialFileRef.current) serialFileRef.current.value = "";
   }
 
+  // Remove the tool's row from the Tools tab. The photo stays in Drive.
+  async function deleteTool() {
+    if (!editing) return;
+    if (!window.confirm(`Delete ${editing.name || editing.id} from the tool inventory? This cannot be undone.`)) return;
+    setSaving(true);
+    setSaveErr("");
+    try {
+      const res = await fetch("/api/tools", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId: editing.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) throw new Error(json.error || "Could not delete the tool.");
+      const goneId = editing.id;
+      setTools((list) => list.filter((t) => t.id !== goneId));
+      closeEdit();
+    } catch (e) {
+      setSaveErr(e instanceof Error ? e.message : "Could not delete the tool.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function closeEdit() {
     setEditing(null);
     setForm(null);
@@ -1419,6 +1443,9 @@ export default function ToolsPage() {
           description={`ID: ${editing.id}`}
           footer={
             <>
+              <Button variant="danger" className="mr-auto" onClick={deleteTool} disabled={saving}>
+                Delete
+              </Button>
               <Button variant="secondary" onClick={closeEdit} disabled={saving}>
                 Cancel
               </Button>

@@ -18,6 +18,7 @@ const TIMEOUT = { timeoutMs: 50_000 };
 //   PATCH { toolId, fields } → { ok, tool, changed }        (edit text fields)
 //   POST  { toolId, imageBase64, mimeType } → { ok, tool }  (replace photo)
 //   PUT   { toolId, fields } → { ok, tool }                 (register a new tool)
+//   DELETE { toolId } → { ok, deleted, toolId }             (remove the tool's row)
 //
 // PUT (createTool) is for scanning a sticker that isn't in the inventory yet; the
 // scan audit (LastScanEmail) is taken from the signed-in session, not the client.
@@ -119,6 +120,25 @@ export async function PUT(req: NextRequest) {
   const lastScanEmail = session?.user?.email ?? "";
 
   const result = await callAppsScript({ ...body, action: "createTool", lastScanEmail }, TIMEOUT);
+  if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  revalidateTag(TOOLS_TAG);
+  return NextResponse.json(result.data, { status: 200 });
+}
+
+export async function DELETE(req: NextRequest) {
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+  // The page confirms before it calls; the audit names the signed-in user.
+  const session = await auth();
+  const email = session?.user?.email ?? "";
+  const result = await callAppsScript(
+    { toolId: body.toolId, confirm: true, email, action: "deleteTool" },
+    TIMEOUT,
+  );
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   revalidateTag(TOOLS_TAG);
   return NextResponse.json(result.data, { status: 200 });
