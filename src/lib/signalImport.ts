@@ -5,7 +5,7 @@ import { advanceSignalChat, SENT_RULES, signalChatRules, type SignalChatReport }
 
 /**
  * Signal group messages into AscentBot's memory. The office Mac mini runs
- * scripts/signal-sync/signal_sync.py twice a day. Each run POSTs to
+ * scripts/signal-sync/signal_sync.py every hour. Each run POSTs to
  * /api/google-chat/signal-import twice:
  *
  *   { chats: [...] }     every chat it has (signalChats.ts records them), and

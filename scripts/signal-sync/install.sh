@@ -1,6 +1,7 @@
 #!/bin/sh
 # Sets up signal_sync.py on the office Mac mini: a venv, ~/.ascent-signal/,
-# and a launchd job at 7 AM and 5 PM. Safe to run again; it keeps the secret.
+# and a launchd job that runs at login and every hour. Safe to run again; it
+# keeps the secret.
 # Which chats are sent is set on the Ascent app's AscentBot page. See README.md.
 set -eu
 
@@ -33,11 +34,8 @@ cat > "$PLIST" <<PLIST
     <string>$DIR/venv/bin/python</string>
     <string>$DIR/signal_sync.py</string>
   </array>
-  <key>StartCalendarInterval</key>
-  <array>
-    <dict><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
-    <dict><key>Hour</key><integer>17</integer><key>Minute</key><integer>0</integer></dict>
-  </array>
+  <key>RunAtLoad</key><true/>
+  <key>StartInterval</key><integer>3600</integer>
   <key>StandardOutPath</key><string>$LOG</string>
   <key>StandardErrorPath</key><string>$LOG</string>
 </dict>
@@ -47,5 +45,5 @@ PLIST
 launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
-echo "Installed. Runs at 7 AM and 5 PM. Log: $LOG"
+echo "Installed. Runs at login and every hour. Log: $LOG"
 [ -f "$DIR/secret" ] || echo "Still to do: put SIGNAL_IMPORT_SECRET in $DIR/secret (see README.md)."

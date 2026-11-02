@@ -1,6 +1,7 @@
 # Signal → AscentBot memory
 
-Runs on the office Mac mini at 7 AM and 5 PM. Each run:
+Runs on the office Mac mini at login and every hour. A run sends only what is new, so
+a quiet hour costs nothing. Each run:
 
 1. Sends the Ascent app the list of Signal chats on this Mac: names, message counts and
    last message dates. It sends no messages in this step.
@@ -32,10 +33,10 @@ moves the messages already sent.
    `pbpaste | tr -d '\n' > ~/.ascent-signal/secret && chmod 600 ~/.ascent-signal/secret`
 2. **Install.** `sh scripts/signal-sync/install.sh` from the `ascent-companion` folder.
    It makes the venv (a private Python package folder), `~/.ascent-signal/` and the
-   twice-a-day launchd job (the macOS scheduler).
+   hourly launchd job (the macOS scheduler).
 3. **First run.** `~/.ascent-signal/venv/bin/python ~/.ascent-signal/signal_sync.py --dry-run`
    The first run asks for Keychain access to "Signal Safe Storage". Enter the Mac
-   password and click **Always Allow**, or the 7 AM run cannot read Signal.
+   password and click **Always Allow**, or the hourly run cannot read Signal.
    The dry run sends the chat list only, so the chats appear on the AscentBot page.
 4. **Assign the chats** on the AscentBot page.
 5. **Send.** Run it with no flag, or wait for the next scheduled run.

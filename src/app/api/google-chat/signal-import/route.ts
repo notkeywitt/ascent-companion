@@ -4,7 +4,7 @@ import { reportSignalChats } from "@/lib/signalChats";
 import { cleanChatReport, cleanSignalBatch, importSignalMessages, signalSecretOk } from "@/lib/signalImport";
 
 // Signal messages into AscentBot's memory (src/lib/signalImport.ts). The
-// office Mac mini's scripts/signal-sync/signal_sync.py POSTs here twice a day:
+// office Mac mini's scripts/signal-sync/signal_sync.py POSTs here every hour:
 // { chats } to report its chats and get their rules, then { messages }. It
 // sits under /api/google-chat, which src/middleware.ts lists as PUBLIC, so it
 // checks its own bearer secret: SIGNAL_IMPORT_SECRET.

@@ -57,9 +57,9 @@ export function SignalChats() {
     <section>
       <SectionHeading trailing={notSet ? <Chip tone="warning">{notSet} not set</Chip> : undefined}>Signal chats</SectionHeading>
       <p className="mb-3 text-xs text-neutral-500">
-        The office Mac mini sends new Signal messages at 7 AM and 5 PM. A chat set to a job is filed under that job; an
+        The office Mac mini sends new Signal messages every hour. A chat set to a job is filed under that job; an
         office group is searchable from any job. Not set and Don&apos;t send chats stay on the Mac. A new chat shows up
-        here after the Mac&apos;s next run.
+        here within the hour.
       </p>
       {err && <Banner tone="error">{err}</Banner>}
       {!chats ? (
