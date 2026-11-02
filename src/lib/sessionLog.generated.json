@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T06:05:29Z",
+  "generatedAt": "2026-11-02T06:12:36Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T06:05:29Z",
+      "updated": "2026-11-02T06:12:35Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub list grouped by phase, and that tapping the bill PDF zooms over the bills list and small PDF (also on /trackingsheet when wide).",
+      "next": "Owner: check /jobs-hub Tracking sheet tab matches /trackingsheet (rail, bills, coding, reconcile, deposit) and the Job Board card above the rings.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -886,6 +886,13 @@
           "sha": "55db357",
           "subject": "companion: jobs page embeds the full tracking sheet and the job board card",
           "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "22:12",
+          "sha": "6cdc033",
+          "subject": "companion: jobs page header is the list and the job card with the map",
+          "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
