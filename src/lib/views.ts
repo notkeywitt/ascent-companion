@@ -96,6 +96,8 @@ export const VIEWS: ViewDef[] = [
       "/api/sunset-expense",
       // "Create Bills" on Sunset Statements — same reason, same gate.
       "/api/sunset-statement-bills",
+      // "Link" a statement line to a bill on Sunset Statements — same gate.
+      "/api/sunset-statement-links",
       "/api/bill-number",
       "/api/bill-issuedate",
       "/api/bill-duedate",

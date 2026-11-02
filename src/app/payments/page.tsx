@@ -6,12 +6,14 @@ import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { SunsetExpenseSwitch } from "@/components/SunsetExpenseSwitch";
+import { SunsetLinkPicker, type LinkTarget } from "@/components/SunsetLinkPicker";
 import { SunsetStatementBills } from "@/components/SunsetStatementBills";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { BillPopup } from "@/app/trackingsheet/BillPopup";
 import { useIsWide, type Selection } from "@/app/trackingsheet/DraftWorkbench";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { reconcileState } from "@/lib/sunsetReconcile";
+import type { SunsetCandidate } from "@/lib/sunsetLinks";
 import { money as moneyN } from "@/lib/money";
 
 // The TSYS hosted-payment page rejects requests that don't arrive through Sunset's
@@ -69,8 +71,19 @@ interface MatchInvoice {
   date: string;
   docId: string;
   jobId: string;
+  // The bill sits on another job or month than the statement (the office moved
+  // it, or Sunset rang it up on the wrong account). jobName is where it sits now.
   elsewhere?: boolean;
+  jobName?: string;
+  // The bill's own number, when it differs from the printed one (a fuzzy or linked match).
+  systemNumber?: string;
   fuzzy?: boolean;
+  // An office link (the Link button) made this match, not the automatic one.
+  linked?: boolean;
+  // missing: another statement's line already took the bill with this number.
+  // movedOut: the statement that claims this job's bill, and its printed line.
+  claimedBy?: string;
+  line?: string;
   // Office flagged this bill "Bought Back" in the Reconcile Overrides tab: line
   // items were recoded to the shop after Sunset already billed the job, so the
   // statement/system amounts are expected to differ. boughtBackAmount = statement − system.
@@ -83,9 +96,13 @@ interface MatchBlock {
   missing: MatchInvoice[];
   extra: MatchInvoice[];
   extraCredits: MatchInvoice[];
+  // Bills on this statement's job that ANOTHER statement prints — information,
+  // not a discrepancy, so they are left out of this statement's total.
+  movedOut?: MatchInvoice[];
 }
 interface Reconciliation {
   projectId: string;
+  projectName?: string;
   month: string;
   year: string;
   invoiceCount: number;
@@ -157,7 +174,23 @@ const money = (s: string) => {
 const SNAP_COLD_MS = 2 * 60_000; // older than this → refresh behind the scenes
 const SNAP_MAX_MS = 30 * 60_000; // older than this → don't show it, load fresh
 let snapList: { at: number; filter: Filter; items: Statement[] } | null = null;
-let snapRecon: { at: number; recon: Record<string, Reconciliation>; live: boolean } | null = null;
+interface MonthBlock {
+  invoices: SunsetCandidate[];
+  unclaimed: SunsetCandidate[];
+}
+interface StaleLink {
+  statementId: string;
+  line: string;
+  number: string;
+  reason: string;
+}
+let snapRecon: {
+  at: number;
+  recon: Record<string, Reconciliation>;
+  live: boolean;
+  months: Record<string, MonthBlock> | null;
+  stale: StaleLink[];
+} | null = null;
 const openCards = new Set<string>(); // expIds whose invoice list is expanded
 let snapScrollY = 0;
 let snapFilter: Filter = "unpaid"; // the tab you were on, so a return doesn't reset it
@@ -256,6 +289,13 @@ export default function PaymentsPage() {
   );
   const [reconLoading, setReconLoading] = useState(!restored.recon);
   const [reconLive, setReconLive] = useState(restored.recon ? restored.recon.live : true);
+  // The month-wide view: every Sunset bill of each billing month, for the Link
+  // picker. null until the month-wide appscript reconcile is deployed.
+  const [months, setMonths] = useState<Record<string, MonthBlock> | null>(
+    restored.recon ? restored.recon.months : null,
+  );
+  const [stale, setStale] = useState<StaleLink[]>(restored.recon ? restored.recon.stale : []);
+  const [linkFor, setLinkFor] = useState<LinkTarget | null>(null);
   // How many background re-fetches are in flight (a counter, not a flag — the
   // list and the reconcile refresh independently).
   const [refreshing, setRefreshing] = useState(0);
@@ -295,6 +335,37 @@ export default function PaymentsPage() {
         className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current"
       >
         #{x.number || "—"}
+      </button>
+    );
+  }
+
+  /** A statement's name by ExpID — any statement, paid or not, from the reconcile. */
+  function stmtName(expId: string): string {
+    const it = items.find((r) => r.expId === expId);
+    const rc = recon[expId];
+    const name = it?.accountName || it?.project || rc?.projectName || "another statement";
+    const when = rc ? billingLabel(it?.statementDate ?? "", rc.month, rc.year) : "";
+    return when ? `${name} · ${when}` : name;
+  }
+
+  /** The Link button on a statement line — office/admin, once the month view is live. */
+  function linkBtn(s: Statement, rc: Reconciliation, x: MatchInvoice) {
+    if (!canOpenBill || !months || !months[`${rc.month}|${rc.year}`]) return null;
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          setLinkFor({
+            statementExpId: s.expId,
+            statementName: stmtName(s.expId),
+            line: { number: x.number, amount: x.statementAmount ?? 0, date: x.date },
+            currentDocId: x.docId || undefined,
+            linked: !!x.linked,
+          })
+        }
+        className={jtChip}
+      >
+        {x.linked ? "Linked ✎" : "Link"}
       </button>
     );
   }
@@ -393,9 +464,13 @@ export default function PaymentsPage() {
       if (res.ok && json.ok !== false) {
         const next = (json.reconciliation as Record<string, Reconciliation>) ?? {};
         const live = json.liveChecked !== false;
+        const mo = (json.months as Record<string, MonthBlock> | null) ?? null;
+        const st = (json.staleLinks as StaleLink[]) ?? [];
         setRecon(next);
         setReconLive(live);
-        snapRecon = { at: Date.now(), recon: next, live };
+        setMonths(mo);
+        setStale(st);
+        snapRecon = { at: Date.now(), recon: next, live, months: mo, stale: st };
         // This pull saw every bill written since the last one, so the staleness
         // signal is spent — the next return visit needn't refresh for them.
         clearTouchedBills();
@@ -434,6 +509,8 @@ export default function PaymentsPage() {
     if (snap) {
       setRecon(snap.recon);
       setReconLive(snap.live);
+      setMonths(snap.months);
+      setStale(snap.stale);
       setReconLoading(false);
     }
     if (!snap || touchedBillCount() > 0 || Date.now() - snap.at > SNAP_COLD_MS) loadRecon(!!snap);
@@ -499,7 +576,7 @@ export default function PaymentsPage() {
       <div className="min-w-0">
       <PageHeader
         title="Sunset Statements"
-        description="Pay each statement at TSYS — copy the fields, pay, mark it done. Each card reconciles the statement total against the Sunset invoices logged for that project & month."
+        description="Pay each statement at TSYS — copy the fields, pay, mark it done. Each card reconciles the statement against every Sunset bill in JobTread that month, on any job. Link a line to its bill when the match cannot find it."
         className="!mb-4"
       />
 
@@ -570,6 +647,24 @@ export default function PaymentsPage() {
         </div>
       )}
 
+      <MonthCheck
+        months={months}
+        stale={stale}
+        stmtName={stmtName}
+        onRemove={
+          canOpenBill
+            ? async (l) => {
+                await fetch("/api/sunset-statement-links", {
+                  method: "DELETE",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ statementExpId: l.statementId, lineNumber: l.line }),
+                }).catch(() => undefined);
+                loadRecon(true);
+              }
+            : undefined
+        }
+      />
+
       <ul className="space-y-2">
         {items.map((s) => {
           const done = !!s.extractedAt;
@@ -581,6 +676,11 @@ export default function PaymentsPage() {
           const { hasRows, useLines, cmpTarget, cmpReady, boughtBackTotal, diff, matchIssues, totalMatches, reconciled } =
             reconcileState(s, rc);
           const m = rc?.match ?? null;
+          // Lines the month-wide match found off the statement's own job, by amount
+          // instead of number, or through an office link — shown so the office can
+          // confirm them, and relink one that is wrong.
+          const found = m ? m.matched.filter((x) => x.elsewhere || x.fuzzy || x.linked) : [];
+          const movedOut = m?.movedOut ?? [];
           return (
             <li
               key={s.expId}
@@ -676,7 +776,7 @@ export default function PaymentsPage() {
                   )}
 
                   {/* Invoice-number reconciliation: name each discrepancy, don't just measure it. */}
-                  {m && (m.missing.length > 0 || m.mismatched.length > 0 || m.extra.length > 0) ? (
+                  {m && (m.missing.length > 0 || m.mismatched.length > 0 || m.extra.length > 0 || found.length > 0 || movedOut.length > 0) ? (
                     <div className="mt-2 space-y-1.5 border-t border-current/20 pt-1.5">
                       {m.missing.length > 0 && (
                         <div>
@@ -686,9 +786,13 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.missing.map((x, i) => (
                               <li key={"mi" + i} className="flex justify-between gap-3 tabular-nums">
-                                <span className="min-w-0 truncate">
+                                <span className="flex min-w-0 items-center gap-1.5 truncate">
                                   <span className="font-medium">#{x.number || "—"}</span>
+                                  {linkBtn(s, rc, x)}
                                   {x.date ? <span className="opacity-60"> · {x.date}</span> : null}
+                                  {x.claimedBy ? (
+                                    <span className="opacity-60"> · already matched on {stmtName(x.claimedBy)}</span>
+                                  ) : null}
                                 </span>
                                 <span>{moneyN(x.statementAmount ?? 0)}</span>
                               </li>
@@ -713,6 +817,8 @@ export default function PaymentsPage() {
                                         JT ↗
                                       </JtLink>
                                     )}
+                                    {linkBtn(s, rc, x)}
+                                    {x.elsewhere && x.jobName ? <span className="opacity-60"> · on {x.jobName}</span> : null}
                                   </span>
                                   <span>stmt {moneyN(x.statementAmount ?? 0)} · sys {moneyN(x.systemAmount ?? 0)}</span>
                                 </li>
@@ -747,9 +853,59 @@ export default function PaymentsPage() {
                           </ul>
                         </div>
                       )}
-                      {m.matched.some((x) => x.elsewhere) && (
-                        <div className="text-[10px] opacity-70">
-                          Some matches are filed under a different month/project than this statement.
+                      {found.length > 0 && (
+                        <div>
+                          <div className="text-[11px] font-semibold">
+                            ✓ Matched on another job or by amount ({found.length})
+                          </div>
+                          <ul className="mt-0.5 space-y-0.5 text-[11px]">
+                            {found.map((x, i) => {
+                              const url = jtMatchUrl(x);
+                              const other = x.systemNumber && x.systemNumber !== x.number ? x.systemNumber : "";
+                              return (
+                                <li key={"fd" + i} className="flex justify-between gap-3 tabular-nums">
+                                  <span className="flex min-w-0 items-center gap-1.5 truncate">
+                                    {billRef(s, found, i)}
+                                    {url && (
+                                      <JtLink href={url} className={jtChip}>
+                                        JT ↗
+                                      </JtLink>
+                                    )}
+                                    {linkBtn(s, rc, x)}
+                                    <span className="opacity-60">
+                                      {[
+                                        other ? `bill #${other}` : "",
+                                        x.elsewhere ? `on ${x.jobName || "another job"}` : "",
+                                        x.fuzzy ? "by amount" : "",
+                                      ]
+                                        .filter(Boolean)
+                                        .map((t) => " · " + t)
+                                        .join("")}
+                                    </span>
+                                  </span>
+                                  <span>{moneyN(x.systemAmount ?? 0)}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </div>
+                      )}
+                      {movedOut.length > 0 && (
+                        <div className="opacity-80">
+                          <div className="text-[11px] font-semibold">
+                            → On this job, printed on another statement ({movedOut.length})
+                          </div>
+                          <ul className="mt-0.5 space-y-0.5 text-[11px]">
+                            {movedOut.map((x, i) => (
+                              <li key={"mo" + i} className="flex justify-between gap-3 tabular-nums">
+                                <span className="min-w-0 truncate">
+                                  #{x.number || "—"}
+                                  <span className="opacity-60"> · {stmtName(x.claimedBy ?? "")}</span>
+                                </span>
+                                <span>{moneyN(x.systemAmount ?? 0)}</span>
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       )}
                       {m.matched.some((x) => x.boughtBack) && (
@@ -909,6 +1065,23 @@ export default function PaymentsPage() {
         </aside>
       )}
 
+      {linkFor && months && (
+        <SunsetLinkPicker
+          target={linkFor}
+          candidates={(() => {
+            const rc = recon[linkFor.statementExpId];
+            return rc ? months[`${rc.month}|${rc.year}`]?.invoices ?? [] : [];
+          })()}
+          statementName={stmtName}
+          onClose={() => setLinkFor(null)}
+          onSaved={() => {
+            setLinkFor(null);
+            // The link applies on the next reconcile — re-run it behind the cards.
+            loadRecon(true);
+          }}
+        />
+      )}
+
       {popup && (
         <BillPopup
           key={popup.list[popup.i].docId}
@@ -929,5 +1102,91 @@ export default function PaymentsPage() {
         />
       )}
     </main>
+  );
+}
+
+const MONTH_KEY = /^(\d{1,2})\|(\d{4})$/;
+
+/**
+ * The month-wide check, above the cards: Sunset bills no statement accounts for
+ * (on a job with no statement that month, and no statement line claims them),
+ * and office links that no longer apply. A bill here is usually one the office
+ * moved to a job Sunset has no account for — link the statement line that
+ * prints it.
+ */
+function MonthCheck({
+  months,
+  stale,
+  stmtName,
+  onRemove,
+}: {
+  months: Record<string, MonthBlock> | null;
+  stale: StaleLink[];
+  stmtName: (expId: string) => string;
+  /** Office/admin only: drop a link that no longer applies. */
+  onRemove?: (l: StaleLink) => void;
+}) {
+  if (!months && stale.length === 0) return null;
+  const rows = Object.entries(months ?? {})
+    .filter(([k, b]) => MONTH_KEY.test(k) && b.unclaimed.length > 0)
+    .sort(([a], [b]) => {
+      const [, am, ay] = MONTH_KEY.exec(a)!;
+      const [, bm, by] = MONTH_KEY.exec(b)!;
+      return Number(by) - Number(ay) || Number(bm) - Number(am);
+    });
+  if (rows.length === 0 && stale.length === 0) return null;
+  return (
+    <div className="mb-4 rounded-xl border border-line bg-white px-3 py-2 text-xs dark:bg-ink-raised">
+      {stale.length > 0 && (
+        <div className="mb-1.5 text-warn">
+          <div className="font-semibold">⚠ Links that no longer apply ({stale.length})</div>
+          <ul className="mt-0.5 space-y-0.5">
+            {stale.map((l, i) => (
+              <li key={"st" + i} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  {stmtName(l.statementId)} · line #{l.line || "—"}
+                  {l.number ? ` → #${l.number}` : ""} · {l.reason}
+                </span>
+                {onRemove && (
+                  <button type="button" onClick={() => onRemove(l)} className={jtChip}>
+                    Remove
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {rows.map(([k, b]) => {
+        const [, mm, yy] = MONTH_KEY.exec(k)!;
+        return (
+          <details key={k} className="group py-0.5">
+            <summary className="cursor-pointer list-none select-none font-semibold">
+              {MONTHS[Number(mm) - 1]} {yy}: {b.unclaimed.length} Sunset bill{b.unclaimed.length === 1 ? "" : "s"} on no
+              statement <span className="font-normal opacity-60 group-open:hidden">▸</span>
+              <span className="hidden font-normal opacity-60 group-open:inline">▾</span>
+            </summary>
+            <div className="mt-0.5 text-[11px] text-neutral-500 dark:text-neutral-400">
+              These sit on a job with no statement this month. Link the statement line that prints each one.
+            </div>
+            <ul className="mt-1 space-y-0.5 text-[11px]">
+              {b.unclaimed.map((c) => (
+                <li key={c.uid} className="flex justify-between gap-3 tabular-nums">
+                  <span className="min-w-0 truncate">
+                    #{c.number || "—"}
+                    <span className="opacity-60">
+                      {" · "}
+                      {c.jobName || "no job"}
+                      {c.date ? ` · ${c.date}` : ""}
+                    </span>
+                  </span>
+                  <span>{moneyN(c.amount)}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        );
+      })}
+    </div>
   );
 }

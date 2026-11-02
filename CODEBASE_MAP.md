@@ -210,6 +210,7 @@ including edge middleware.
 | `botAdmin.ts` | `requireBotAdmin` — the `ascentbot` view check shared by the `/api/ascentbot` routes. |
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `sunsetStatementBill.ts` | The shape of a Sunset statement's bill on the Office job ("Create Bills" on `/payments`): issue date, and two 88 70 00 lines — the total and the prompt discount as a negative line. Pure, unit-tested; the write is `src/app/api/sunset-statement-bills/`. |
+| `sunsetLinks.ts` | **Sunset statement line → bill links** (the "Link" on `/payments`). `sunsetLineKey` must match appscript `_sunreconNormNum` — the reconcile finds a link by it. `rankCandidates` orders the picker: unclaimed first, then closest amount, then same date. The links live in `sunset_statement_links`; the write is `src/app/api/sunset-statement-links/`; the reconcile route passes them to appscript, whose month-wide match (`_sunreconAssignMonth`) applies them before any automatic match. Pure, unit-tested. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |
 | `financialJournal.ts` | **THE FINANCIAL JOURNAL** — one append-only record of every write the app makes to a money record. It exists because every JobTread write carries ONE grant key, so JobTread's own history attributes all of it to the API rather than to a person, and a deleted bill line used to leave no trace at all. Four rules, stated in the file: append only (no update, no delete, no sweep — the Apps Script side's `writeAuditLog` trims its oldest 500 rows past 2,000, which is the failure this must not repeat); never break a write (every function swallows its own errors); record failures too (a rejected write is part of the record); and be honest about `before` — `beforeSource` says whether the prior value was read live, reported by the browser, or not captured. The pure half (`valueToText`, `diffFields`, `redactMeta`, `describeEvent`) is unit-tested. |
@@ -471,7 +472,8 @@ Grouped by domain; each folder is `…/route.ts`.
   POST records or lifts one standing ruling), `lswdd`,
   `amazon-import/*`,
   `sunset-statements/*`, `sunset-duplicates`, `sunset-expense`,
-  `sunset-statement-bills` (Create Bills: one draft Bill per unpaid statement on the Office job), `buyback`,
+  `sunset-statement-bills` (Create Bills: one draft Bill per unpaid statement on the Office job),
+  `sunset-statement-links` (Link a statement line to its bill, on any job — companion DB only), `buyback`,
   `invoicing-summary` (GET reads a billing month — every job billed, its labor,
   bills and total, the office's edits and where the doc is, all from appscript;
   then adds each invoice's live payment + email `status` from JobTread. POST
@@ -551,7 +553,7 @@ Grouped by domain; each folder is `…/route.ts`.
   doing, which is what lets a background tab raise a DESKTOP TOAST for a notice
   that arrives while the reader is elsewhere), `NoticesAdmin` (the authoring panel — what it says, banner or popup,
   the schedule window, and the groups/people it targets; rendered by both
-  `/notices`), `SunsetDuplicateScan`, `SunsetExpenseSwitch`, `SunsetStatementBills`, `TrackingSheetSync`,
+  `/notices`), `SunsetDuplicateScan`, `SunsetExpenseSwitch`, `SunsetLinkPicker`, `SunsetStatementBills`, `TrackingSheetSync`,
   `TrackingSheetRisks`, `TimeEntryList` (**the month's time entries, rendered by
   BOTH Labor Review and the board's Time & labor panel** — the list, its filters,
   its grouping, the selection and the recode drawer, in one place so the two
@@ -581,7 +583,7 @@ the defaults in `lib/leadBoard.ts`),
 into; no row means the automatic 10th cutoff),
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
-`notice_reads`, `rfis`, `sunset_statements`, `page_copy`,
+`notice_reads`, `rfis`, `sunset_statements`, `sunset_statement_links`, `page_copy`,
 `page_guides` (one JSON row per page — the per-element help topics an admin
 wrote in the help overlay; no row means that page has no guide),
 `bill_index`,

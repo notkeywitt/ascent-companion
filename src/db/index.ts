@@ -274,6 +274,18 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS sunset_statement_links (
+      id TEXT PRIMARY KEY,
+      statement_exp_id TEXT NOT NULL,
+      line_number TEXT NOT NULL,
+      line_key TEXT NOT NULL,
+      doc_id TEXT NOT NULL DEFAULT '',
+      invoice_number TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
   // PTO / sick-time accrual (assistant-owned; JobTread has no accrual object).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS leave_policies (

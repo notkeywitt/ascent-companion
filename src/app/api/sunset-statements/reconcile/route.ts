@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
+import { db, ensureDb } from "@/db";
+import { sunsetStatementLinks } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 // GET /api/sunset-statements/reconcile
-// Returns, per statement ExpID, the sum + list of the individual Sunset INVOICES
-// ingested for that statement's project + billing month/year — so the /payments
-// ("Sunset Statements") page can show, next to each statement total, whether every
-// invoice on it is accounted for. Read-only (Apps Script sums sheet rows; nothing
-// is written). Kept separate from the statements list so the list stays fast and
-// paid-state logic is untouched.
+// Returns, per statement ExpID, the Sunset invoices that statement accounts for —
+// so the /payments ("Sunset Statements") page can show whether every invoice on it
+// is in JobTread. Appscript matches each billing MONTH as a whole: a statement line
+// finds its bill on any job (the office moves mis-attributed bills; the statement
+// never follows), and each bill counts toward one statement. The office's links
+// (/api/sunset-statement-links) are read here and passed along; appscript applies
+// them before any automatic match. Read-only: nothing is written.
 //
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET.
 export const maxDuration = 45; // sheet sum + one live JobTread bill-status query
@@ -30,6 +33,11 @@ interface MatchInvoice {
   jobId: string;
   elsewhere?: boolean;
   fuzzy?: boolean;
+  linked?: boolean;
+  jobName?: string;
+  systemNumber?: string;
+  claimedBy?: string;
+  line?: string;
   // Office flagged this bill "Bought Back" in the Reconcile Overrides tab — a
   // statement/system amount difference on it is expected, not a mismatch.
   boughtBack?: boolean;
@@ -41,6 +49,7 @@ interface MatchBlock {
   missing: MatchInvoice[];
   extra: MatchInvoice[];
   extraCredits: MatchInvoice[];
+  movedOut?: MatchInvoice[];
 }
 interface Reconciliation {
   projectId: string;
@@ -64,13 +73,28 @@ interface Reconciliation {
 
 export async function GET() {
   try {
+    await ensureDb();
+    const links = (await db.select().from(sunsetStatementLinks)).map((l) => ({
+      statementId: l.statementExpId,
+      line: l.lineNumber,
+      docId: l.docId,
+      number: l.invoiceNumber,
+    }));
     const resp = await callAppsScriptOrThrow(
-      { action: "reconcileSunsetStatements" },
+      { action: "reconcileSunsetStatements", links },
       // Sheet sum + a live JT bill-status query; stay under maxDuration (45s).
       { timeoutMs: 38_000 },
     );
     const reconciliation = (resp.reconciliation as Record<string, Reconciliation>) ?? {};
-    return NextResponse.json({ ok: true, reconciliation, liveChecked: resp.liveChecked !== false });
+    return NextResponse.json({
+      ok: true,
+      reconciliation,
+      liveChecked: resp.liveChecked !== false,
+      // Absent until the month-wide appscript reconcile is deployed — the page
+      // then hides Link and the month panel.
+      months: resp.months ?? null,
+      staleLinks: resp.staleLinks ?? [],
+    });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Unknown error" },

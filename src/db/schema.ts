@@ -187,6 +187,31 @@ export const sunsetStatements = sqliteTable("sunset_statements", {
 export type SunsetStatement = typeof sunsetStatements.$inferSelect;
 
 /**
+ * Office links from a Sunset statement line to the JobTread bill it pays — the
+ * "Link" on /payments. A statement prints each invoice under the job account it
+ * was rung up on; when the office moves a bill to another job, or the number was
+ * misread, the automatic match cannot find it. A link tells the reconcile which
+ * bill the line means, whatever job it sits on. One link per statement line.
+ *
+ * Reconcile metadata only: it never touches the bill, the sheet or Drive. The
+ * appscript reconcile (`_sunreconAssignMonth`) applies it before any automatic
+ * match. `lineKey` is the line's invoice number normalized the way appscript
+ * normalizes it (`sunsetLineKey` in src/lib/sunsetLinks.ts).
+ */
+export const sunsetStatementLinks = sqliteTable("sunset_statement_links", {
+  id: text("id").primaryKey(), // `${statementExpId}|${lineKey}`
+  statementExpId: text("statement_exp_id").notNull(),
+  lineNumber: text("line_number").notNull(), // as printed on the statement
+  lineKey: text("line_key").notNull(),
+  docId: text("doc_id").notNull().default(""), // the JobTread bill, when it has one
+  invoiceNumber: text("invoice_number").notNull().default(""), // fallback target
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type SunsetStatementLink = typeof sunsetStatementLinks.$inferSelect;
+
+/**
  * PTO / sick-time accrual — assistant-owned (JobTread has no accrual object).
  * Four tables replace what TSheets did: policy config, per-person balances, an
  * append-only ledger the balances are reconstructable from, and self-service
