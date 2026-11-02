@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T19:58:06Z",
+  "generatedAt": "2026-11-02T20:01:56Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T19:58:06Z",
+      "updated": "2026-11-02T20:01:56Z",
       "goal": "",
       "next": "On a desktop (xl width), open /payments: confirm the statement PDF loads in the right pane and a warning invoice opens its coding popup; close it and see the reconcile refresh.",
       "commits": [
@@ -1215,6 +1215,13 @@
           "sha": "c14d6ee",
           "subject": "companion: let a house manual line carry several named pdfs, reading the old single pdf in",
           "files": "src/app/house-manual/HouseManual.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "12:01",
+          "sha": "fbc83c4",
+          "subject": "companion: read a house manual photo folder's subfolders as headed groups in its gallery",
+          "files": "src/app/house-manual/HouseManual.tsx, src/app/house-manual/JobFiles.tsx, src/lib/houseManual.test.ts, src/lib/houseManual.ts"
         }
       ]
     },
