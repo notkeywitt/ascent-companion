@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:51:41Z",
+  "generatedAt": "2026-11-02T18:56:45Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:51:41Z",
+      "updated": "2026-11-02T18:56:45Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
+      "next": "Add a vendor's address in JobTread (account → Locations) and confirm the header search finds it within 30 min.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1131,6 +1131,13 @@
           "sha": "deaaae4",
           "subject": "companion: seat the tracking sheet labor list's group switch in the labor header row",
           "files": "src/app/trackingsheet/Board.tsx, src/components/TimeEntryList.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:56",
+          "sha": "413c6d8",
+          "subject": "companion: match job and vendor addresses in the header search",
+          "files": "src/app/api/vendors/route.ts, src/components/GlobalSearch.tsx, src/lib/jobtread.ts"
         }
       ]
     },
