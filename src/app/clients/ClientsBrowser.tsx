@@ -104,7 +104,12 @@ function JobTagChip({
   return null;
 }
 
-export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}) {
+/** `jobId`: the Jobs page — that job's record alone, with no tab row, header
+ *  or way back to the list (owner, 2026-11-02). */
+export function ClientsBrowser({
+  embedded = false,
+  jobId,
+}: { embedded?: boolean; jobId?: string } = {}) {
   const [directory, setDirectory] = useState<ClientDirectory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -115,12 +120,13 @@ export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}
   const [query, setQuery] = useState("");
   const [showClosed, setShowClosed] = useState(false);
   const [needsTagOnly, setNeedsTagOnly] = useState(false);
-  const [view, setView] = useState<View>({ kind: "list" });
+  const [view, setView] = useState<View>(jobId ? { kind: "job", id: jobId } : { kind: "list" });
   // ?jobId opens that job's record — the job tab row's "Record" (stage 4).
   useEffect(() => {
+    if (jobId) return;
     const id = (new URLSearchParams(window.location.search).get("jobId") ?? "").trim();
     if (id) setView({ kind: "job", id });
-  }, []);
+  }, [jobId]);
 
   const loadDirectory = useCallback(() => {
     setLoading(true);
@@ -218,15 +224,19 @@ export function ClientsBrowser({ embedded = false }: { embedded?: boolean } = {}
   }, []);
 
   return (
-    <Wrap embedded={embedded}>
-      {view.kind === "job" && <JobTabs jobId={view.id} />}
-      <PageHeader
-        title={view.kind === "job" ? "Record" : "Directory"}
-        titleSlot={embedded ? <span className="sr-only">All customers</span> : undefined}
-        description={embedded ? undefined : "Every customer and job in JobTread — the record, not the cost. Edit it here."}
-      />
+    <Wrap embedded={embedded || !!jobId}>
+      {!jobId && (
+        <>
+          {view.kind === "job" && <JobTabs jobId={view.id} />}
+          <PageHeader
+            title={view.kind === "job" ? "Record" : "Directory"}
+            titleSlot={embedded ? <span className="sr-only">All customers</span> : undefined}
+            description={embedded ? undefined : "Every customer and job in JobTread — the record, not the cost. Edit it here."}
+          />
+        </>
+      )}
 
-      {view.kind !== "list" && (
+      {view.kind !== "list" && !jobId && (
         <button
           type="button"
           onClick={back}

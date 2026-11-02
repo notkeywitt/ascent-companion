@@ -13,7 +13,10 @@ import { LopezMap } from "@/components/LopezMap";
 import { Card, Loading, Segmented, Skeleton } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
-import { JobPageLinks } from "@/components/JobTabs";
+import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
+import { BudgetImport } from "@/app/budget-import/BudgetImport";
+import { Specs } from "@/app/specs/Specs";
+import { HouseManualPage } from "@/app/house-manual/HouseManual";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { billingMonths } from "@/lib/billingMonths";
 import type { MapJob } from "@/lib/lopezMap";
@@ -42,7 +45,7 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  */
 
 type HubJob = MapJob & { customer?: string | null };
-type Tab = "sheet" | "schedule" | "plans" | "photos";
+type Tab = "sheet" | "schedule" | "plans" | "photos" | "record" | "budget" | "specs" | "manual";
 
 /** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
  *  the list and the totals: overhead, not client work (owner, 2026-11-01). */
@@ -68,7 +71,8 @@ const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
 
 export function JobsHub() {
-  const canTrackingSheet = useAccess().can("recode");
+  const { can } = useAccess();
+  const canTrackingSheet = can("recode");
   const [jobs, setJobs] = useState<HubJob[] | null>(null);
   const [defaultYm, setDefaultYm] = useState("");
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
@@ -228,6 +232,12 @@ export function JobsHub() {
         { value: "schedule" as const, label: "Schedule" },
         { value: "plans" as const, label: "Plans" },
         { value: "photos" as const, label: "Photos" },
+        // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
+        // Each shows only to someone who holds its view.
+        ...(can("clients") ? [{ value: "record" as const, label: "Record" }] : []),
+        ...(can("budget-import") ? [{ value: "budget" as const, label: "Budget Import" }] : []),
+        ...(can("specs") ? [{ value: "specs" as const, label: "Specifications" }] : []),
+        ...(can("house-manual") ? [{ value: "manual" as const, label: "House Manual" }] : []),
       ]}
     />
   );
@@ -284,7 +294,6 @@ export function JobsHub() {
               details?.get(selected.id) ? (
                 <JobCard
                   c={details.get(selected.id)!}
-                  links={<JobPageLinks jobId={selected.id} className="mt-2" />}
                   aside={
                     <div className="flex h-full items-start gap-6 pb-10">
                       {tab === "sheet" && canTrackingSheet && (
@@ -352,6 +361,18 @@ export function JobsHub() {
           <JobPlans state={files} />
         ) : tab === "photos" ? (
           <JobPhotos state={files} />
+        ) : tab === "record" && can("clients") ? (
+          <ClientsBrowser key={selected.id} jobId={selected.id} />
+        ) : tab === "budget" && can("budget-import") ? (
+          <BudgetImport key={selected.id} embedJobId={selected.id} />
+        ) : tab === "specs" && can("specs") ? (
+          <Suspense fallback={null}>
+            <Specs key={selected.id} embedJobId={selected.id} />
+          </Suspense>
+        ) : tab === "manual" && can("house-manual") ? (
+          <Suspense fallback={null}>
+            <HouseManualPage key={selected.id} embedJobId={selected.id} />
+          </Suspense>
         ) : (
           /* Keyed so a new job starts its own fetch rather than showing the last one's. */
           <JobOverview key={selected.id} jobId={selected.id} />
