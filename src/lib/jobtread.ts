@@ -5575,6 +5575,8 @@ async function resolveShopBuybackLeaf(cfg: PaveConfig, shopJobId: string): Promi
 
 /** The org cost code "88 70 00 Sunset Statements" every statement bill codes to. */
 export const SUNSET_STATEMENT_CSI = "88 70 00";
+/** The cost type of the Office job's 88 70 00 leaf: Sunset sells materials. */
+export const SUNSET_STATEMENT_COST_TYPE = "Materials";
 
 /** Is this externalId a statement bill's (the sheet ExpID "STMT-…")? */
 export const isSunsetStatementBill = (externalId?: string | null) =>
@@ -5592,15 +5594,24 @@ export async function resolveSunsetStatementLeaf(cfg: PaveConfig): Promise<strin
       find(await getJobBudget(cfg, OFFICE_JOB_ID)) ?? find(await _getJobBudgetUncached(cfg, OFFICE_JOB_ID));
     if (hit) return hit;
 
-    const costCodeId = await resolveCostCodeId(cfg, SUNSET_STATEMENT_CSI);
+    const [costCodeId, costTypeId] = await Promise.all([
+      resolveCostCodeId(cfg, SUNSET_STATEMENT_CSI),
+      resolveCostTypeId(cfg, SUNSET_STATEMENT_COST_TYPE),
+    ]);
     if (!costCodeId) {
       throw new Error(`No "${SUNSET_STATEMENT_CSI}" cost code in JobTread — add it, then retry.`);
+    }
+    if (!costTypeId) {
+      throw new Error(`No "${SUNSET_STATEMENT_COST_TYPE}" cost type in JobTread — add it, then retry.`);
     }
     const created = await pave(cfg, {
       createCostItem: {
         $: {
           jobId: OFFICE_JOB_ID,
           costCodeId,
+          // JobTread refuses a budget leaf with no cost type ("A costTypeId is
+          // required", HTTP 400 — seen on Create Bills, 2026-11-02).
+          costTypeId,
           name: "Sunset Statements",
           quantity: 0,
           unitCost: 0,
@@ -5653,6 +5664,17 @@ export async function getSunsetStatementBills(cfg: PaveConfig): Promise<Map<stri
 }
 
 /** The org cost code with this CSI number, or undefined. */
+/** The org cost type with this exact name ("Materials", "Other", …), or undefined. */
+async function resolveCostTypeId(cfg: PaveConfig, name: string): Promise<string | undefined> {
+  const r = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      costTypes: { $: { size: 1, where: { and: [["name", name]] } }, nodes: { id: {} } },
+    },
+  });
+  return r?.organization?.costTypes?.nodes?.[0]?.id ?? undefined;
+}
+
 async function resolveCostCodeId(cfg: PaveConfig, number: string): Promise<string | undefined> {
   const r = await pave(cfg, {
     organization: {
