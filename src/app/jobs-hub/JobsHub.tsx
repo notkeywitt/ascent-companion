@@ -318,16 +318,7 @@ export function JobsHub() {
               details?.get(selected.id) ? (
                 <JobCard
                   c={details.get(selected.id)!}
-                  footer={
-                    // Sync on the left, the views centred (owner, 2026-11-02).
-                    // Sync is the Tracking Sheets page's own: every wired sheet,
-                    // and the month's Labor Report, for the month picked above.
-                    <div className="grid w-full grid-cols-[1fr_auto_1fr] items-center gap-3">
-                      <div className="min-w-0">{ym && <SyncAllTrackingSheetsFor ym={ym} />}</div>
-                      {tabs}
-                      <span />
-                    </div>
-                  }
+                  footer={tabs}
                   nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   aside={
@@ -381,9 +372,15 @@ export function JobsHub() {
                 </div>
               </Card>
             )}
-            <div className="absolute right-4 top-3 z-10 flex flex-col items-end gap-1">
-              {selected && tab === "sheet" && <div ref={setScopeSlot} />}
-              {(selected || idleView === "month") && monthSelect}
+            <div className="absolute right-4 top-3 z-10 flex items-center gap-4">
+              {/* Sync, left of the month it syncs (owner, 2026-11-02): the
+                  Tracking Sheets page's own — every wired sheet and the
+                  month's Labor Report. */}
+              {selected && ym && <SyncAllTrackingSheetsFor ym={ym} className="max-w-56 text-right" />}
+              <div className="flex flex-col items-end gap-1">
+                {selected && tab === "sheet" && <div ref={setScopeSlot} />}
+                {(selected || idleView === "month") && monthSelect}
+              </div>
             </div>
           </div>
           {/* The map, on the page beside the cards (owner, 2026-11-01). */}
