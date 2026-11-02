@@ -313,6 +313,22 @@ export function TabBar() {
 
   // The drawer. It closes on any navigation, a back swipe included.
   const [open, setOpen] = useState(false);
+  // The rail can slide away for a full-width page (owner, 2026-11-01). The
+  // layout's inline script set the attribute before paint; this mirrors it.
+  const [railHidden, setRailHidden] = useState(false);
+  useEffect(() => {
+    setRailHidden(document.documentElement.dataset.rail === "hidden");
+  }, []);
+  const toggleRail = () => {
+    const next = !railHidden;
+    setRailHidden(next);
+    if (next) document.documentElement.dataset.rail = "hidden";
+    else delete document.documentElement.dataset.rail;
+    try {
+      if (next) localStorage.setItem("railHidden", "1");
+      else localStorage.removeItem("railHidden");
+    } catch {}
+  };
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     if (!open) return;
@@ -472,7 +488,8 @@ export function TabBar() {
           --rail-w in globals.css, which is what the page moves right by. */}
       <nav
         aria-label="Workspaces"
-        className="fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur dark:bg-ink/95 print:hidden pad:flex 2xl:w-[232px] 2xl:px-3"
+        aria-hidden={railHidden || undefined}
+        className={`fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-transform duration-200 ease-out dark:bg-ink/95 print:hidden pad:flex 2xl:w-[232px] 2xl:px-3 ${railHidden ? "-translate-x-full" : ""}`}
       >
         {rail.map((t) => {
           const on = t.key === railActive;
@@ -531,8 +548,29 @@ export function TabBar() {
             held them, and it is hidden from `pad` up. */}
         <div className="mt-auto pt-2">
           <AppMenu account />
+          <button
+            type="button"
+            onClick={toggleRail}
+            aria-label="Hide the menu"
+            title="Hide the menu"
+            className="mt-1 flex w-full items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 2xl:justify-start 2xl:px-3"
+          >
+            ‹
+          </button>
         </div>
       </nav>
+      {/* The rail's way back: a tab on the left edge while it is away. */}
+      {railHidden && (
+        <button
+          type="button"
+          onClick={toggleRail}
+          aria-label="Show the menu"
+          title="Show the menu"
+          className="fixed bottom-4 left-0 z-30 hidden h-10 w-6 items-center justify-center rounded-r-lg border border-l-0 border-line bg-cream/95 text-[15px] text-neutral-500 shadow-sm backdrop-blur hover:text-accent dark:bg-ink/95 dark:text-neutral-400 print:hidden pad:flex"
+        >
+          ›
+        </button>
+      )}
     </>
   );
 }

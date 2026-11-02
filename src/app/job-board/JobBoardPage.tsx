@@ -90,8 +90,15 @@ function ToDoLine({ t }: { t: JobToDo }) {
   );
 }
 
-/** `aside` sits in the card's top right — the Jobs page's map (owner, 2026-11-01). */
-export function JobCard({ c, aside }: { c: JobsPageCard; aside?: React.ReactNode }) {
+/** `aside` sits in the card's right column — the Jobs page's to-be-invoiced
+ *  figure (owner, 2026-11-01). */
+export function JobCard({
+  c,
+  aside,
+}: {
+  c: JobsPageCard;
+  aside?: React.ReactNode;
+}) {
   const body = (
     <>
       <div className="min-w-0">
@@ -145,11 +152,14 @@ export function JobCard({ c, aside }: { c: JobsPageCard; aside?: React.ReactNode
   return (
     // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
     // cell sets the width (`pad:w-auto` is emitted after the bare width).
-    <Card className="flex h-full w-72 shrink-0 flex-col gap-2 pad:w-auto">
+    <Card
+      className={`flex h-full w-72 shrink-0 flex-col gap-2 pad:w-auto ${aside ? "min-h-0 overflow-hidden" : ""}`}
+    >
       {aside ? (
-        <div className="flex h-full gap-4">
-          <div className="flex min-w-0 flex-1 flex-col gap-2">{body}</div>
-          <div className="shrink-0">{aside}</div>
+        <div className="flex h-full min-h-0 gap-4">
+          {/* Scrolls when the card is held to a height (the Jobs page). */}
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto">{body}</div>
+          <div className="h-full shrink-0">{aside}</div>
         </div>
       ) : (
         body

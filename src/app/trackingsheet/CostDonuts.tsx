@@ -164,8 +164,11 @@ export function CostDonuts({
   selectedKey = null,
   onSelectLabor,
   selectedLaborKey = null,
+  ringSize = 120,
   className = "",
 }: {
+  /** Each ring's diameter, px. The Jobs page's job card draws them larger. */
+  ringSize?: number;
   /** The selected month's cost by code — the scope the rings open on. */
   month: CostDonutRow[];
   /** The whole job's cost by code. */
@@ -326,7 +329,7 @@ export function CostDonuts({
           title="Bills"
           slices={bills}
           {...center("bills", sum(bills))}
-          size={120}
+          size={ringSize}
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
@@ -337,7 +340,7 @@ export function CostDonuts({
           title="Labor"
           slices={labor}
           {...center("labor", sum(labor))}
-          size={120}
+          size={ringSize}
           emptyLabel={`No labor logged ${emptySuffix}`}
           detail={ringDetail && ringDetail("labor")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}

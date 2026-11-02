@@ -8,8 +8,9 @@ import { HomeTodos } from "@/components/HomeTodos";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
+import { Donut } from "@/components/Donut";
 import { LopezMap } from "@/components/LopezMap";
-import { Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
+import { Card, Loading, Segmented, Skeleton } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
@@ -59,6 +60,9 @@ const sortName = (customer: string | null | undefined) => {
   return (/^(llc|inc|co|corp|ltd)\.?$/i.test(last) ? w[0] : last).toLowerCase();
 };
 
+/** The list's phase order: PreCon Budget before PreCon (owner, 2026-11-01). */
+const LIST_PHASES = ["Active", "PreCon Budget", "PreCon"];
+
 const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
 
@@ -69,7 +73,19 @@ export function JobsHub() {
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** The list row under the pointer: its dot lights on the map meanwhile. */
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  // A ring slice lit a row the list may have scrolled past: bring it into view.
+  useEffect(() => {
+    if (hoverId)
+      document
+        .querySelector(`[data-job="${CSS.escape(hoverId)}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+  }, [hoverId]);
   const [tab, setTab] = useState<Tab>(canTrackingSheet ? "sheet" : "schedule");
+  /** Where the Tracking sheet draws its to-be-invoiced figure and rings: the
+   *  job card, beside the map (owner, 2026-11-01). */
+  const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -106,22 +122,30 @@ export function JobsHub() {
   const [pickedYm, setPickedYm] = useState<string | null>(null);
   const ym = pickedYm ?? defaultYm;
   const months = useMemo(() => billingMonths(), []);
+  // No outline: it sits in the card's top right corner, a word you can change
+  // (owner, 2026-11-01).
   const monthSelect = (
-    <div className="w-36 shrink-0">
-      <Select aria-label="Month" value={ym} onChange={(e) => setPickedYm(e.target.value)}>
-        {months.map((m) => (
-          <option key={m.value} value={m.value}>
-            {m.label}
-          </option>
-        ))}
-      </Select>
-    </div>
+    <select
+      aria-label="Month"
+      value={ym}
+      onChange={(e) => setPickedYm(e.target.value)}
+      className="cursor-pointer rounded-md bg-transparent py-1 text-right text-[13px] font-semibold text-neutral-600 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/25 dark:text-neutral-300"
+    >
+      {months.map((m) => (
+        <option key={m.value} value={m.value}>
+          {m.label}
+        </option>
+      ))}
+    </select>
   );
   const { jobs: monthJobs } = useMonthJobs(ym);
 
   // Each client job's month: bills and labor, sales tax out.
   const ranked = useMemo(
-    () => (monthJobs ? monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName))) : null),
+    () =>
+      monthJobs
+        ? twoFamilies(monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName))))
+        : null,
     [monthJobs],
   );
   const byJob = useMemo(() => new Map((ranked ?? []).map((r) => [r.key, r])), [ranked]);
@@ -149,8 +173,8 @@ export function JobsHub() {
       groups.set(p, [...(groups.get(p) ?? []), j]);
     }
     const rank = (p: string) => {
-      const i = WORKING_PHASES.indexOf(p);
-      return i < 0 ? WORKING_PHASES.length : i;
+      const i = LIST_PHASES.indexOf(p);
+      return i < 0 ? LIST_PHASES.length : i;
     };
     return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
   }, [listed]);
@@ -172,13 +196,19 @@ export function JobsHub() {
   };
   useEffect(() => setHeldHeight(undefined), [selectedId]);
 
-  const monthBills = ranked?.reduce((n, r) => n + r.bills, 0) ?? 0;
-  const monthLabor = ranked?.reduce((n, r) => n + r.labor, 0) ?? 0;
-  // The map, half its old size, in the second card's top right.
+  // The map, right of the cards, the full height of the row the list sets,
+  // with little room around the island (owner, 2026-11-01).
   const map = (
-    <div className="w-[150px]">
+    <div className="h-full w-full [&_svg]:min-h-0 [&_svg]:flex-1">
       {jobs ? (
-        <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
+        <LopezMap
+          jobs={jobs}
+          selectedId={hoverId ?? selectedId}
+          onSelect={pick}
+          legend={false}
+          pad={6}
+          className="h-full"
+        />
       ) : (
         <Loading />
       )}
@@ -209,12 +239,11 @@ export function JobsHub() {
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the
             month's totals beside the map while no job is picked). */}
-        <div className="grid items-start gap-6 xl:grid-cols-[25%_minmax(0,1fr)]">
-          <Card pad={false} className="min-w-0 self-start p-3">
-            {/* The month the totals, and the Tracking sheet below, are for. */}
-            <div className="mb-2 flex justify-end">{monthSelect}</div>
+        <div className="grid gap-6 xl:h-[360px] xl:grid-cols-[320px_minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)]">
+          {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it. */}
+          <Card pad={false} className="flex min-h-0 min-w-0 flex-col overflow-hidden p-3">
             {!jobs && <Loading />}
-            <div className="space-y-3">
+            <div className="max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 xl:max-h-none">
               {byPhase.map(([phase, list]) => (
                 <section key={phase}>
                   <div className={`px-2 pb-0.5 ${caption}`}>{phase}</div>
@@ -226,8 +255,11 @@ export function JobsHub() {
                           <button
                             type="button"
                             onClick={() => pick(j.id)}
+                            data-job={j.id}
+                            onMouseEnter={() => setHoverId(j.id)}
+                            onMouseLeave={() => setHoverId(null)}
                             aria-pressed={j.id === selectedId}
-                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
+                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : j.id === hoverId ? "bg-line-soft" : ""}`}
                           >
                             <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
                             <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
@@ -243,31 +275,47 @@ export function JobsHub() {
             </div>
           </Card>
 
-          {selected ? (
-            details?.get(selected.id) ? (
-              <JobCard c={details.get(selected.id)!} aside={map} />
-            ) : details ? (
-              <Card className="flex justify-end">{map}</Card>
+          {/* The second card, with the month picker in its top right corner. */}
+          <div className="relative min-h-0 min-w-0">
+            {selected ? (
+              details?.get(selected.id) ? (
+                <JobCard
+                  c={details.get(selected.id)!}
+                  aside={
+                    <div className="flex h-full items-start gap-6 pb-10">
+                      {tab === "sheet" && canTrackingSheet && (
+                        <div
+                          ref={setSummarySlot}
+                          className="h-full w-[520px] min-w-0 overflow-y-auto"
+                        />
+                      )}
+                    </div>
+                  }
+                />
+              ) : details ? (
+                <Card />
+              ) : (
+                <Skeleton className="h-40 w-full rounded-xl" />
+              )
             ) : (
-              <Skeleton className="h-40 w-full rounded-xl" />
-            )
-          ) : (
-            <Card className="flex gap-4">
-              <div className="min-w-0 flex-1 tabular-nums">
-                <div className={caption}>All jobs · month</div>
-                <div className="mt-1 text-[28px] font-bold leading-tight tracking-tight">
-                  {ranked ? money0(monthBills + monthLabor) : "—"}
+              <Card className="flex min-h-0 gap-6 overflow-y-auto">
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
+                  {ranked ? (
+                    <MonthRings items={ranked} onSelect={pick} onHover={setHoverId} />
+                  ) : (
+                    <Skeleton className="h-48 w-full rounded-xl" />
+                  )}
                 </div>
-                <div className="text-[13px] text-neutral-500 dark:text-neutral-400">
-                  Bills {money0(monthBills)} · Labor {money0(monthLabor)}
-                </div>
-              </div>
-              {map}
-            </Card>
-          )}
+              </Card>
+            )}
+            <div className="absolute right-4 top-3 z-10">{monthSelect}</div>
+            {/* The job's views, in the card's bottom right corner. */}
+            {selected && <div className="absolute bottom-3 right-4 z-10">{tabs}</div>}
+          </div>
+          {/* The map, on the page beside the cards (owner, 2026-11-01). */}
+          <div className="min-h-64 xl:min-h-0">{map}</div>
         </div>
 
-        {selected && <div className="overflow-x-auto">{tabs}</div>}
 
         {/* UNDER THE HEADER */}
         {!selected ? (
@@ -290,7 +338,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot }} />
             </Suspense>
           )
         ) : tab === "plans" ? (
@@ -303,5 +351,119 @@ export function JobsHub() {
         )}
       </div>
     </main>
+  );
+}
+
+/**
+ * The rings' colours (owner, 2026-11-01): Bills warm and Labor cool, so the
+ * two rings never read as one — Tableau 20's warm and cool halves, distinct
+ * hues that read on the light and the dark card. A job keeps the same slot in
+ * both (its rank by the month's total). ponytail: 8 slots per family; colours
+ * repeat from the 9th job, and a slice names its job on hover.
+ */
+const BILL_COLORS = [
+  "#F28E2B",
+  "#E15759",
+  "#EDC948",
+  "#FF9D9A",
+  "#B6992D",
+  "#FFBE7D",
+  "#9D7660",
+  "#D37295",
+];
+const LABOR_COLORS = [
+  "#4E79A7",
+  "#59A14F",
+  "#76B7B2",
+  "#A0CBE8",
+  "#8CD17D",
+  "#499894",
+  "#B07AA1",
+  "#86BCB6",
+];
+function twoFamilies<T extends { color: string }>(rows: T[]): (T & { laborColor: string })[] {
+  return rows.map((r, i) => ({
+    ...r,
+    color: BILL_COLORS[i % BILL_COLORS.length],
+    laborColor: LABOR_COLORS[i % LABOR_COLORS.length],
+  }));
+}
+
+/**
+ * No job picked: the month's Bills ring and Labor ring, a slice per job, with
+ * the Total and then Bills · Labor beside them. A slice names its job with its
+ * bills and labor on hover, and opens it on a click.
+ */
+function MonthRings({
+  items,
+  onSelect,
+  onHover,
+}: {
+  items: {
+    key: string;
+    label: string;
+    bills: number;
+    labor: number;
+    color: string;
+    laborColor: string;
+  }[];
+  onSelect: (key: string) => void;
+  /** The lifted slice's job, lit in the list and on the map meanwhile. */
+  onHover: (key: string | null) => void;
+}) {
+  const detail = (key: string) => {
+    const r = items.find((x) => x.key === key);
+    return r
+      ? [
+          { key: "bills", label: "Bills", value: r.bills },
+          { key: "labor", label: "Labor", value: r.labor },
+        ]
+      : [];
+  };
+  const bills = items.reduce((n, r) => n + r.bills, 0);
+  const labor = items.reduce((n, r) => n + r.labor, 0);
+  const slices = (field: "bills" | "labor") =>
+    items
+      .filter((r) => r[field] > 0)
+      .map((r) => ({
+        key: r.key,
+        label: r.label,
+        value: r[field],
+        color: field === "labor" ? r.laborColor : r.color,
+      }));
+  return (
+    <div className="flex flex-wrap items-center gap-8">
+      <div className="tabular-nums">
+        <div className={caption}>All jobs · month</div>
+        <div className="mt-1 text-[28px] font-bold leading-tight tracking-tight">
+          {money0(bills + labor)}
+        </div>
+        <div className="text-[13px] text-neutral-500 dark:text-neutral-400">
+          Bills {money0(bills)} · Labor {money0(labor)}
+        </div>
+      </div>
+      <div className="flex gap-8">
+        <Donut
+          title="Bills"
+          slices={slices("bills")}
+          emptyLabel="No bills"
+          size={150}
+          legend={false}
+          onSelect={onSelect}
+          detail={detail}
+          onHover={onHover}
+        />
+        <Donut
+          title="Labor"
+          slices={slices("labor")}
+          emptyLabel="No labor"
+          size={150}
+          legend={false}
+          onSelect={onSelect}
+          detail={detail}
+          onHover={onHover}
+        />
+      </div>
+    </div>
   );
 }

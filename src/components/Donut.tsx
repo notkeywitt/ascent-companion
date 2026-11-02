@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { money0 as money } from "@/lib/money";
 
 /**
@@ -48,6 +48,7 @@ export function Donut({
   onSelect,
   selectedKey = null,
   legend = true,
+  onHover,
 }: {
   slices: DonutSlice[];
   title?: string;
@@ -75,10 +76,18 @@ export function Donut({
   selectedKey?: string | null;
   /** False when the page names the slices elsewhere (Jobs Hub's job list carries the swatches). */
   legend?: boolean;
+  /** Told which slice is lifted (null when none), so the page can light the
+   *  same thing elsewhere — the Jobs page's list row and map dot. */
+  onHover?: (sliceKey: string | null) => void;
 }) {
   // Which arc is lifted. Hover on a pointer; a tap toggles it, since the rings
   // are read on a phone too and there is no hover there.
   const [hover, setHover] = useState<string | null>(null);
+  useEffect(() => {
+    onHover?.(hover);
+    // Only the lifted slice matters; a new callback each render is not a change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hover]);
   const total = slices.reduce((s, x) => s + x.value, 0);
   const positive = slices.filter((s) => s.value > 0);
 

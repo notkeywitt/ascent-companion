@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { setUrlParam } from "@/lib/urlParam";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -352,6 +353,9 @@ function useIsBelowXl() {
 export interface BoardEmbed {
   jobId: string;
   ym: string;
+  /** Where to draw the to-be-invoiced figure and the rings instead of at the
+   *  head of the bills column (the Jobs page's job card). */
+  summarySlot?: HTMLElement | null;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -1216,6 +1220,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * changing what the card shows.
    */
   const codingCtl: CodingCardCtl = {
+    // Embedded (the Jobs page) the card goes without its caption and the
+    // Previous / Next row over it (owner, 2026-11-01).
+    hideLabel: Boolean(embed),
     // The board is one job, so its Phase answers for every bill on it.
     // A staged type shows as the bill's type until Save writes it.
     bill: openBill
@@ -1960,10 +1967,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   );
 
   // The month's bills column (the CENTRE of the board).
-  const centerCol = (
+  // The month's to-be-invoiced figure and its rings — the head of the bills
+  // column, or the Jobs page's job card when it hands the board a slot.
+  const summaryBlock = (
     <>
-    {/* ─────────── CENTRE: the month's bills ─────────── */}
-    <section className="min-w-0">
       {/* The desktop copy of the headline figure — see the mobile one
           under the page header for why there are two. */}
       <StatementBlock
@@ -1997,6 +2004,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         jobToDate={costDonutRows}
         monthLabel={monthLabel(ym)}
         detail={donutDetail}
+        ringSize={embed?.summarySlot ? 120 : undefined}
         // Clicking a slice narrows the list under it. The rings say what
         // the month is made of; this is the way from that answer into the
         // bills behind it.
@@ -2019,7 +2027,17 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         }}
       />
       )}
-    
+    </>
+  );
+
+  const centerCol = (
+    <>
+    {/* ─────────── CENTRE: the month's bills ─────────── */}
+    <section className="min-w-0">
+      {/* Embedded with a `summarySlot`, the Jobs page shows these in its
+          job card instead (createPortal at the foot of the board). */}
+      {!embed?.summarySlot && summaryBlock}
+
       {/* THE LISTS' OWN ROW — what is being filtered on the left, how the
           bills are arranged on the right.
     
@@ -2317,7 +2335,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         </>
       ) : (
         <div style={{ paddingTop: openTop }}>
-          {openBill && openIndex >= 0 && (
+          {!embed && openBill && openIndex >= 0 && (
             <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
               <button
                 type="button"
@@ -2736,7 +2754,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           `sub` line carries the split that matters at invoicing time: JobTread
           won't pull a draft onto an invoice, so the figure is what the month
           WILL bill and the approved half is what it can bill today. */}
-      <StatementBlock
+      {!embed?.summarySlot && <StatementBlock
         rule={false}
         className="mb-4 lg:hidden"
         label={c("recode.statement.toBeInvoiced")}
@@ -2752,7 +2770,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               }`
             : "checking JobTread…"
         }
-      />
+      />}
 
       {/* This job's ingested bills that never reached JobTread — the green
           "all in JobTread" all-clear, or the amber "Not in JobTread" queue.
@@ -2884,8 +2902,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           drawer is xl-only — while leaving it above the columns from lg up,
           exactly as before. It works because <main> is a flex column; the
           modals below are `fixed`, so they're out of flow and unaffected. */}
+      {/* Embedded (the Jobs page) it stays mounted but unseen: it is what
+          reads the to-be-invoiced figure (`onData`), and the owner wants the
+          check's own sentences off that page (2026-11-01). */}
       {jobId && !loading && (
-        <div className="order-last mt-4 lg:order-none lg:mb-4 lg:mt-0">
+        <div className={embed ? "hidden" : "order-last mt-4 lg:order-none lg:mb-4 lg:mt-0"}>
           <InvoiceReconcile jobId={jobId} ym={ym} onData={setRecon} />
         </div>
       )}
@@ -2939,7 +2960,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           spot in the DOM so it lands above the workbench on desktop (the grid
           below is `lg:order-1`) and below it on a phone, and it renders only
           once there is something to report. */}
-      {jobId && (preSend.mem || preSend.error || preSendRunning) && (
+      {!embed && jobId && (preSend.mem || preSend.error || preSendRunning) && (
         <div className="order-last mt-4 lg:order-none lg:mb-4">
           <PreSendCheck
             run={preSend}
@@ -2994,6 +3015,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
 
       {overlays}
+      {embed?.summarySlot && createPortal(summaryBlock, embed.summarySlot)}
     </Frame>
   );
 }

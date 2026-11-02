@@ -28,7 +28,10 @@ export function LopezMap({
   onSelect,
   className = "",
   legend = true,
+  pad = 30,
 }: {
+  /** Room around the island, in map units. The Jobs page draws it tighter. */
+  pad?: number;
   jobs: MapJob[];
   selectedId?: string | null;
   onSelect?: (jobId: string) => void;
@@ -48,7 +51,7 @@ export function LopezMap({
   return (
     <figure className={`flex flex-col gap-2 ${className}`}>
       <svg
-        viewBox={`-30 -30 ${MAP_W + 60} ${MAP_H + 60}`}
+        viewBox={`${-pad} ${-pad} ${MAP_W + 2 * pad} ${MAP_H + 2 * pad}`}
         className="h-auto w-full"
         role="img"
         aria-label="Map of Lopez Island with job locations"

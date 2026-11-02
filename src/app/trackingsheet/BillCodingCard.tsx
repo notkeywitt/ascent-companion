@@ -340,6 +340,9 @@ export interface CodingCardCtl {
       sticky: a sticky column taller than the viewport strands its own bottom. */
   scrollWithPage?: boolean;
 
+  /** Drop the "Coding" caption over the card (the Jobs page, 2026-11-01). */
+  hideLabel?: boolean;
+
   /** Height cap on the scan thumbnail. The board's panel is STICKY, so a tall
       scan there pins the column's top and strands its bottom — hence the 32rem
       default. A host that is an ordinary scrolling page (the bill page) passes
@@ -939,7 +942,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
         Docked only. Standalone or scrollWithPage the PAGE scrolls, and capping
         here would put a scrollbox inside a scrollbox. */}
       <div ref={cardRef} className={boxed ? "flex max-h-below-header flex-col" : ""}>
-        {!standalone && <SectionLabel className="mb-2">Coding</SectionLabel>}
+        {!standalone && !ctl.hideLabel && <SectionLabel className="mb-2">Coding</SectionLabel>}
         {!bill ? (
           <EmptyState>{c("recode.empty.selectBill")}</EmptyState>
         ) : (

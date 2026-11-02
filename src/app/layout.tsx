@@ -136,7 +136,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette')==='guidelines'?'guidelines':'website';e.setAttribute('data-palette',p);var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette')==='guidelines'?'guidelines':'website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')==='1')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>

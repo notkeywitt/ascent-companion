@@ -389,8 +389,15 @@ html .group:hover .group-hover\:text-accent {
     --rail-w: 232px;
   }
 }
+/* The rail slid away (the ‹ at its foot; TabBar.tsx): the page takes the
+   width. Per device, in localStorage "railHidden"; the attribute is set before
+   paint by the inline script in layout.tsx. */
+html[data-rail="hidden"] {
+  --rail-w: 0px;
+}
 #app-shell {
   padding-left: var(--rail-w);
+  transition: padding-left 200ms ease-out;
 }
 
 /* The two things that must clear the top chrome, reading the ONE measured
