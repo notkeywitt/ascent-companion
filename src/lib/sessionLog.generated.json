@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:29:32Z",
+  "generatedAt": "2026-11-02T18:38:03Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:29:32Z",
+      "updated": "2026-11-02T18:38:02Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1089,6 +1089,13 @@
           "sha": "575407a",
           "subject": "companion: draw the jobs dash all-time rings from the all-time lists' read, and drop the legend hover card",
           "files": "src/app/trackingsheet/Board.tsx, src/components/Donut.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:38",
+          "sha": "637890b",
+          "subject": "companion: mark the jobs dash's picked job more clearly, and reorder house manual contacts",
+          "files": "src/app/house-manual/HouseManual.tsx, src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
