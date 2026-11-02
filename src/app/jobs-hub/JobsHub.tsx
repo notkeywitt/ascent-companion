@@ -30,13 +30,13 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  * Figma page is "Jobs — header v2" in "Ascent — Jobs Hub (desktop draft)").
  *
  *   • At the top, the header — no job picker above it; the list is the
- *     picker (owner, 2026-11-01). Left quarter: the jobs on their own card,
- *     "Customer - Job" A–Z by last name within its phase, each with its month total. That card's height is
- *     the row's; the rest sit on the page and scale to it. Middle: the month's
- *     Bills and Labor rings with the totals under them — every job, or the
- *     picked job by cost code — and, once a job is picked, its details, cost
- *     to date and next to-dos above the rings and the tabs below. Right third:
- *     the Lopez Island map.
+ *     picker (owner, 2026-11-01). Left: the Lopez Island map. Next to it: the
+ *     jobs on their own card, by phase, "Customer - Job" A–Z by last name,
+ *     each with its month total. That card's height is the row's; the rest
+ *     sit on the page and scale to it. Right: the month's Bills and Labor
+ *     rings with the totals under them — every job, or the picked job by cost
+ *     code — and, once a job is picked, its details, cost to date and next
+ *     to-dos above the rings and the tabs below.
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
  *     the picked tab: Tracking sheet (the job's sheet, embedded — its bills and
  *     labor column and its coding drawer), Schedule (the job's overview),
@@ -215,7 +215,24 @@ export function JobsHub() {
         {/* THE HEADER (owner, 2026-11-01): the jobs list on its own card sets
             the row's height; the middle and the map sit on the page and scale
             to it. */}
-        <div className="grid gap-6 xl:grid-cols-[25%_minmax(0,1fr)_33.333%]">
+        <div className="grid gap-6 xl:grid-cols-[28.333%_25%_minmax(0,1fr)]">
+          {/* The map, left of the list, at 85% of the row's height (owner,
+              2026-11-01): it scales with the row the list sets. */}
+          <div className="relative min-h-64">
+            <div className="absolute inset-x-0 top-[7.5%] h-[85%] [&_svg]:min-h-0 [&_svg]:flex-1">
+              {jobs ? (
+                <LopezMap
+                  jobs={jobs}
+                  selectedId={selectedId}
+                  onSelect={pick}
+                  legend={false}
+                  className="h-full"
+                />
+              ) : (
+                <Loading />
+              )}
+            </div>
+          </div>
           <Card pad={false} className="min-w-0 self-start p-3">
             {!jobs && <Loading />}
             <div className="space-y-3">
@@ -269,23 +286,6 @@ export function JobsHub() {
               <Skeleton className="min-h-[180px] w-full flex-1 rounded-xl" />
             )}
             {selected && <div className="overflow-x-auto">{tabs}</div>}
-          </div>
-
-          {/* The map fills its third at whatever height the row is. */}
-          <div className="relative min-h-64">
-            <div className="absolute inset-0 [&_svg]:min-h-0 [&_svg]:flex-1">
-              {jobs ? (
-                <LopezMap
-                  jobs={jobs}
-                  selectedId={selectedId}
-                  onSelect={pick}
-                  legend={false}
-                  className="h-full"
-                />
-              ) : (
-                <Loading />
-              )}
-            </div>
           </div>
         </div>
 
