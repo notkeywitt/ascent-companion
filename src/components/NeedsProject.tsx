@@ -99,11 +99,42 @@ export function useNeedsProjectCount(): NeedsProjectState {
  * so Home stays quiet until there's actually something to do. Takes the hook's
  * result rather than calling it, so the menu badges share the same fetch.
  */
-export function NeedsProjectBanner({ state }: { state: NeedsProjectState }) {
+/** `compact`: one line, for Home's masthead (owner, 2026-11-02). */
+export function NeedsProjectBanner({ state, compact = false }: { state: NeedsProjectState; compact?: boolean }) {
   const access = useAccess();
   const { items, count, loading, error, refresh } = state;
 
   if (!access.can("needs-project")) return null;
+  if (compact) {
+    if (error)
+      return (
+        <div className="rounded-lg bg-neutral-100 px-3 py-1.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+          Couldn’t check Not in JobTread.{" "}
+          <button type="button" onClick={refresh} className="font-semibold underline">
+            Retry
+          </button>
+        </div>
+      );
+    if (count === 0) return null;
+    return (
+      <div role="status" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+        <span className="font-semibold">{count === 1 ? "1 bill needs a job" : `${count} bills need a job`}</span>
+        <span className="min-w-0 truncate opacity-90">
+          {items
+            .slice(0, 2)
+            .map((it) => `${it.vendor || "Unknown vendor"} ${money(it.amount)}`)
+            .join(", ")}
+          {count > 2 ? `, +${count - 2} more` : ""}
+        </span>
+        <Link href="/email?section=stuck" className="font-semibold underline">
+          Open →
+        </Link>
+        <button type="button" onClick={refresh} disabled={loading} className="underline opacity-80 disabled:opacity-50">
+          {loading ? "Checking…" : "Refresh"}
+        </button>
+      </div>
+    );
+  }
 
   // A broken check is worth saying out loud — an indicator that silently fails
   // reads exactly like an empty queue.

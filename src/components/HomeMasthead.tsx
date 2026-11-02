@@ -43,7 +43,9 @@ import { MonthPicker } from "@/components/MonthPicker";
  * about which day it is — a hydration mismatch that throws away the whole tree.
  * The band keeps its height while that resolves, so nothing shifts.
  */
-export function HomeMasthead() {
+/** `notices`: Home's banners, drawn compact in the band between the date and the
+ *  billing month (owner, 2026-11-02). */
+export function HomeMasthead({ notices }: { notices?: React.ReactNode } = {}) {
   const access = useAccess();
   const [today, setToday] = useState<Date | null>(null);
   const [ym, setYm] = useState("");
@@ -139,6 +141,11 @@ export function HomeMasthead() {
         {/* The dated to-dos (Amazon, LSWDD, …) — see HomeReminders. */}
         <HomeReminders />
       </div>
+
+      {notices && (
+        // Empty when every banner is quiet: each one renders nothing then.
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 self-center empty:hidden">{notices}</div>
+      )}
 
       {shows && (
         <div className="ml-auto shrink-0 text-right">

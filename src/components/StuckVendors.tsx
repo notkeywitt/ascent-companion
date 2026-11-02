@@ -469,11 +469,43 @@ export function StuckVendorPopup() {
  * stop the interruption, not hide the problem, so this stays until the vendors
  * actually exist in JobTread.
  */
-export function StuckVendorBanner() {
+/** `compact`: one line, for Home's masthead (owner, 2026-11-02). */
+export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {}) {
   const { vendors, billCount, loading, error, refresh } = useStuckVendors();
   const access = useAccess();
 
   if (!access.can("email")) return null;
+  if (compact) {
+    if (error)
+      return (
+        <div className="rounded-lg bg-neutral-100 px-3 py-1.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+          Couldn’t check for unmatched vendors.{" "}
+          <button type="button" onClick={refresh} className="font-semibold underline">
+            Retry
+          </button>
+        </div>
+      );
+    if (vendors.length === 0) return null;
+    return (
+      <div role="status" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+        <span className="font-semibold">
+          {vendors.length === 1 ? "1 vendor isn’t in JobTread" : `${vendors.length} vendors aren’t in JobTread`} —{" "}
+          {billCount} bill{billCount === 1 ? "" : "s"} stuck
+        </span>
+        {vendors.map((x) => (
+          <span key={x.vendor} title={x.reason || undefined} className="opacity-90">
+            {x.vendor} · <ForgetVendorButton v={x} onDone={refresh} />
+          </span>
+        ))}
+        <JtLink href={JT_VENDORS_URL} className="font-semibold underline">
+          JobTread Vendors ↗
+        </JtLink>
+        <button type="button" onClick={refresh} disabled={loading} className="underline opacity-80 disabled:opacity-50">
+          {loading ? "Checking…" : "Refresh"}
+        </button>
+      </div>
+    );
+  }
   if (error) {
     return (
       <div className="mb-4 rounded-xl bg-neutral-100 px-4 py-3 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">

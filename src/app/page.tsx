@@ -64,6 +64,13 @@ function Home() {
       .catch(() => router.replace("/employee-time"));
   }, [access.role, router]);
   const needsProject = useNeedsProjectCount();
+  // Home's notices, up in the masthead (owner, 2026-11-02). Each self-hides.
+  const notices = (
+    <>
+      <StuckVendorBanner compact />
+      <NeedsProjectBanner state={needsProject} compact />
+    </>
+  );
 
   /* ADMIN and OFFICE land on the Jobs page (owner, 2026-11-02). Home's own
      pieces it does not carry stay on top: the masthead (it sets the billing
@@ -73,10 +80,8 @@ function Home() {
     return (
       <>
         <div className="w-full px-4 pt-3 pad:px-7 pad:pt-5">
-          <HomeMasthead />
+          <HomeMasthead notices={notices} />
           <HomeActions />
-          <StuckVendorBanner />
-          <NeedsProjectBanner state={needsProject} />
         </div>
         <JobsHub />
       </>
@@ -91,7 +96,7 @@ function Home() {
           screen is a foot tall and the same band costs nothing, so the masthead
           below draws the heading — and stands the billing month on it, which is
           the fact this office checks before it opens anything. */}
-      <HomeMasthead />
+      <HomeMasthead notices={notices} />
 
       {/* The button panel — one big tap per thing done from a phone (Deposit
           checks first). Hidden on a desktop. Self-hiding: each button rides its own view, and the
@@ -100,14 +105,6 @@ function Home() {
 
       {/* What needs this person — one row per queue, each with its count. */}
       <TodayQueue />
-
-      {/* Bills that imported but couldn't push because their vendor isn't in
-          JobTread. Self-hiding when there are none; gates itself on `email`. */}
-      <StuckVendorBanner />
-
-      {/* Ingested bills whose job couldn't be resolved (Sunset "Sold-To" names a
-          customer with more than one job). Self-hiding when the queue is empty. */}
-      <NeedsProjectBanner state={needsProject} />
 
       {/* Budget + calendar position for the work in flight — a card per active
           job for office/admin, one wide panel for a lead's own job. Self-hiding,
