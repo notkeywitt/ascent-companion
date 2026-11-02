@@ -179,7 +179,7 @@ export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string 
 }
 
 /** Every job with cost in the month — the ring cards and "Check all Jobs" share this one read. */
-export function useMonthJobs(ym: string) {
+export function useMonthJobs(ym: string, refresh = 0) {
   const [jobs, setJobs] = useState<MonthJobCost[] | null>(null);
   const [error, setError] = useState("");
 
@@ -187,7 +187,8 @@ export function useMonthJobs(ym: string) {
     if (!ym) return; // the caller is still learning which month (Jobs Hub)
     let alive = true;
     const [y, m] = ym.split("-");
-    setJobs(null);
+    // A refresh keeps the last figures on screen until the new ones land.
+    if (!refresh) setJobs(null);
     setError("");
     fetch(`/api/trackingsheet/month-donuts?year=${y}&month=${Number(m)}`)
       .then((r) => r.json())
@@ -202,7 +203,7 @@ export function useMonthJobs(ym: string) {
     return () => {
       alive = false;
     };
-  }, [ym]);
+  }, [ym, refresh]);
 
   return { jobs, error };
 }

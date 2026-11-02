@@ -10,6 +10,7 @@
  * handlers, never from the browser.
  */
 
+import { revalidateTag } from "next/cache";
 import { findMutations } from "@/lib/paveGateway";
 import { SALES_TAX_CSI, SALES_TAX_LINE_NAME, isSalesTaxLine } from "@/lib/salesTax";
 import { WARRANTY_CSI } from "@/lib/warranty";
@@ -197,6 +198,16 @@ export function clearJobCostCaches(): void {
     ) {
       _refCache.delete(key);
     }
+  }
+  // The org-wide "to be invoiced" scans (the job picker's per-job totals, the
+  // month donuts) sit in Next's shared cache under this tag. A bill or labor
+  // write moves those figures too — without this, a job whose labor was just
+  // moved off kept its old total in the picker for up to five minutes.
+  // Outside a request (a test, a script) there is no cache to clear.
+  try {
+    revalidateTag("jt-bills");
+  } catch {
+    /* no request scope */
   }
 }
 

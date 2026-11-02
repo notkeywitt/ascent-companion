@@ -361,6 +361,9 @@ export interface BoardEmbed {
   /** Where the rings' month / job-to-date switch goes (under the Jobs page's
    *  month picker). */
   scopeSlot?: HTMLElement | null;
+  /** Called when the job's to-be-invoiced figure CHANGES after it first loads
+   *  (labor moved off, a bill voided), so the Jobs page re-reads its list. */
+  onFigureChange?: () => void;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -423,6 +426,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // Lifted out of the reconcile rectangle so the header can show the same
   // authoritative "to be invoiced" figure without fetching it twice.
   const [recon, setRecon] = useState<Recon | null>(null);
+  // Tell the Jobs page when the figure moves, not when it first arrives: the
+  // list beside it read the same month on load and is only stale after a write.
+  const figure = recon ? recon.remaining + recon.draftBillsCost : null;
+  const lastFigure = useRef<number | null>(null);
+  const onFigureChange = embed?.onFigureChange;
+  useEffect(() => {
+    if (figure === null) return;
+    if (lastFigure.current !== null && lastFigure.current !== figure) onFigureChange?.();
+    lastFigure.current = figure;
+  }, [figure, onFigureChange]);
   // The Jobs page: its rings' All Time also swaps the month's lists for the
   // job's whole history, read-only (AllTimeLists).
   const [ringScope, setRingScope] = useState<"month" | "job">("month");

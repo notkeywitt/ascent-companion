@@ -203,14 +203,16 @@ export function JobPicker({
     // a mount-time choice of endpoint, not something a caller flips at runtime.
   }, [jobsProp]);
 
-  // The money figures, fetched on the FIRST open and then kept — the scan behind
-  // them pages the whole org's bills for the month, so it is not something to
-  // repeat every time the list opens. A failure leaves the amounts off; the
-  // picker still picks jobs.
+  // The money figures, fetched on EVERY open. The org-wide scan behind them is
+  // cached server-side for five minutes and dropped by any bill or labor write
+  // (`clearJobCostCaches`), so a repeat open is a cache hit — and it is the only
+  // way a figure changed since the page loaded (labor moved off a job, a bill
+  // voided) reaches the list. The last figures stay on screen while it loads.
+  // A failure leaves the amounts off; the picker still picks jobs.
   useEffect(() => {
-    if (!showToBeInvoiced || !open || askedToInvoice.current) return;
+    if (!showToBeInvoiced || !open) return;
+    if (!askedToInvoice.current) setToInvoiceLoading(true);
     askedToInvoice.current = true;
-    setToInvoiceLoading(true);
     fetch("/api/jobs/to-be-invoiced")
       .then((r) => r.json())
       .then((j) => {

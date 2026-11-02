@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
 import { HomeJobBoard, JobOverview } from "@/components/HomeJobBoard";
@@ -155,7 +155,10 @@ export function JobsHub() {
       ))}
     </select>
   );
-  const { jobs: monthJobs } = useMonthJobs(ym);
+  // Bumped when the open job's figure changes, so the list re-reads the month.
+  const [monthRefresh, setMonthRefresh] = useState(0);
+  const refreshMonth = useCallback(() => setMonthRefresh((n) => n + 1), []);
+  const { jobs: monthJobs } = useMonthJobs(ym, monthRefresh);
 
   // Each client job's month: bills and labor, sales tax and warranty out.
   const ranked = useMemo(
@@ -409,7 +412,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth }} />
             </Suspense>
           )
         ) : tab === "plans" ? (
