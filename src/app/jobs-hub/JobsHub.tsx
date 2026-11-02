@@ -10,9 +10,9 @@ import { JobOverview } from "@/components/HomeJobBoard";
 import { HomeTodos } from "@/components/HomeTodos";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
-import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
+import { WORKING_PHASES } from "@/components/JobPicker";
 import { LopezMap } from "@/components/LopezMap";
-import { Card, Loading, PageHeader, Segmented, Select, Skeleton } from "@/components/ui";
+import { Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
 import { withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
 import { Board } from "@/app/trackingsheet/Board";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
@@ -29,20 +29,17 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  * Jobs — the desktop screen for every job at once (owner, 2026-11-01; the
  * Figma page is "Jobs — header v2" in "Ascent — Jobs Hub (desktop draft)").
  *
- *   • The title is Tracking Sheets' job picker ("All Jobs" until a job is
- *     picked).
- *   • Under it, the header: ONE card, one size, whatever is picked. Its left
- *     quarter lists the jobs, "Customer - Job" A–Z by customer last name, each
- *     with its month total (bills/labor) and two dots — its slice colour in the
- *     Bills and Labor rings, so the list is the rings' legend. Its right third
- *     is the Lopez Island map. Its middle changes: no job → the month's totals
+ *   • At the top, the header: ONE card, one size, whatever is picked. No job
+ *     picker above it — the card's own list is the picker (owner, 2026-11-01).
+ *     Its left quarter lists the jobs, "Customer - Job" A–Z, each with its
+ *     month total (bills/labor). Its right third is the Lopez Island map. Its middle changes: no job → the month's totals
  *     and rings; a job → its cost to date, next to-dos, details and the tabs.
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
  *     the picked tab: Tracking sheet (the job's sheet, embedded — its bills and
  *     labor column and its coding drawer), Schedule (the job's overview),
  *     Plans or Photos (the job's JobTread plan sheets and photos).
  *
- * A list row, a ring slice, a map dot or the picker picks the job.
+ * A list row, a ring slice or a map dot picks the job; picking it again closes it.
  *
  * Every write is the embedded Tracking Sheet's own; nothing here writes.
  */
@@ -55,9 +52,6 @@ type Tab = "sheet" | "schedule" | "plans" | "photos";
 const isAscentOwn = (customer: string | null | undefined) =>
   (customer ?? "").trim().toLowerCase() === "ascent";
 const jobLabel = (j: HubJob) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
-/** "Mary Berger" → "berger". ponytail: last word; a company name sorts by its last word too. */
-const lastName = (customer: string | null | undefined) =>
-  (customer ?? "").trim().split(/\s+/).pop()?.toLowerCase() ?? "";
 
 const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
@@ -139,11 +133,7 @@ export function JobsHub() {
           (j) =>
             !isAscentOwn(j.customer) && (WORKING_PHASES.includes(j.phase ?? "") || byJob.has(j.id)),
         )
-        .sort(
-          (a, b) =>
-            lastName(a.customer).localeCompare(lastName(b.customer)) ||
-            jobLabel(a).localeCompare(jobLabel(b)),
-        ),
+        .sort((a, b) => jobLabel(a).localeCompare(jobLabel(b))),
     [jobs, byJob],
   );
 
@@ -184,22 +174,6 @@ export function JobsHub() {
       className="w-full px-4 pb-10 pt-5 pad:px-7"
       style={{ minHeight: heldHeight }}
     >
-      <PageHeader
-        titleSlot={
-          <JobPicker
-            variant="title"
-            value={selectedId ?? ""}
-            onChange={(id) => setSelectedId(id || null)}
-            placeholder="All Jobs"
-            allLabel="All Jobs"
-            allDescription="Every job's month, side by side"
-            showPhaseFilter
-            defaultPhases={WORKING_PHASES}
-            showToBeInvoiced={canTrackingSheet}
-          />
-        }
-      />
-
       <div className="min-w-0 space-y-6">
         {/* THE HEADER — one card, one size (owner, 2026-11-01): the jobs list
             (left quarter), the middle that changes, the map (right third). */}
@@ -229,17 +203,6 @@ export function JobsHub() {
                           aria-pressed={j.id === selectedId}
                           className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
                         >
-                          {/* Bills dot, Labor dot — its slices in the two rings. */}
-                          <span className="flex shrink-0 gap-0.5" aria-hidden>
-                            <span
-                              className="h-2 w-2 rounded-full bg-line"
-                              style={r && { background: r.color }}
-                            />
-                            <span
-                              className="h-2 w-2 rounded-full bg-line"
-                              style={r && { background: r.laborColor }}
-                            />
-                          </span>
                           <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
                           <span className="shrink-0 text-[11px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
                             {r && r.bills + r.labor > 0
@@ -339,8 +302,8 @@ export function JobsHub() {
  * distinct hues rather than a gradient, which was hard to tell apart. Tableau
  * 20's warm and cool halves, so every slot reads on the light and the dark
  * card. A job keeps the same slot in both families (its rank by the month's
- * total), and its list row shows both dots. ponytail: 8 slots per family;
- * colours repeat from the 9th job, and the list still names each.
+ * total),. ponytail: 8 slots per family;
+ * colours repeat from the 9th job; a slice names its job on hover.
  */
 const BILL_COLORS = [
   "#F28E2B",
@@ -383,9 +346,10 @@ interface RingItem {
 }
 
 /**
- * The middle with no job picked: the month's Total, Bills and Labor, and one
- * Bills ring and one Labor ring with a slice per job. The jobs list is the
- * legend. A slice lifts on hover, shows its bills and labor, and opens its job.
+ * The middle with no job picked: one Bills ring and one Labor ring with a
+ * slice per job, and under them the month's Total, then Bills and Labor on one
+ * line. A slice lifts on hover, names its job with its bills and labor, and
+ * opens it on a click.
  */
 function MonthRings({
   items,
@@ -422,24 +386,12 @@ function MonthRings({
         <div className={`min-w-0 flex-1 truncate ${caption}`}>All jobs · month totals</div>
         {control}
       </div>
-      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 tabular-nums">
-        <span className="text-sm font-semibold">Total</span>
-        <span className="text-[28px] font-bold leading-none tracking-tight">
-          {money0(bills + labor)}
-        </span>
-        <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
-          Bills {money0(bills)}
-        </span>
-        <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
-          Labor {money0(labor)}
-        </span>
-      </div>
-      <div className="flex flex-1 items-center justify-center gap-8">
+      <div className="flex min-h-0 flex-1 items-center justify-center gap-10">
         <Donut
           title="Bills"
           slices={slices("bills")}
           emptyLabel="No bills"
-          size={200}
+          size={150}
           legend={false}
           onSelect={onSelect}
           detail={detail}
@@ -448,11 +400,22 @@ function MonthRings({
           title="Labor"
           slices={slices("labor")}
           emptyLabel="No labor"
-          size={200}
+          size={150}
           legend={false}
           onSelect={onSelect}
           detail={detail}
         />
+      </div>
+      <div className="text-center tabular-nums">
+        <div className="flex items-baseline justify-center gap-3">
+          <span className="text-sm font-semibold">Total</span>
+          <span className="text-[28px] font-bold leading-none tracking-tight">
+            {money0(bills + labor)}
+          </span>
+        </div>
+        <div className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+          Bills {money0(bills)} · Labor {money0(labor)}
+        </div>
       </div>
     </div>
   );
