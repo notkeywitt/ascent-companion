@@ -959,7 +959,10 @@ export default function ToolsPage() {
   }
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6 xl:max-w-6xl">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6 xl:max-w-none">
+      {/* Desktop: the page in a left column, the Lopez map filling the right. */}
+      <div className="xl:grid xl:grid-cols-[minmax(0,46rem)_minmax(0,1fr)] xl:gap-8">
+      <div className="min-w-0">
       <PageHeader
         title="Tools"
         description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
@@ -982,12 +985,12 @@ export default function ToolsPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search name, id, type, serial, location…"
-          className={inputCls + " min-w-[12rem] flex-1"}
+          className={inputCls + " min-w-[12rem] flex-1 xl:py-1.5"}
         />
         <select
           value={conditionFilter}
           onChange={(e) => setConditionFilter(e.target.value)}
-          className={inputCls + " w-auto"}
+          className={inputCls + " !w-auto max-w-[14rem] xl:py-1.5"}
         >
           <option value="All">All conditions</option>
           {conditions.map((c) => (
@@ -999,7 +1002,7 @@ export default function ToolsPage() {
         <select
           value={jobFilter}
           onChange={(e) => setJobFilter(e.target.value)}
-          className={inputCls + " w-auto"}
+          className={inputCls + " !w-auto max-w-[14rem] xl:py-1.5"}
         >
           <option value="All">All job sites</option>
           {jobOptions.hasUnassigned && <option value="__none__">Unassigned</option>}
@@ -1024,8 +1027,7 @@ export default function ToolsPage() {
       {loading && <Loading label="Loading tools…" />}
 
       {!loading && !loadErr && (
-        <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start xl:gap-6">
-          <div className="min-w-0">
+        <>
           <div className="mb-2 text-xs text-neutral-500">
             {view.length} of {tools.length} tools
             {refreshing && " · refreshing…"}
@@ -1086,28 +1088,32 @@ export default function ToolsPage() {
               </section>
             ))}
           </div>
-          </div>
-
-          {/* Desktop only: the Lopez map of where the tools are. A dot picks
-              that job site in the filter; picking it again clears it. */}
-          <aside className="sticky top-6 hidden rounded-xl border border-line bg-white p-3 xl:block dark:bg-ink-raised">
-            <LopezMap
-              jobs={mapSites.sites}
-              selectedId={jobFilter}
-              onSelect={(id) => setJobFilter((cur) => (cur === id ? "All" : id))}
-              legend={false}
-              pad={12}
-              color="var(--viz-1)"
-              label="Map of Lopez Island with tool locations"
-            />
-            {mapSites.unassigned > 0 && (
-              <p className="mt-1 text-xs text-neutral-500">
-                {mapSites.unassigned} unassigned {mapSites.unassigned === 1 ? "tool" : "tools"}
-              </p>
-            )}
-          </aside>
-        </div>
+        </>
       )}
+      </div>
+
+      {/* Desktop only: the Lopez map of where the tools are, on the page
+          background. A dot picks that job site in the filter; picking it
+          again clears it. */}
+      {!loading && !loadErr && (
+        <aside className="sticky top-4 hidden h-[calc(100dvh-6rem)] flex-col xl:flex [&_figure]:min-h-0 [&_figure]:flex-1 [&_svg]:min-h-0 [&_svg]:flex-1">
+          <LopezMap
+            jobs={mapSites.sites}
+            selectedId={jobFilter}
+            onSelect={(id) => setJobFilter((cur) => (cur === id ? "All" : id))}
+            legend={false}
+            pad={6}
+            color="var(--viz-1)"
+            label="Map of Lopez Island with tool locations"
+          />
+          {mapSites.unassigned > 0 && (
+            <p className="mt-1 text-xs text-neutral-500">
+              {mapSites.unassigned} unassigned {mapSites.unassigned === 1 ? "tool" : "tools"}
+            </p>
+          )}
+        </aside>
+      )}
+      </div>
 
       {/* Scan camera overlay */}
       {scanning && (
