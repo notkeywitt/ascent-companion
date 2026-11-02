@@ -29,6 +29,7 @@ import {
   embedSnippet,
   manualHtml,
   mergeSections,
+  galleryPhotos,
   photoUrl,
   type HouseManual,
   type JobVendor,
@@ -255,7 +256,9 @@ function GalleryEditor({
   onError: (message: string) => void;
 }) {
   const [busy, setBusy] = useState(false);
-  const hidden = g.photos.filter((p) => !p.shared).length;
+  const all = galleryPhotos(g);
+  const hidden = all.filter((p) => !p.shared).length;
+  const groups = g.groups ?? [];
   return (
     <Card className="space-y-2" data-edit={at}>
       <div className="flex items-center gap-1">
@@ -269,7 +272,7 @@ function GalleryEditor({
         <RemoveButton label={`Remove ${g.title || "gallery"}`} onClick={onRemove} />
       </div>
       <div className="flex gap-1.5 overflow-x-auto pb-1">
-        {g.photos.slice(0, 12).map((p) => (
+        {all.slice(0, 12).map((p) => (
           // eslint-disable-next-line @next/next/no-img-element -- a Drive photo, not a bundled asset
           <img
             key={p.id}
@@ -282,13 +285,30 @@ function GalleryEditor({
       </div>
       <MetaLine
         items={[
-          `${g.photos.length} photo${g.photos.length === 1 ? "" : "s"}`,
+          `${all.length} photo${all.length === 1 ? "" : "s"}`,
+          groups.length > 0 && `${groups.length} subfolder${groups.length === 1 ? "" : "s"}`,
           hidden > 0 && `${hidden} not shared`,
         ]}
       />
+      {/* Each subfolder is a heading in the gallery; its title is editable and
+          survives Refresh. Add or remove one in Drive, then Refresh. */}
+      {groups.map((x, k) => (
+        <div key={x.folderId} data-edit={`${at}.u${k}`} className="flex items-center gap-2 border-l-2 border-line-soft pl-3">
+          <QuietInput
+            aria-label="Subfolder heading"
+            placeholder="Subfolder heading"
+            value={x.title}
+            onChange={(e) => onChange({ ...g, groups: groups.map((y, n) => (n === k ? { ...y, title: e.target.value } : y)) })}
+            className="min-w-0 flex-1"
+          />
+          <span className="shrink-0 text-[12px] text-neutral-500 dark:text-neutral-400">
+            {x.photos.length} photo{x.photos.length === 1 ? "" : "s"}
+          </span>
+        </div>
+      ))}
       {hidden > 0 && (
         <Banner tone="warning">
-          {hidden === g.photos.length ? "None of these photos are" : `${hidden} of these photos are not`} shared, so the
+          {hidden === all.length ? "None of these photos are" : `${hidden} of these photos are not`} shared, so the
           page leaves them out. In Drive, share the folder as &ldquo;Anyone with the link&rdquo; (Viewer), then press
           Refresh.
         </Banner>
@@ -301,7 +321,7 @@ function GalleryEditor({
           onClick={async () => {
             setBusy(true);
             try {
-              onChange(await fetchGallery(g.folderId, g.title));
+              onChange(await fetchGallery(g.folderId, g));
             } catch (e) {
               onError(e instanceof Error ? e.message : String(e));
             } finally {

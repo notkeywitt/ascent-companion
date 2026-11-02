@@ -280,3 +280,34 @@ describe("pdfOrigin", () => {
     expect(pdfOrigin("http://localhost:3000")).toBe("http://localhost:3000");
   });
 });
+
+describe("photo subfolders", () => {
+  const photo = (id: string, shared = true) => ({ id, name: `${id}.jpg`, shared });
+  const m = asManual({
+    galleries: [
+      {
+        title: "Progress",
+        folderId: "folder1",
+        folderUrl: "",
+        photos: [photo("top0000001")],
+        groups: [
+          { title: "Kitchen › Before", folderId: "sub1", photos: [photo("kit0000001")] },
+          { title: "Hidden", folderId: "sub2", photos: [photo("hid0000001", false)] },
+        ],
+      },
+      { title: "Only subfolders", folderId: "folder2", folderUrl: "", photos: [], groups: [{ title: "Bath", folderId: "sub3", photos: [photo("bat0000001")] }] },
+    ],
+  })!;
+
+  it("keeps the groups through asManual", () => {
+    expect(m.galleries[0].groups?.map((g) => g.title)).toEqual(["Kitchen › Before", "Hidden"]);
+  });
+
+  it("prints each subfolder under its heading after the folder's own photos, skipping one with none shared", () => {
+    const html = manualHtml(m);
+    expect(html).toMatch(/top0000001.*<h4 class="am-sub">Kitchen › Before<\/h4><div class="am-photos">.*kit0000001/);
+    expect(html).not.toContain("Hidden");
+    expect(html).toContain("<summary>Only subfolders</summary>");
+    expect(manualHtml(m, undefined, { marks: true })).toContain('<h4 class="am-sub" data-at="g0.u0">');
+  });
+});

@@ -109,23 +109,42 @@ export interface ManualPhoto {
   shared: boolean;
 }
 
+/** A subfolder's photos, under their own heading in the gallery (owner,
+ *  2026-11-02). `title` starts as the folder's path below the gallery's
+ *  folder, e.g. "Kitchen › Before". */
+export interface ManualPhotoGroup {
+  title: string;
+  folderId: string;
+  photos: ManualPhoto[];
+}
+
 /** A Drive folder of photos, shown on the page as a grid. A snapshot: Refresh re-reads the folder. */
 export interface ManualGallery {
   title: string;
   folderId: string;
   folderUrl: string;
+  /** The photos directly in the folder. */
   photos: ManualPhoto[];
+  /** Its subfolders, at any depth, in folder order; only those holding photos. */
+  groups?: ManualPhotoGroup[];
 }
 
+/** A folder listing's images, in the folder's order. */
+export const photosFrom = (children: DriveItem[]): ManualPhoto[] =>
+  children.filter((c) => !c.isFolder && isImage(c.mimeType)).map((c) => ({ id: c.id, name: c.name, shared: !!c.shared }));
+
 /** A folder listing as a gallery: its images, in the folder's order. */
-export function galleryFrom(folder: { id: string; name: string; url: string }, children: DriveItem[], title = folder.name): ManualGallery {
-  return {
-    title,
-    folderId: folder.id,
-    folderUrl: folder.url,
-    photos: children.filter((c) => !c.isFolder && isImage(c.mimeType)).map((c) => ({ id: c.id, name: c.name, shared: !!c.shared })),
-  };
+export function galleryFrom(
+  folder: { id: string; name: string; url: string },
+  children: DriveItem[],
+  title = folder.name,
+  groups: ManualPhotoGroup[] = [],
+): ManualGallery {
+  return { title, folderId: folder.id, folderUrl: folder.url, photos: photosFrom(children), ...(groups.length ? { groups } : {}) };
 }
+
+/** Every photo in a gallery, its subfolders' included. */
+export const galleryPhotos = (g: ManualGallery): ManualPhoto[] => [...g.photos, ...(g.groups ?? []).flatMap((x) => x.photos)];
 
 /** What the spec reader takes: a PDF, or a Google file Drive exports to PDF. */
 export const isReadable = (mimeType: string) =>
@@ -267,6 +286,10 @@ export function asManual(v: unknown): HouseManual | null {
       const p = pdfs(i);
       return { label: s(i.label), value: s(i.value), url: s(i.url), ...(p.length ? { pdfs: p } : {}) };
     });
+  const photos = (x: unknown) =>
+    arr(x)
+      .filter((p) => /^[\w-]{10,}$/.test(s(p.id)))
+      .map((p) => ({ id: s(p.id), name: s(p.name), shared: p.shared === true }));
   const t = (o.titleStyle && typeof o.titleStyle === "object" ? o.titleStyle : {}) as Record<string, unknown>;
   const d = DEFAULT_TITLE_STYLE;
   const num = (x: unknown, fallback: number, min: number, max: number) =>
@@ -305,9 +328,10 @@ export function asManual(v: unknown): HouseManual | null {
         title: s(g.title),
         folderId: s(g.folderId),
         folderUrl: s(g.folderUrl),
-        photos: arr(g.photos)
-          .filter((p) => /^[\w-]{10,}$/.test(s(p.id)))
-          .map((p) => ({ id: s(p.id), name: s(p.name), shared: p.shared === true })),
+        photos: photos(g.photos),
+        ...(arr(g.groups).length
+          ? { groups: arr(g.groups).map((x) => ({ title: s(x.title), folderId: s(x.folderId), photos: photos(x.photos) })) }
+          : {}),
       })),
     links: arr(o.links).map((l) => ({ text: s(l.text), url: s(l.url), ...(l.pdf === true ? { pdf: true } : {}) })),
     sources: arr(o.sources)
@@ -458,14 +482,22 @@ export function manualHtml(m: HouseManual, host?: ManualHost, opts: { marks?: bo
     ),
   );
   // Only shared photos: an unshared one is a broken image to every visitor.
-  const galleries = m.galleries.map((g, i) => {
-    const imgs = g.photos
+  const grid = (photos: ManualPhoto[]) => {
+    const imgs = photos
       .filter((p) => p.shared)
       .map(
         (p) =>
           `<a href="${esc(photoUrl(p.id, 2400))}" target="_blank" rel="noopener"><img src="${esc(photoUrl(p.id, 800))}" alt="${esc(p.name.replace(/\.\w+$/, ""))}" loading="lazy"></a>`,
       );
-    return details(g.title || "Photos", imgs.length ? `<div class="am-photos">${imgs.join("")}</div>` : "", at(`g${i}`));
+    return imgs.length ? `<div class="am-photos">${imgs.join("")}</div>` : "";
+  };
+  // A subfolder prints under its own heading, like a sub-section; one with no shared photo is left out.
+  const galleries = m.galleries.map((g, i) => {
+    const groups = (g.groups ?? []).map((x, k) => {
+      const body = grid(x.photos);
+      return body ? `<h4 class="am-sub"${at(`g${i}.u${k}`)}>${esc(x.title)}</h4>${body}` : "";
+    });
+    return details(g.title || "Photos", grid(g.photos) + groups.join(""), at(`g${i}`));
   });
   const links = m.links
     .map((l, i) => {

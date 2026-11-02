@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import { Button, Card, Input, MetaLine, SectionHeading } from "@/components/ui";
-import { galleryFrom, isReadable, type DriveItem, type ManualGallery, type ManualSection, type ManualSource } from "@/lib/houseManual";
+import {
+  galleryFrom,
+  galleryPhotos,
+  isReadable,
+  photosFrom,
+  type DriveItem,
+  type ManualGallery,
+  type ManualPhotoGroup,
+  type ManualSection,
+  type ManualSource,
+} from "@/lib/houseManual";
 
 /**
  * The job's Drive files and folders, linked to the manual. Paste a link to add
@@ -22,11 +32,43 @@ async function readJson(r: Response) {
   return b;
 }
 
-/** Read a Drive folder as a gallery of its photos. Throws when it holds none. */
-export async function fetchGallery(folderId: string, title?: string): Promise<ManualGallery> {
-  const b = await readJson(await fetch(`/api/house-manual/drive?id=${encodeURIComponent(folderId)}`, { cache: "no-store" }));
-  const g = galleryFrom(b.item, b.children, title);
-  if (g.photos.length === 0) throw new Error(`No photos in ${b.item.name}.`);
+const readFolder = async (id: string): Promise<{ item: DriveItem; children: DriveItem[] }> =>
+  readJson(await fetch(`/api/house-manual/drive?id=${encodeURIComponent(id)}`, { cache: "no-store" }));
+
+/** How deep, and how many subfolders, one gallery reads — each is a bridge call. */
+const MAX_DEPTH = 4;
+const MAX_SUBFOLDERS = 40;
+
+/**
+ * Read a Drive folder as a gallery of its photos, each subfolder (at any depth)
+ * a group under its own heading. Throws when the whole tree holds no photo.
+ * `prev` is the gallery being refreshed: its title and its groups' titles stay.
+ */
+export async function fetchGallery(folderId: string, prev?: ManualGallery): Promise<ManualGallery> {
+  const top = await readFolder(folderId);
+  let budget = MAX_SUBFOLDERS;
+  // Depth first, siblings read together, so groups come out in folder order.
+  const walk = async (folders: DriveItem[], path: string, depth: number): Promise<ManualPhotoGroup[]> => {
+    if (depth > MAX_DEPTH) return [];
+    const take = folders.slice(0, Math.max(0, budget));
+    budget -= take.length;
+    const read = await Promise.all(take.map((f) => readFolder(f.id)));
+    const out: ManualPhotoGroup[] = [];
+    for (const [n, b] of read.entries()) {
+      const title = path ? `${path} › ${take[n].name}` : take[n].name;
+      const photos = photosFrom(b.children);
+      if (photos.length) out.push({ title, folderId: take[n].id, photos });
+      out.push(...(await walk(b.children.filter((c) => c.isFolder), title, depth + 1)));
+    }
+    return out;
+  };
+  const kept = new Map((prev?.groups ?? []).map((x) => [x.folderId, x.title]));
+  const groups = (await walk(top.children.filter((c) => c.isFolder), "", 1)).map((x) => ({
+    ...x,
+    title: kept.get(x.folderId) ?? x.title,
+  }));
+  const g = galleryFrom(top.item, top.children, prev?.title, groups);
+  if (galleryPhotos(g).length === 0) throw new Error(`No photos in ${top.item.name} or its subfolders.`);
   return g;
 }
 
