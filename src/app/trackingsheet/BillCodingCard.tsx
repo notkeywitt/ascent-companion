@@ -723,9 +723,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             ? "Save the coding on the ticked lines first — the split copies what JobTread holds."
             : "";
   const splitButton = showSplit ? (
+    // Beside Recode All and Combine, in their style: all three reshape the
+    // lines below (owner, 2026-11-02).
     <Button
-      variant="outline"
-      size="sm"
+      variant="secondary"
+      size="xs"
+      className="shrink-0"
       disabled={splitRunning}
       onClick={() => {
         setSplitSel([]);
@@ -734,7 +737,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
       title="Move some lines onto a new draft bill on this job"
     >
       {splitRunning ? <Spinner className="mr-1.5" /> : null}
-      {splitRunning ? "Splitting…" : "✂ Split bill"}
+      {splitRunning ? "Splitting…" : "Split Bill"}
     </Button>
   ) : null;
   const runSplit = async () => {
@@ -1232,7 +1235,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             not a trial-and-error choice; a recode only stages. The hairline is
             BELOW the row here, so the tools read as a header over the list
             instead of a footer under the tax. */}
-              {(showRecodeAll || showCombine) && (
+              {(showRecodeAll || showCombine || showSplit) && (
                 <div className="mb-3 border-b border-line-soft pb-2.5">
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     {showRecodeAll && (
@@ -1261,6 +1264,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         Combine
                       </Button>
                     )}
+                    {/* Hidden mid-combine: a split then would move lines a
+                        staged merge still points at. */}
+                    {!combineOpen && !combinePending && splitButton}
                     {showCombine && combineOpen && !combinePending && (
                       <>
                         <Button
@@ -1633,7 +1639,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               {/* Flag and Buy back stay on the bill: they are what you do to it.
             The needs-review note, Drive, client access and Void are in the
             bill's actions (`billActions` below). */}
-              {(review || buybackButton || splitButton) && (
+              {(review || buybackButton) && (
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3 dark:border-neutral-800">
                   {review && (
                     <Button
@@ -1647,7 +1653,6 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     </Button>
                   )}
                   {buybackButton}
-                  {splitButton}
                 </div>
               )}
 
