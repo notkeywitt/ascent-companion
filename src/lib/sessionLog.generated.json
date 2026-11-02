@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T20:44:19Z",
+  "generatedAt": "2026-11-02T20:45:13Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T20:44:19Z",
+      "updated": "2026-11-02T20:45:13Z",
       "goal": "",
       "next": "Owner approves the Create Bills write path, then npm run ship; test on one statement and check the Office job bill (88 70 00, net, PDF attached)",
       "commits": [
@@ -1285,6 +1285,13 @@
           "sha": "fa5cd8c",
           "subject": "companion: add create bills to sunset statements — one office-job bill per statement",
           "files": "CODEBASE_MAP.md, src/app/api/sunset-statement-bills/route.ts, src/app/payments/page.tsx, src/components/SunsetStatementBills.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts, +3 more"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "12:45",
+          "sha": "ad4873e",
+          "subject": "companion: show invoiced to date under job to date on the jobs page",
+          "files": "src/app/trackingsheet/Board.tsx, src/lib/depositRead.ts, src/lib/jobtread.ts"
         }
       ]
     },
