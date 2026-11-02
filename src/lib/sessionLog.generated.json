@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T17:49:34Z",
+  "generatedAt": "2026-11-02T17:51:53Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T17:49:34Z",
+      "updated": "2026-11-02T17:51:53Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -998,6 +998,13 @@
           "sha": "e25fc74",
           "subject": "companion: reorder house manual items within a section",
           "files": "src/app/house-manual/HouseManual.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:51",
+          "sha": "43e33d3",
+          "subject": "companion: ask before a jobs dash job or tab switch drops unsaved edits",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/lib/useUnsavedChanges.ts"
         }
       ]
     },
