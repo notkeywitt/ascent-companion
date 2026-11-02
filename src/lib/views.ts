@@ -556,7 +556,7 @@ export const VIEWS: ViewDef[] = [
   // rings, one job's overview and the Lopez Island map. It calls only routes
   // other pages already use and gate, so no API path is listed here.
   // Office/admin by default.
-  { id: "jobs-hub", label: "Jobs", group: "Office", paths: ["/jobs-hub"] },
+  { id: "jobs-hub", label: "Jobs", group: "Office", paths: ["/jobs-hub", "/api/jobs/files"] },
 ];
 
 export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);

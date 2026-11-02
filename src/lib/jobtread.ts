@@ -898,6 +898,53 @@ export async function getJobFiles(cfg: PaveConfig, jobId: string): Promise<JobFi
   return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
+/** One sheet on a job's Plans tab: a page of an uploaded drawing set. */
+export interface JobPlan {
+  id: string;
+  name: string;
+  /** 1-based page of `file` this sheet is. */
+  page: number;
+  createdAt: string;
+  file: { id: string; name: string; type: string; url: string | null; imageUrl: string | null };
+}
+
+/**
+ * Every sheet on a job's Plans tab, in upload order (JobTread splits each
+ * drawing set into one plan per page). `imageUrl` is the file's rasterised
+ * page 1; add `&page=N` for the sheet's own page (InvoiceViewer's `pageSrc`).
+ * Read-only. Fields confirmed by a live read 2026-11-01.
+ */
+export async function getJobPlans(cfg: PaveConfig, jobId: string): Promise<JobPlan[]> {
+  const rows = await pageAll<JobPlan>(cfg, {
+    label: "job.plans",
+    query: (args) => ({
+      job: {
+        $: { id: jobId },
+        id: {},
+        plans: {
+          $: args,
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            page: {},
+            createdAt: {},
+            file: {
+              id: {},
+              name: {},
+              type: {},
+              url: {},
+              imageUrl: { _: "url", $: { size: 800 } },
+            },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.job?.plans,
+  });
+  return rows.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+}
+
 /**
  * One JobTread file by its id — the name, type, size and a fresh download link.
  * AscentBot's file reader fetches the bytes from that link. Read-only.

@@ -12,17 +12,8 @@ import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
 import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
 import { LopezMap } from "@/components/LopezMap";
-import {
-  Button,
-  Card,
-  Loading,
-  MetaLine,
-  PageHeader,
-  Segmented,
-  Select,
-  Skeleton,
-} from "@/components/ui";
-import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
+import { Card, Loading, PageHeader, Segmented, Select, Skeleton } from "@/components/ui";
+import { withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
 import { Board } from "@/app/trackingsheet/Board";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import type { MonthCodeRow } from "@/lib/monthCostByJob";
@@ -32,57 +23,54 @@ import { scheduleHeadline, shortDate, type JobsPageCard } from "@/lib/jobBoard";
 import { jtJobUrl } from "@/lib/jtLinks";
 import { money0 } from "@/lib/money";
 
+import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
+
 /**
- * Jobs Hub — the desktop screen for every job at once (owner, 2026-11-01; the
- * Figma draft is "Ascent — Jobs Hub (desktop draft)").
+ * Jobs — the desktop screen for every job at once (owner, 2026-11-01; the
+ * Figma page is "Jobs — header v2" in "Ascent — Jobs Hub (desktop draft)").
  *
  *   • The title is Tracking Sheets' job picker ("All Jobs" until a job is
- *     picked), with its phase filter and amounts to invoice.
- *   • Under it, the header: ONE card of one height. Across its top the
- *     picked job's name, links and Bills / Schedule switch; under that, side
- *     by side, the rings (Total / Bills / Labor, a legend, a Bills ring and a
- *     Labor ring — every job in the picked month, or the picked job by cost
- *     code with a Month / All time switch), a small Lopez Island map (no
- *     legend, one size in both views) and the job's details (the Job Board's
- *     card, /api/job-board) with an Edit link to JobTread.
- *   • Under the header, the main window. No job picked: Home's "Needs you"
- *     queue and to-dos. Bills (the default once a job is picked): the job's
- *     Tracking Sheet, embedded — its bills and labor column and its coding
- *     drawer side by side; the sheet's own rings stay out. Schedule: the job's
- *     overview (cost by division, schedule).
+ *     picked).
+ *   • Under it, the header: ONE card, one size, whatever is picked. Its left
+ *     quarter lists the jobs, "Customer - Job" A–Z by customer last name, each
+ *     with its month total (bills/labor) and two dots — its slice colour in the
+ *     Bills and Labor rings, so the list is the rings' legend. Its right third
+ *     is the Lopez Island map. Its middle changes: no job → the month's totals
+ *     and rings; a job → its cost to date, next to-dos, details and the tabs.
+ *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
+ *     the picked tab: Tracking sheet (the job's sheet, embedded — its bills and
+ *     labor column and its coding drawer), Schedule (the job's overview),
+ *     Plans or Photos (the job's JobTread plan sheets and photos).
  *
- * The picker, a ring slice or a dot picks the job.
+ * A list row, a ring slice, a map dot or the picker picks the job.
  *
  * Every write is the embedded Tracking Sheet's own; nothing here writes.
  */
 
 type HubJob = MapJob & { customer?: string | null };
+type Tab = "sheet" | "schedule" | "plans" | "photos";
+
 /** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
- *  the all-jobs totals: overhead, not client work (owner, 2026-11-01). */
+ *  the list and the totals: overhead, not client work (owner, 2026-11-01). */
 const isAscentOwn = (customer: string | null | undefined) =>
   (customer ?? "").trim().toLowerCase() === "ascent";
 const jobLabel = (j: HubJob) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+/** "Mary Berger" → "berger". ponytail: last word; a company name sorts by its last word too. */
+const lastName = (customer: string | null | undefined) =>
+  (customer ?? "").trim().split(/\s+/).pop()?.toLowerCase() ?? "";
 
-interface ToInvoice {
-  ym: string;
-  totals: Record<string, number>;
-}
+const caption =
+  "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
+const linkCls = "font-semibold text-accent hover:underline dark:text-accent-soft";
 
 export function JobsHub() {
   const canTrackingSheet = useAccess().can("recode");
   const [jobs, setJobs] = useState<HubJob[] | null>(null);
-  const [toInvoice, setToInvoice] = useState<ToInvoice | null>(null);
-  /** The Job Board's cards, by job id — address, number and schedule span. */
+  const [defaultYm, setDefaultYm] = useState("");
+  /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  /**
-   * Schedule (the job's overview and details) or Bills — the job's Tracking
-   * Sheet, embedded: its bills and labor column takes the overview's place and
-   * its coding drawer takes the details card's, under the map. The board draws into these
-   * two nodes (Board's `embed`), so every save, approve and recode is the
-   * Tracking Sheet's own, unchanged.
-   */
-  const [view, setView] = useState<"schedule" | "bills">("bills");
+  const [tab, setTab] = useState<Tab>(canTrackingSheet ? "sheet" : "schedule");
   const [codingSlot, setCodingSlot] = useState<HTMLElement | null>(null);
   const [billsSlot, setBillsSlot] = useState<HTMLElement | null>(null);
 
@@ -92,8 +80,6 @@ export function JobsHub() {
       .then((r) => r.json())
       .then((d) => !cancelled && setJobs(d.error ? [] : (d.jobs ?? [])))
       .catch(() => !cancelled && setJobs([]));
-    // One fetch for the whole list: the route scans the month's every bill and
-    // time entry. It also names the billing month. A failure leaves both off.
     fetch("/api/job-board")
       .then((r) => r.json())
       .then(
@@ -109,20 +95,19 @@ export function JobsHub() {
         },
       )
       .catch(() => !cancelled && setDetails(new Map()));
+    // Only for the billing month's name: the month the rings open on.
     fetch("/api/jobs/to-be-invoiced")
       .then((r) => r.json())
-      .then(
-        (d) => !cancelled && !d?.error && setToInvoice({ ym: d.ym ?? "", totals: d.totals ?? {} }),
-      )
+      .then((d) => !cancelled && !d?.error && setDefaultYm(d.ym ?? ""))
       .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // The rings' month: the billing month until someone picks another.
+  // The month: the billing month until someone picks another.
   const [pickedYm, setPickedYm] = useState<string | null>(null);
-  const ym = pickedYm ?? toInvoice?.ym ?? "";
+  const ym = pickedYm ?? defaultYm;
   const months = useMemo(() => billingMonths(), []);
   const monthSelect = (
     <div className="w-36 shrink-0">
@@ -137,21 +122,61 @@ export function JobsHub() {
   );
   const { jobs: monthJobs } = useMonthJobs(ym);
 
+  // Each client job's month, ranked by total, in its two ring colours.
+  const ranked = useMemo(
+    () =>
+      monthJobs
+        ? twoFamilies(monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName))))
+        : null,
+    [monthJobs],
+  );
+  const byJob = useMemo(() => new Map((ranked ?? []).map((r) => [r.key, r])), [ranked]);
+  // The list: every working client job, and any other with cost this month.
+  const listed = useMemo(
+    () =>
+      (jobs ?? [])
+        .filter(
+          (j) =>
+            !isAscentOwn(j.customer) && (WORKING_PHASES.includes(j.phase ?? "") || byJob.has(j.id)),
+        )
+        .sort(
+          (a, b) =>
+            lastName(a.customer).localeCompare(lastName(b.customer)) ||
+            jobLabel(a).localeCompare(jobLabel(b)),
+        ),
+    [jobs, byJob],
+  );
+
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
+  const files = useJobFiles(selected && (tab === "plans" || tab === "photos") ? selected.id : null);
 
-  // Switching Schedule ↔ Bills swaps a tall column for one still loading, so
-  // the page would shrink and the browser pull the view up. Hold the page at
-  // its height through the switch and put the scroll back; a new job lets go.
+  // Switching tabs swaps a tall view for one still loading, so the page would
+  // shrink and the browser pull the view up. Hold the page at its height
+  // through the switch and put the scroll back; a new job lets go.
   const mainRef = useRef<HTMLElement>(null);
   const [heldHeight, setHeldHeight] = useState<number | undefined>(undefined);
-  const switchView = (v: "schedule" | "bills") => {
+  const switchTab = (t: Tab) => {
     const y = window.scrollY;
     setHeldHeight(mainRef.current?.offsetHeight);
-    setView(v);
+    setTab(t);
     requestAnimationFrame(() => window.scrollTo({ top: y }));
   };
   useEffect(() => setHeldHeight(undefined), [selectedId]);
+
+  const tabs = (
+    <Segmented
+      label="Show"
+      value={tab}
+      onChange={switchTab}
+      options={[
+        ...(canTrackingSheet ? [{ value: "sheet" as const, label: "Tracking sheet" }] : []),
+        { value: "schedule" as const, label: "Schedule" },
+        { value: "plans" as const, label: "Plans" },
+        { value: "photos" as const, label: "Photos" },
+      ]}
+    />
+  );
 
   return (
     <main
@@ -159,8 +184,6 @@ export function JobsHub() {
       className="w-full px-4 pb-10 pt-5 pad:px-7"
       style={{ minHeight: heldHeight }}
     >
-      {/* The title IS the job picker, as on Tracking Sheets: "All Jobs" until a
-          job is picked. */}
       <PageHeader
         titleSlot={
           <JobPicker
@@ -178,132 +201,132 @@ export function JobsHub() {
       />
 
       <div className="min-w-0 space-y-6">
-        {/* ONE card, one height (owner, 2026-11-01): the picked job's name,
-            links and Bills / Schedule switch across the top; under it the
-            rings, the map and the job's details side by side. */}
+        {/* THE HEADER — one card, one size (owner, 2026-11-01): the jobs list
+            (left quarter), the middle that changes, the map (right third). */}
         <Card pad={false} className="overflow-hidden">
-          {selected && (
-            <div className="flex items-start gap-3 border-b border-line-soft px-4 py-3">
-              <div className="min-w-0 flex-1 space-y-1">
-                <div className="text-base font-semibold tracking-tight">{jobLabel(selected)}</div>
-                <MetaLine
-                  items={[
-                    selected.phase,
-                    (toInvoice?.totals[selected.id] ?? 0) > 0 &&
-                      `${money0(toInvoice!.totals[selected.id])} to invoice`,
-                    canTrackingSheet && (
-                      <Link
-                        key="sheet"
-                        href={`/trackingsheet?jobId=${encodeURIComponent(selected.id)}`}
-                        className="font-semibold text-accent hover:underline dark:text-accent-soft"
-                      >
-                        Tracking sheet →
-                      </Link>
-                    ),
-                    <Link
-                      key="job"
-                      href={`/job-board/${encodeURIComponent(selected.id)}`}
-                      className="font-semibold text-accent hover:underline dark:text-accent-soft"
-                    >
-                      Job page →
-                    </Link>,
-                  ]}
-                />
+          <div className="grid divide-y divide-line-soft xl:h-[380px] xl:grid-cols-[25%_minmax(0,1fr)_33.333%] xl:divide-x xl:divide-y-0">
+            <div className="flex min-h-0 min-w-0 flex-col gap-2 p-4">
+              <div className="flex items-center gap-3">
+                <div className={`min-w-0 flex-1 ${caption}`}>Jobs</div>
+                {selected ? (
+                  monthSelect
+                ) : (
+                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+                    month · bills/labor
+                  </span>
+                )}
               </div>
-              {canTrackingSheet && (
-                <Segmented
-                  label="Show"
-                  value={view}
-                  onChange={switchView}
-                  options={[
-                    { value: "bills", label: "Bills" },
-                    { value: "schedule", label: "Schedule" },
-                  ]}
-                />
-              )}
-              <Button variant="secondary" size="xs" onClick={() => setSelectedId(null)}>
-                Close
-              </Button>
+              <div className="relative h-64 xl:h-auto xl:flex-1">
+                <ul className="absolute inset-0 space-y-px overflow-y-auto pr-1">
+                  {!jobs && <Loading />}
+                  {listed.map((j) => {
+                    const r = byJob.get(j.id);
+                    return (
+                      <li key={j.id}>
+                        <button
+                          type="button"
+                          onClick={() => pick(j.id)}
+                          aria-pressed={j.id === selectedId}
+                          className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
+                        >
+                          {/* Bills dot, Labor dot — its slices in the two rings. */}
+                          <span className="flex shrink-0 gap-0.5" aria-hidden>
+                            <span
+                              className="h-2 w-2 rounded-full bg-line"
+                              style={r && { background: r.color }}
+                            />
+                            <span
+                              className="h-2 w-2 rounded-full bg-line"
+                              style={r && { background: r.laborColor }}
+                            />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
+                          <span className="shrink-0 text-[11px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+                            {r && r.bills + r.labor > 0
+                              ? `${money0(r.bills + r.labor)} (${whole(r.bills)}/${whole(r.labor)})`
+                              : "—"}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             </div>
-          )}
-          <div className="flex flex-col divide-y divide-line-soft xl:flex-row xl:divide-x xl:divide-y-0">
-            <div className="min-h-0 min-w-0 flex-1 p-4">
+
+            <div className="min-h-0 min-w-0 p-4 xl:px-5">
               {selected ? (
-                <JobRings
+                <JobMiddle
                   key={selected.id}
                   job={selected}
-                  monthSelect={monthSelect}
+                  card={details?.get(selected.id)}
+                  detailsLoading={!details}
                   monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
+                  tabs={tabs}
                 />
-              ) : monthJobs ? (
-                <RingsCard
-                  caption="All jobs"
-                  items={twoFamilies(
-                    monthJobRows(monthJobs.filter((j) => !isAscentOwn(j.customerName))),
-                  )}
-                  control={monthSelect}
-                  onSelect={pick}
-                  hoverCard
-                />
+              ) : ranked ? (
+                <MonthRings items={ranked} control={monthSelect} onSelect={pick} />
               ) : (
                 <Skeleton className="h-full min-h-40 w-full rounded-xl" />
               )}
             </div>
-            {/* The map (one size in both views) with the job's details directly
-                under it. This column sets the card's height; the rings stretch to it. */}
-            <div className="space-y-3 p-4 xl:w-[400px] xl:shrink-0">
-              <div className="mx-auto w-[170px]">
+
+            <div className="flex items-center justify-center p-4">
+              <div className="w-[224px]">
                 {jobs ? (
                   <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
                 ) : (
                   <Loading />
                 )}
               </div>
-              {selected && (
-                <JobDetails job={selected} card={details?.get(selected.id)} loading={!details} />
-              )}
             </div>
           </div>
         </Card>
 
-        {/* THE MAIN WINDOW */}
-        {selected ? (
-          view === "bills" && canTrackingSheet ? (
-            <>
-              {/* The board draws its bills and labor column into the left
-                  slot and its coding drawer into the right. */}
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-                <div ref={setBillsSlot} className="min-w-0" />
-                <div ref={setCodingSlot} className="min-w-0" />
+        {/* UNDER THE HEADER */}
+        {!selected ? (
+          <>
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+              Pick a job — above or on the map — for its Tracking sheet, Schedule, Plans and Photos.
+            </p>
+            {/* Home's "Needs you" queue and to-dos; each gates itself by view. */}
+            <div className="grid gap-6 xl:grid-cols-2">
+              <div className="min-w-0">
+                <TodayQueue />
               </div>
-              {/* Keyed by job and month: a new pick is a fresh board. Staged
-                  coding survives it — the board restores unsynced work on
-                  load and says so. */}
-              {ym && (
-                <Suspense fallback={null}>
-                  <Board
-                    key={`${selected.id}-${ym}`}
-                    embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
-                  />
-                </Suspense>
-              )}
-            </>
-          ) : (
-            /* Keyed so a new job starts its own fetch rather than showing the last one's. */
-            <JobOverview key={selected.id} jobId={selected.id} />
-          )
+              <div className="min-w-0">
+                <HomeTodos />
+                <TodayOfficeTodos />
+              </div>
+            </div>
+          </>
+        ) : tab === "sheet" && canTrackingSheet ? (
+          <>
+            {/* The board draws its bills and labor column into the left
+                slot and its coding drawer into the right. */}
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+              <div ref={setBillsSlot} className="min-w-0" />
+              <div ref={setCodingSlot} className="min-w-0" />
+            </div>
+            {/* Keyed by job and month: a new pick is a fresh board. Staged
+                coding survives it — the board restores unsynced work on
+                load and says so. */}
+            {ym && (
+              <Suspense fallback={null}>
+                <Board
+                  key={`${selected.id}-${ym}`}
+                  embed={{ jobId: selected.id, ym, billsSlot, codingSlot }}
+                />
+              </Suspense>
+            )}
+          </>
+        ) : tab === "plans" ? (
+          <JobPlans state={files} />
+        ) : tab === "photos" ? (
+          <JobPhotos state={files} />
         ) : (
-          /* No job picked: Home's "Needs you" queue and to-dos. Each is the
-             home page's own component and gates itself by view. */
-          <div className="grid gap-6 xl:grid-cols-2">
-            <div className="min-w-0">
-              <TodayQueue />
-            </div>
-            <div className="min-w-0">
-              <HomeTodos />
-              <TodayOfficeTodos />
-            </div>
-          </div>
+          /* Keyed so a new job starts its own fetch rather than showing the last one's. */
+          <JobOverview key={selected.id} jobId={selected.id} />
         )}
       </div>
     </main>
@@ -311,13 +334,13 @@ export function JobsHub() {
 }
 
 /**
- * The all-jobs rings' colours (owner, 2026-11-01): Bills and Labor each get a
- * family of their own so the two rings never read as one — Bills warm, Labor
- * cool — distinct hues rather than a gradient, which was hard to tell apart.
- * Tableau 20's warm and cool halves, so every slot reads on the light and the
- * dark card. A job keeps the same slot in both families (its rank by the
- * month's total), and its legend row shows both dots. ponytail: 8 slots per
- * family; colours repeat from the 9th job, and the legend still names each.
+ * The rings' colours (owner, 2026-11-01): Bills and Labor each get a family of
+ * their own so the two rings never read as one — Bills warm, Labor cool —
+ * distinct hues rather than a gradient, which was hard to tell apart. Tableau
+ * 20's warm and cool halves, so every slot reads on the light and the dark
+ * card. A job keeps the same slot in both families (its rank by the month's
+ * total), and its list row shows both dots. ponytail: 8 slots per family;
+ * colours repeat from the 9th job, and the list still names each.
  */
 const BILL_COLORS = [
   "#F28E2B",
@@ -356,113 +379,67 @@ interface RingItem {
   bills: number;
   labor: number;
   color: string;
-  /** The Labor ring's colour, when it differs from the Bills ring's. */
-  laborColor?: string;
+  laborColor: string;
 }
 
 /**
- * The header card's rings section, filling the card's one height: Total, Bills
- * and Labor; a legend that scrolls inside it; the Bills and Labor rings.
+ * The middle with no job picked: the month's Total, Bills and Labor, and one
+ * Bills ring and one Labor ring with a slice per job. The jobs list is the
+ * legend. A slice lifts on hover, shows its bills and labor, and opens its job.
  */
-function RingsCard({
-  caption,
+function MonthRings({
   items,
   control,
   onSelect,
-  hoverCard = false,
 }: {
-  caption: string;
   items: RingItem[];
-  control?: React.ReactNode;
-  onSelect?: (key: string) => void;
-  /** A slice lifts on hover and shows its bills and labor — the cue that a
-   *  click opens it (the all-jobs rings, where a slice is a job). */
-  hoverCard?: boolean;
+  control: React.ReactNode;
+  onSelect: (key: string) => void;
 }) {
-  const detail = hoverCard
-    ? (key: string) => {
-        const r = items.find((x) => x.key === key);
-        return r
-          ? [
-              { key: "bills", label: "Bills", value: r.bills },
-              { key: "labor", label: "Labor", value: r.labor },
-            ]
-          : [];
-      }
-    : undefined;
+  const detail = (key: string) => {
+    const r = items.find((x) => x.key === key);
+    return r
+      ? [
+          { key: "bills", label: "Bills", value: r.bills },
+          { key: "labor", label: "Labor", value: r.labor },
+        ]
+      : [];
+  };
   const bills = items.reduce((n, r) => n + r.bills, 0);
   const labor = items.reduce((n, r) => n + r.labor, 0);
-  const shown = items.filter((r) => r.bills > 0 || r.labor > 0);
   const slices = (field: "bills" | "labor") =>
-    shown
+    items
       .filter((r) => r[field] > 0)
       .map((r) => ({
         key: r.key,
         label: r.label,
         value: r[field],
-        color: field === "labor" ? (r.laborColor ?? r.color) : r.color,
+        color: field === "labor" ? r.laborColor : r.color,
       }));
   return (
-    <div className="flex h-full flex-col gap-4 lg:flex-row lg:gap-8">
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1 truncate text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-            {caption}
-          </div>
-          {control}
-        </div>
-        <dl className="grid grid-cols-[auto_1fr] items-baseline gap-x-4 gap-y-0.5 tabular-nums">
-          <dt className="text-sm font-semibold">Total</dt>
-          <dd className="text-2xl font-bold tracking-tight">{money0(bills + labor)}</dd>
-          <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">Bills</dt>
-          <dd className="text-[13px]">{money0(bills)}</dd>
-          <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">Labor</dt>
-          <dd className="text-[13px]">{money0(labor)}</dd>
-        </dl>
-        <div className="relative min-h-16 flex-1">
-          <ul className="absolute inset-0 space-y-1 overflow-y-auto pr-1">
-            {shown.map((r) => (
-              <li key={r.key}>
-                <button
-                  type="button"
-                  disabled={!onSelect}
-                  onClick={() => onSelect?.(r.key)}
-                  className="flex w-full items-center gap-2 text-left text-[13px] enabled:hover:underline"
-                >
-                  {/* Bills dot, then the Labor dot where the rings differ. */}
-                  <span className="flex shrink-0 gap-0.5" aria-hidden>
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.color }} />
-                    {r.laborColor && (
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ background: r.laborColor }}
-                      />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{r.label}</span>
-                  <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
-                    {money0(r.bills + r.labor)}
-                    {/* All jobs: the split after the total — "$100,000 (30,000/70,000)",
-                        bills then labor, the order of the two dots. */}
-                    {r.laborColor && ` (${whole(r.bills)}/${whole(r.labor)})`}
-                  </span>
-                </button>
-              </li>
-            ))}
-            {shown.length === 0 && (
-              <li className="text-[13px] text-neutral-500">No bills or labor.</li>
-            )}
-          </ul>
-        </div>
+    <div className="flex h-full flex-col gap-3">
+      <div className="flex items-center gap-3">
+        <div className={`min-w-0 flex-1 truncate ${caption}`}>All jobs · month totals</div>
+        {control}
       </div>
-      {/* 240px rings: the 170px-wide map is ~264px tall, less the rings' titles.
-          Centred in the card's height, which the map and details set. */}
-      <div className="flex shrink-0 justify-center gap-6 self-center">
+      <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1 tabular-nums">
+        <span className="text-sm font-semibold">Total</span>
+        <span className="text-[28px] font-bold leading-none tracking-tight">
+          {money0(bills + labor)}
+        </span>
+        <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
+          Bills {money0(bills)}
+        </span>
+        <span className="text-[13px] text-neutral-500 dark:text-neutral-400">
+          Labor {money0(labor)}
+        </span>
+      </div>
+      <div className="flex flex-1 items-center justify-center gap-8">
         <Donut
           title="Bills"
           slices={slices("bills")}
           emptyLabel="No bills"
-          size={240}
+          size={200}
           legend={false}
           onSelect={onSelect}
           detail={detail}
@@ -471,7 +448,7 @@ function RingsCard({
           title="Labor"
           slices={slices("labor")}
           emptyLabel="No labor"
-          size={240}
+          size={200}
           legend={false}
           onSelect={onSelect}
           detail={detail}
@@ -482,59 +459,22 @@ function RingsCard({
 }
 
 /**
- * One job's cost codes as ring items, in Tracking Sheets' colours: sales tax
- * out of bills, the biggest codes in the categorical slots, the rest folded
- * into one grey "Other cost codes".
+ * The middle with a job picked: its name; its cost to date and next to-dos
+ * beside its details; the tabs for what shows under the header.
  */
-function codeItems(raw: CostDonutRow[]): RingItem[] {
-  const rows = withoutSalesTax(raw);
-  const colors = buildColorMap(rows);
-  const out: RingItem[] = [];
-  const other: RingItem = {
-    key: "__other",
-    label: "Other cost codes",
-    bills: 0,
-    labor: 0,
-    color: "var(--viz-other)",
-  };
-  for (const r of rows) {
-    const bills = Math.max(r.bills, 0);
-    const labor = Math.max(r.labor, 0);
-    const color = colors.get(r.code);
-    if (color)
-      out.push({
-        key: r.code,
-        label: r.name ? `${r.code} · ${r.name}` : r.code,
-        bills,
-        labor,
-        color,
-      });
-    else {
-      other.bills += bills;
-      other.labor += labor;
-    }
-  }
-  out.sort((a, b) => b.bills + b.labor - (a.bills + a.labor));
-  return other.bills + other.labor > 0 ? [...out, other] : out;
-}
-
-/**
- * One job's rings by cost code, this billing month or all time. The month
- * comes from the all-jobs read already in hand; all time is the cost tree's
- * codes (/api/jobs/cost-detail, cached server-side — the overview below makes
- * the same read).
- */
-function JobRings({
+function JobMiddle({
   job,
+  card,
+  detailsLoading,
   monthRows,
-  monthSelect,
+  tabs,
 }: {
   job: HubJob;
+  card?: JobsPageCard;
+  detailsLoading: boolean;
   monthRows: MonthCodeRow[];
-  /** The page's month picker, shown while the month scope is on. */
-  monthSelect: React.ReactNode;
+  tabs: React.ReactNode;
 }) {
-  const [scope, setScope] = useState<"month" | "all">("month");
   const [toDate, setToDate] = useState<CostDonutRow[] | null>(null);
   useEffect(() => {
     let cancelled = false;
@@ -563,31 +503,71 @@ function JobRings({
     };
   }, [job.id]);
 
-  // All time is committed bills (approved + pending, the cost tree's basis)
-  // plus the shown month's drafts — the Tracking Sheet's job-to-date ring adds
-  // its month's drafts the same way. Without them a job whose only bills are
-  // drafts read $0 all time and more than that in its month (Gormley - Studio).
-  const rows = scope === "month" ? monthRows : toDate && withDrafts(toDate, monthRows);
-  if (!rows) return <Skeleton className="h-full min-h-40 w-full rounded-xl" />;
+  // Committed bills (approved + pending, the cost tree's basis) plus the shown
+  // month's drafts — the same sum the Tracking Sheet's job-to-date ring makes.
+  // Without them a job whose only bills are drafts read $0 to date and more
+  // than that in its month (Gormley - Studio).
+  const rows = toDate && withoutSalesTax(withDrafts(toDate, monthRows));
+  const bills = rows?.reduce((n, r) => n + Math.max(r.bills, 0), 0) ?? 0;
+  const labor = rows?.reduce((n, r) => n + Math.max(r.labor, 0), 0) ?? 0;
+  const todos = card?.todos.slice(0, 3) ?? [];
+
   return (
-    <RingsCard
-      caption=""
-      items={codeItems(rows)}
-      control={
-        <>
-          {scope === "month" && monthSelect}
-          <Segmented
-            label="Period"
-            value={scope}
-            onChange={setScope}
-            options={[
-              { value: "month", label: "Month" },
-              { value: "all", label: "All time" },
-            ]}
-          />
-        </>
-      }
-    />
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="truncate text-base font-semibold tracking-tight">{jobLabel(job)}</div>
+      <div className="grid min-h-0 flex-1 gap-6 sm:grid-cols-2">
+        <div className="min-w-0 space-y-4">
+          <div>
+            <div className={caption}>Cost to date</div>
+            {rows ? (
+              <>
+                <div className="text-2xl font-bold tabular-nums tracking-tight">
+                  {money0(bills + labor)}
+                </div>
+                <div className="text-[12px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                  Bills {money0(bills)} · Labor {money0(labor)}
+                </div>
+              </>
+            ) : (
+              <Skeleton className="mt-1 h-10 w-40 rounded-md" />
+            )}
+          </div>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <div className={`min-w-0 flex-1 ${caption}`}>Next to-dos</div>
+              <Link
+                href={`/job-board/${encodeURIComponent(job.id)}`}
+                className={`text-[12px] ${linkCls}`}
+              >
+                All →
+              </Link>
+            </div>
+            {detailsLoading ? (
+              <Loading />
+            ) : todos.length === 0 ? (
+              <div className="mt-1 text-[13px] text-neutral-500 dark:text-neutral-400">
+                No open to-dos.
+              </div>
+            ) : (
+              <ul className="mt-1 space-y-1">
+                {todos.map((t) => (
+                  <li key={t.id} className="flex items-baseline gap-3 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate">{t.name}</span>
+                    {t.due && (
+                      <span className="shrink-0 text-[12px] text-neutral-500 dark:text-neutral-400">
+                        {shortDate(t.due)}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+        <JobDetails job={job} card={card} loading={detailsLoading} />
+      </div>
+      <div className="overflow-x-auto">{tabs}</div>
+    </div>
   );
 }
 
@@ -604,9 +584,10 @@ function withDrafts(toDate: CostDonutRow[], month: MonthCodeRow[]): CostDonutRow
 }
 
 /**
- * The picked job's facts, inside the map card under the map. Started and Expected completion are
- * the ends of the job's JobTread schedule (its Gantt span); a job with nothing
- * dated says so rather than inventing a date.
+ * The picked job's facts. Started and Expected completion are the ends of the
+ * job's JobTread schedule (its Gantt span); a job with nothing dated says so
+ * rather than inventing a date. Edit opens the job in JobTread, where they are
+ * edited.
  */
 function JobDetails({
   job,
@@ -617,44 +598,36 @@ function JobDetails({
   card?: JobsPageCard;
   loading: boolean;
 }) {
+  if (loading) return <Loading />;
   const s = card?.schedule ?? null;
   const rows: [string, React.ReactNode][] = [
-    // ", USA" says nothing on an island job and costs the address a line.
-    ["Address", card?.address?.replace(/,\s*USA$/, "") || "—"],
-    ["Job #", card?.number || "—"],
     ["Phase", job.phase || "—"],
     ["Started", s ? shortDate(s.start, 0) : "Not scheduled"],
     ["Expected completion", s ? shortDate(s.end, 0) : "Not scheduled"],
     ["Now", scheduleHeadline(s)],
   ];
   return (
-    <div className="space-y-2">
-      <div className="flex items-baseline gap-2">
-        <div className="min-w-0 flex-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
-          Details
-        </div>
-        {/* JobTread is where a job's address, number and dates are edited. */}
+    <div className="min-w-0 space-y-2 text-[13px]">
+      {/* ", USA" says nothing on an island job and costs the address a line. */}
+      <div>{card?.address?.replace(/,\s*USA$/, "") || "No address"}</div>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+        {rows.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-[12px] text-neutral-500 dark:text-neutral-400">{k}</dt>
+            <dd className="min-w-0">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="text-right">
         <a
           href={jtJobUrl(job.id)}
           target="_blank"
           rel="noreferrer"
-          className="shrink-0 text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
+          className={`text-[12px] ${linkCls}`}
         >
           Edit ↗
         </a>
       </div>
-      {loading ? (
-        <Loading />
-      ) : (
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-[13px]">
-          {rows.map(([k, v]) => (
-            <div key={k} className="contents">
-              <dt className="text-neutral-500 dark:text-neutral-400">{k}</dt>
-              <dd className="min-w-0">{v}</dd>
-            </div>
-          ))}
-        </dl>
-      )}
     </div>
   );
 }
