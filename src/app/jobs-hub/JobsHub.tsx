@@ -31,7 +31,7 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  *
  *   • At the top, the header — no job picker above it; the list is the
  *     picker (owner, 2026-11-01). Left quarter: the jobs on their own card,
- *     "Customer - Job" A–Z within its phase, each with its month total. That card's height is
+ *     "Customer - Job" A–Z by last name within its phase, each with its month total. That card's height is
  *     the row's; the rest sit on the page and scale to it. Middle: the month's
  *     Bills and Labor rings with the totals under them — every job, or the
  *     picked job by cost code — and, once a job is picked, its details, cost
@@ -55,6 +55,17 @@ type Tab = "sheet" | "schedule" | "plans" | "photos";
 const isAscentOwn = (customer: string | null | undefined) =>
   (customer ?? "").trim().toLowerCase() === "ascent";
 const jobLabel = (j: HubJob) => (j.customer ? `${j.customer} - ${j.name}` : j.name);
+/**
+ * The customer's sort name: the last word ("Kevin Berger" → Berger, "Bill and
+ * Denise Dougall-Jackins" → Dougall-Jackins), or a company's first word
+ * ("Moon Spring Farm LLC" → Moon). ponytail: a company without a suffix sorts
+ * by its last word.
+ */
+const sortName = (customer: string | null | undefined) => {
+  const w = (customer ?? "").trim().split(/\s+/);
+  const last = w[w.length - 1] ?? "";
+  return (/^(llc|inc|co|corp|ltd)\.?$/i.test(last) ? w[0] : last).toLowerCase();
+};
 
 const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
@@ -136,7 +147,11 @@ export function JobsHub() {
           (j) =>
             !isAscentOwn(j.customer) && (WORKING_PHASES.includes(j.phase ?? "") || byJob.has(j.id)),
         )
-        .sort((a, b) => jobLabel(a).localeCompare(jobLabel(b))),
+        .sort(
+          (a, b) =>
+            sortName(a.customer).localeCompare(sortName(b.customer)) ||
+            jobLabel(a).localeCompare(jobLabel(b)),
+        ),
     [jobs, byJob],
   );
   // Grouped by phase: the working phases in their usual order, then any other
