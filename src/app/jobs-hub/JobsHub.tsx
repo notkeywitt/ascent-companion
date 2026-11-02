@@ -287,7 +287,7 @@ export function JobsHub() {
                             onMouseEnter={() => setHoverId(j.id)}
                             onMouseLeave={() => setHoverId(null)}
                             aria-pressed={j.id === selectedId}
-                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : j.id === hoverId ? "bg-line-soft" : ""}`}
+                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-accent/10 font-semibold shadow-[inset_3px_0_0_var(--accent)]" : j.id === hoverId ? "bg-line-soft" : ""}`}
                           >
                             <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
                             <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">

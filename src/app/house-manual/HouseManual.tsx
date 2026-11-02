@@ -641,6 +641,25 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                           <QuietInput aria-label="Email" placeholder="Email" value={c.email} onChange={(e) => set({ email: e.target.value })} />
                           <QuietInput aria-label="Website" placeholder="Website" value={c.url} onChange={(e) => set({ url: e.target.value })} className="col-span-2" />
                         </div>
+                        {/* Reorder a contact (owner, 2026-11-02). */}
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          aria-label={`Move ${c.name || "contact"} up`}
+                          disabled={i === 0}
+                          onClick={() => edit((m) => ({ ...m, contacts: move(m.contacts, i, -1) }))}
+                        >
+                          ↑
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          aria-label={`Move ${c.name || "contact"} down`}
+                          disabled={i === manual.contacts.length - 1}
+                          onClick={() => edit((m) => ({ ...m, contacts: move(m.contacts, i, 1) }))}
+                        >
+                          ↓
+                        </Button>
                         <RemoveButton
                           label={`Remove ${c.name || "contact"}`}
                           onClick={() => edit((m) => ({ ...m, contacts: m.contacts.filter((_, k) => k !== i) }))}
