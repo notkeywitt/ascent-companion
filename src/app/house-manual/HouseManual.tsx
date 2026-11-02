@@ -334,6 +334,25 @@ function ItemsEditor({ items, onChange }: { items: ManualItem[]; onChange: (item
                     className={`${quietInputCls} min-h-[4.5rem] w-full resize-y [field-sizing:content] sm:col-span-2`}
                   />
                 </div>
+                {/* Reorder an item within its section (owner, 2026-11-02). */}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-label={`Move ${it.label || "item"} up`}
+                  disabled={j === 0}
+                  onClick={() => onChange(move(items, j, -1))}
+                >
+                  ↑
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  aria-label={`Move ${it.label || "item"} down`}
+                  disabled={j === items.length - 1}
+                  onClick={() => onChange(move(items, j, 1))}
+                >
+                  ↓
+                </Button>
                 <RemoveButton label={`Remove ${it.label || "item"}`} onClick={() => onChange(items.filter((_, k) => k !== j))} />
               </div>
             );
