@@ -1,14 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
-
 import { useAccess } from "@/components/AccessProvider";
 import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { SunsetExpenseSwitch } from "@/components/SunsetExpenseSwitch";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
+import { BillPopup } from "@/app/trackingsheet/BillPopup";
+import { useIsWide, type Selection } from "@/app/trackingsheet/DraftWorkbench";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { reconcileState } from "@/lib/sunsetReconcile";
 import { money as moneyN } from "@/lib/money";
@@ -49,10 +49,11 @@ const jtDocUrl = (inv: Invoice) =>
     ? `https://app.jobtread.com/jobs/${encodeURIComponent(inv.jobId)}/documents/${encodeURIComponent(inv.docId)}`
     : "";
 // In-app Bill Details for a reconciled invoice. `from=payments` tells that page
-// to send Back here instead of to the coding queue. Every invoice number below
-// links here; the small JT chip beside it opens the same bill in JobTread.
+// to send Back here instead of to the coding queue. An invoice number opens the
+// bill's coding card in a popup over this page; this is the popup's "Full page"
+// link. The small JT chip beside the number opens the same bill in JobTread.
 // `canOpen` is the "recode" view that /bill rides: a lead holds this page but
-// not that one, and a link would only bounce them home, so they get plain text.
+// not that one, and a popup would only fail its reads, so they get plain text.
 const billHref = (inv: { docId?: string; jobId?: string }, canOpen: boolean) =>
   canOpen && inv.docId && inv.jobId
     ? `/bill/${encodeURIComponent(inv.docId)}?jobId=${encodeURIComponent(inv.jobId)}&from=payments`
@@ -260,6 +261,42 @@ export default function PaymentsPage() {
   const [openIds, setOpenIds] = useState<string[]>(() => Array.from(openCards));
   const runRef = useRef(0);
   const reconRunRef = useRef(0);
+  // From xl up the page has room beside the list: the statement PDF docks there,
+  // so reading the statement never costs the cards. Below xl, View PDF opens a tab.
+  const wide = useIsWide();
+  const [pdfFor, setPdfFor] = useState("");
+  // The bill a reconcile invoice opened, coded in a popup over this page. `list`
+  // is the warning list it came from, so Prev/Next walks it without closing.
+  const [popup, setPopup] = useState<{ list: Selection[]; hrefs: string[]; i: number } | null>(null);
+
+  /** An invoice number: a button into the bill's coding card, or plain text. */
+  function billRef(s: Statement, list: { number: string; docId?: string; jobId?: string }[], i: number) {
+    const x = list[i];
+    if (!billHref(x, canOpenBill)) return <span className="font-medium">#{x.number || "—"}</span>;
+    const open = list.filter((y) => billHref(y, canOpenBill));
+    const at = open.indexOf(x);
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          if (s.pdfUrl) setPdfFor(s.expId);
+          setPopup({
+            list: open.map((y) => ({
+              docId: y.docId ?? "",
+              jobId: y.jobId ?? "",
+              label: `Sunset · #${y.number || "—"}`,
+              jobName: s.project,
+            })),
+            hrefs: open.map((y) => billHref(y, canOpenBill)),
+            i: at,
+          });
+        }}
+        className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current"
+      >
+        #{x.number || "—"}
+      </button>
+    );
+  }
 
   /** Remember which cards are expanded, so a trip into a bill doesn't collapse them. */
   function toggleCard(expId: string, isOpen: boolean) {
@@ -451,8 +488,14 @@ export default function PaymentsPage() {
     }
   }
 
+  // The statement in the side pane: the one last picked, else the first with a PDF.
+  const pdfStatement = wide
+    ? items.find((r) => r.expId === pdfFor && r.pdfUrl) ?? items.find((r) => r.pdfUrl)
+    : undefined;
+
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 xl:grid xl:max-w-none xl:grid-cols-[42rem_minmax(0,1fr)] xl:items-start xl:gap-6">
+      <div className="min-w-0">
       <PageHeader
         title="Sunset Statements"
         description="Pay each statement at TSYS — copy the fields, pay, mark it done. Each card reconciles the statement total against the Sunset invoices logged for that project & month."
@@ -537,7 +580,10 @@ export default function PaymentsPage() {
           return (
             <li
               key={s.expId}
-              className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+              className={
+                "rounded-xl border bg-white p-3 dark:bg-ink-raised " +
+                (pdfStatement?.expId === s.expId ? "border-accent" : "border-line")
+              }
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -654,17 +700,10 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.mismatched.map((x, i) => {
                               const url = jtMatchUrl(x);
-                              const detail = billHref(x, canOpenBill);
                               return (
                                 <li key={"mm" + i} className="flex justify-between gap-3 tabular-nums">
                                   <span className="flex min-w-0 items-center gap-1.5 truncate">
-                                    {detail ? (
-                                      <Link href={detail} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
-                                        #{x.number || "—"}
-                                      </Link>
-                                    ) : (
-                                      <span className="font-medium">#{x.number || "—"}</span>
-                                    )}
+                                    {billRef(s, m.mismatched, i)}
                                     {url && (
                                       <JtLink href={url} className={jtChip}>
                                         JT ↗
@@ -686,17 +725,10 @@ export default function PaymentsPage() {
                           <ul className="mt-0.5 space-y-0.5 text-[11px]">
                             {m.extra.map((x, i) => {
                               const url = jtMatchUrl(x);
-                              const detail = billHref(x, canOpenBill);
                               return (
                                 <li key={"ex" + i} className="flex justify-between gap-3 tabular-nums">
                                   <span className="flex min-w-0 items-center gap-1.5 truncate">
-                                    {detail ? (
-                                      <Link href={detail} className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">
-                                        #{x.number || "—"}
-                                      </Link>
-                                    ) : (
-                                      <span className="font-medium">#{x.number || "—"}</span>
-                                    )}
+                                    {billRef(s, m.extra, i)}
                                     {url && (
                                       <JtLink href={url} className={jtChip}>
                                         JT ↗
@@ -747,20 +779,10 @@ export default function PaymentsPage() {
                     <ul className="mt-1.5 space-y-0.5 border-t border-current/20 pt-1.5">
                       {rc.invoices.map((inv, i) => {
                         const url = jtDocUrl(inv);
-                        const detail = billHref(inv, canOpenBill);
                         return (
                           <li key={inv.number + "-" + i} className="flex justify-between gap-3 tabular-nums">
                             <span className="flex min-w-0 items-center gap-1.5 truncate">
-                              {detail ? (
-                                <Link
-                                  href={detail}
-                                  className="font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current"
-                                >
-                                  #{inv.number || "—"}
-                                </Link>
-                              ) : (
-                                <span className="font-medium">#{inv.number || "—"}</span>
-                              )}
+                              {billRef(s, rc.invoices, i)}
                               {url && (
                                 <JtLink href={url} className={jtChip}>
                                   JT ↗
@@ -806,7 +828,16 @@ export default function PaymentsPage() {
                 >
                   Pay at TSYS ↗
                 </JtLink>
-                {s.pdfUrl && (
+                {s.pdfUrl && wide ? (
+                  <button
+                    type="button"
+                    onClick={() => setPdfFor(s.expId)}
+                    disabled={pdfStatement?.expId === s.expId}
+                    className="inline-flex items-center rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 transition hover:border-accent hover:text-accent disabled:border-accent disabled:text-accent dark:border-neutral-600 dark:text-neutral-300"
+                  >
+                    {pdfStatement?.expId === s.expId ? "PDF shown →" : "View PDF"}
+                  </button>
+                ) : s.pdfUrl ? (
                   <a
                     href={s.pdfUrl}
                     target="_blank"
@@ -815,7 +846,7 @@ export default function PaymentsPage() {
                   >
                     View PDF
                   </a>
-                )}
+                ) : null}
                 <div className="ml-auto">
                   {s.status === "paid" ? (
                     <Button variant="secondary" size="sm" disabled={busy[s.expId]} onClick={() => setPaid(s.expId, "unpaid")}>
@@ -838,6 +869,61 @@ export default function PaymentsPage() {
           );
         })}
       </ul>
+      </div>
+
+      {/* The statement beside the cards. This is the one place a PDF goes in an
+          <iframe> (see InvoiceViewer's rule): the pane is its own column, pinned
+          below the header, so a wheel over it scrolls the statement and a wheel
+          over the cards scrolls the page. Nothing is inline to trap. */}
+      {pdfStatement && (
+        <aside
+          className="sticky-below-header hidden min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised xl:sticky xl:flex"
+          style={{ height: "calc(100dvh - var(--appheader-h) - var(--tabbar-h) - 1.5rem)" }}
+        >
+          <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-3 py-2 text-xs">
+            <span className="min-w-0 truncate font-semibold">
+              {pdfStatement.accountName || pdfStatement.project || pdfStatement.expId}
+              {pdfStatement.statementDate ? (
+                <span className="font-normal text-neutral-500 dark:text-neutral-400"> · {pdfStatement.statementDate}</span>
+              ) : null}
+            </span>
+            <a
+              href={pdfStatement.pdfUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto shrink-0 font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+            >
+              Open in Drive ↗
+            </a>
+          </div>
+          <iframe
+            key={pdfStatement.expId}
+            title={`Statement ${pdfStatement.statementNumber || pdfStatement.expId}`}
+            src={`/api/sunset-statements/${encodeURIComponent(pdfStatement.expId)}/pdf#view=FitH`}
+            className="min-h-0 w-full flex-1 bg-neutral-100 dark:bg-ink"
+          />
+        </aside>
+      )}
+
+      {popup && (
+        <BillPopup
+          key={popup.list[popup.i].docId}
+          sel={popup.list[popup.i]}
+          fullPageHref={popup.hrefs[popup.i]}
+          nav={{
+            position: popup.i + 1,
+            count: popup.list.length,
+            onPrev: () => setPopup((p) => (p ? { ...p, i: Math.max(p.i - 1, 0) } : p)),
+            onNext: () => setPopup((p) => (p ? { ...p, i: Math.min(p.i + 1, p.list.length - 1) } : p)),
+          }}
+          onClose={() => {
+            setPopup(null);
+            // The popup saves straight to JobTread, so re-run the match behind
+            // the cards — a fixed invoice drops off its warning list.
+            loadRecon(true);
+          }}
+        />
+      )}
     </main>
   );
 }
