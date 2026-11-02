@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:38:39Z",
+  "generatedAt": "2026-11-02T18:46:50Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:38:39Z",
+      "updated": "2026-11-02T18:46:50Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1103,6 +1103,13 @@
           "sha": "30182db",
           "subject": "companion: fix the picked job's accent bar colour",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:46",
+          "sha": "96828eb",
+          "subject": "companion: land admin and office on the jobs page, under home's masthead and banners",
+          "files": "src/app/page.tsx"
         }
       ]
     },
