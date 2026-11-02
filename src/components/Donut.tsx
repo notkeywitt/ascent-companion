@@ -257,10 +257,8 @@ export function Donut({
             .map((s) => (
               <li
                 key={s.key}
-                // The legend row is the bigger target of the two, so it opens
-                // the same card the arc does.
-                onMouseEnter={detail ? () => { setHover(s.key); onDetailWanted?.(); } : undefined}
-                onMouseLeave={detail ? () => setHover((h) => (h === s.key ? null : h)) : undefined}
+                // No hover card off the legend (owner, 2026-11-02): only the
+                // arc opens it, so reading down the legend pops nothing up.
                 onClick={onSelect ? () => onSelect(s.key) : undefined}
                 className={`flex items-center gap-2 text-xs ${
                   hover === s.key || selectedKey === s.key ? "font-semibold" : ""

@@ -1376,6 +1376,21 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     staged,
     timeCodeOf,
   });
+  // The Jobs page's All Time rings, from the same whole-job read as its All
+  // Time lists, so a ring and the list under it add up to the same figure
+  // (owner, 2026-11-02). Committed bills only, as that read is.
+  const allTimeRingRows = useMemo<CostDonutRow[] | null>(() => {
+    if (!contributors) return null;
+    const m = new Map<string, CostDonutRow>();
+    const row = (code: string) => {
+      let r = m.get(code);
+      if (!r) m.set(code, (r = { code, name: headroom.get(code)?.name ?? "", bills: 0, labor: 0 }));
+      return r;
+    };
+    for (const l of contributors.bills) if (l.code) row(l.code).bills += l.cost;
+    for (const t of contributors.time) if (t.code) row(t.code).labor += t.cost;
+    return [...m.values()].filter((r) => r.bills !== 0 || r.labor !== 0);
+  }, [contributors, headroom]);
   // All Time lists the whole job, so it needs the whole-job read now, not on hover.
   useEffect(() => {
     if (allTime) ensureContributors();
@@ -2017,7 +2032,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {(
       <CostDonuts
         month={costDonutMonthRows}
-        jobToDate={costDonutRows}
+        jobToDate={(embed && allTimeRingRows) || costDonutRows}
         monthLabel={monthLabel(ym)}
         detail={donutDetail}
         ringSize={embed?.summarySlot ? 120 : undefined}
