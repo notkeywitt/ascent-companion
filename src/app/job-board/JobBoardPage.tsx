@@ -91,13 +91,17 @@ function ToDoLine({ t }: { t: JobToDo }) {
 }
 
 /** `aside` sits in the card's right column — the Jobs page's to-be-invoiced
- *  figure (owner, 2026-11-01). */
+ *  figure (owner, 2026-11-01). `footer` is a row of its own across the foot of
+ *  the card, centred — the Jobs page's tabs, clear of the job's text (owner,
+ *  2026-11-02). */
 export function JobCard({
   c,
   aside,
+  footer,
 }: {
   c: JobsPageCard;
   aside?: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   const body = (
     <>
@@ -157,13 +161,16 @@ export function JobCard({
       className={`flex h-full w-72 shrink-0 flex-col gap-2 pad:w-auto ${aside ? "min-h-0 overflow-hidden" : ""}`}
     >
       {aside ? (
-        <div className="flex h-full min-h-0 gap-4">
+        <div className="flex min-h-0 flex-1 gap-4">
           {/* Scrolls when the card is held to a height (the Jobs page). */}
           <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto">{body}</div>
           <div className="h-full shrink-0">{aside}</div>
         </div>
       ) : (
         body
+      )}
+      {footer && (
+        <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">{footer}</div>
       )}
     </Card>
   );

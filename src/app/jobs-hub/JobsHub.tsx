@@ -301,8 +301,9 @@ export function JobsHub() {
               details?.get(selected.id) ? (
                 <JobCard
                   c={details.get(selected.id)!}
+                  footer={tabs}
                   aside={
-                    <div className="flex h-full items-start gap-6 pb-10">
+                    <div className="flex h-full items-start gap-6">
                       {tab === "sheet" && canTrackingSheet && (
                         <div
                           ref={setSummarySlot}
@@ -332,8 +333,6 @@ export function JobsHub() {
               {selected && tab === "sheet" && <div ref={setScopeSlot} />}
               {monthSelect}
             </div>
-            {/* The job's views, in the card's bottom right corner. */}
-            {selected && <div className="absolute bottom-3 right-4 z-10">{tabs}</div>}
           </div>
           {/* The map, on the page beside the cards (owner, 2026-11-01). */}
           <div className="min-h-64 xl:min-h-0">{map}</div>
