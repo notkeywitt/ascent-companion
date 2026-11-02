@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T05:52:38Z",
+  "generatedAt": "2026-11-02T05:54:01Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T05:52:38Z",
+      "updated": "2026-11-02T05:54:01Z",
       "goal": "",
-      "next": "Owner: check /jobs-hub header row — list card sets height, rings and map scale on the background; job picked shows details, cost to date, to-dos, rings by cost code, tabs.",
+      "next": "Owner: check /jobs-hub list grouped by phase, and that tapping the bill PDF zooms over the bills list and small PDF (also on /trackingsheet when wide).",
       "commits": [
         {
           "date": "2026-09-03",
@@ -865,6 +865,13 @@
           "sha": "5eecbf5",
           "subject": "companion: jobs list grouped by phase, zoomed scan covers the small scan",
           "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "21:53",
+          "sha": "496aaa8",
+          "subject": "companion: jobs list sorts by customer last name within each phase",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
