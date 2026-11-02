@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T05:54:01Z",
+  "generatedAt": "2026-11-02T06:01:10Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T05:54:01Z",
+      "updated": "2026-11-02T06:01:10Z",
       "goal": "",
       "next": "Owner: check /jobs-hub list grouped by phase, and that tapping the bill PDF zooms over the bills list and small PDF (also on /trackingsheet when wide).",
       "commits": [
@@ -871,6 +871,13 @@
           "time": "21:53",
           "sha": "496aaa8",
           "subject": "companion: jobs list sorts by customer last name within each phase",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "22:01",
+          "sha": "50c5d99",
+          "subject": "companion: jobs page map moves left of the list at 85%",
           "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
