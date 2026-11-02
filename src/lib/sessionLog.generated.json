@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T20:09:45Z",
+  "generatedAt": "2026-11-02T20:11:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T20:09:45Z",
+      "updated": "2026-11-02T20:11:31Z",
       "goal": "",
       "next": "On a desktop (xl width), open /payments: confirm the statement PDF loads in the right pane and a warning invoice opens its coding popup; close it and see the reconcile refresh.",
       "commits": [
@@ -1236,6 +1236,13 @@
           "sha": "839020d",
           "subject": "companion: move the jobs dash sync button up beside the month picker",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "12:11",
+          "sha": "a909ff0",
+          "subject": "companion: draw no scroll bars on the jobs dash's panels",
+          "files": "src/app/globals.css, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
