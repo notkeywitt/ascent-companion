@@ -538,6 +538,15 @@ export default function AmazonImportPage() {
               a month as CSV. Each order becomes one vendor bill; the job is guessed from the PO
               Number you typed at checkout.
             </p>
+            {/* Straight to the items report, month to date (owner, 2026-11-02). */}
+            <a
+              href="https://www.amazon.com/b2b/aba/reports?reportType=items_report_1&dateSpanSelection=MONTH_TO_DATE&ref=ab_ppx_hpr_redirect_report"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-2 inline-block text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
+            >
+              Open the Amazon Business items report ↗
+            </a>
           </Card>
 
           <Card>
