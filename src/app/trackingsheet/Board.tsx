@@ -446,6 +446,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // The Jobs page's headline also says how much of the customer's deposit is
   // left (owner, 2026-11-02) — the Deposit card's own ledger (/api/deposits).
   const [depositLeft, setDepositLeft] = useState<{ left: number; deposit: number } | null>(null);
+  // …and, under Job to date, what the client has been invoiced, with tax — so
+  // cost to date and billed to date sit together (owner, 2026-11-02).
+  const [invoiced, setInvoiced] = useState<number | null>(null);
   useEffect(() => {
     if (!embed || !jobId) return;
     let alive = true;
@@ -453,6 +456,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => {
         const l = j?.ledger;
+        if (alive && typeof j?.invoicedTotal === "number") setInvoiced(j.invoicedTotal);
         if (alive && l?.hasDeposit && typeof l.left === "number") setDepositLeft({ left: l.left, deposit: l.deposit });
       })
       .catch(() => {});
@@ -2044,13 +2048,22 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         // from the same read as its All Time rings (owner, 2026-11-02).
         label={allTime ? "Job to date" : c("recode.statement.toBeInvoiced")}
         value={
-          allTime
-            ? allTimeRingRows
-              ? money(allTimeRingRows.reduce((s, r) => s + r.bills + r.labor, 0))
-              : "—"
-            : recon
-              ? money(recon.remaining + recon.draftBillsCost)
-              : "—"
+          allTime ? (
+            <>
+              {allTimeRingRows
+                ? money(allTimeRingRows.reduce((s, r) => s + r.bills + r.labor, 0))
+                : "—"}
+              {invoiced !== null && (
+                <span className="mt-1 block text-sm font-semibold tracking-normal text-neutral-500 dark:text-neutral-400">
+                  Invoiced: {money(invoiced)}
+                </span>
+              )}
+            </>
+          ) : recon ? (
+            money(recon.remaining + recon.draftBillsCost)
+          ) : (
+            "—"
+          )
         }
         // The Jobs page shows the deposit left, in both scopes, instead of the
         // approved/drafts split (owner, 2026-11-02).

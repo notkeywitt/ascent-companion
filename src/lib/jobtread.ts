@@ -8900,6 +8900,9 @@ export interface JobDepositRead {
   /** Everything `buildDepositLedger` needs except the deposit entered by hand. */
   lines: DepositInputs["lines"];
   clientPayments: ClientPaymentRow[];
+  /** Every issued client invoice on the job (pending + approved), with tax —
+   *  what the client has been billed to date. Drafts and voided ones are out. */
+  invoicedTotal: number;
 }
 
 const DEPOSIT_INVOICE_FIELDS = {
@@ -8934,7 +8937,17 @@ function toDepositInvoice(d: any, jobId: string): DepositInvoice {
  */
 export async function getJobDepositInputs(cfg: PaveConfig, jobId: string): Promise<JobDepositRead> {
   const [head, cdItems, applied] = await Promise.all([
-    pave(cfg, { job: { $: { id: jobId }, id: {}, name: {} } }),
+    pave(cfg, {
+      job: {
+        $: { id: jobId },
+        id: {},
+        name: {},
+        documents: {
+          $: { where: { and: [["type", "customerInvoice"], ["status", "in", ["pending", "approved"]]] } },
+          sum: { $: "priceWithTax" },
+        },
+      },
+    }),
     pageAll<any>(cfg, {
       label: "job.costItems (CD)",
       query: (args) => ({
@@ -9006,6 +9019,7 @@ export async function getJobDepositInputs(cfg: PaveConfig, jobId: string): Promi
         invoice: toDepositInvoice(c.document, String(job.id)),
       })),
     clientPayments,
+    invoicedTotal: Number(job.documents?.sum) || 0,
   };
 }
 

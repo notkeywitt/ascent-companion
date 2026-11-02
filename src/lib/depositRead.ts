@@ -16,6 +16,7 @@ export async function readDeposits(jobId: string) {
     ledger: buildDepositLedger({ lines: read.lines, entered: stored.entered }),
     entered: stored.entered,
     clientPayments: read.clientPayments,
+    invoicedTotal: read.invoicedTotal,
     note: stored.note,
     updatedAt: stored.updatedAt,
     updatedBy: stored.updatedBy,
