@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T20:27:24Z",
+  "generatedAt": "2026-11-02T20:44:19Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T20:27:24Z",
+      "updated": "2026-11-02T20:44:19Z",
       "goal": "",
-      "next": "On a desktop (xl width), open /payments: confirm the statement PDF loads in the right pane and a warning invoice opens its coding popup; close it and see the reconcile refresh.",
+      "next": "Owner approves the Create Bills write path, then npm run ship; test on one statement and check the Office job bill (88 70 00, net, PDF attached)",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1264,6 +1264,27 @@
           "sha": "da2f095",
           "subject": "companion: show job to date on all time and the deposit left on the jobs dash headline",
           "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "12:34",
+          "sha": "6377ab2",
+          "subject": "companion: seat split bill beside recode all and combine",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "12:35",
+          "sha": "9ee1ce7",
+          "subject": "companion: hide the jobs dash month picker and sync while the rings are on all time",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "12:36",
+          "sha": "fa5cd8c",
+          "subject": "companion: add create bills to sunset statements — one office-job bill per statement",
+          "files": "CODEBASE_MAP.md, src/app/api/sunset-statement-bills/route.ts, src/app/payments/page.tsx, src/components/SunsetStatementBills.tsx, src/lib/jobtread.test.ts, src/lib/jobtread.ts, +3 more"
         }
       ]
     },
