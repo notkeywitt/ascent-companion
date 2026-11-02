@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T05:27:36Z",
+  "generatedAt": "2026-11-02T05:33:53Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T05:27:36Z",
+      "updated": "2026-11-02T05:33:53Z",
       "goal": "",
-      "next": "Owner edits Figma page 'Jobs — header v2' (node 22:160); then build /jobs-hub to it: fixed header card (jobs list 1/4 · context middle · map 1/3), bottom tabs Tracking sheet/Schedule/Plans/Photos.",
+      "next": "Owner: check /jobs-hub new header card (list, middle, map at 380px) and the Plans/Photos tabs on a job with plans (Berger - Bunkhouse).",
       "commits": [
         {
           "date": "2026-09-03",
@@ -844,6 +844,13 @@
           "sha": "4c1fd58",
           "subject": "companion: jobs page fixed header card with jobs list, plans and photos tabs",
           "files": "src/app/api/jobs/files/route.ts, src/app/jobs-hub/JobFiles.tsx, src/app/jobs-hub/JobsHub.tsx, src/lib/jobtread.ts, src/lib/views.ts"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "21:33",
+          "sha": "7c0fb9e",
+          "subject": "companion: jobs page drops the picker and list dots, rings above totals",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
