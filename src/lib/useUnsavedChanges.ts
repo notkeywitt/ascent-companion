@@ -14,6 +14,13 @@ const DEFAULT_MESSAGE =
 // question the page does (the Jobs page's tabs, around its House Manual).
 let guardMessage = DEFAULT_MESSAGE;
 
+// Link clicks the user answered "Cancel" to. The route cover listens for the
+// same clicks, earlier, so it asks here before it paints (RouteLoadingScreen).
+const cancelledClicks = new WeakSet<Event>();
+export function isLeaveCancelled(e: Event): boolean {
+  return cancelledClicks.has(e);
+}
+
 /**
  * Returns true if it's safe to navigate away; otherwise prompts and returns the
  * user's choice. Call this from programmatic navigators (router.push/replace),
@@ -73,6 +80,7 @@ export function useUnsavedChanges(dirty: boolean, message = DEFAULT_MESSAGE) {
       if (!href || href.startsWith("#")) return; // no-op / in-page anchor
       if (a.target && a.target !== "_self") return; // opens in another context
       if (window.confirm(message)) return; // OK → allow the navigation
+      cancelledClicks.add(e);
       e.preventDefault();
       e.stopImmediatePropagation(); // block the router before it sees the click
     };

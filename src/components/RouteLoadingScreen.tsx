@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { isLeaveCancelled } from "@/lib/useUnsavedChanges";
 
 /** Drop the cover after this long, so an abandoned navigation can't strand it. */
 const MAX_MS = 8000;
@@ -49,7 +50,11 @@ export function RouteLoadingScreen() {
       // Off-site, a download, or a same-page hash/query change — no page swap.
       if (url.origin !== window.location.origin) return;
       if (url.pathname === window.location.pathname) return;
-      setPending(true);
+      // Decide once the click has run every listener: an unsaved-changes guard
+      // further down may cancel it, and Cancel means stay put, not a cover.
+      setTimeout(() => {
+        if (!isLeaveCancelled(event)) setPending(true);
+      }, 0);
     }
     // Browser back/forward restores a cached page at once — nothing to cover,
     // and the pathname effect above may not fire if the route is unchanged.
