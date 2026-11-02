@@ -156,6 +156,12 @@ const ShieldIcon = () => (
   </IconBase>
 );
 /** A pinned page, which has no icon of its own. */
+/** LopezRocks — the island's rocks. */
+const RocksIcon = () => (
+  <IconBase>
+    <path d="M3 20 9 10l4 6 3-4 5 8z" />
+  </IconBase>
+);
 const PinIcon = () => (
   <IconBase>
     <path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3z" />
@@ -293,6 +299,7 @@ export function TabBar() {
   const pathname = usePathname();
   const search = useSearchParams();
   const access = useAccess();
+  const isHereRoot = (href: string) => pathname === href || pathname.startsWith(href + "/");
   const c = useCopy();
 
   // The device's pinned page. Read in an effect, not at render: the bar is
@@ -547,6 +554,24 @@ export function TabBar() {
         {/* Account — Appearance, alerts, the Assistant and Sign out. The ☰ menu
             held them, and it is hidden from `pad` up. */}
         <div className="mt-auto pt-2">
+          {/* LopezRocks, above Account (owner, 2026-11-02): it left the home
+              page when Admin and Office moved to the Jobs page. */}
+          {access.can("lopezrocks") && (
+            <Link
+              href="/lopezrocks"
+              aria-current={isHereRoot("/lopezrocks") ? "page" : undefined}
+              onClick={guard}
+              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
+                isHereRoot("/lopezrocks")
+                  ? "bg-accent/10 text-accent dark:text-accent-soft"
+                  : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+              }`}
+            >
+              <RocksIcon />
+              <span className="min-w-0">LopezRocks</span>
+              <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+            </Link>
+          )}
           <AppMenu account />
           <button
             type="button"

@@ -17,6 +17,7 @@ import {
   SectionHeading,
   Select,
   Textarea,
+  btn,
 } from "@/components/ui";
 import { JobParamPicker, useJobIdParam } from "@/components/JobPicker";
 import { JobTabs } from "@/components/JobTabs";
@@ -520,6 +521,35 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
   }
 
   const added = new Set(manual?.contacts.map((c) => c.vendorId).filter(Boolean));
+  // A PDF from this computer: filed in Drive, then linked as a PDF link (owner,
+  // 2026-11-02). See /api/house-manual/upload.
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  async function uploadPdf(file: File | undefined) {
+    if (!file || !manual) return;
+    setError("");
+    setUploadingPdf(true);
+    try {
+      const pdfBase64 = await new Promise<string>((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(String(r.result).split("base64,")[1] ?? "");
+        r.onerror = () => reject(new Error("Could not read the file."));
+        r.readAsDataURL(file);
+      });
+      const b = await readJson(
+        await fetch("/api/house-manual/upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jobName: manual.title, fileName: file.name, pdfBase64 }),
+        }),
+      );
+      const text = file.name.replace(/\.pdf$/i, "");
+      edit((m) => ({ ...m, links: [...m.links, { text, url: b.file.url, pdf: true }] }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setUploadingPdf(false);
+    }
+  }
   const jobVendorsLeft = vendors.filter((v) => !added.has(v.id));
   const otherVendors = allVendors.filter((v) => !added.has(v.id) && !vendors.some((j) => j.id === v.id));
 
@@ -846,6 +876,20 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                 <Button size="xs" variant="ghost" onClick={() => edit((m) => ({ ...m, links: [...m.links, { text: "", url: "", pdf: true }] }))}>
                   + PDF from Drive
                 </Button>
+                {/* A label, so the click opens the file picker. Up to 3 MB. */}
+                <label className={`${btn("ghost", "xs")} cursor-pointer ${uploadingPdf ? "pointer-events-none opacity-40" : ""}`}>
+                  {uploadingPdf ? "Uploading…" : "+ Upload PDF"}
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="sr-only"
+                    disabled={uploadingPdf}
+                    onChange={(e) => {
+                      void uploadPdf(e.target.files?.[0]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
               </div>
             </section>
           </div>
