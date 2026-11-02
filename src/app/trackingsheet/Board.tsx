@@ -440,6 +440,23 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // job's whole history, read-only (AllTimeLists).
   const [ringScope, setRingScope] = useState<"month" | "job">("month");
   const allTime = !!embed && ringScope === "job";
+  // The Jobs page's headline also says how much of the customer's deposit is
+  // left (owner, 2026-11-02) — the Deposit card's own ledger (/api/deposits).
+  const [depositLeft, setDepositLeft] = useState<{ left: number; deposit: number } | null>(null);
+  useEffect(() => {
+    if (!embed || !jobId) return;
+    let alive = true;
+    fetch(`/api/deposits?jobId=${encodeURIComponent(jobId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const l = j?.ledger;
+        if (alive && l?.hasDeposit && typeof l.left === "number") setDepositLeft({ left: l.left, deposit: l.deposit });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [embed, jobId]);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -2018,12 +2035,25 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       <StatementBlock
         rule={false}
         className="mb-4 hidden lg:block"
-        label={c("recode.statement.toBeInvoiced")}
-        value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
-        // The Jobs page shows the figure alone (owner, 2026-11-02).
+        // All Time on the Jobs page: the job's cost to date, bills and labor,
+        // from the same read as its All Time rings (owner, 2026-11-02).
+        label={allTime ? "Job to date" : c("recode.statement.toBeInvoiced")}
+        value={
+          allTime
+            ? allTimeRingRows
+              ? money(allTimeRingRows.reduce((s, r) => s + r.bills + r.labor, 0))
+              : "—"
+            : recon
+              ? money(recon.remaining + recon.draftBillsCost)
+              : "—"
+        }
+        // The Jobs page shows the deposit left, in both scopes, instead of the
+        // approved/drafts split (owner, 2026-11-02).
         sub={
           embed?.summarySlot
-            ? undefined
+            ? depositLeft
+              ? `Deposit: ${money(depositLeft.left)} left of ${money(depositLeft.deposit)}`
+              : undefined
             : recon
             ? `${money(recon.remaining)} approved${
                 recon.draftBillCount > 0
