@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:12:56Z",
+  "generatedAt": "2026-11-02T18:23:43Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:12:55Z",
+      "updated": "2026-11-02T18:23:43Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1047,6 +1047,41 @@
           "sha": "4e5642e",
           "subject": "companion: hold the jobs dash idle card to the list's height, with tabs to home's leads and active jobs",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:17",
+          "sha": "4b2405e",
+          "subject": "companion: make jobs one sidebar row that opens the jobs page",
+          "files": "src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:17",
+          "sha": "acb281d",
+          "subject": "companion: reopen a hidden budget column from a heading-style label in the bills row",
+          "files": "src/app/trackingsheet/Board.tsx, src/app/trackingsheet/BudgetRail.tsx, src/components/SplitGrid.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:17",
+          "sha": "018e99a",
+          "subject": "companion: group all-time bills by vendor, with vendor and cost code filters",
+          "files": "src/app/trackingsheet/AllTimeLists.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:22",
+          "sha": "fae4c29",
+          "subject": "companion: link the amazon import page to the amazon business items report",
+          "files": "src/app/amazon-import/page.tsx"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:23",
+          "sha": "311e339",
+          "subject": "companion: zoom the jobs dash map 3x onto the picked job, roads at 0.08-unit detail",
+          "files": "scripts/build-lopez-roads.mjs, src/components/LopezMap.tsx, src/lib/lopezMap.ts"
         }
       ]
     },
