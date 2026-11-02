@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-01T23:37:30Z",
+  "generatedAt": "2026-11-02T00:15:35Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-01T23:37:30Z",
+      "updated": "2026-11-02T00:15:34Z",
       "goal": "",
       "next": "Owner: check /trackingsheet still lays out as before (Board.tsx split) and try the Bills toggle on /jobs-hub.",
       "commits": [
@@ -822,6 +822,13 @@
           "time": "15:37",
           "sha": "d84f2e2",
           "subject": "companion: jobs page one-hue all-jobs rings with hover cards, wider details",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-01",
+          "time": "16:15",
+          "sha": "81b4fc0",
+          "subject": "companion: jobs page warm/cool ring colours, needs-you and to-dos when no job is picked",
           "files": "src/app/jobs-hub/JobsHub.tsx"
         }
       ]
