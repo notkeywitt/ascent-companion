@@ -14,6 +14,7 @@ import { Card, Loading, Segmented, Skeleton } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
+import { CustomerPopup } from "@/app/clients/CustomerPopup";
 import { BudgetImport } from "@/app/budget-import/BudgetImport";
 import { Specs } from "@/app/specs/Specs";
 import { HouseManualPage } from "@/app/house-manual/HouseManual";
@@ -79,6 +80,8 @@ export function JobsHub() {
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** The job whose customer the pop-up shows (owner, 2026-11-02). */
+  const [customerOf, setCustomerOf] = useState<string | null>(null);
   /** The list row under the pointer: its dot lights on the map meanwhile. */
   const [hoverId, setHoverId] = useState<string | null>(null);
   // A ring slice lit a row the list may have scrolled past: bring it into view.
@@ -302,6 +305,7 @@ export function JobsHub() {
                 <JobCard
                   c={details.get(selected.id)!}
                   footer={tabs}
+                  onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   aside={
                     <div className="flex h-full items-start gap-6">
                       {tab === "sheet" && canTrackingSheet && (
@@ -384,6 +388,15 @@ export function JobsHub() {
           <JobOverview key={selected.id} jobId={selected.id} />
         )}
       </div>
+      {customerOf && (
+        <CustomerPopup
+          jobId={customerOf}
+          onClose={() => setCustomerOf(null)}
+          onOpenJob={(id) => {
+            if (id !== selectedId) pick(id);
+          }}
+        />
+      )}
     </main>
   );
 }

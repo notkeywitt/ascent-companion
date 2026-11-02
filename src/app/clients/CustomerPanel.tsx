@@ -70,7 +70,10 @@ export function CustomerPanel({
   jobs,
   onOpenJob,
   onSaved,
+  locked = false,
 }: {
+  /** Every record read-only (the Jobs page's pop-up, until Editable is on). */
+  locked?: boolean;
   accountId: string;
   /** The customer's jobs from the directory — already loaded, so no second read. */
   jobs: DirectoryJob[];
@@ -131,6 +134,7 @@ export function CustomerPanel({
         values={{ name: customer.name, isTaxable: customer.isTaxable }}
         fields={customer.fields}
         readOnly={accountReadOnly}
+        locked={locked}
         onSaved={(saved) => {
           onSaved?.(customer.id, saved);
           load();
@@ -149,6 +153,7 @@ export function CustomerPanel({
           values={{ name: c.name, title: c.title }}
           fields={c.fields}
           readOnly={[{ label: "Added", value: dateLabel(c.createdAt) }]}
+          locked={locked}
           onSaved={load}
         />
       ))}
@@ -176,6 +181,7 @@ export function CustomerPanel({
             { label: "Site contact", value: l.contactName },
             { label: "Time zone", value: l.timeZone },
           ]}
+          locked={locked}
           onSaved={load}
         />
       ))}

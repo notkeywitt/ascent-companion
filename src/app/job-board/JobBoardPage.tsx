@@ -98,10 +98,13 @@ export function JobCard({
   c,
   aside,
   footer,
+  onCustomer,
 }: {
   c: JobsPageCard;
   aside?: React.ReactNode;
   footer?: React.ReactNode;
+  /** Makes the customer name a button (the Jobs page's customer pop-up). */
+  onCustomer?: () => void;
 }) {
   const body = (
     <>
@@ -129,9 +132,19 @@ export function JobCard({
             JT ↗
           </a>
         </div>
-        <div className="truncate text-[12px] text-neutral-700 dark:text-neutral-300">
-          {c.customer || "No customer"}
-        </div>
+        {onCustomer && c.customer ? (
+          <button
+            type="button"
+            onClick={onCustomer}
+            className="block max-w-full truncate text-left text-[12px] text-neutral-700 hover:text-accent dark:text-neutral-300 dark:hover:text-accent-soft"
+          >
+            {c.customer}
+          </button>
+        ) : (
+          <div className="truncate text-[12px] text-neutral-700 dark:text-neutral-300">
+            {c.customer || "No customer"}
+          </div>
+        )}
         {/* Two lines: a rural San Juan County address wraps, and one line loses the road. */}
         <div className="line-clamp-2 text-[11px] text-neutral-500 dark:text-neutral-400">
           {c.address || "No address in JobTread"}

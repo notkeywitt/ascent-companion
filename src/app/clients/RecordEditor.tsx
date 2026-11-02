@@ -87,8 +87,12 @@ export function RecordEditor({
   values,
   fields,
   readOnly = [],
+  locked = false,
   onSaved,
 }: {
+  /** Read-only view: every input off and no Save (the Jobs page's customer
+   *  pop-up until its Editable switch is on). Drafts survive the switch. */
+  locked?: boolean;
   kind: RecordKind;
   id: string;
   /** Journal context when the record is not itself a job. */
@@ -189,6 +193,8 @@ export function RecordEditor({
       </SectionHeading>
 
       <Card className="space-y-3">
+        {/* One disabled fieldset turns every input and switch in it off. */}
+        <fieldset disabled={locked} className="min-w-0 space-y-3">
         {scalars.map((s) => (
           <div key={s.name}>
             <Label htmlFor={`${id}-${s.name}`}>{s.label}</Label>
@@ -285,6 +291,7 @@ export function RecordEditor({
             )}
           </div>
         ))}
+        </fieldset>
       </Card>
 
       {(readOnly.length > 0 || lockedFields.length > 0) && (
@@ -324,7 +331,7 @@ export function RecordEditor({
       {error && <Banner tone="error">{error}</Banner>}
       {note && <Banner tone={note.startsWith("Saved") ? "success" : "warning"}>{note}</Banner>}
 
-      <div className="flex items-center gap-2">
+      <div className={`flex items-center gap-2 ${locked ? "hidden" : ""}`}>
         <Button onClick={save} disabled={dirtyCount === 0 || saving}>
           {saving ? "Saving…" : "Save to JobTread"}
         </Button>
