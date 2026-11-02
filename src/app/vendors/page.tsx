@@ -23,6 +23,7 @@ import {
 } from "@/components/ui";
 import { money } from "@/lib/money";
 import { coiKey } from "@/lib/vendorCoi";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * Vendor bill search — job, date, amount, status, per vendor or per bill
@@ -809,7 +810,7 @@ function Vendors() {
                         <ListRow
                           key={b.id}
                           href={billHref(b)}
-                          label={b.vendorName}
+                          label={<>{b.vendorName}<CoiDot vendor={b.vendorName} /></>}
                           desc={`${b.jobName} · ${dateLabel(b.issueDate)}`}
                           trailing={<BillTrailing cost={b.cost} status={b.status} />}
                         />

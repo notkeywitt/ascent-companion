@@ -15,6 +15,7 @@ import {
 import { getUninvoicedBills, type UninvoicedBills } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { money } from "@/lib/money";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * Server component. `jobId` comes from the URL — set by this page's own picker
@@ -107,7 +108,7 @@ async function UnbilledData({ jobId }: { jobId: string }) {
             <ListRow
               key={b.id}
               href={`/bill/${encodeURIComponent(b.id)}?jobId=${encodeURIComponent(jobId)}`}
-              label={b.vendor}
+              label={<>{b.vendor}<CoiDot vendor={b.vendor} /></>}
               desc={[b.label, b.status && billStatusLabel(b.status)].filter(Boolean).join(" · ")}
               trailing={<span className="text-sm font-semibold tabular-nums">{money(b.cost)}</span>}
             />

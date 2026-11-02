@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { money } from "@/components/BillingSummary";
 import { Banner, EmptyState, ListCard, ListRow, Loading } from "@/components/ui";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * Bill Corrections — bills flagged "Needs review" for a fix the app cannot make
@@ -64,7 +65,7 @@ export function FlaggedBills() {
               key={b.docId}
               wrap
               href={`/bill/${b.docId}${b.jobId ? `?jobId=${encodeURIComponent(b.jobId)}` : ""}`}
-              label={`${b.vendor || "Bill"}${b.amount == null ? "" : ` · ${money(b.amount)}`}`}
+              label={<>{b.vendor || "Bill"}<CoiDot vendor={b.vendor} />{b.amount == null ? "" : ` · ${money(b.amount)}`}</>}
               desc={[
                 [b.customer, b.jobName].filter(Boolean).join(" — "),
                 b.note ? `⚑ ${b.note}` : "",

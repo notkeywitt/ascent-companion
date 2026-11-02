@@ -18,6 +18,7 @@ import { groupBills, type BillGroupBy, type BillSort } from "./billGroups";
 import { money } from "@/lib/money";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * Bills — the draft bills waiting to be coded, newest first, with the open
@@ -200,7 +201,7 @@ export function BillsBrowser() {
                             key={b.id}
                             onClick={() => select(b.id)}
                             selected={b.id === openId}
-                            label={b.fromName || "Unknown vendor"}
+                            label={<>{b.fromName || "Unknown vendor"}<CoiDot vendor={b.fromName} /></>}
                             desc={[
                               groupBy === "job" && g.title !== "Sunset"
                                 ? ""

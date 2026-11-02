@@ -27,6 +27,7 @@ import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
 import { OfficeImages } from "./OfficeImages";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * The Office dashboard — the "Office" overhead job in JobTread (job 007), read
@@ -142,7 +143,7 @@ async function Bills({ year, month }: { year: number; month: number }) {
                 <ListRow
                   key={b.id}
                   href={`/bill/${encodeURIComponent(b.id)}`}
-                  label={b.vendor || b.label}
+                  label={<>{b.vendor || b.label}<CoiDot vendor={b.vendor} /></>}
                   desc={<MetaLine items={[b.externalId && `#${b.externalId}`, b.status]} />}
                   trailing={
                     <span className="shrink-0 text-sm font-semibold tabular-nums">

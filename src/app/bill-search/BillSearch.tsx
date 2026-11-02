@@ -13,6 +13,7 @@ import {
   SectionLabel,
 } from "@/components/ui";
 import { money } from "@/lib/money";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * The Bill Search screen.
@@ -343,6 +344,7 @@ function ResultCard({ r, terms }: { r: Result; terms: string[] }) {
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold tracking-tight">
             <Highlight text={r.vendor} terms={terms} />
+            <CoiDot vendor={r.vendor} />
           </p>
           <p className="mt-0.5 truncate text-[12px] text-neutral-500">
             {[r.jobName || r.customer, r.issueDate].filter(Boolean).join(" · ") || "No job / date"}

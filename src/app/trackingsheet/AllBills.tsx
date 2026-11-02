@@ -24,6 +24,7 @@ import {
   useIsWide,
   type Selection,
 } from "./DraftWorkbench";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * Tracking Sheets with NO job selected — every vendor bill issued in the
@@ -338,7 +339,7 @@ export function AllBills({ ym }: { ym: string }) {
     const body = (
       <>
         <span className="flex items-baseline justify-between gap-3">
-          <span className="min-w-0 truncate text-sm font-semibold">{b.vendor}</span>
+          <span className="min-w-0 truncate text-sm font-semibold">{b.vendor}<CoiDot vendor={b.vendor} /></span>
           <span className="shrink-0 text-base font-semibold tabular-nums">{money(b.cost)}</span>
         </span>
         <span className="mt-0.5 block truncate text-xs text-neutral-500 dark:text-neutral-400">

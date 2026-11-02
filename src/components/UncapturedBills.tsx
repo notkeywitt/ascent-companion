@@ -6,6 +6,7 @@ import { JobPicker } from "@/components/JobPicker";
 import { LinkVendor } from "@/components/LinkVendor";
 import { Banner, Button, Chip, CountBadge, Input, Select, Spinner } from "@/components/ui";
 import { money } from "@/lib/money";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * "Not in JobTread" — the uncaptured-bill queue, shown above the Invoicing list.
@@ -345,7 +346,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
                   >
                     <span className="min-w-0">
                       <span className="flex flex-wrap items-center gap-1.5">
-                        <span className="font-semibold">{it.vendor}</span>
+                        <span className="font-semibold">{it.vendor}<CoiDot vendor={it.vendor} /></span>
                         {it.paymentReceipt && (
                           <Chip tone="danger" title="Line items read “Payment of $…” — this looks like a receipt, not a bill">
                             receipt?

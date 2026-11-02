@@ -10,6 +10,7 @@ import { useCopy } from "@/components/CopyProvider";
 import { EXTRA_LINKS, JOB_PAGES, WORKSPACES } from "@/lib/workspaces";
 import { searchHelp } from "@/lib/help";
 import { money } from "@/lib/money";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * The app's one search box — the widest item in the header row.
@@ -564,7 +565,7 @@ function BillRow({ bill, q, onNavigate }: { bill: BillHit; q: string; onNavigate
       onNavigate={onNavigate}
       label={
         <span className="flex items-baseline justify-between gap-2">
-          <span className="min-w-0 truncate">{bill.vendor}</span>
+          <span className="min-w-0 truncate">{bill.vendor}<CoiDot vendor={bill.vendor} /></span>
           <span className="shrink-0 text-[12px] font-semibold tabular-nums text-neutral-500">
             {money(bill.amount)}
           </span>

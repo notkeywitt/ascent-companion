@@ -6,6 +6,7 @@ import { JtLink } from "@/components/JtLink";
 import { remainingOf, type Headroom } from "./headroom";
 import { money } from "./BillCodingCard";
 import type { CostCodeTimeContributor, DrillBillRow } from "./Board";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * The Tracking Sheets board's cost-code drill-down sheet: every bill and time
@@ -102,7 +103,7 @@ export function CodeDrillSheet({
                                 className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <span className="min-w-0 flex-1 truncate">
-                                  <span className="font-medium">{b.vendor}</span>
+                                  <span className="font-medium">{b.vendor}</span><CoiDot vendor={b.vendor} />
                                   {b.lineName && b.lineName !== b.vendor ? ` · ${b.lineName}` : ""}
                                   <span className="ml-1 text-neutral-500 dark:text-neutral-400">
                                     {b.issueDate ?? ""}

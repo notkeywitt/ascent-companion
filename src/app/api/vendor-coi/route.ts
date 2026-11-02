@@ -24,15 +24,21 @@ const MAX_PDF_BYTES = 3 * 1024 * 1024;
 /** The Vendor COIs folder — VENDOR_COI_FOLDER_ID in ascent-appscript VendorCoi.js. */
 const COI_FOLDER_ID = "1plJrn5OyeTRFJiHyYY8C4pOFYWBQBFsJ";
 
+/** The folder listing, held ten minutes: every bill list's COI dots read it. */
+let listed: { at: number; body: { years: Record<string, number>; truncated: boolean } } | null = null;
+const LIST_TTL_MS = 10 * 60 * 1000;
+
 export async function GET(req: NextRequest) {
   if (req.nextUrl.searchParams.get("all") === "1") {
+    if (listed && Date.now() - listed.at < LIST_TTL_MS) return NextResponse.json(listed.body);
     try {
       const r = await callAppsScriptOrThrow<{ children?: { name: string; isFolder: boolean }[]; truncated?: boolean }>(
         { action: "listDriveFolder", id: COI_FOLDER_ID },
         { timeoutMs: 50_000 },
       );
       const files = (r.children ?? []).filter((c) => !c.isFolder).map((c) => c.name);
-      return NextResponse.json({ years: coiByVendor(files), truncated: !!r.truncated });
+      listed = { at: Date.now(), body: { years: coiByVendor(files), truncated: !!r.truncated } };
+      return NextResponse.json(listed.body);
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
     }

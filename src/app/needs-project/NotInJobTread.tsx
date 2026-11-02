@@ -9,6 +9,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { money } from "@/lib/money";
+import { CoiDot } from "@/components/CoiDot";
 
 interface NeedsItem {
   expId: string;
@@ -209,7 +210,7 @@ export function NotInJobTread({ embedded = false }: { embedded?: boolean } = {})
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="font-semibold">{it.vendor || "Vendor bill"}</div>
+                <div className="font-semibold">{it.vendor || "Vendor bill"}<CoiDot vendor={it.vendor} /></div>
                 <div className="mt-0.5 font-mono text-xs text-neutral-500">
                   {it.date ? it.date + " · " : ""}Inv# {it.expId}
                 </div>

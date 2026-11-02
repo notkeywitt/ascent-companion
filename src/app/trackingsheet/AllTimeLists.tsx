@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { Banner, ListCard, ListRow, Loading, MetaLine, SectionHeading, Select } from "@/components/ui";
 import { money } from "@/lib/money";
 import type { JobCostContributors } from "./Board";
+import { CoiDot } from "@/components/CoiDot";
 
 /**
  * The job's bills and time entries from ALL TIME — what the Jobs page's board
@@ -152,7 +153,7 @@ export function AllTimeLists({
           groups.map((g) => (
             <div key={g.name} className="space-y-1">
               <div className="flex items-baseline justify-between gap-2 px-1 text-[12px] font-semibold">
-                <span className="min-w-0 truncate">{g.name}</span>
+                <span className="min-w-0 truncate">{g.name}<CoiDot vendor={g.name} /></span>
                 <span className="shrink-0 tabular-nums text-neutral-500 dark:text-neutral-400">
                   {money(g.total)} · {g.bills.length}
                 </span>
