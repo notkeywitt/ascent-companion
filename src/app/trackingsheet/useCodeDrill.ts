@@ -188,6 +188,8 @@ export function useCodeDrill({
 
   return {
     codeDrill,
+    /** The whole job's bills and time, once fetched (the Jobs page's All Time lists). */
+    contributors: contributors?.jobId === jobId ? contributors.data : null,
     contributorsError,
     contributorsLoading,
     donutDetail,

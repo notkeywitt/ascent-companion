@@ -46,6 +46,7 @@ import {
 } from "./BillCodingCard";
 import { billLineMath, round2, type LineEdit } from "@/lib/billLineMath";
 import { TimeCodingCard } from "./TimeCodingCard";
+import { AllTimeLists } from "./AllTimeLists";
 import {
   TimeEntryList,
   TimeRecodeCard,
@@ -421,6 +422,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // Lifted out of the reconcile rectangle so the header can show the same
   // authoritative "to be invoiced" figure without fetching it twice.
   const [recon, setRecon] = useState<Recon | null>(null);
+  // The Jobs page: its rings' All Time also swaps the month's lists for the
+  // job's whole history, read-only (AllTimeLists).
+  const [ringScope, setRingScope] = useState<"month" | "job">("month");
+  const allTime = !!embed && ringScope === "job";
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
 
@@ -1354,6 +1359,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // Which bills and hours make up a cost code's total: the drill-down and the ring hover cards — ./useCodeDrill
   const {
     codeDrill,
+    contributors,
     contributorsError,
     contributorsLoading,
     donutDetail,
@@ -1370,6 +1376,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     staged,
     timeCodeOf,
   });
+  // All Time lists the whole job, so it needs the whole-job read now, not on hover.
+  useEffect(() => {
+    if (allTime) ensureContributors();
+  }, [allTime, ensureContributors]);
 
   // Drag a line or a whole bill onto a cost code — ./useLineDrag
   const {
@@ -2012,6 +2022,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         detail={donutDetail}
         ringSize={embed?.summarySlot ? 120 : undefined}
         scopeSlot={embed?.summarySlot ? embed.scopeSlot ?? null : undefined}
+        onScopeChange={embed ? setRingScope : undefined}
         // Clicking a slice narrows the list under it. The rings say what
         // the month is made of; this is the way from that answer into the
         // bills behind it.
@@ -2044,6 +2055,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {/* Embedded with a `summarySlot`, the Jobs page shows these in its
           job card instead (createPortal at the foot of the board). */}
       {!embed?.summarySlot && summaryBlock}
+
+      {allTime ? (
+        <AllTimeLists data={contributors} loading={contributorsLoading} error={contributorsError} />
+      ) : (
+      <>
 
       {/* THE LISTS' OWN ROW — what is being filtered on the left, how the
           bills are arranged on the right.
@@ -2271,6 +2287,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         sunsetBlockOpen={sunsetBlockOpen}
         sunsetTotal={sunsetTotal}
       />
+      </>
+      )}
     </section>
     </>
   );

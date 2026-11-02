@@ -167,8 +167,12 @@ export function CostDonuts({
   selectedLaborKey = null,
   ringSize = 120,
   scopeSlot,
+  onScopeChange,
   className = "",
 }: {
+  /** Told when the switch flips, so the caller can follow it (the Jobs page's
+   *  lists go all-time with the rings). */
+  onScopeChange?: (scope: "month" | "job") => void;
   /** The Jobs page: draw the scope switch here, under its month picker, and
    *  drop the heading — the card already says what it is (owner, 2026-11-02). */
   scopeSlot?: HTMLElement | null;
@@ -304,7 +308,11 @@ export function CostDonuts({
   const scopeSwitch = (
     <button
       type="button"
-      onClick={() => setScope((s) => (s === "month" ? "job" : "month"))}
+      onClick={() => {
+        const next = scope === "month" ? "job" : "month";
+        setScope(next);
+        onScopeChange?.(next);
+      }}
       title={
         scope === "month"
           ? "Showing the selected month — tap for the whole job"
