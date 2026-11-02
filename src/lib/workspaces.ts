@@ -225,8 +225,11 @@ export const NO_STRIP_WORKSPACES = new Set(["close"]);
 /** Workspaces the ☰ menu shows as ONE row, named for the workspace, opening its
  * first page — and the desktop sidebar shows with no second level. Invoicing went to a single row at the owner's ask (2026-10-13):
  * its pages are reached from Tracking Sheets and the header search. Employees and
- * Time have one page each, so a second level would only repeat it. */
-export const MENU_SINGLE_WORKSPACES = new Set(["close"]);
+ * Time have one page each, so a second level would only repeat it. Jobs went to
+ * one row opening the Jobs page at the owner's ask (2026-11-02): Job Board,
+ * Customers, Receivables and Deposit Checks are on the Jobs workspace's tab
+ * strip and in the header search. */
+export const MENU_SINGLE_WORKSPACES = new Set(["close", "clients"]);
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");
