@@ -45,6 +45,9 @@ moves the messages already sent.
 
 - Log: `~/Library/Logs/ascent-signal-sync.log`.
 - Backup: `~/.ascent-signal/archive/YYYY-MM.csv`, every message sent.
+- Search the backup: `~/.ascent-signal/venv/bin/python ~/.ascent-signal/signal_sync.py --search tile smith`.
+  Add `--chat NAME`, `--since YYYY-MM-DD` or `--limit N`. `--search` with no words lists the newest
+  messages. It reads only the backup, so it finds only chats set to a job or the office.
 - Run now: `launchctl kickstart gui/$(id -u)/com.ascent.signal-sync`.
 - Stop: `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.ascent.signal-sync.plist`.
 - After a change to `signal_sync.py` in the repo, run `install.sh` again. It keeps the secret.

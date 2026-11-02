@@ -17,6 +17,8 @@ Companion's /api/google-chat/signal-import twice:
     signal_sync.py --list-chats   every chat on this Mac; sends nothing
     signal_sync.py --dry-run      reports the chats, prints what it would send
     signal_sync.py                send
+    signal_sync.py --search tile smith [--chat NAME] [--since YYYY-MM-DD]
+                                  search the archive; reads no Signal data
 
 Files, all under ~/.ascent-signal/:
     secret       SIGNAL_IMPORT_SECRET (chmod 600)
@@ -235,6 +237,27 @@ def archive(batch):
                 w.writerow([m["at"], m["chat"], m["_job"], m["author"], m["text"], m["id"]])
 
 
+def search_archive(words, chat, since, limit):
+    """Archived messages holding every word, newest first, each message once."""
+    words = [w.lower() for w in words]
+    found = {}
+    for f in sorted((STATE_DIR / "archive").glob("*.csv")):
+        with f.open(newline="") as fh:
+            for m in csv.DictReader(fh):
+                hay = f"{m['author']} {m['text']}".lower()
+                if chat and chat.lower() not in m["chat"].lower():
+                    continue
+                if since and m["at"][:10] < since:
+                    continue
+                if all(w in hay for w in words):
+                    found[m["id"]] = m
+    hits = sorted(found.values(), key=lambda m: m["at"], reverse=True)
+    for m in reversed(hits[:limit]):
+        local = datetime.fromisoformat(m["at"]).astimezone()
+        print(f"{local:%Y-%m-%d %H:%M}  [{m['chat']}]  {m['author']}: {m['text']}")
+    print(f"{len(hits)} messages match" + (f", newest {limit} shown" if len(hits) > limit else ""))
+
+
 def read_json(path, default):
     try:
         return json.loads(path.read_text())
@@ -246,7 +269,15 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--list-chats", action="store_true", help="print every chat on this Mac; send nothing")
     ap.add_argument("--dry-run", action="store_true", help="report the chats, print what would be sent")
+    ap.add_argument("--search", nargs="*", metavar="WORD", help="search the archive for messages holding every word")
+    ap.add_argument("--chat", default="", help="with --search: only chats whose name contains this")
+    ap.add_argument("--since", default="", help="with --search: only messages on or after YYYY-MM-DD")
+    ap.add_argument("--limit", type=int, default=50, help="with --search: the most messages shown (default 50)")
     args = ap.parse_args()
+
+    if args.search is not None:
+        search_archive(args.search, args.chat, args.since, args.limit)
+        return
 
     url = read_json(STATE_DIR / "config.json", {}).get("url") or DEFAULT_URL
 
