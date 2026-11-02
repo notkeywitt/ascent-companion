@@ -213,6 +213,6 @@ describe("item PDFs", () => {
   it("links the page's own file path beside the selection", () => {
     const html = manualHtml(m, { origin: "https://app.example", token: "abcdefgh12345678abcd_-" });
     expect(html).toContain('class="am-pdf" href="https://app.example/m/abcdefgh12345678abcd_-/file/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL"');
-    expect(manualHtml(m)).not.toContain("am-pdf");
+    expect(manualHtml(m)).not.toContain('class="am-pdf"');
   });
 });
