@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
   Banner,
+  Chip,
   Dialog,
   EmptyState,
   FileDrop,
@@ -21,6 +22,7 @@ import {
   btn,
 } from "@/components/ui";
 import { money } from "@/lib/money";
+import { coiKey } from "@/lib/vendorCoi";
 
 /**
  * Vendor bill search — job, date, amount, status, per vendor or per bill
@@ -540,6 +542,8 @@ function Vendors() {
   const [billsError, setBillsError] = useState("");
 
   const [adding, setAdding] = useState(false);
+  /** Each vendor's newest COI year (coiKey → year); null until read. */
+  const [coiYears, setCoiYears] = useState<Record<string, number> | null>(null);
 
   const [numberQuery, setNumberQuery] = useState(initialNumber);
   const [numberMatches, setNumberMatches] = useState<VendorBillMatch[] | null>(null);
@@ -562,10 +566,27 @@ function Vendors() {
       })
       .catch((e) => alive && setVendorsError(e instanceof Error ? e.message : "Network error"))
       .finally(() => alive && setVendorsLoading(false));
+    // The COI marks: one listing of the Vendor COIs folder (owner, 2026-11-02).
+    // Best-effort — a failed read leaves the list unmarked, not broken.
+    fetch("/api/vendor-coi?all=1")
+      .then((r) => r.json())
+      .then((j) => alive && !j.error && setCoiYears(j.years ?? {}))
+      .catch(() => {});
     return () => {
       alive = false;
     };
   }, []);
+  const thisYear = new Date().getFullYear();
+  const coiMark = (name: string) => {
+    if (!coiYears) return undefined;
+    const year = coiYears[coiKey(name)];
+    if (!year) return <Chip title="No certificate of insurance on file">No COI</Chip>;
+    return (
+      <Chip tone={year >= thisYear ? "success" : "warning"} title={`Newest COI on file: ${year}`}>
+        COI {year}
+      </Chip>
+    );
+  };
 
   function loadVendorBills(v: VendorRef) {
     setSelected(v);
@@ -831,6 +852,7 @@ function Vendors() {
                           key={v.id}
                           onClick={() => loadVendorBills(v)}
                           label={v.name}
+                          trailing={coiMark(v.name)}
                           selected={selected?.id === v.id}
                         />
                       ))}
