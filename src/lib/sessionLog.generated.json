@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T18:05:50Z",
+  "generatedAt": "2026-11-02T18:08:25Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T18:05:50Z",
+      "updated": "2026-11-02T18:08:25Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -1033,6 +1033,13 @@
           "sha": "7420400",
           "subject": "companion: zoom the jobs dash map 2x onto the picked job, with finer roads",
           "files": "scripts/build-lopez-roads.mjs, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/components/LopezMap.tsx, src/lib/lopezMap.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "10:08",
+          "sha": "cde4e01",
+          "subject": "companion: list the job's bills and time from all time when the jobs dash rings are on all time",
+          "files": "src/app/trackingsheet/AllTimeLists.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx, src/app/trackingsheet/useCodeDrill.ts"
         }
       ]
     },
