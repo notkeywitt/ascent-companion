@@ -3685,6 +3685,46 @@ async function _getVendorsUncached(cfg: PaveConfig): Promise<VendorRef[]> {
   return nodes.map((n) => ({ id: n.id, name: n.name }));
 }
 
+/**
+ * vendor account id → its street address(es), for the header search box.
+ *
+ * A vendor's address is a JobTread Location on its account, the same record a
+ * job's address lives on. Few vendors have one (2 of ~238, checked live
+ * 2026-11-02), so this pages `organization.locations` filtered to vendor
+ * accounts rather than nesting locations inside the accounts walk (the 413
+ * rule). `formattedAddress` is Google's normalized form; a location Google
+ * never resolved has only the typed `address`. A vendor with two locations
+ * gets both, joined with "; ".
+ */
+export function getVendorAddresses(cfg: PaveConfig): Promise<Record<string, string>> {
+  return cachedRef(`vendoraddresses:${cfg.orgId}`, 30 * 60_000, () => _getVendorAddressesUncached(cfg));
+}
+async function _getVendorAddressesUncached(cfg: PaveConfig): Promise<Record<string, string>> {
+  const nodes = await pageAll<any>(cfg, {
+    label: "organization.locations (vendors)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        locations: {
+          $: { where: [["account", "type"], "vendor"], ...args },
+          nextPage: {},
+          nodes: { id: {}, address: {}, formattedAddress: {}, account: { id: {} } },
+        },
+      },
+    }),
+    pick: (r) => r?.organization?.locations,
+  });
+  const out: Record<string, string> = {};
+  for (const n of nodes) {
+    const id = n?.account?.id;
+    const addr = String(n?.formattedAddress || n?.address || "").trim();
+    if (!id || !addr) continue;
+    out[id] = out[id] ? `${out[id]}; ${addr}` : addr;
+  }
+  return out;
+}
+
 /** A vendor account plus every address its JobTread Email field holds. */
 export interface VendorEmailRow {
   id: string;

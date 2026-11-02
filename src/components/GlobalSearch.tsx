@@ -21,14 +21,17 @@ import { money } from "@/lib/money";
  * places, so you had to know which page to be on before you could ask. Here it
  * is chrome: every page can be searched from every page.
  *
- * FIVE KINDS OF ANSWER, cheapest first, each self-hiding and view-gated:
+ * SIX KINDS OF ANSWER, cheapest first, each self-hiding and view-gated:
  *  - PAGES    — client-side over lib/workspaces — every tab of every workspace.
  *               Free, instant, always there.
  *  - HELP     — client-side over lib/help's topics. "How do I clock in?" is a
  *               question you ask the search box, not a page name you can guess,
  *               so the answer belongs in the same panel. Each row opens the
  *               topic on /help by its hash.
- *  - VENDORS  — client-side over the cached /api/vendors name list.
+ *  - JOBS     — client-side over the cached /api/jobs list: name, number,
+ *               customer and the job's address.
+ *  - VENDORS  — client-side over the cached /api/vendors list: name and the
+ *               vendor's JobTread address, when it has one.
  *  - BILLS    — debounced /api/bill-search: vendors, invoice numbers AND line
  *               item text ("2x4"), out of the local index. The only network
  *               call per keystroke, and only for roles with the view.
@@ -156,7 +159,7 @@ export function GlobalSearch() {
 
   /* --------------------------------------------------------------- vendors */
   const canSeeVendors = access.can("vendors");
-  const [vendors, setVendors] = useState<{ id: string; name: string }[]>([]);
+  const [vendors, setVendors] = useState<{ id: string; name: string; address?: string }[]>([]);
   useEffect(() => {
     if (!canSeeVendors) return;
     let alive = true;
@@ -171,15 +174,19 @@ export function GlobalSearch() {
 
   const vendorMatches = useMemo(() => {
     if (!q || !canSeeVendors) return [];
-    return vendors.filter((v) => v.name.toLowerCase().includes(q)).slice(0, MAX_VENDORS);
+    return vendors
+      .filter((v) => [v.name, v.address].some((x) => x && x.toLowerCase().includes(q)))
+      .slice(0, MAX_VENDORS);
   }, [q, vendors, canSeeVendors]);
 
   /* ------------------------------------------------------------------ jobs */
-  // A job by name, number or customer → its Record, where the job tab row
-  // reaches cost, budget, specs and this month (stage 4). /api/jobs is the
+  // A job by name, number, customer or address → its Record, where the job tab
+  // row reaches cost, budget, specs and this month (stage 4). /api/jobs is the
   // server-cached open-jobs list every job picker already reads.
   const canSeeJobs = access.can("clients");
-  const [jobs, setJobs] = useState<{ id: string; name: string; number?: string; customer?: string }[]>([]);
+  const [jobs, setJobs] = useState<
+    { id: string; name: string; number?: string; customer?: string; address?: string }[]
+  >([]);
   useEffect(() => {
     if (!canSeeJobs) return;
     let alive = true;
@@ -194,7 +201,9 @@ export function GlobalSearch() {
   const jobMatches = useMemo(() => {
     if (!q || !canSeeJobs) return [];
     return jobs
-      .filter((j) => [j.name, j.number, j.customer].some((x) => x && x.toLowerCase().includes(q)))
+      .filter((j) =>
+        [j.name, j.number, j.customer, j.address].some((x) => x && x.toLowerCase().includes(q)),
+      )
       .slice(0, MAX_VENDORS);
   }, [q, jobs, canSeeJobs]);
 
@@ -326,7 +335,7 @@ export function GlobalSearch() {
           }
         }}
         placeholder="Search pages, jobs, vendors, bills…"
-        aria-label="Search pages, help topics, vendors, bills and line items"
+        aria-label="Search pages, help topics, jobs, vendors, addresses, bills and line items"
         className={`${inputCls} h-9 pl-8 text-[13px]`}
       />
 
@@ -413,7 +422,10 @@ export function GlobalSearch() {
                     href={`/job-board/${encodeURIComponent(j.id)}`}
                     onNavigate={close}
                     label={j.number ? `${j.name} · #${j.number}` : j.name}
-                    desc={j.customer || "Open the job's record, cost and specs"}
+                    desc={
+                      [j.customer, j.address].filter(Boolean).join(" · ") ||
+                      "Open the job's record, cost and specs"
+                    }
                   />
                 ))}
               </Group>
@@ -427,7 +439,7 @@ export function GlobalSearch() {
                     href={`/vendors?accountId=${encodeURIComponent(v.id)}`}
                     onNavigate={close}
                     label={v.name}
-                    desc="See their bills — job, date, amount"
+                    desc={v.address || "See their bills — job, date, amount"}
                   />
                 ))}
               </Group>
