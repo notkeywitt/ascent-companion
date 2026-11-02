@@ -31,7 +31,7 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  *
  *   • At the top, the header — no job picker above it; the list is the
  *     picker (owner, 2026-11-01). Left quarter: the jobs on their own card,
- *     "Customer - Job" A–Z, each with its month total. That card's height is
+ *     "Customer - Job" A–Z within its phase, each with its month total. That card's height is
  *     the row's; the rest sit on the page and scale to it. Middle: the month's
  *     Bills and Labor rings with the totals under them — every job, or the
  *     picked job by cost code — and, once a job is picked, its details, cost
@@ -139,6 +139,20 @@ export function JobsHub() {
         .sort((a, b) => jobLabel(a).localeCompare(jobLabel(b))),
     [jobs, byJob],
   );
+  // Grouped by phase: the working phases in their usual order, then any other
+  // phase a job with cost this month is in, A–Z (owner, 2026-11-01).
+  const byPhase = useMemo(() => {
+    const groups = new Map<string, HubJob[]>();
+    for (const j of listed) {
+      const p = j.phase || "No phase";
+      groups.set(p, [...(groups.get(p) ?? []), j]);
+    }
+    const rank = (p: string) => {
+      const i = WORKING_PHASES.indexOf(p);
+      return i < 0 ? WORKING_PHASES.length : i;
+    };
+    return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
+  }, [listed]);
 
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
@@ -188,28 +202,34 @@ export function JobsHub() {
             to it. */}
         <div className="grid gap-6 xl:grid-cols-[25%_minmax(0,1fr)_33.333%]">
           <Card pad={false} className="min-w-0 self-start p-3">
-            <div className={`px-2 pb-1 ${caption}`}>Jobs</div>
             {!jobs && <Loading />}
-            <ul className="space-y-px">
-              {listed.map((j) => {
-                const r = byJob.get(j.id);
-                return (
-                  <li key={j.id}>
-                    <button
-                      type="button"
-                      onClick={() => pick(j.id)}
-                      aria-pressed={j.id === selectedId}
-                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
-                    >
-                      <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
-                      <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
-                        {r && r.bills + r.labor > 0 ? money0(r.bills + r.labor) : "—"}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="space-y-3">
+              {byPhase.map(([phase, list]) => (
+                <section key={phase}>
+                  <div className={`px-2 pb-0.5 ${caption}`}>{phase}</div>
+                  <ul className="space-y-px">
+                    {list.map((j) => {
+                      const r = byJob.get(j.id);
+                      return (
+                        <li key={j.id}>
+                          <button
+                            type="button"
+                            onClick={() => pick(j.id)}
+                            aria-pressed={j.id === selectedId}
+                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
+                          >
+                            <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
+                            <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+                              {r && r.bills + r.labor > 0 ? money0(r.bills + r.labor) : "—"}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           </Card>
 
           <div className="flex min-w-0 flex-col gap-4">

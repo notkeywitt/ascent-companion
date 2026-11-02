@@ -447,8 +447,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   } = ctl;
   /** Docked in a sticky column: capped at the viewport, scrolling inside itself. */
   const boxed = !standalone && !scrollWithPage;
-  /** The zoomed scan opens to the left of this, so the lines stay beside it. */
+  /** The zoomed scan opens to the left of this, so the lines stay beside it:
+   *  the card, or — when the scan sits beside the lines (`wide`) — the lines'
+   *  own column, so the zoom covers the small scan too (owner, 2026-11-01). */
   const cardRef = useRef<HTMLDivElement>(null);
+  const linesRef = useRef<HTMLDivElement>(null);
   /** Docked (Tracking Sheets, the popup), the scan goes beside the lines once
       the card BODY is wide enough for both — its own width, not the screen's,
       because the board's columns are dragged to any size. 44rem is two
@@ -1141,7 +1144,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       // Docked beside the card only in the Tracking Sheets column.
                       // Standalone (the bill page, /bills) the space to the left is
                       // the scan column or the bill list, so it opens full screen.
-                      dockLeftOf={standalone ? undefined : cardRef}
+                      dockLeftOf={standalone ? undefined : wide ? linesRef : cardRef}
                       hideLink
                     />
                   ))}
@@ -1150,7 +1153,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
 
               {/* Everything under the scan, as ONE grid cell — the right-hand
                   column when standalone on a desktop, a plain block otherwise. */}
-              <div className="min-w-0">
+              <div ref={linesRef} className="min-w-0">
               {bill.invoiced && (
                 <Banner tone="info" className="mb-3 !py-1.5 !text-[11px]">
                   Already on a customer invoice — coding is read-only here so recoding can&apos;t
