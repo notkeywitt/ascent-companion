@@ -13,7 +13,7 @@ import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { LopezMap } from "@/components/LopezMap";
 import { Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
-import { withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
+import { buildColorMap, withoutSalesTax, type CostDonutRow } from "@/app/trackingsheet/CostDonuts";
 import { Board } from "@/app/trackingsheet/Board";
 import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import type { MonthCodeRow } from "@/lib/monthCostByJob";
@@ -29,11 +29,14 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  * Jobs — the desktop screen for every job at once (owner, 2026-11-01; the
  * Figma page is "Jobs — header v2" in "Ascent — Jobs Hub (desktop draft)").
  *
- *   • At the top, the header: ONE card, one size, whatever is picked. No job
- *     picker above it — the card's own list is the picker (owner, 2026-11-01).
- *     Its left quarter lists the jobs, "Customer - Job" A–Z, each with its
- *     month total (bills/labor). Its right third is the Lopez Island map. Its middle changes: no job → the month's totals
- *     and rings; a job → its cost to date, next to-dos, details and the tabs.
+ *   • At the top, the header — no job picker above it; the list is the
+ *     picker (owner, 2026-11-01). Left quarter: the jobs on their own card,
+ *     "Customer - Job" A–Z, each with its month total. That card's height is
+ *     the row's; the rest sit on the page and scale to it. Middle: the month's
+ *     Bills and Labor rings with the totals under them — every job, or the
+ *     picked job by cost code — and, once a job is picked, its details, cost
+ *     to date and next to-dos above the rings and the tabs below. Right third:
+ *     the Lopez Island map.
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
  *     the picked tab: Tracking sheet (the job's sheet, embedded — its bills and
  *     labor column and its coding drawer), Schedule (the job's overview),
@@ -139,6 +142,11 @@ export function JobsHub() {
 
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   const pick = (id: string) => setSelectedId((cur) => (cur === id ? null : id));
+  // The rings: every job's month, or the picked job's month by cost code.
+  const selectedMonth = selected
+    ? (monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? (monthJobs ? [] : null))
+    : null;
+  const ringItems = selected ? selectedMonth && codeItems(selectedMonth) : ranked;
   const files = useJobFiles(selected && (tab === "plans" || tab === "photos") ? selected.id : null);
 
   // Switching tabs swaps a tall view for one still loading, so the page would
@@ -175,83 +183,80 @@ export function JobsHub() {
       style={{ minHeight: heldHeight }}
     >
       <div className="min-w-0 space-y-6">
-        {/* THE HEADER — one card, one size (owner, 2026-11-01): the jobs list
-            (left quarter), the middle that changes, the map (right third). */}
-        <Card pad={false} className="overflow-hidden">
-          <div className="grid divide-y divide-line-soft xl:h-[380px] xl:grid-cols-[25%_minmax(0,1fr)_33.333%] xl:divide-x xl:divide-y-0">
-            <div className="flex min-h-0 min-w-0 flex-col gap-2 p-4">
-              <div className="flex items-center gap-3">
-                <div className={`min-w-0 flex-1 ${caption}`}>Jobs</div>
-                {selected ? (
-                  monthSelect
-                ) : (
-                  <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
-                    month · bills/labor
-                  </span>
-                )}
-              </div>
-              <div className="relative h-64 xl:h-auto xl:flex-1">
-                <ul className="absolute inset-0 space-y-px overflow-y-auto pr-1">
-                  {!jobs && <Loading />}
-                  {listed.map((j) => {
-                    const r = byJob.get(j.id);
-                    return (
-                      <li key={j.id}>
-                        <button
-                          type="button"
-                          onClick={() => pick(j.id)}
-                          aria-pressed={j.id === selectedId}
-                          className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
-                        >
-                          <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
-                          <span className="shrink-0 text-[11px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
-                            {r && r.bills + r.labor > 0
-                              ? `${money0(r.bills + r.labor)} (${whole(r.bills)}/${whole(r.labor)})`
-                              : "—"}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            </div>
+        {/* THE HEADER (owner, 2026-11-01): the jobs list on its own card sets
+            the row's height; the middle and the map sit on the page and scale
+            to it. */}
+        <div className="grid gap-6 xl:grid-cols-[25%_minmax(0,1fr)_33.333%]">
+          <Card pad={false} className="min-w-0 self-start p-3">
+            <div className={`px-2 pb-1 ${caption}`}>Jobs</div>
+            {!jobs && <Loading />}
+            <ul className="space-y-px">
+              {listed.map((j) => {
+                const r = byJob.get(j.id);
+                return (
+                  <li key={j.id}>
+                    <button
+                      type="button"
+                      onClick={() => pick(j.id)}
+                      aria-pressed={j.id === selectedId}
+                      className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-line-soft font-semibold" : ""}`}
+                    >
+                      <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
+                      <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+                        {r && r.bills + r.labor > 0 ? money0(r.bills + r.labor) : "—"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
 
-            <div className="min-h-0 min-w-0 p-4 xl:px-5">
-              {selected ? (
-                <JobMiddle
-                  key={selected.id}
-                  job={selected}
-                  card={details?.get(selected.id)}
-                  detailsLoading={!details}
-                  monthRows={monthJobs?.find((j) => j.jobId === selected.id)?.rows ?? []}
-                  tabs={tabs}
+          <div className="flex min-w-0 flex-col gap-4">
+            {selected && (
+              <JobInfo
+                key={selected.id}
+                job={selected}
+                card={details?.get(selected.id)}
+                detailsLoading={!details}
+                monthRows={selectedMonth ?? []}
+              />
+            )}
+            <div className="flex items-center gap-3">
+              <div className={`min-w-0 flex-1 truncate ${caption}`}>
+                {selected ? "This job · by cost code" : "All jobs"}
+              </div>
+              {monthSelect}
+            </div>
+            {ringItems ? (
+              <Rings items={ringItems} onSelect={selected ? undefined : pick} />
+            ) : (
+              <Skeleton className="min-h-[180px] w-full flex-1 rounded-xl" />
+            )}
+            {selected && <div className="overflow-x-auto">{tabs}</div>}
+          </div>
+
+          {/* The map fills its third at whatever height the row is. */}
+          <div className="relative min-h-64">
+            <div className="absolute inset-0 [&_svg]:min-h-0 [&_svg]:flex-1">
+              {jobs ? (
+                <LopezMap
+                  jobs={jobs}
+                  selectedId={selectedId}
+                  onSelect={pick}
+                  legend={false}
+                  className="h-full"
                 />
-              ) : ranked ? (
-                <MonthRings items={ranked} control={monthSelect} onSelect={pick} />
               ) : (
-                <Skeleton className="h-full min-h-40 w-full rounded-xl" />
+                <Loading />
               )}
             </div>
-
-            <div className="flex items-center justify-center p-4">
-              <div className="w-[224px]">
-                {jobs ? (
-                  <LopezMap jobs={jobs} selectedId={selectedId} onSelect={pick} legend={false} />
-                ) : (
-                  <Loading />
-                )}
-              </div>
-            </div>
           </div>
-        </Card>
+        </div>
 
         {/* UNDER THE HEADER */}
         {!selected ? (
           <>
-            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
-              Pick a job — above or on the map — for its Tracking sheet, Schedule, Plans and Photos.
-            </p>
             {/* Home's "Needs you" queue and to-dos; each gates itself by view. */}
             <div className="grid gap-6 xl:grid-cols-2">
               <div className="min-w-0">
@@ -302,8 +307,8 @@ export function JobsHub() {
  * distinct hues rather than a gradient, which was hard to tell apart. Tableau
  * 20's warm and cool halves, so every slot reads on the light and the dark
  * card. A job keeps the same slot in both families (its rank by the month's
- * total),. ponytail: 8 slots per family;
- * colours repeat from the 9th job; a slice names its job on hover.
+ * total). ponytail: 8 slots per family; colours repeat from the 9th job,
+ * and a slice names its job on hover.
  */
 const BILL_COLORS = [
   "#F28E2B",
@@ -333,33 +338,74 @@ function twoFamilies<T extends { color: string }>(rows: T[]): (T & { laborColor:
   }));
 }
 
-/** 30000 → "30,000" — the split's figures, no "$" (the total carries it). */
-const whole = (n: number) => Math.round(n).toLocaleString("en-US");
-
 interface RingItem {
   key: string;
   label: string;
   bills: number;
   labor: number;
   color: string;
-  laborColor: string;
+  /** The Labor ring's colour, when it differs from the Bills ring's. */
+  laborColor?: string;
 }
 
 /**
- * The middle with no job picked: one Bills ring and one Labor ring with a
- * slice per job, and under them the month's Total, then Bills and Labor on one
- * line. A slice lifts on hover, names its job with its bills and labor, and
- * opens it on a click.
+ * One job's month by cost code, in Tracking Sheets' colours: sales tax out of
+ * bills, the biggest codes in the categorical slots, the rest folded into one
+ * grey "Other cost codes".
  */
-function MonthRings({
-  items,
-  control,
-  onSelect,
-}: {
-  items: RingItem[];
-  control: React.ReactNode;
-  onSelect: (key: string) => void;
-}) {
+function codeItems(raw: CostDonutRow[]): RingItem[] {
+  const rows = withoutSalesTax(raw);
+  const colors = buildColorMap(rows);
+  const out: RingItem[] = [];
+  const other: RingItem = {
+    key: "__other",
+    label: "Other cost codes",
+    bills: 0,
+    labor: 0,
+    color: "var(--viz-other)",
+  };
+  for (const r of rows) {
+    const bills = Math.max(r.bills, 0);
+    const labor = Math.max(r.labor, 0);
+    const color = colors.get(r.code);
+    if (color)
+      out.push({
+        key: r.code,
+        label: r.name ? `${r.code} · ${r.name}` : r.code,
+        bills,
+        labor,
+        color,
+      });
+    else {
+      other.bills += bills;
+      other.labor += labor;
+    }
+  }
+  out.sort((a, b) => b.bills + b.labor - (a.bills + a.labor));
+  return other.bills + other.labor > 0 ? [...out, other] : out;
+}
+
+/**
+ * The month's Bills ring and Labor ring, sized to the space they are given
+ * (the header row's height, set by the jobs list), with the Total and then
+ * Bills and Labor on one line under them. A slice lifts on hover and names
+ * itself with its bills and labor; with `onSelect` a click opens it.
+ */
+function Rings({ items, onSelect }: { items: RingItem[]; onSelect?: (key: string) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) =>
+      setBox({ w: e.contentRect.width, h: e.contentRect.height }),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  // Each ring is its caption (~24px) over a square; two side by side, 40px apart.
+  const size = Math.floor(Math.min(box.h - 24, (box.w - 40) / 2, 280));
+
   const detail = (key: string) => {
     const r = items.find((x) => x.key === key);
     return r
@@ -378,33 +424,37 @@ function MonthRings({
         key: r.key,
         label: r.label,
         value: r[field],
-        color: field === "labor" ? r.laborColor : r.color,
+        color: field === "labor" ? (r.laborColor ?? r.color) : r.color,
       }));
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className={`min-w-0 flex-1 truncate ${caption}`}>All jobs · month totals</div>
-        {control}
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center gap-10">
-        <Donut
-          title="Bills"
-          slices={slices("bills")}
-          emptyLabel="No bills"
-          size={150}
-          legend={false}
-          onSelect={onSelect}
-          detail={detail}
-        />
-        <Donut
-          title="Labor"
-          slices={slices("labor")}
-          emptyLabel="No labor"
-          size={150}
-          legend={false}
-          onSelect={onSelect}
-          detail={detail}
-        />
+    <>
+      {/* The rings take what is left of the row; absolute, so their size never
+          feeds back into the row's height. */}
+      <div className="relative min-h-[180px] flex-1">
+        <div ref={ref} className="absolute inset-0 flex items-center justify-center gap-10">
+          {size >= 80 && (
+            <>
+              <Donut
+                title="Bills"
+                slices={slices("bills")}
+                emptyLabel="No bills"
+                size={size}
+                legend={false}
+                onSelect={onSelect}
+                detail={detail}
+              />
+              <Donut
+                title="Labor"
+                slices={slices("labor")}
+                emptyLabel="No labor"
+                size={size}
+                legend={false}
+                onSelect={onSelect}
+                detail={detail}
+              />
+            </>
+          )}
+        </div>
       </div>
       <div className="text-center tabular-nums">
         <div className="flex items-baseline justify-center gap-3">
@@ -417,26 +467,24 @@ function MonthRings({
           Bills {money0(bills)} · Labor {money0(labor)}
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
 /**
- * The middle with a job picked: its name; its cost to date and next to-dos
- * beside its details; the tabs for what shows under the header.
+ * The picked job, above its rings: its name; its details beside its cost to
+ * date and next to-dos.
  */
-function JobMiddle({
+function JobInfo({
   job,
   card,
   detailsLoading,
   monthRows,
-  tabs,
 }: {
   job: HubJob;
   card?: JobsPageCard;
   detailsLoading: boolean;
   monthRows: MonthCodeRow[];
-  tabs: React.ReactNode;
 }) {
   const [toDate, setToDate] = useState<CostDonutRow[] | null>(null);
   useEffect(() => {
@@ -476,9 +524,10 @@ function JobMiddle({
   const todos = card?.todos.slice(0, 3) ?? [];
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="space-y-3">
       <div className="truncate text-base font-semibold tracking-tight">{jobLabel(job)}</div>
-      <div className="grid min-h-0 flex-1 gap-6 sm:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
+        <JobDetails job={job} card={card} loading={detailsLoading} />
         <div className="min-w-0 space-y-4">
           <div>
             <div className={caption}>Cost to date</div>
@@ -527,9 +576,7 @@ function JobMiddle({
             )}
           </div>
         </div>
-        <JobDetails job={job} card={card} loading={detailsLoading} />
       </div>
-      <div className="overflow-x-auto">{tabs}</div>
     </div>
   );
 }
