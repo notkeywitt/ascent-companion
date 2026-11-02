@@ -173,3 +173,25 @@ describe("embedSnippet", () => {
     expect(PUBLIC_TOKEN.test("abcdefgh12345678abcd/..")).toBe(false);
   });
 });
+
+describe("PDF links", () => {
+  const m = asManual({
+    links: [{ text: "Dishwasher manual", url: "https://drive.google.com/file/d/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL/view", pdf: true }],
+  })!;
+
+  it("keeps the pdf flag through asManual", () => {
+    expect(m.links[0].pdf).toBe(true);
+  });
+
+  it("links the page's own file path, never the Drive link", () => {
+    const html = manualHtml(m, { origin: "https://app.example", token: "abcdefgh12345678abcd_-" });
+    expect(html).toContain('href="https://app.example/m/abcdefgh12345678abcd_-/file/1-ExUZUmpi-wDrXbp2wzWavcAYtEi2aoL"');
+    expect(html).not.toContain("drive.google.com");
+  });
+
+  it("prints as text until the page has a token", () => {
+    const html = manualHtml(m);
+    expect(html).toContain("Dishwasher manual");
+    expect(html).not.toContain("/file/");
+  });
+});

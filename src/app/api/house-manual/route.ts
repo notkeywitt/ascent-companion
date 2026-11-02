@@ -167,15 +167,16 @@ export async function POST(req: NextRequest) {
     .from(houseManuals)
     .where(eq(houseManuals.jobId, jobId))
     .limit(1);
+  const token = old?.token || randomBytes(18).toString("base64url");
   const row = {
     jobId,
     value: stored(manual),
     updatedAt: now,
     updatedBy: by,
-    publishedHtml: manualHtml(manual),
+    publishedHtml: manualHtml(manual, { origin: req.nextUrl.origin, token }),
     publishedAt: now,
     publishedBy: by,
-    publicToken: old?.token || randomBytes(18).toString("base64url"),
+    publicToken: token,
   };
   await db.insert(houseManuals).values(row).onConflictDoUpdate({ target: houseManuals.jobId, set: row });
   return NextResponse.json({

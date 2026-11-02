@@ -46,6 +46,22 @@ export interface ManualSection {
 export interface ManualLink {
   text: string;
   url: string;
+  /** A Drive file the page serves as a PDF itself (`pdfPath`), so it opens with
+   *  no Google login or sharing; `url` is then the pasted Drive link. */
+  pdf?: boolean;
+}
+
+/** Where the live page serves a PDF link's file: under the manual's own token,
+ *  so only a file the published manual names can be fetched (src/app/m/[token]/
+ *  file/[fileId]/route.ts). */
+export const pdfPath = (token: string, fileId: string) =>
+  `/m/${encodeURIComponent(token)}/file/${encodeURIComponent(fileId)}`;
+
+/** Where a published page lives, for its PDF links. Absent (the builder's
+ *  preview before a first publish), a PDF link prints as text. */
+export interface ManualHost {
+  origin: string;
+  token: string;
 }
 
 /** One Drive file or folder, as the bridge lists it (appscript JobFiles.js). */
@@ -264,7 +280,7 @@ export function asManual(v: unknown): HouseManual | null {
           .filter((p) => /^[\w-]{10,}$/.test(s(p.id)))
           .map((p) => ({ id: s(p.id), name: s(p.name), shared: p.shared === true })),
       })),
-    links: arr(o.links).map((l) => ({ text: s(l.text), url: s(l.url) })),
+    links: arr(o.links).map((l) => ({ text: s(l.text), url: s(l.url), ...(l.pdf === true ? { pdf: true } : {}) })),
     sources: arr(o.sources)
       .filter((x) => s(x.id))
       .map((x) => ({ id: s(x.id), name: s(x.name), url: s(x.url), isFolder: x.isFolder === true })),
@@ -359,7 +375,7 @@ export function titleCss(t: TitleStyle): string {
 }
 
 /** The manual as one paste-ready HTML block (scoped styles + content). */
-export function manualHtml(m: HouseManual): string {
+export function manualHtml(m: HouseManual, host?: ManualHost): string {
   const contacts = m.contacts
     .filter((c) => c.name.trim())
     .map((c) => {
@@ -390,7 +406,14 @@ export function manualHtml(m: HouseManual): string {
       );
     return details(g.title || "Photos", imgs.length ? `<div class="am-photos">${imgs.join("")}</div>` : "");
   });
-  const links = m.links.filter((l) => l.text.trim() && safeUrl(l.url)).map((l) => link(l.text, l.url));
+  const links = m.links
+    .map((l) => {
+      if (!l.pdf) return l.text.trim() && safeUrl(l.url) ? link(l.text, l.url) : "";
+      const id = driveIdFromLink(l.url);
+      if (!l.text.trim() || !id) return "";
+      return host ? link(l.text, host.origin + pdfPath(host.token, id)) : escLines(l.text);
+    })
+    .filter(Boolean);
   return [
     `<style>${CSS}</style>`,
     `<div class="am">`,

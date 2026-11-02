@@ -423,7 +423,14 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
   }, []);
 
   // Through asManual first, so the preview and the copy are exactly what Save stores.
-  const html = useMemo(() => (manual ? manualHtml(asManual(manual)!) : ""), [manual]);
+  // PDF links need the page's token; before a first publish they preview as text.
+  const html = useMemo(
+    () =>
+      manual
+        ? manualHtml(asManual(manual)!, published ? { origin: window.location.origin, token: published.token } : undefined)
+        : "",
+    [manual, published],
+  );
   const snippet = published && typeof window !== "undefined" ? embedSnippet(window.location.origin, published.token) : "";
   const live = !!published?.at;
   const behind = live && !!saved && saved.updatedAt > published!.at;
@@ -812,8 +819,18 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                     return (
                       <div key={i} className="flex items-start gap-2 p-2">
                         <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5">
-                          <QuietInput aria-label="Link text" placeholder="Text (e.g. Pre-cover photos)" value={l.text} onChange={(e) => set({ text: e.target.value })} />
-                          <QuietInput aria-label="Link address" placeholder="https://…" value={l.url} onChange={(e) => set({ url: e.target.value })} />
+                          <QuietInput aria-label="Link text" placeholder={l.pdf ? "Text (e.g. Dishwasher manual)" : "Text (e.g. Pre-cover photos)"} value={l.text} onChange={(e) => set({ text: e.target.value })} />
+                          <QuietInput
+                            aria-label={l.pdf ? "Drive file link" : "Link address"}
+                            placeholder={l.pdf ? "Google Drive file link" : "https://…"}
+                            value={l.url}
+                            onChange={(e) => set({ url: e.target.value })}
+                          />
+                          {l.pdf && (
+                            <p className="col-span-2 px-1 text-[11px] text-neutral-500 dark:text-neutral-400">
+                              PDF · opens with no Google login. The file needs no sharing. Over about 4.5 MB it will not open.
+                            </p>
+                          )}
                         </div>
                         <RemoveButton label={`Remove ${l.text || "link"}`} onClick={() => edit((m) => ({ ...m, links: m.links.filter((_, k) => k !== i) }))} />
                       </div>
@@ -821,9 +838,15 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                   })}
                 </Card>
               )}
-              <Button size="xs" variant="ghost" onClick={() => edit((m) => ({ ...m, links: [...m.links, { text: "", url: "" }] }))}>
-                + Link
-              </Button>
+              <div className="flex flex-wrap gap-1">
+                <Button size="xs" variant="ghost" onClick={() => edit((m) => ({ ...m, links: [...m.links, { text: "", url: "" }] }))}>
+                  + Link
+                </Button>
+                {/* A Drive PDF the page serves itself (owner, 2026-11-02). */}
+                <Button size="xs" variant="ghost" onClick={() => edit((m) => ({ ...m, links: [...m.links, { text: "", url: "", pdf: true }] }))}>
+                  + PDF from Drive
+                </Button>
+              </div>
             </section>
           </div>
 
