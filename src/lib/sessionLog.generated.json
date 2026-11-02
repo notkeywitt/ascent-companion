@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-02T17:48:39Z",
+  "generatedAt": "2026-11-02T17:49:34Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T17:48:39Z",
+      "updated": "2026-11-02T17:49:34Z",
       "goal": "",
       "next": "Owner: check /jobs-hub header — list card + job card with 150px map top right; no-job card shows month totals + map; hub rings removed.",
       "commits": [
@@ -991,6 +991,13 @@
           "sha": "c9b8b56",
           "subject": "companion: open record, budget import, specs and house manual inside the jobs dash",
           "files": "src/app/budget-import/BudgetImport.tsx, src/app/budget-import/page.tsx, src/app/clients/ClientsBrowser.tsx, src/app/house-manual/HouseManual.tsx, src/app/house-manual/page.tsx, src/app/job-board/JobBoardPage.tsx, +4 more"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "09:49",
+          "sha": "e25fc74",
+          "subject": "companion: reorder house manual items within a section",
+          "files": "src/app/house-manual/HouseManual.tsx"
         }
       ]
     },
