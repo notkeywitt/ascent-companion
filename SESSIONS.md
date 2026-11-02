@@ -26,13 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 49d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 50d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-02 | 139 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-02 | 140 | — |
 | [tool-tracker-qr-scanning](.claude/sessions/2026-11-02-tool-tracker-qr-scanning.md) | 2026-11-02 | 1 | — |
 | [drawer-outline-top-line](.claude/sessions/2026-10-31-drawer-outline-top-line.md) | 2026-10-31 | 1 | — |
 | [ascentbot-knowledge-sources](.claude/sessions/2026-10-30-ascentbot-knowledge-sources.md) | 2026-10-30 | 6 | — |
