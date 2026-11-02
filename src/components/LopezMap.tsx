@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   LOPEZ_COAST,
@@ -31,7 +31,14 @@ export function LopezMap({
   pad = 30,
   color,
   label = "Map of Lopez Island with job locations",
+  focusId = null,
+  zoom = 2,
 }: {
+  /** The job to zoom in on, centred (the Jobs page's picked job). The dots,
+   *  rings and roads keep their size on screen; only the island grows. */
+  focusId?: string | null;
+  /** How far `focusId` zooms in: 2 is twice the size (owner, 2026-11-02). */
+  zoom?: number;
   /** One colour for every dot, in place of the phase colours. */
   color?: string;
   label?: string;
@@ -47,6 +54,32 @@ export function LopezMap({
 }) {
   const { places, offMap } = useMemo(() => placeJobs(jobs), [jobs]);
   const selected = places.find((p) => p.jobs.some((j) => j.id === selectedId));
+  const focus = places.find((p) => p.jobs.some((j) => j.id === focusId));
+
+  // The view: its centre and zoom, eased over 400ms when the focus changes.
+  const home = { x: MAP_W / 2, y: MAP_H / 2, k: 1 };
+  const target = focus ? { x: focus.x, y: focus.y, k: zoom } : home;
+  const [view, setView] = useState(target);
+  const from = useRef(view);
+  from.current = view;
+  useEffect(() => {
+    const a = from.current;
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (now: number) => {
+      const t = Math.min(1, (now - t0) / 400);
+      const e = 1 - (1 - t) ** 3;
+      setView({ x: a.x + (target.x - a.x) * e, y: a.y + (target.y - a.y) * e, k: a.k + (target.k - a.k) * e });
+      if (t < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-run on the target, not on each frame
+  }, [target.x, target.y, target.k]);
+  const vw = (MAP_W + 2 * pad) / view.k;
+  const vh = (MAP_H + 2 * pad) / view.k;
+  // Lengths in map units that should hold their size on screen.
+  const s = 1 / view.k;
   const shownPhases = PHASE_COLORS.filter(
     (p, i) =>
       PHASE_COLORS.findIndex((q) => q.color === p.color) === i &&
@@ -56,7 +89,7 @@ export function LopezMap({
   return (
     <figure className={`flex flex-col gap-2 ${className}`}>
       <svg
-        viewBox={`${-pad} ${-pad} ${MAP_W + 2 * pad} ${MAP_H + 2 * pad}`}
+        viewBox={`${view.x - vw / 2} ${view.y - vh / 2} ${vw} ${vh}`}
         className="h-auto w-full"
         role="img"
         aria-label={label}
@@ -64,7 +97,7 @@ export function LopezMap({
         <path
           d={LOPEZ_COAST}
           className="fill-neutral-100 stroke-line-strong dark:fill-neutral-800"
-          strokeWidth={2}
+          strokeWidth={2 * s}
           strokeLinejoin="round"
         />
         {/* Roads one step off the island's fill: there to orient, not to read. */}
@@ -75,16 +108,16 @@ export function LopezMap({
           className="stroke-neutral-200 dark:stroke-neutral-700"
           aria-hidden
         >
-          <path d={LOPEZ_ROADS_MINOR} strokeWidth={1.25} />
-          <path d={LOPEZ_ROADS_MAJOR} strokeWidth={2.5} />
+          <path d={LOPEZ_ROADS_MINOR} strokeWidth={1.25 * s} />
+          <path d={LOPEZ_ROADS_MAJOR} strokeWidth={2.5 * s} />
         </g>
         {selected && (
           <circle
             cx={selected.x}
             cy={selected.y}
-            r={26}
+            r={26 * s}
             className="fill-neutral-900/10 stroke-neutral-900/40 dark:fill-white/15 dark:stroke-white/50"
-            strokeWidth={2}
+            strokeWidth={2 * s}
           />
         )}
         {places.map((p) => {
@@ -98,10 +131,10 @@ export function LopezMap({
               <circle
                 cx={p.x}
                 cy={p.y}
-                r={counted ? 17 : 11}
+                r={(counted ? 17 : 11) * s}
                 fill={color ?? phaseColor(p.phase)}
                 className={`stroke-white dark:stroke-ink-raised ${onSelect ? "cursor-pointer" : ""}`}
-                strokeWidth={3}
+                strokeWidth={3 * s}
                 tabIndex={onSelect ? 0 : undefined}
                 role={onSelect ? "button" : undefined}
                 aria-label={p.jobs.map((j) => j.name).join(", ")}
@@ -121,7 +154,7 @@ export function LopezMap({
                   y={p.y}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  fontSize={16}
+                  fontSize={16 * s}
                   fontWeight={600}
                   fill="white"
                   pointerEvents="none"

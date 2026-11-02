@@ -221,6 +221,7 @@ export function JobsHub() {
         <LopezMap
           jobs={jobs}
           selectedId={hoverId ?? selectedId}
+          focusId={selectedId}
           onSelect={pick}
           legend={false}
           pad={6}
@@ -305,6 +306,7 @@ export function JobsHub() {
                 <JobCard
                   c={details.get(selected.id)!}
                   footer={tabs}
+                  nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   aside={
                     <div className="flex h-full items-start gap-6">

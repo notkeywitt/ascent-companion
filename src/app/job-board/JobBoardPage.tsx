@@ -99,7 +99,11 @@ export function JobCard({
   aside,
   footer,
   onCustomer,
+  nameLink = true,
 }: {
+  /** False: the name is plain text, not a link to the job's page (the Jobs
+   *  page's card, which already is that page — owner, 2026-11-02). */
+  nameLink?: boolean;
   c: JobsPageCard;
   aside?: React.ReactNode;
   footer?: React.ReactNode;
@@ -113,12 +117,16 @@ export function JobCard({
           {/* The name opens the job's own pages (record, cost, specs …) through
               the job tab row (stage 4); the number and JobTread's ↗ sit right
               beside it (owner, 2026-11-02). */}
-          <Link
-            href={`/job-board/${encodeURIComponent(c.id)}`}
-            className="min-w-0 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
-          >
-            {c.name}
-          </Link>
+          {nameLink ? (
+            <Link
+              href={`/job-board/${encodeURIComponent(c.id)}`}
+              className="min-w-0 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
+            >
+              {c.name}
+            </Link>
+          ) : (
+            <span className="min-w-0 truncate text-sm font-semibold tracking-tight">{c.name}</span>
+          )}
           {c.number && (
             <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">#{c.number}</span>
           )}
