@@ -39,7 +39,7 @@ import { PunchList } from "./PunchList";
  *     by phase, "Customer - Job" A–Z by last name, each with its month total,
  *     under the month picker. Beside it, the picked job's Job Board card with
  *     the Lopez Island map in its top right — or, with no job picked, the
- *     month's totals beside the map. Under them, a picked job's tabs.
+ *     month's totals beside the map. Under them, a row of a picked job's tabs.
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
  *     the picked tab: Tracking sheet (the job's /trackingsheet, embedded whole
  *     but for its tabs and header), Schedule (the job's overview),
@@ -333,7 +333,6 @@ export function JobsHub() {
               details?.get(selected.id) ? (
                 <JobCard
                   c={details.get(selected.id)!}
-                  footer={tabs}
                   nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   aside={
@@ -353,8 +352,7 @@ export function JobsHub() {
                 <Skeleton className="h-40 w-full rounded-xl" />
               )
             ) : (
-              // The list's height, with the tabs on their own row at the foot,
-              // as on a picked job's card.
+              // The list's height, with the tabs on their own row at the foot.
               <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
                 <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
                   {idleView === "leads" ? (
@@ -432,6 +430,14 @@ export function JobsHub() {
           </div>
         </div>
 
+        {/* A picked job's tabs, a row of their own under the header: at the
+            card's foot they ran off a narrow screen (owner, 2026-11-03). Too
+            wide still, the row scrolls sideways. */}
+        {selected && (
+          <div className="no-scrollbar overflow-x-auto">
+            <div className="mx-auto w-max">{tabs}</div>
+          </div>
+        )}
 
         {/* UNDER THE HEADER */}
         {!selected ? (
