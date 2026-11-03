@@ -150,6 +150,7 @@ export function CostCodeSelect({
   value,
   onChange,
   inline = false,
+  textCls = "text-[13px]",
 }: {
   options: Option[];
   value: string;
@@ -157,6 +158,8 @@ export function CostCodeSelect({
   /** Open the list in the flow, pushing what follows down, instead of floating
       over it — for a scrolling container (a Dialog) that would clip it. */
   inline?: boolean;
+  /** The closed box's text size. */
+  textCls?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -206,21 +209,25 @@ export function CostCodeSelect({
           setOpen((o) => !o);
           setQuery("");
         }}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-2 py-2 text-left font-mono text-xs transition hover:border-accent dark:border-neutral-600 dark:bg-ink"
+        className={`flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-transparent px-2.5 py-2 text-left ${textCls} transition hover:border-line-strong hover:bg-neutral-50 dark:hover:bg-white/[0.03]`}
       >
         <span className={"truncate " + (selected ? "" : "text-neutral-400")}>
-          {selected
-            ? `${selected.number} — ${selected.name}`
+          {selected ? (
+            <>
+              <span className="font-medium tabular-nums">{selected.number}</span>
+              <span className="text-neutral-500 dark:text-neutral-400">  {selected.name}</span>
+            </>
+          )
             : value
               ? "— coded to a line not on this list —"
               : "— uncoded —"}
           {selectedLabel && <span className="text-neutral-500"> · {selectedLabel}</span>}
         </span>
-        <span className="text-neutral-400">▾</span>
+        <span className="text-[10px] text-neutral-400">▾</span>
       </button>
 
       {open && (
-        <div className={`${inline ? "relative" : "absolute z-20"} mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay`}>
+        <div className={`${inline ? "relative" : "absolute z-20"} mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-xl shadow-black/10 dark:bg-ink-overlay dark:shadow-black/40`}>
           <input
             autoFocus
             value={query}
@@ -250,11 +257,11 @@ export function CostCodeSelect({
                       (g.choices[0].id === value ? "bg-neutral-100 dark:bg-white/5" : "")
                     }
                   >
-                    <span className="font-mono font-medium">{g.number}</span>
+                    <span className="font-medium tabular-nums">{g.number}</span>
                     <span className="min-w-0 flex-1 truncate text-neutral-500">{g.name}</span>
                     {/* Several rows behind one entry — name the one it codes to. */}
                     {g.rowCount > 1 && (
-                      <span className="shrink-0 text-[10px] uppercase tracking-wide text-neutral-400">
+                      <span className="shrink-0 text-[11px] text-neutral-400">
                         {g.choices[0].label}
                       </span>
                     )}
@@ -263,7 +270,7 @@ export function CostCodeSelect({
               ) : (
                 <li key={g.number}>
                   <div className="flex items-baseline gap-2 px-3 pb-1 pt-2">
-                    <span className="font-mono text-xs font-medium">{g.number}</span>
+                    <span className="text-xs font-medium tabular-nums">{g.number}</span>
                     <span className="min-w-0 flex-1 truncate text-xs text-neutral-500">
                       {g.name}
                     </span>
@@ -279,7 +286,7 @@ export function CostCodeSelect({
                       }
                     >
                       <span className="min-w-0 flex-1 truncate">{c.label}</span>
-                      <span className="shrink-0 font-mono text-[11px] text-neutral-400">
+                      <span className="shrink-0 text-[11px] tabular-nums text-neutral-400">
                         {amount(c.cost)}
                       </span>
                     </button>

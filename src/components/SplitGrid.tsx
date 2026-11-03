@@ -85,6 +85,7 @@ export function SplitGrid({
   className = "",
   hideFirst = false,
   thirdOpen = false,
+  head,
   children,
 }: {
   /** Grid classes for the breakpoints below xl (e.g. `lg:grid-cols-2`). */
@@ -93,6 +94,9 @@ export function SplitGrid({
   hideFirst?: boolean;
   /** A record is open in the third panel — use the wide-third layout. */
   thirdOpen?: boolean;
+  /** xl only: a row ABOVE the second and third panels, spanning both. The
+      first panel and its handle run down beside it. */
+  head?: ReactNode;
   /** Exactly three panels, in column order. */
   children: ReactNode;
 }) {
@@ -186,7 +190,9 @@ export function SplitGrid({
       }
       // `!` on the arbitrary template because two utilities set
       // grid-template-columns, and STYLESHEET order decides which wins.
-      className={`grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 xl:gap-x-0 xl:![grid-template-columns:var(--tsc)] ${className}`}
+      className={`grid grid-cols-1 gap-4 transition-[grid-template-columns] duration-300 xl:gap-x-0 xl:![grid-template-columns:var(--tsc)] ${
+        head ? "xl:[&>*:nth-child(-n+2)]:row-span-2" : ""
+      } ${className}`}
     >
       {kids[0]}
       {/* Still rendered while the first panel is closed: the track list has a
@@ -197,6 +203,9 @@ export function SplitGrid({
       {kids[1]}
       <ColHandle label="Resize the coding panel" onPointerDown={startDrag(1)} onNudge={nudge(1)} />
       {kids[2]}
+      {/* Placed explicitly, so it can come last in the DOM and still take row
+          1; the panels after the first two auto-place into row 2 under it. */}
+      {head && <div className="hidden min-w-0 xl:col-start-3 xl:col-end-6 xl:row-start-1 xl:block">{head}</div>}
     </div>
   );
 }

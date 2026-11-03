@@ -2136,7 +2136,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     <section className="min-w-0">
       {/* Embedded with a `summarySlot`, the Jobs page shows these in its
           job card instead (createPortal at the foot of the board). */}
-      {!embed?.summarySlot && summaryBlock}
+      {/* From xl it heads the bills AND coding columns (SplitGrid's `head`). */}
+      {!embed?.summarySlot && belowXl && summaryBlock}
 
       {allTime ? (
         <AllTimeLists data={contributors} loading={contributorsLoading} error={contributorsError} />
@@ -3054,6 +3055,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           }`}
           hideFirst={railHidden}
           thirdOpen={Boolean(openDocId)}
+          head={!embed?.summarySlot && !belowXl ? summaryBlock : undefined}
         >
           <BudgetRail
             budgetByCode={budgetByCode}

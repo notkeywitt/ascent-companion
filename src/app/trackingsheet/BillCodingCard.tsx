@@ -72,7 +72,10 @@ export interface BillFile {
  * the only surface that wants an 11px field.)
  */
 const quietSm =
-  "rounded border border-transparent bg-neutral-100 px-1.5 py-1 text-xs transition focus:border-accent focus:bg-white focus:outline-none dark:bg-white/10 dark:focus:bg-ink-raised";
+  "rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xs transition hover:bg-neutral-100 focus:border-line-strong focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/15 dark:hover:bg-white/[0.06] dark:focus:bg-ink-raised";
+
+/** quietSm without its size, for the line rows, which read 25% larger. */
+const quietLine = quietSm.replace(" text-xs", "");
 
 /** Re-exported: this card owned it before /bill wanted the same answer. */
 export { isImageFile, flatImageSrc } from "@/components/InvoiceViewer";
@@ -1020,7 +1023,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               className={
                 standalone
                   ? ""
-                  : "shrink-0 border-b border-line-soft px-3 pb-2 pt-3 dark:border-neutral-800"
+                  : "shrink-0 border-b border-line-soft px-4 pb-3 pt-4"
               }
             >
               <div className="flex items-baseline justify-between gap-2">
@@ -1030,15 +1033,15 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 {standalone ? (
                   <span className="flex-1" />
                 ) : (
-                  <p className="min-w-0 truncate text-sm font-semibold">{bill.label}</p>
+                  <p className="min-w-0 truncate text-[15px] font-semibold tracking-tight">{bill.label}</p>
                 )}
                 {/* Same size and weight as the vendor: the two together ARE the
               bill's identity, so neither is the quiet half. */}
-                <p className="shrink-0 text-sm font-semibold tabular-nums">
+                <p className="shrink-0 text-[15px] font-semibold tracking-tight tabular-nums">
                   {money(math.isDraft ? math.total : bill.cost)}
                 </p>
               </div>
-              <div className="mb-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
                 {/* Line count, status and the payment due date: all three answer
               "what state is this bill in", so they read as one quiet line
               rather than three labelled fields. The due date is the only one
@@ -1073,7 +1076,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   {setBillType && (
                     <>
                       <span aria-hidden>·</span>
-                      <span className="inline-flex overflow-hidden rounded border border-line-strong">
+                      <span className="inline-flex gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/[0.07]">
                         {(["Bill", "Expense"] as const).map((t) => {
                           const on = (isExpense ? "Expense" : "Bill") === t;
                           const qbo = t === "Expense" ? "purchase" : "bill";
@@ -1092,9 +1095,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                                   : "Paid later, on terms — QuickBooks records it as a Bill"
                               }
                               className={
-                                "px-2 py-0.5 disabled:opacity-60 " +
+                                "rounded px-2 py-0.5 transition disabled:opacity-60 " +
                                 (on
-                                  ? "bg-accent font-semibold text-accent-fg"
+                                  ? "bg-white font-medium text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
                                   : "hover:text-neutral-800 dark:hover:text-neutral-200")
                               }
                             >
@@ -1147,8 +1150,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 (standalone
                   ? "lg:grid lg:grid-cols-2 lg:items-start lg:gap-6"
                   : boxed
-                    ? "min-h-0 flex-1 overflow-y-auto px-3 pb-8 pt-3"
-                    : "px-3 pb-3 pt-3") + (wide ? " grid grid-cols-2 items-start gap-4" : "")
+                    ? "min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4"
+                    : "px-4 pb-4 pt-4") + (wide ? " grid grid-cols-2 items-start gap-4" : "")
               }
             >
               {/* The scanned invoice, FIRST — the coding decision is read off it,
@@ -1165,13 +1168,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               this thumbnail's. */}
               <div
                 className={
-                  "mb-3 border-b border-line-soft pb-3 dark:border-neutral-800" +
+                  "mb-4 border-b border-line-soft pb-4" +
                   (standalone ? " sticky-below-header lg:sticky lg:mb-0 lg:border-0 lg:pb-0" : "") +
                   // Docked, the scroller is the card body, so pin to its top.
                   (wide ? " sticky top-0 !mb-0 !border-0 !pb-0" : "")
                 }
               >
-                <SectionLabel className="mb-1.5">Invoice</SectionLabel>
                 {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
                 {/* NO FILE. A bill with no document never reaches Drive, so the
                 month's backup keeps a hole no amount of coding closes. Create
@@ -1236,7 +1238,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             BELOW the row here, so the tools read as a header over the list
             instead of a footer under the tax. */}
               {(showRecodeAll || showCombine || showSplit) && (
-                <div className="mb-3 border-b border-line-soft pb-2.5">
+                <div className="mb-2 pb-1">
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     {showRecodeAll && (
                       <Button
@@ -1335,12 +1337,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </div>
               )}
 
-              <ul className="space-y-3">
+              <ul className="divide-y divide-line-strong/70 border-y border-line-strong/70">
                 {lines.map((l, i) => {
                   const current = leafOf(l);
                   const moved = staged.has(l.id);
                   const code = codeOf(l);
-                  const left = remainingFor(code);
                   const t = math.targets[i];
                   const extended = t ? round2(t.qty * t.preTaxUnit) : math.deTax(l.cost);
                   const setEdit = (patch: LineEdit) => setLineEdit(l.id, patch);
@@ -1356,24 +1357,30 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   return (
                     <li
                       key={l.id}
-                      className={`border-t border-line-soft pt-3 first:border-0 first:pt-0 dark:border-neutral-800 ${
+                      className={`relative py-4 ${
                         mergeInto ? "opacity-50" : ""
                       }`}
                     >
+                      <span
+                        aria-hidden
+                        className="absolute left-0 top-1 text-[10px] leading-none tabular-nums text-neutral-400"
+                      >
+                        {i + 1}
+                      </span>
                       {/* Description. JobTread locks it (with qty/amount) once a
                     bill leaves draft, so those inputs only appear on
                     drafts; re-coding still works in any status. */}
-                      <div className="flex items-start gap-1.5">
+                      <div className="mb-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                         {combineOpen && !bill.invoiced && writes && isCombinable(l) && (
                           <Checkbox
                             checked={combineSelected.includes(l.id)}
                             onChange={() => toggleCombineSel(l.id)}
                             aria-label="Select line to combine"
                             title="Combine with other lines that share this code"
-                            className="mt-1.5"
+                            className=""
                           />
                         )}
-                        <div className="min-w-0 flex-1">
+                        <div className="min-w-[10rem] flex-1">
                           {math.isDraft ? (
                             <input
                               value={edits[l.id]?.name ?? l.name ?? ""}
@@ -1385,19 +1392,48 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                                   ? "Locked until the staged merge is saved or undone"
                                   : undefined
                               }
-                              className={`${quietSm} mb-1 w-full disabled:opacity-60`}
+                              className={`${quietLine} -ml-1.5 w-[calc(100%+0.375rem)] text-sm font-medium disabled:opacity-60`}
                             />
                           ) : (
-                            <div className="mb-1 flex items-baseline justify-between gap-2">
-                              <span className="min-w-0 truncate text-xs">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="min-w-0 truncate text-sm font-medium">
                                 {l.name || "(unnamed line)"}
                               </span>
-                              <span className="shrink-0 text-xs font-semibold tabular-nums">
+                              <span className="min-w-[6.5rem] shrink-0 text-right text-[19px] font-medium leading-none tracking-tight tabular-nums">
                                 {money(l.cost)}
                               </span>
                             </div>
                           )}
                         </div>
+                        {math.isDraft && t && (
+                          /* Qty × pre-tax unit cost. The office types what
+                       JobTread SHOWS (de-taxed); the save grosses every
+                       line back up together. */
+                          <div className="flex shrink-0 items-center gap-1 text-neutral-500 dark:text-neutral-400">
+                          <input
+                            inputMode="decimal"
+                            value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
+                            onChange={(e) => setEdit({ quantity: e.target.value })}
+                            aria-label="Quantity"
+                            disabled={mergeLocked}
+                            className={`${quietLine} w-14 text-right text-sm tabular-nums disabled:opacity-60`}
+                          />
+                          <span className="text-xs text-neutral-400">×</span>
+                          <input
+                            inputMode="decimal"
+                            value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
+                            onChange={(e) => setEdit({ unitCost: e.target.value })}
+                            aria-label="Unit cost (pre-tax)"
+                            disabled={mergeLocked}
+                            className={`${quietLine} w-24 text-sm tabular-nums disabled:opacity-60`}
+                          />
+                          </div>
+                        )}
+                        {math.isDraft && t && (
+                          <span className="min-w-[6.5rem] shrink-0 text-right text-[19px] font-medium leading-none tracking-tight tabular-nums">
+                            {money(t.qty * t.preTaxUnit)}
+                          </span>
+                        )}
                         {/* Delete: removes this line from the bill entirely —
                       ported from the bill page. Draft-only + writes-gated,
                       like Buyback/Combine/Add line. */}
@@ -1410,7 +1446,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             disabled={deletingLineId === l.id}
                             aria-label="Delete line"
                             title="Delete this line"
-                            className="mt-0.5 shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-danger disabled:opacity-40 dark:hover:bg-red-950/40"
+                            className="shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-danger disabled:opacity-40 dark:hover:bg-red-950/40"
                           >
                             {deletingLineId === l.id ? (
                               <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
@@ -1433,39 +1469,13 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                           </button>
                         )}
                       </div>
-                      {math.isDraft && t && (
-                        /* Qty × pre-tax unit cost. The office types what
-                     JobTread SHOWS (de-taxed); the save grosses every
-                     line back up together. */
-                        <div className="mb-1 flex items-center gap-1.5">
-                          <input
-                            inputMode="decimal"
-                            value={edits[l.id]?.quantity ?? String(l.quantity ?? 0)}
-                            onChange={(e) => setEdit({ quantity: e.target.value })}
-                            aria-label="Quantity"
-                            disabled={mergeLocked}
-                            className={`${quietSm} w-14 text-right tabular-nums disabled:opacity-60`}
-                          />
-                          <span className="text-[11px] text-neutral-400">×</span>
-                          <input
-                            inputMode="decimal"
-                            value={edits[l.id]?.unitCost ?? t.curPreTaxUnit.toFixed(2)}
-                            onChange={(e) => setEdit({ unitCost: e.target.value })}
-                            aria-label="Unit cost (pre-tax)"
-                            disabled={mergeLocked}
-                            className={`${quietSm} w-24 text-right tabular-nums disabled:opacity-60`}
-                          />
-                          <span className="flex-1 text-right text-xs font-semibold tabular-nums">
-                            {money(t.qty * t.preTaxUnit)}
-                          </span>
-                        </div>
-                      )}
                       {bill.invoiced || mergeLocked ? (
-                        <p className="rounded-md border border-line bg-neutral-50 px-2 py-1.5 text-xs text-neutral-500 dark:border-neutral-700 dark:bg-ink-raised/60">
+                        <p className="rounded-lg border border-line-soft px-2.5 py-2 text-sm text-neutral-500">
                           {code || "uncoded"}
                         </p>
                       ) : (
                         <CostCodeSelect
+                          textCls="text-sm"
                           // The budget list leaves out Labor leaves and JobTread's
                           // "Uncategorized" items, but JT still codes bill lines to
                           // them. Add the line's own leaf back so the box names it.
@@ -1478,18 +1488,13 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                           onChange={(leafId) => stageLine(l.id, leafId, l.jobCostItemId)}
                         />
                       )}
-                      <div className="mt-1 flex items-baseline justify-between gap-2 text-[11px]">
+                      <div className="mt-1.5 flex items-baseline justify-between gap-2 text-[11.75px] empty:hidden">
                         {/* A staged merge outranks a staged recode in this slot: the
                       line is about to stop existing, which is the more useful
                       thing to know about it. Both are undone by the same
                       Revert. */}
-                        <span
-                          className={
-                            mergeInto || mergeKeeps || moved
-                              ? "text-warn"
-                              : "text-neutral-400"
-                          }
-                        >
+                        {(mergeInto || mergeKeeps || moved) && (
+                        <span className="text-warn">
                           {mergeInto
                             ? "merging into the line above"
                             : mergeKeeps
@@ -1498,16 +1503,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                                 }`
                               : moved
                                 ? `moved from ${l.code || "uncoded"}`
-                                : "unchanged"}
+                                : ""}
                         </span>
-                        {left !== null && (
-                          <span
-                            className={
-                              left < 0 ? "text-danger" : "text-neutral-400"
-                            }
-                          >
-                            {money0(left)} left on {code}
-                          </span>
                         )}
                       </div>
                     </li>
@@ -1530,7 +1527,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             list now. */}
               {math.isDraft && writes && !bill.invoiced && (
                 <div className="mt-3 flex items-center justify-end gap-1.5">
-                  <span className="text-[10px] uppercase tracking-wide text-neutral-400">
+                  <span className="text-xs text-neutral-500">
                     {SALES_TAX_LINE_NAME}
                   </span>
                   <div className="relative">
@@ -1551,7 +1548,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </div>
               )}
               {taxView > 0 && (
-                <p className="mt-1 text-right text-[10px] text-neutral-400">
+                <p className="mt-1 text-right text-[11px] text-neutral-400">
                   subtotal {money(math.subtotal)} + {money(taxView)} tax ·{" "}
                   {isTaxRecoverable(bill.jobPhase) ? "recoverable" : "not recoverable"}
                 </p>
@@ -1568,12 +1565,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         setAddLineMsg("");
                         setAddingLine(true);
                       }}
-                      className="w-full rounded-lg bg-neutral-100 px-3 py-2 text-xs font-semibold text-accent transition hover:bg-accent/10 dark:bg-white/10 dark:text-accent-soft"
+                      className="w-full rounded-lg border border-dashed border-line-strong px-3 py-2 text-xs font-medium text-neutral-500 transition hover:border-accent hover:text-ink dark:text-neutral-400 dark:hover:text-neutral-100"
                     >
                       + Add line
                     </button>
                   ) : (
-                    <div className="rounded-lg bg-neutral-50 p-2 dark:bg-white/[0.04]">
+                    <div className="rounded-lg border border-line-soft p-2.5">
                       <input
                         type="text"
                         value={newLine.name}
@@ -1640,11 +1637,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             The needs-review note, Drive, client access and Void are in the
             bill's actions (`billActions` below). */}
               {(review || buybackButton) && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line-soft pt-3 dark:border-neutral-800">
+                <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-line-soft pt-4">
                   {review && (
                     <Button
-                      variant={review.flagged ? "primary" : "outline"}
-                      size="sm"
+                      variant={review.flagged ? "primary" : "secondary"}
+                      size="xs"
                       disabled={review.saving}
                       onClick={() => review.save(!review.flagged)}
                     >
@@ -1663,22 +1660,22 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 card's foot like the bill page's drawer. `hidden`, not
                 unmounted, so an open client-access list survives a collapse. */}
             {actionsSlot === undefined && (
-              <div className="shrink-0 border-t border-line-soft dark:border-neutral-800">
+              <div className="shrink-0 border-t border-line-soft">
                 <button
                   type="button"
                   onClick={() => setFooterOpen((v) => !v)}
                   aria-expanded={footerOpen}
-                  className="flex min-h-9 w-full items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+                  className="flex min-h-10 w-full items-center justify-center gap-1.5 text-xs font-medium text-neutral-500 transition hover:text-ink dark:text-neutral-400 dark:hover:text-neutral-100"
                 >
                   <span
                     aria-hidden
-                    className={`inline-block text-[9px] transition-transform ${footerOpen ? "rotate-180" : ""}`}
+                    className={`inline-block text-xs leading-none transition-transform ${footerOpen ? "rotate-180" : ""}`}
                   >
-                    ▲
+                    ▾
                   </span>
-                  {footerOpen ? "Hide actions" : "Actions"}
+                  {footerOpen ? "Fewer actions" : "More actions"}
                 </button>
-                <div hidden={!footerOpen} className="max-h-[70dvh] overflow-y-auto px-3 pb-3">
+                <div hidden={!footerOpen} className="max-h-[70dvh] overflow-y-auto px-4 pb-4">
                   {billActions}
                 </div>
               </div>
