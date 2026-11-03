@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [serene-ride](.claude/sessions/2026-11-03-serene-ride.md) | 2026-11-03 | 1 | — |
+| [serene-ride](.claude/sessions/2026-11-03-serene-ride.md) | 2026-11-03 | 2 | — |
 | [sunset-statement-reconciliation](.claude/sessions/2026-11-02-sunset-statement-reconciliation.md) | 2026-11-02 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-02 | 183 | — |
 | [tool-tracker-qr-scanning](.claude/sessions/2026-11-02-tool-tracker-qr-scanning.md) | 2026-11-02 | 1 | — |

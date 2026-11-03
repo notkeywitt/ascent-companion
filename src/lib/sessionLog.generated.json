@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-03T00:09:29Z",
+  "generatedAt": "2026-11-03T00:29:01Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/serene-ride-r8v8me",
       "status": "shipped",
       "started": "2026-11-03T00:09:24Z",
-      "updated": "2026-11-03T00:09:29Z",
+      "updated": "2026-11-03T00:29:01Z",
       "goal": "",
       "next": "confirm Turso call rate drops after deploy (Vercel outgoing_request to turso.io)",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "930f2e6",
           "subject": "companion: stop edge and node fighting over the db schema marker",
           "files": "src/auth.ts, src/db/index.ts, src/db/schemaFingerprint.test.ts"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "00:29",
+          "sha": "3eb5b03",
+          "subject": "companion: say \"just updated\" on the loading screen after a deploy",
+          "files": "src/components/LoadingScreen.tsx, src/components/UpdateNotice.tsx"
         }
       ]
     },
