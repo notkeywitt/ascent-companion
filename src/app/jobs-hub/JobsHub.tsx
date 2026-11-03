@@ -29,6 +29,7 @@ import type { JobsPageCard } from "@/lib/jobBoard";
 import { money0 } from "@/lib/money";
 
 import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
+import { PunchList } from "./PunchList";
 
 /**
  * Jobs — the desktop screen for every job at once (owner, 2026-11-01; the
@@ -42,15 +43,17 @@ import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
  *     the picked tab: Tracking sheet (the job's /trackingsheet, embedded whole
  *     but for its tabs and header), Schedule (the job's overview),
- *     Plans or Photos (the job's JobTread plan sheets and photos).
+ *     Plans or Photos (the job's JobTread plan sheets and photos), or Punch
+ *     List (the final inspection checklist, ticked off per job).
  *
  * A list row or a map dot picks the job; picking it again closes it.
  *
- * Every write is the embedded Tracking Sheet's own; nothing here writes.
+ * Every write is an embedded page's own; the Punch List writes only the
+ * companion DB.
  */
 
 type HubJob = MapJob & { customer?: string | null };
-type Tab = "sheet" | "schedule" | "plans" | "photos" | "record" | "budget" | "specs" | "manual";
+type Tab = "sheet" | "schedule" | "plans" | "photos" | "punch" | "record" | "budget" | "specs" | "manual";
 
 /** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
  *  the list and the totals: overhead, not client work (owner, 2026-11-01). */
@@ -263,6 +266,7 @@ export function JobsHub() {
         { value: "schedule" as const, label: "Schedule" },
         { value: "plans" as const, label: "Plans" },
         { value: "photos" as const, label: "Photos" },
+        { value: "punch" as const, label: "Punch List" },
         // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
         // Each shows only to someone who holds its view.
         ...(can("clients") ? [{ value: "record" as const, label: "Job Details" }] : []),
@@ -426,6 +430,8 @@ export function JobsHub() {
           <JobPlans state={files} />
         ) : tab === "photos" ? (
           <JobPhotos state={files} />
+        ) : tab === "punch" ? (
+          <PunchList key={selected.id} jobId={selected.id} />
         ) : tab === "record" && can("clients") ? (
           <ClientsBrowser key={selected.id} jobId={selected.id} />
         ) : tab === "budget" && can("budget-import") ? (

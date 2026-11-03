@@ -119,7 +119,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "10e6-1hr2phd";
+export const SCHEMA_FINGERPRINT = "10lp-3bzr5q";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1130,6 +1130,15 @@ async function applySchema() {
   await getClient().execute(
     "CREATE INDEX IF NOT EXISTS house_manuals_public_token ON house_manuals (public_token)",
   );
+  // A job's Punch List (see schema.ts punchLists).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS punch_lists (
+      job_id TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // Job deposits entered by hand (see schema.ts depositLinks).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS deposit_links (

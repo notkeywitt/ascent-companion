@@ -1520,6 +1520,18 @@ export const houseManuals = sqliteTable("house_manuals", {
 });
 
 /**
+ * A job's Punch List (the final inspection checklist) on the Jobs page. One
+ * row per job; `value` is a PunchState (src/lib/punchList.ts) as JSON. No row
+ * means the job shows the whole template, nothing done.
+ */
+export const punchLists = sqliteTable("punch_lists", {
+  jobId: text("job_id").primaryKey(), // JobTread job id
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+/**
  * JOB DEPOSITS — the deposit the office enters by hand, for a deposit taken
  * before JobTread (Berger). One row per job; see src/lib/depositLinks.ts.
  *

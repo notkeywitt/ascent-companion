@@ -557,10 +557,15 @@ export const VIEWS: ViewDef[] = [
   // own localStorage, so the gate is about clutter rather than safety.
   { id: "theme-editor", label: "Theme", group: "System", paths: ["/theme"] },
   // The desktop screen for every job at once: a compact job list, the month's
-  // rings, one job's overview and the Lopez Island map. It calls only routes
-  // other pages already use and gate, so no API path is listed here.
-  // Office/admin by default.
-  { id: "jobs-hub", label: "Jobs", group: "Office", paths: ["/jobs-hub", "/api/jobs/files"] },
+  // rings, one job's overview and the Lopez Island map. Its own routes: the
+  // job's files, and the Punch List tab (writes only the companion DB,
+  // punch_lists). Office/admin by default.
+  {
+    id: "jobs-hub",
+    label: "Jobs",
+    group: "Office",
+    paths: ["/jobs-hub", "/api/jobs/files", "/api/punch-list"],
+  },
 ];
 
 export const ALL_VIEW_IDS: string[] = VIEWS.map((v) => v.id);
