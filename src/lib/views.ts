@@ -157,8 +157,8 @@ export const VIEWS: ViewDef[] = [
   // out of the PDF into rows with their product links. The API prefix rides the
   // same gate: its import calls the model and writes the companion DB, and
   // /api/specs/jobtread WRITES JobTread — a live updateCostItem on one budget
-  // line (description + specification flags), behind writesEnabled(). That
-  // write is why this view must stay off lead and field.
+  // line (description + specification flags), behind writesEnabled(). Leads
+  // hold it since 2026-11-03 (a Jobs Hub tab); keep it off field.
   { id: "specs", label: "Specifications", group: "Financials", paths: ["/specs", "/api/specs"] },
   // A job's homeowner's manual, pasted into Squarespace. Reads JobTread and
   // writes only the companion DB (house_manuals).
@@ -194,8 +194,8 @@ export const VIEWS: ViewDef[] = [
   // edits those records rather than reporting on them. The /api/clients prefix
   // rides the same gate as the page: those routes read every customer in the org
   // and write to a job, a customer, a contact or a site, so a role without the
-  // view must not reach them by calling the route directly. Office + admin by
-  // default, like the rest of Financials.
+  // view must not reach them by calling the route directly. Office + admin, and
+  // leads since 2026-11-03 (the Jobs Hub's Job Details tab).
   {
     id: "clients",
     label: "Directory",
@@ -391,7 +391,8 @@ export const VIEWS: ViewDef[] = [
   // Jobs — Active jobs, PreCon jobs and leads as kanban rows (schedule now and
   // the newest to-dos per job). Read-only. Its own route, not "/jobs", which is
   // Job Cost. The API prefix rides the same gate, so a role without the page
-  // can't read every job's to-dos by calling the route. Office/admin by default.
+  // can't read every job's to-dos by calling the route. Office, admin and lead
+  // (lead since 2026-11-03: the Jobs Hub's job card reads /api/job-board).
   { id: "job-board", label: "Jobs", group: "Office", paths: ["/job-board", "/api/job-board"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
   // The vendor-mail completeness check. The API prefix is listed alongside the
@@ -559,7 +560,7 @@ export const VIEWS: ViewDef[] = [
   // The desktop screen for every job at once: a compact job list, the month's
   // rings, one job's overview and the Lopez Island map. Its own routes: the
   // job's files, and the Punch List tab (writes only the companion DB,
-  // punch_lists). Office/admin by default.
+  // punch_lists). Office, admin and lead (2026-11-03).
   {
     id: "jobs-hub",
     label: "Jobs",
@@ -597,10 +598,21 @@ const FIELD_VIEWS: string[] = [
   // office/admin, checked in /api/feature-requests/[id].
   "requests",
 ];
-// Leads additionally see Sunset statements. "recode" (Tracking Sheets) is
-// deliberately NOT here as of 2026-09-09: it is the coding workbench, so it
-// EDITS bills — and the owner limited bill/invoice editing to office+admin.
-const LEAD_VIEWS: string[] = [...FIELD_VIEWS, "payments"];
+// Leads additionally see Sunset statements, and the Jobs Hub with the tabs it
+// draws (owner, 2026-11-03): the job card's data ("job-board"), Tracking sheet
+// ("recode" — it EDITS bills; this reverses the 2026-09-09 office+admin-only
+// rule for leads), Job Details ("clients"), Specifications ("specs") and House
+// Manual. Budget Import, the Leads board and the month's Sync stay off.
+const LEAD_VIEWS: string[] = [
+  ...FIELD_VIEWS,
+  "payments",
+  "jobs-hub",
+  "job-board",
+  "recode",
+  "clients",
+  "specs",
+  "house-manual",
+];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).
 const ADMIN_MENU: string[] = [
