@@ -328,7 +328,9 @@ export function JobsHub() {
           </Card>
 
           {/* The second card, with the month picker in its top right corner. */}
-          <div className="relative min-h-0 min-w-0">
+          {/* A phone puts the month controls in a row above the card: laid
+              over its corner they covered the rings (owner, 2026-11-03). */}
+          <div className="relative flex min-h-0 min-w-0 flex-col gap-3 pad:block">
             {selected ? (
               details?.get(selected.id) ? (
                 <JobCard
@@ -336,11 +338,12 @@ export function JobsHub() {
                   nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   aside={
-                    <div className="flex h-full items-start gap-6">
+                    <div className="flex items-start gap-6 pad:h-full">
                       {tab === "sheet" && canTrackingSheet && (
+                        // Full width on a phone, where it sits under the job.
                         <div
                           ref={setSummarySlot}
-                          className="no-scrollbar h-full w-[520px] min-w-0 overflow-y-auto overflow-x-hidden"
+                          className="no-scrollbar w-full min-w-0 overflow-x-hidden pad:h-full pad:w-[520px] pad:overflow-y-auto"
                         />
                       )}
                     </div>
@@ -385,7 +388,7 @@ export function JobsHub() {
                 </div>
               </Card>
             )}
-            <div className="absolute right-4 top-3 z-10 flex items-center gap-4">
+            <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
               {/* Sync, left of the month it syncs (owner, 2026-11-02): the
                   Tracking Sheets page's own — every wired sheet and the
                   month's Labor Report. */}

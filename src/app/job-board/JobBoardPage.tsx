@@ -177,15 +177,18 @@ export function JobCard({
   );
   return (
     // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
-    // cell sets the width (`pad:w-auto` is emitted after the bare width).
+    // cell sets the width (`pad:w-auto` is emitted after the bare width). The
+    // Jobs page's card (`aside`) is no scroller card: it spans the screen.
     <Card
-      className={`flex h-full w-72 shrink-0 flex-col gap-2 pad:w-auto ${aside ? "min-h-0 overflow-hidden" : ""}`}
+      className={`flex h-full shrink-0 flex-col gap-2 ${aside ? "min-h-0 w-full overflow-hidden" : "w-72 pad:w-auto"}`}
     >
       {aside ? (
-        <div className="flex min-h-0 flex-1 gap-4">
+        // A phone stacks the aside under the job: beside it, the aside's
+        // rings ran off the card's right edge (owner, 2026-11-03).
+        <div className="flex min-h-0 flex-1 flex-col gap-4 pad:flex-row">
           {/* Scrolls when the card is held to a height (the Jobs page). */}
           <div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto">{body}</div>
-          <div className="h-full shrink-0">{aside}</div>
+          <div className="min-w-0 shrink-0 pad:h-full">{aside}</div>
         </div>
       ) : (
         body
