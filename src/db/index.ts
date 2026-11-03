@@ -69,12 +69,21 @@ export const db: Db = new Proxy({} as Db, {
  * network round trip — and a serverless instance starts cold with `ensured` unset,
  * so the whole block used to re-run on the first request each instance served
  * (~24 sequential round trips in front of a one-row lookup). Now a warm database
- * costs ONE read: `applySchema`'s own source is hashed into a fingerprint stored in
- * `schema_meta`, and a match short-circuits. Fingerprinting the source (not a
- * hand-maintained version number) means editing any statement below automatically
- * invalidates the marker — there is nothing to remember to bump. Worst case after a
- * deploy that changes the bundled output, one request re-runs the block and rewrites
- * the marker; the statements are all idempotent, so that is harmless.
+ * costs ONE read: `SCHEMA_FINGERPRINT` is stored in `schema_meta`, and a match
+ * short-circuits.
+ *
+ * ⚠️ The fingerprint is a PINNED CONSTANT, not a hash taken at runtime. It used to
+ * be `fingerprintOf(applySchema.toString())`, but this module is compiled twice —
+ * into the Edge middleware bundle and into the Node server chunk — and the two
+ * minified copies hash differently. Each runtime kept overwriting the other's
+ * marker, so every new instance re-ran all ~110 statements in sequence (~11 s).
+ * On 2026-11-02 that put 15 s in front of /employee-time and ~1,000 Turso calls
+ * into one minute.
+ *
+ * The constant is the hash of `applySchema`'s TypeScript SOURCE, which both
+ * bundles share. `src/db/schemaFingerprint.test.ts` recomputes it from this file
+ * and fails with the new value when a statement changes, so a schema edit still
+ * cannot ship with a stale marker — the pre-push hook runs that test.
  *
  * The in-flight promise is shared, so concurrent first-callers in one instance wait
  * on a single run instead of each starting their own; a failure clears it so the
@@ -97,7 +106,7 @@ export function ensureDb(): Promise<void> {
  * module is reachable from the Edge middleware bundle (via auth.ts), which cannot
  * import node: builtins. It only has to detect change, not resist anything.
  */
-function fingerprintOf(source: string): string {
+export function fingerprintOf(source: string): string {
   let h = 0x811c9dc5;
   for (let i = 0; i < source.length; i++) {
     h ^= source.charCodeAt(i);
@@ -106,8 +115,14 @@ function fingerprintOf(source: string): string {
   return `${source.length.toString(36)}-${h.toString(36)}`;
 }
 
+/**
+ * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
+ * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
+ */
+export const SCHEMA_FINGERPRINT = "10e6-1hr2phd";
+
 async function runEnsure(): Promise<void> {
-  const fingerprint = fingerprintOf(applySchema.toString());
+  const fingerprint = SCHEMA_FINGERPRINT;
   try {
     const r = await getClient().execute("SELECT value FROM schema_meta WHERE key = 'fingerprint'");
     if (r.rows[0]?.value === fingerprint) return; // schema already at this revision

@@ -35,7 +35,9 @@ export async function roleBaseFor(role: Role): Promise<string[]> {
     const { db, ensureDb } = await import("@/db");
     const { roleAccess } = await import("@/db/schema");
     const { eq } = await import("drizzle-orm");
-    await ensureDb();
+    // Node only: this also runs inside the edge membership re-check (see
+    // revalidateAccess), and the edge must not run schema setup.
+    if (process.env.NEXT_RUNTIME !== "edge") await ensureDb();
     const rows = await db.select().from(roleAccess).where(eq(roleAccess.role, role)).limit(1);
     const row = rows[0];
     if (!row) return ROLE_VIEWS[role];
@@ -126,13 +128,20 @@ const REVALIDATE_MS = 10 * 60 * 1000; // 10 minutes
  *   { member: false }    the database answered, and they are NOT on it — revoke
  *   null                 the database could not be reached — CHANGE NOTHING
  *
- * The third case is not hypothetical. This callback also runs on the edge
- * runtime, where the libSQL client cannot be imported at all, so the dynamic
- * import throws every time. Collapsing that into "no row found" — which is what
- * `accessForEmail`'s catch does, deliberately, for its own purpose — would sign
- * the whole company out on every edge request. Returning null instead means a
- * request that cannot verify leaves the token exactly as it was, and the 12-hour
- * ceiling above is what bounds the damage.
+ * The third case is not hypothetical: Turso can be unreachable. Collapsing that
+ * into "no row found" — which is what `accessForEmail`'s catch does, deliberately,
+ * for its own purpose — would sign the whole company out at once. Returning null
+ * instead means a request that cannot verify leaves the token exactly as it was.
+ *
+ * This callback also runs in the Edge middleware, and there the database IS
+ * reachable: the middleware bundle carries libSQL's HTTP client. That edge check
+ * is what actually revokes a removed person, because only the middleware can
+ * write the refreshed token back to the cookie. Keep it.
+ *
+ * What the edge must NOT do is `ensureDb()`. Schema setup belongs to the Node
+ * runtime; the tables already exist by the time anyone is signed in. Running it
+ * here once fought the Node bundle over the schema marker and re-ran ~110
+ * statements per new instance (2026-11-02, see SCHEMA_FINGERPRINT in src/db).
  */
 async function revalidateAccess(
   email: string,
@@ -147,7 +156,9 @@ async function revalidateAccess(
     const { db, ensureDb } = await import("@/db");
     const { allowedUsers } = await import("@/db/schema");
     const { eq } = await import("drizzle-orm");
-    await ensureDb();
+    // Node only — see the note above. On the edge a missing table throws, and the
+    // catch below turns that into null (change nothing), never a revocation.
+    if (process.env.NEXT_RUNTIME !== "edge") await ensureDb();
     const rows = await db
       .select()
       .from(allowedUsers)
@@ -267,9 +278,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         //   • database not reachable  → return as-is, and do NOT stamp `ck`,
         //     so the next request that CAN reach it tries again
         //
-        // The last case is the edge runtime, where this callback also runs and
-        // the database client cannot be imported. That is why a failed check
-        // must never look like a successful one — see revalidateAccess.
+        // This runs in the edge middleware too, and there the database is
+        // reachable. A failed check must still never look like a successful
+        // one — see revalidateAccess.
         const checkedAt = typeof token.ck === "number" ? token.ck : 0;
         if (Date.now() - checkedAt < REVALIDATE_MS) return token;
 
