@@ -1,4 +1,5 @@
 import { AscentLogo } from "@/components/AscentLogo";
+import { UpdateNotice } from "@/components/UpdateNotice";
 
 /**
  * The app's one loading screen: the Ascent lockup on the THEME's own ground,
@@ -33,11 +34,13 @@ export function LoadingScreen({
       role="status"
       aria-label="Loading"
       style={style}
-      className={`pointer-events-none fixed inset-0 z-[100] flex items-center justify-center bg-cream dark:bg-ink ${
+      className={`pointer-events-none fixed inset-0 z-[100] flex flex-col items-center justify-center gap-6 bg-cream dark:bg-ink ${
         delayed ? "loading-screen-in" : ""
       } ${className}`}
     >
       <AscentLogo size="lg" />
+      {/* The first load after a deploy can be slow; this says why. */}
+      <UpdateNotice />
     </div>
   );
 }
