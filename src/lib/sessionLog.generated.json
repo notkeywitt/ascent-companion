@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-11-03T01:11:11Z",
+  "generatedAt": "2026-11-03T03:02:29Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "sunset-statement-reconciliation",
+      "file": "2026-11-02-sunset-statement-reconciliation.md",
+      "branch": "claude/sunset-statement-reconciliation-r91e9j",
+      "status": "shipped",
+      "started": "2026-11-02T22:03:35Z",
+      "updated": "2026-11-03T03:02:29Z",
+      "goal": "",
+      "next": "owner to press Create Bills on /payments; confirm cost types for the Buybacks and Deposit leaves",
+      "commits": [
+        {
+          "date": "2026-11-02",
+          "time": "22:03",
+          "sha": "a2eaf07",
+          "subject": "companion: link sunset statement lines to bills on any job",
+          "files": "CODEBASE_MAP.md, src/app/api/sunset-statement-links/route.ts, src/app/api/sunset-statements/reconcile/route.ts, src/app/payments/page.tsx, src/components/SunsetLinkPicker.tsx, src/db/index.ts, +4 more"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "22:09",
+          "sha": "ca722dc",
+          "subject": "companion: give the office 88 70 00 leaf a cost type so create bills stops failing",
+          "files": "src/lib/jobtread.ts"
+        }
+      ]
+    },
     {
       "slug": "determined-davinci",
       "file": "2026-11-03-determined-davinci.md",
@@ -44,25 +70,6 @@
           "sha": "3eb5b03",
           "subject": "companion: say \"just updated\" on the loading screen after a deploy",
           "files": "src/components/LoadingScreen.tsx, src/components/UpdateNotice.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "sunset-statement-reconciliation",
-      "file": "2026-11-02-sunset-statement-reconciliation.md",
-      "branch": "claude/sunset-statement-reconciliation-r91e9j",
-      "status": "shipped",
-      "started": "2026-11-02T22:03:35Z",
-      "updated": "2026-11-02T22:03:44Z",
-      "goal": "",
-      "next": "after the appscript deploy, link a moved bill on /payments and confirm both statements go green",
-      "commits": [
-        {
-          "date": "2026-11-02",
-          "time": "22:03",
-          "sha": "a2eaf07",
-          "subject": "companion: link sunset statement lines to bills on any job",
-          "files": "CODEBASE_MAP.md, src/app/api/sunset-statement-links/route.ts, src/app/api/sunset-statements/reconcile/route.ts, src/app/payments/page.tsx, src/components/SunsetLinkPicker.tsx, src/db/index.ts, +4 more"
         }
       ]
     },
