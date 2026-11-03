@@ -26,7 +26,11 @@ export async function loadRoleMenus(): Promise<Partial<Record<Role, RoleMenu>>> 
     await ensureDb();
     const rows = await db.select().from(roleMenu);
     const out: Partial<Record<Role, RoleMenu>> = {};
-    for (const r of rows) out[r.role as Role] = { add: parseKeys(r.itemsAdd), hide: parseKeys(r.itemsHide) };
+    for (const r of rows) out[r.role as Role] = {
+      add: parseKeys(r.itemsAdd),
+      hide: parseKeys(r.itemsHide),
+      order: parseKeys(r.itemsOrder),
+    };
     return out;
   } catch {
     return {};

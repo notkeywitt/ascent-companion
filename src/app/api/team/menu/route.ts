@@ -20,7 +20,7 @@ export async function GET() {
   return NextResponse.json({ roleMenus: await loadRoleMenus() });
 }
 
-// PATCH { role, add, hide } — replace one role's side-menu edit. Empty lists
+// PATCH { role, add, hide, order } — replace one role's side-menu edit. Empty lists
 // put the role back on the shipped menu. Every role is editable, admin too:
 // railFor keeps the Admin workspace on the admin menu whatever is stored.
 export async function PATCH(req: NextRequest) {
@@ -32,13 +32,14 @@ export async function PATCH(req: NextRequest) {
   }
   const itemsAdd = JSON.stringify(cleanMenuKeys(body.add));
   const itemsHide = JSON.stringify(cleanMenuKeys(body.hide));
+  const itemsOrder = JSON.stringify(cleanMenuKeys(body.order));
   const updatedAt = new Date().toISOString();
 
   await ensureDb();
   await db
     .insert(roleMenu)
-    .values({ role, itemsAdd, itemsHide, updatedAt })
-    .onConflictDoUpdate({ target: roleMenu.role, set: { itemsAdd, itemsHide, updatedAt } });
+    .values({ role, itemsAdd, itemsHide, itemsOrder, updatedAt })
+    .onConflictDoUpdate({ target: roleMenu.role, set: { itemsAdd, itemsHide, itemsOrder, updatedAt } });
 
   return NextResponse.json({ roleMenus: await loadRoleMenus() });
 }

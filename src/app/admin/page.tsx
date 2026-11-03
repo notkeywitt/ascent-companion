@@ -276,7 +276,8 @@ function AccessPanel() {
       <p className="mb-2 text-xs text-neutral-500">
         What each role&rsquo;s side menu lists, on an iPad or a computer. Removing an item
         does not take away access: the page still opens from search or a link. An added
-        item shows only if the role can open it. Changes show on the next page load.
+        item shows only if the role can open it. The arrows set the order. Changes show on
+        the next page load.
       </p>
       <ul className="mb-5 space-y-2">
         {ROLES.map((r) => (
@@ -556,7 +557,8 @@ function MenuRow({
   const items = useMemo(() => railFor(role, can, "", menu), [role, can, menu]);
   const onMenu = new Set(items.map(menuKey));
   const choices = MENU_CHOICES.filter((c) => !onMenu.has(c.key) && (c.view === "" || can(c.view)));
-  const changeCount = menu.add.length + menu.hide.length;
+  const ordered = (menu.order ?? []).length > 0;
+  const changeCount = menu.add.length + menu.hide.length + (ordered ? 1 : 0);
 
   function remove(key: string) {
     if (menu.add.includes(key)) patchMenu(role, { ...menu, add: menu.add.filter((k) => k !== key) });
@@ -566,9 +568,15 @@ function MenuRow({
   function addItem(key: string) {
     // Un-hiding puts a shipped item back where it was; anything else joins the
     // top group.
-    const next = { add: menu.add, hide: menu.hide.filter((k) => k !== key) };
+    const next = { ...menu, hide: menu.hide.filter((k) => k !== key) };
     if (!railFor(role, can, "", next).some((i) => menuKey(i) === key)) next.add = [...next.add, key];
     patchMenu(role, next);
+  }
+
+  function move(index: number, by: -1 | 1) {
+    const keys = items.map(menuKey);
+    [keys[index], keys[index + by]] = [keys[index + by], keys[index]];
+    patchMenu(role, { ...menu, order: keys });
   }
 
   return (
@@ -587,7 +595,8 @@ function MenuRow({
         <div className="mt-3 border-t border-line-soft pt-3 dark:border-white/10">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-neutral-500">
-              The <strong>{ROLE_LABEL[role]}</strong> side menu, top to bottom.
+              The <strong>{ROLE_LABEL[role]}</strong> side menu, top to bottom. Use the arrows to
+              move an item.
             </span>
             {changeCount > 0 && (
               <button
@@ -599,7 +608,7 @@ function MenuRow({
             )}
           </div>
           <ul className="mb-3 divide-y divide-line-soft">
-            {items.map((i) => {
+            {items.map((i, index) => {
               const key = menuKey(i);
               const locked = role === "admin" && key === "ws:admin";
               return (
@@ -612,16 +621,34 @@ function MenuRow({
                       </span>
                     )}
                   </span>
-                  {locked ? (
-                    <span className="shrink-0 text-xs text-neutral-400">Always shown</span>
-                  ) : (
+                  <div className="flex shrink-0 items-center gap-1">
                     <button
-                      onClick={() => remove(key)}
-                      className="shrink-0 text-xs font-semibold text-danger hover:underline"
+                      onClick={() => move(index, -1)}
+                      disabled={index === 0}
+                      aria-label={`Move ${i.label} up`}
+                      className="h-7 w-7 rounded text-neutral-500 hover:text-accent disabled:opacity-30"
                     >
-                      Remove
+                      ↑
                     </button>
-                  )}
+                    <button
+                      onClick={() => move(index, 1)}
+                      disabled={index === items.length - 1}
+                      aria-label={`Move ${i.label} down`}
+                      className="h-7 w-7 rounded text-neutral-500 hover:text-accent disabled:opacity-30"
+                    >
+                      ↓
+                    </button>
+                    {locked ? (
+                      <span className="ml-1 w-14 text-right text-xs text-neutral-400">Always</span>
+                    ) : (
+                      <button
+                        onClick={() => remove(key)}
+                        className="ml-1 w-14 text-right text-xs font-semibold text-danger hover:underline"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </li>
               );
             })}

@@ -115,6 +115,7 @@ export const roleMenu = sqliteTable("role_menu", {
   role: text("role").primaryKey(), // "admin" | "office" | "lead" | "field"
   itemsAdd: text("items_add").notNull().default("[]"), // JSON menu keys, added to the top group
   itemsHide: text("items_hide").notNull().default("[]"), // JSON menu keys, taken off the menu
+  itemsOrder: text("items_order").notNull().default("[]"), // JSON menu keys, in the admin's order
   updatedAt: text("updated_at").notNull().default(""),
 });
 

@@ -401,15 +401,18 @@ export const RAIL_TOP: Partial<Record<Role, BarSlot[]>> = { admin: DESK_TOP, off
 /**
  * An admin's edit to one role's side menu (Admin → Access → Side Menu), stored
  * in the `role_menu` table. `add` puts items on the top group; `hide` takes
- * items off. Both hold menu keys (`menuKey`). It changes what the sidebar
+ * items off; `order` is the menu's keys in the order the admin set. All three
+ * hold menu keys (`menuKey`). It changes what the sidebar
  * LISTS, never what the role can open: a hidden page still opens from the
  * header search or a link, and an added page the role cannot open is skipped.
  */
 export interface RoleMenu {
   add: string[];
   hide: string[];
+  /** Empty = the shipped order. An item it does not name keeps its own place. */
+  order?: string[];
 }
-export const NO_MENU_CHANGE: RoleMenu = { add: [], hide: [] };
+export const NO_MENU_CHANGE: RoleMenu = { add: [], hide: [], order: [] };
 
 /** The Admin workspace never leaves the admin role's menu, so an edit here
  *  cannot strand the editor that would undo it. */
@@ -484,8 +487,19 @@ export function railFor(
     if (tabs.every((t) => rail.some((i) => i.view === t.view && !i.workspace))) continue;
     rail.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
   }
-  if (rail.length > topCount && topCount > 0) rail[topCount] = { ...rail[topCount], gap: true };
-  return rail;
+  const ordered = applyOrder(rail, menu.order ?? []);
+  if (ordered.length > topCount && topCount > 0) ordered[topCount] = { ...ordered[topCount], gap: true };
+  return ordered;
+}
+
+/** The items `order` names, in that order, in the slots those items held. An
+ *  item it does not name (one added since) stays where it was. */
+function applyOrder(items: BarItem[], order: string[]): BarItem[] {
+  if (!order.length) return items;
+  const rank = new Map(order.map((k, i) => [k, i]));
+  const named = items.filter((i) => rank.has(menuKey(i))).sort((a, b) => rank.get(menuKey(a))! - rank.get(menuKey(b))!);
+  let next = 0;
+  return items.map((i) => (rank.has(menuKey(i)) ? named[next++] : i));
 }
 
 /**

@@ -119,7 +119,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "10uo-ucx930";
+export const SCHEMA_FINGERPRINT = "112t-1tjz83k";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -235,9 +235,16 @@ async function applySchema() {
       role TEXT PRIMARY KEY,
       items_add TEXT NOT NULL DEFAULT '[]',
       items_hide TEXT NOT NULL DEFAULT '[]',
+      items_order TEXT NOT NULL DEFAULT '[]',
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
+  // The order column came a day after the table (idempotent — throws once present).
+  try {
+    await getClient().execute("ALTER TABLE role_menu ADD COLUMN items_order TEXT NOT NULL DEFAULT '[]'");
+  } catch {
+    /* column already exists */
+  }
   // Per-check overrides on top of the hardcoded DIGEST_SETTINGS defaults — lets
   // /admin tune the Daily Digest without a redeploy. Read fresh on every run.
   await getClient().execute(`

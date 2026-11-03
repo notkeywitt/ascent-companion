@@ -184,6 +184,15 @@ describe("a role's side-menu edit", () => {
     const keys = railFor("admin", can("admin"), "", { add: [], hide: ["ws:admin"] }).map((i) => i.key);
     expect(keys).toContain("admin");
   });
+  it("puts named items in the admin's order and leaves the rest in place", () => {
+    const base = railFor("office", can("office")).map((i) => i.key);
+    const items = railFor("office", can("office"), "", { add: [], hide: [], order: ["ws:time", "today", "ws:close"] });
+    const keys = items.map((i) => i.key);
+    expect(keys.slice(0, 3)).toEqual(["time", "today", "employees"]);
+    expect(keys[5]).toBe("close");
+    expect(new Set(keys)).toEqual(new Set(base));
+    expect(items[7].gap).toBe(true);
+  });
   it("keeps only known keys", () => {
     expect(cleanMenuKeys(["today", "ws:clients", "page:bills", "ws:nope", 3, "today"])).toEqual([
       "today",
