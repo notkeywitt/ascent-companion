@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/sunset-statement-reconciliation-r91e9j
 status: shipped
 started: 2026-11-02T22:03:35Z
-updated: 2026-11-02T22:09:27Z
+updated: 2026-11-03T03:02:26Z
 goal: 
-next: owner to confirm Materials cost type for the 88 70 00 leaf, then push ca722dc to main; ask about Buybacks/Deposit leaves
+next: owner to press Create Bills on /payments; confirm cost types for the Buybacks and Deposit leaves
 ---
 
 ## Log
