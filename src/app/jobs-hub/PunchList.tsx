@@ -1,21 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+import { SignaturePad, type SignaturePadHandle } from "@/components/SignaturePad";
 
 import {
   Banner,
   Button,
   Card,
   Checkbox,
+  Input,
+  Label,
   Loading,
   MetaLine,
   QuietInput,
   SectionHeading,
   Segmented,
+  Textarea,
 } from "@/components/ui";
 import {
   applyPunchOp,
   newCustomKey,
+  punchComplete,
   punchRows,
   type PunchOp,
   type PunchState,
@@ -29,6 +35,9 @@ import {
  *   • Edit: every item, hidden ones too. Hide or Show takes an item off this
  *     job's list or puts it back; each section takes new items; an added item
  *     can be removed.
+ *   • Under the list: Notes, saved when the field loses focus, and the
+ *     sign-off — a date and a drawn signature, greyed out until every listed
+ *     item is ticked. The route refuses an early sign-off too.
  *
  * Each change is applied here at once and sent as one op; the route's answer
  * replaces it. Writes the companion DB only.
@@ -37,6 +46,13 @@ import {
 const shortDate = (iso: string) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
 const who = (email: string) => email.split("@")[0];
+/** A YYYY-MM-DD date at local noon, so no time zone moves it a day. */
+const dayDate = (ymd: string) =>
+  ymd ? new Date(`${ymd}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 export function PunchList({ jobId }: { jobId: string }) {
   const [state, setState] = useState<PunchState | null>(null);
@@ -45,6 +61,10 @@ export function PunchList({ jobId }: { jobId: string }) {
   const [show, setShow] = useState<"all" | "open">("all");
   const [closed, setClosed] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [notes, setNotes] = useState("");
+  const [signDate, setSignDate] = useState(today);
+  const [hasInk, setHasInk] = useState(false);
+  const pad = useRef<SignaturePadHandle>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,7 +73,10 @@ export function PunchList({ jobId }: { jobId: string }) {
       .then((d) => {
         if (cancelled) return;
         if (d.error) setError(d.error);
-        else setState(d.state);
+        else {
+          setState(d.state);
+          setNotes(d.state.notes ?? "");
+        }
       })
       .catch(() => !cancelled && setError("Could not load the punch list."));
     return () => {
@@ -61,8 +84,9 @@ export function PunchList({ jobId }: { jobId: string }) {
     };
   }, [jobId]);
 
-  const send = async (op: PunchOp) => {
-    if (!state) return;
+  /** Resolves true once the route has saved the op. */
+  const send = async (op: PunchOp): Promise<boolean> => {
+    if (!state) return false;
     const before = state;
     setState(applyPunchOp(state, op, "", new Date().toISOString()));
     setError("");
@@ -75,9 +99,11 @@ export function PunchList({ jobId }: { jobId: string }) {
       const d = await r.json();
       if (!r.ok || d.error) throw new Error(d.error || "Not saved.");
       setState(d.state);
+      return true;
     } catch (e) {
       setState(before);
       setError(`Not saved: ${e instanceof Error ? e.message : String(e)}`);
+      return false;
     }
   };
 
@@ -87,6 +113,17 @@ export function PunchList({ jobId }: { jobId: string }) {
   const hiddenCount = sections.reduce((n, s) => n + s.rows.filter((r) => r.hidden).length, 0);
 
   if (!state) return error ? <Banner tone="error">{error}</Banner> : <Loading />;
+
+  const complete = punchComplete(state);
+  const openCount = listed.length - doneCount;
+  const sign = async () => {
+    const signature = pad.current?.toDataURL();
+    if (!signature || !signDate) return;
+    if (await send({ op: "sign", date: signDate, signature })) {
+      pad.current?.clear();
+      setHasInk(false);
+    }
+  };
 
   const toggleSection = (id: string) =>
     setClosed((cur) => {
@@ -228,6 +265,98 @@ export function PunchList({ jobId }: { jobId: string }) {
           </section>
         );
       })}
+
+      <section className="space-y-2">
+        <SectionHeading>Notes</SectionHeading>
+        <Textarea
+          aria-label="Notes"
+          rows={4}
+          maxLength={5000}
+          placeholder="Outstanding items, corrections, follow-up…"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={() => {
+            if (notes !== state.notes) void send({ op: "notes", text: notes });
+          }}
+        />
+      </section>
+
+      <section className="space-y-2">
+        <SectionHeading>Sign-off</SectionHeading>
+        {state.signoff ? (
+          <Card className="space-y-2">
+            {/* The ink is dark on a clear ground: a white panel keeps it legible in dark mode. */}
+            <div className="rounded-lg bg-white p-2">
+              <img src={state.signoff.signature} alt="Signature" className="mx-auto max-h-32" />
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <MetaLine
+                items={[
+                  dayDate(state.signoff.date),
+                  state.signoff.by ? `signed by ${who(state.signoff.by)}` : null,
+                ]}
+              />
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  if (window.confirm("Clear the sign-off? It has to be signed again.")) void send({ op: "unsign" });
+                }}
+              >
+                Clear sign-off
+              </Button>
+            </div>
+            {!complete && (
+              <p className="text-[13px] text-warn">
+                {openCount} {openCount === 1 ? "item is" : "items are"} open again since this sign-off.
+              </p>
+            )}
+          </Card>
+        ) : (
+          <Card className="space-y-3">
+            {!complete && (
+              <p className="text-[13px] text-neutral-500 dark:text-neutral-400">
+                Opens when every item is ticked — {openCount} to go.
+              </p>
+            )}
+            <fieldset
+              disabled={!complete}
+              aria-disabled={!complete}
+              className={`space-y-3 ${complete ? "" : "pointer-events-none select-none opacity-40"}`}
+            >
+              <div className="max-w-48">
+                <Label htmlFor="punch-sign-date">Date</Label>
+                <Input
+                  id="punch-sign-date"
+                  type="date"
+                  value={signDate}
+                  onChange={(e) => setSignDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Signature</Label>
+                <SignaturePad ref={pad} height={140} onChange={(empty) => setHasInk(!empty)} />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={!hasInk}
+                  onClick={() => {
+                    pad.current?.clear();
+                    setHasInk(false);
+                  }}
+                >
+                  Clear
+                </Button>
+                <Button size="sm" disabled={!complete || !hasInk || !signDate} onClick={() => void sign()}>
+                  Sign off
+                </Button>
+              </div>
+            </fieldset>
+          </Card>
+        )}
+      </section>
     </div>
   );
 }

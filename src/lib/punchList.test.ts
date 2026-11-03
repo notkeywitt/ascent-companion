@@ -6,7 +6,9 @@ import {
   asPunchOp,
   asPunchState,
   emptyPunchState,
+  punchComplete,
   punchRows,
+  type PunchState,
 } from "./punchList";
 
 const first = PUNCH_TEMPLATE[0].items[0].key;
@@ -59,5 +61,39 @@ describe("asPunchOp and asPunchState", () => {
 
   it("reads junk as an empty list", () => {
     expect(asPunchState("junk")).toEqual(emptyPunchState());
+  });
+});
+
+describe("notes and the sign-off", () => {
+  const sig = "data:image/png;base64,AAAA";
+  const allDone = (): PunchState => {
+    let s = emptyPunchState();
+    for (const sec of PUNCH_TEMPLATE)
+      for (const i of sec.items) s = applyPunchOp(s, { op: "check", key: i.key, done: true }, "", "");
+    return s;
+  };
+
+  it("saves notes", () => {
+    expect(applyPunchOp(emptyPunchState(), { op: "notes", text: "Rail at deck" }, "", "").notes).toBe("Rail at deck");
+  });
+
+  it("refuses a sign-off until every listed item is done", () => {
+    const s = emptyPunchState();
+    expect(applyPunchOp(s, { op: "sign", date: "2026-11-03", signature: sig }, "a", "t")).toBe(s);
+    const signed = applyPunchOp(allDone(), { op: "sign", date: "2026-11-03", signature: sig }, "a", "t");
+    expect(signed.signoff).toEqual({ date: "2026-11-03", signature: sig, by: "a", at: "t" });
+    expect(applyPunchOp(signed, { op: "unsign" }, "", "").signoff).toBeNull();
+  });
+
+  it("counts a hidden item as off the list", () => {
+    let s = allDone();
+    s = applyPunchOp(s, { op: "check", key: first, done: false }, "", "");
+    expect(punchComplete(s)).toBe(false);
+    expect(punchComplete(applyPunchOp(s, { op: "hide", key: first, hidden: true }, "", ""))).toBe(true);
+  });
+
+  it("refuses a sign-off with no date or a non-PNG signature", () => {
+    expect(asPunchOp({ op: "sign", date: "", signature: sig })).toBeNull();
+    expect(asPunchOp({ op: "sign", date: "2026-11-03", signature: "javascript:x" })).toBeNull();
   });
 });

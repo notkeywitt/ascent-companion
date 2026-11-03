@@ -4,7 +4,9 @@
  *
  * The checklist below is the starting list for every job. A job's own state
  * (what is done, which template items are hidden, the items the office added)
- * is one `PunchState` per job in the companion DB (`punch_lists`). Companion
+ * and its notes and sign-off) is one `PunchState` per job in the companion DB
+ * (`punch_lists`). The sign-off takes a date and a drawn signature, and only
+ * once every listed item is done (`punchComplete`). Companion
  * data only: nothing here is written to JobTread.
  *
  * Template items are keyed by section and a slug of their text, so adding an
@@ -16,6 +18,8 @@ export type PunchSection = { id: string; title: string; items: { key: string; te
 
 export type PunchDone = { by: string; at: string };
 export type PunchCustom = { key: string; section: string; text: string };
+/** The sign-off: the date written and the drawn signature (a PNG data URL). */
+export type PunchSignoff = { date: string; signature: string; by: string; at: string };
 
 export type PunchState = {
   /** Done items, by key: who ticked it and when. */
@@ -24,13 +28,19 @@ export type PunchState = {
   hidden: string[];
   /** Items the office added to this job, in the order added. */
   custom: PunchCustom[];
+  /** Free text under the list: outstanding items, corrections. */
+  notes: string;
+  signoff: PunchSignoff | null;
 };
 
 export type PunchOp =
   | { op: "check"; key: string; done: boolean }
   | { op: "hide"; key: string; hidden: boolean }
   | { op: "add"; section: string; text: string; key: string }
-  | { op: "remove"; key: string };
+  | { op: "remove"; key: string }
+  | { op: "notes"; text: string }
+  | { op: "sign"; date: string; signature: string }
+  | { op: "unsign" };
 
 const slug = (s: string) =>
   s
@@ -273,7 +283,20 @@ export const PUNCH_TEMPLATE: PunchSection[] = RAW.map(([id, title, items]) => ({
 const SECTION_IDS = new Set(PUNCH_TEMPLATE.map((s) => s.id));
 const TEMPLATE_KEYS = new Set(PUNCH_TEMPLATE.flatMap((s) => s.items.map((i) => i.key)));
 
-export const emptyPunchState = (): PunchState => ({ done: {}, hidden: [], custom: [] });
+export const emptyPunchState = (): PunchState => ({
+  done: {},
+  hidden: [],
+  custom: [],
+  notes: "",
+  signoff: null,
+});
+
+const NOTES_MAX = 5000;
+/** A drawn signature is ~10–40 KB; this caps a runaway one. */
+const SIGNATURE_MAX = 300_000;
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isSignature = (v: unknown): v is string =>
+  typeof v === "string" && v.startsWith("data:image/png;base64,") && v.length <= SIGNATURE_MAX;
 
 /** A stored value, or anything else, as a PunchState. Unknown shapes read as empty. */
 export function asPunchState(v: unknown): PunchState {
@@ -290,12 +313,28 @@ export function asPunchState(v: unknown): PunchState {
           .filter((c) => c && typeof c.key === "string" && typeof c.text === "string")
           .map((c) => ({ key: c.key, section: String(c.section ?? ""), text: c.text }))
       : [],
+    notes: typeof o.notes === "string" ? o.notes : "",
+    signoff:
+      o.signoff && typeof o.signoff === "object" && isSignature(o.signoff.signature)
+        ? {
+            date: String(o.signoff.date ?? ""),
+            signature: o.signoff.signature,
+            by: String(o.signoff.by ?? ""),
+            at: String(o.signoff.at ?? ""),
+          }
+        : null,
   };
 }
 
 /** An op from the browser, checked. Null when it is not one. */
 export function asPunchOp(v: unknown): PunchOp | null {
   const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  if (o.op === "notes") return { op: "notes", text: String(o.text ?? "").slice(0, NOTES_MAX) };
+  if (o.op === "unsign") return { op: "unsign" };
+  if (o.op === "sign")
+    return typeof o.date === "string" && DATE.test(o.date) && isSignature(o.signature)
+      ? { op: "sign", date: o.date, signature: o.signature }
+      : null;
   const key = typeof o.key === "string" ? o.key.slice(0, 120) : "";
   if (!key) return null;
   if (o.op === "check") return { op: "check", key, done: !!o.done };
@@ -315,7 +354,8 @@ export const newCustomKey = () => `c-${Math.random().toString(36).slice(2, 10)}`
 
 /**
  * The state after one op. Ops on a key the job does not have are no-ops, and
- * only an added item can be removed — a template item is hidden instead.
+ * only an added item can be removed — a template item is hidden instead. A
+ * sign-off before every listed item is done is a no-op.
  */
 export function applyPunchOp(s: PunchState, op: PunchOp, by: string, at: string): PunchState {
   const known = (k: string) => TEMPLATE_KEYS.has(k) || s.custom.some((c) => c.key === k);
@@ -340,12 +380,26 @@ export function applyPunchOp(s: PunchState, op: PunchOp, by: string, at: string)
       const done = { ...s.done };
       delete done[op.key];
       return {
+        ...s,
         done,
         hidden: s.hidden.filter((k) => k !== op.key),
         custom: s.custom.filter((c) => c.key !== op.key),
       };
     }
+    case "notes":
+      return { ...s, notes: op.text };
+    case "sign":
+      if (!punchComplete(s)) return s;
+      return { ...s, signoff: { date: op.date, signature: op.signature, by, at } };
+    case "unsign":
+      return { ...s, signoff: null };
   }
+}
+
+/** Every listed (not hidden) item is done — what the sign-off waits for. */
+export function punchComplete(s: PunchState): boolean {
+  const rows = punchRows(s).flatMap((x) => x.rows.filter((r) => !r.hidden));
+  return rows.length > 0 && rows.every((r) => r.done);
 }
 
 export type PunchRow = { key: string; text: string; custom: boolean; hidden: boolean; done: PunchDone | null };

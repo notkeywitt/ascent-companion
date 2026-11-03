@@ -10,7 +10,9 @@ import { applyPunchOp, asPunchOp, asPunchState, emptyPunchState } from "@/lib/pu
  * Jobs page's Punch List tab.
  *
  *   GET ?jobId=          → { state }  (no row = the whole template, nothing done)
- *   POST { jobId, op }   → { state }  one change: check, hide, add or remove
+ *   POST { jobId, op }   → { state }  one change: check, hide, add, remove,
+ *                                     notes, sign or unsign. A sign before
+ *                                     every listed item is done → 409.
  *
  * POST sends ONE op, applied to the row as stored, so two people ticking
  * different items at once do not overwrite each other.
@@ -48,7 +50,10 @@ export async function POST(req: NextRequest) {
   const by = session?.user?.email ?? "";
   const at = new Date().toISOString();
   await ensureDb();
-  const state = applyPunchOp(await read(jobId), op, by, at);
+  const before = await read(jobId);
+  const state = applyPunchOp(before, op, by, at);
+  if (op.op === "sign" && state === before)
+    return NextResponse.json({ error: "Tick every item before signing off." }, { status: 409 });
   const row = { jobId, value: JSON.stringify(state), updatedAt: at, updatedBy: by };
   await db.insert(punchLists).values(row).onConflictDoUpdate({ target: punchLists.jobId, set: row });
   return NextResponse.json({ state });
