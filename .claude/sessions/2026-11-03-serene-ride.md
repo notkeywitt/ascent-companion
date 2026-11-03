@@ -2,9 +2,9 @@
 slug: serene-ride
 repo: ascent-companion
 branch: claude/serene-ride-r8v8me
-status: done
+status: shipped
 started: 2026-11-03T00:09:24Z
-updated: 2026-11-03T00:09:28Z
+updated: 2026-11-03T00:09:29Z
 goal: 
 next: confirm Turso call rate drops after deploy (Vercel outgoing_request to turso.io)
 ---

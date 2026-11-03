@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [serene-ride](.claude/sessions/2026-11-03-serene-ride.md) | 2026-11-03 | 1 | — |
 | [sunset-statement-reconciliation](.claude/sessions/2026-11-02-sunset-statement-reconciliation.md) | 2026-11-02 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-02 | 183 | — |
 | [tool-tracker-qr-scanning](.claude/sessions/2026-11-02-tool-tracker-qr-scanning.md) | 2026-11-02 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [beautiful-pascal](.claude/sessions/2026-10-26-beautiful-pascal.md) | 2026-10-28 | 2 | — |
 | [stoic-tesla](.claude/sessions/2026-10-27-stoic-tesla.md) | 2026-10-27 | 2 | — |
 | [sunset-bill-bulk-expense](.claude/sessions/2026-10-23-sunset-bill-bulk-expense.md) | 2026-10-23 | 3 | — |
-| [wizardly-goodall](.claude/sessions/2026-10-23-wizardly-goodall.md) | 2026-10-23 | 1 | New-hire paperwork: invite a hire, they sign in, fill a profile and sign the Dr… |
