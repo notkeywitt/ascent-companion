@@ -1,87 +1,16 @@
 {
-  "generatedAt": "2026-11-03T03:02:29Z",
+  "generatedAt": "2026-11-03T05:56:43Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "sunset-statement-reconciliation",
-      "file": "2026-11-02-sunset-statement-reconciliation.md",
-      "branch": "claude/sunset-statement-reconciliation-r91e9j",
-      "status": "shipped",
-      "started": "2026-11-02T22:03:35Z",
-      "updated": "2026-11-03T03:02:29Z",
-      "goal": "",
-      "next": "owner to press Create Bills on /payments; confirm cost types for the Buybacks and Deposit leaves",
-      "commits": [
-        {
-          "date": "2026-11-02",
-          "time": "22:03",
-          "sha": "a2eaf07",
-          "subject": "companion: link sunset statement lines to bills on any job",
-          "files": "CODEBASE_MAP.md, src/app/api/sunset-statement-links/route.ts, src/app/api/sunset-statements/reconcile/route.ts, src/app/payments/page.tsx, src/components/SunsetLinkPicker.tsx, src/db/index.ts, +4 more"
-        },
-        {
-          "date": "2026-11-02",
-          "time": "22:09",
-          "sha": "ca722dc",
-          "subject": "companion: give the office 88 70 00 leaf a cost type so create bills stops failing",
-          "files": "src/lib/jobtread.ts"
-        }
-      ]
-    },
-    {
-      "slug": "determined-davinci",
-      "file": "2026-11-03-determined-davinci.md",
-      "branch": "claude/determined-davinci-l7a5jx",
-      "status": "shipped",
-      "started": "2026-11-03T01:11:01Z",
-      "updated": "2026-11-03T01:11:11Z",
-      "goal": "",
-      "next": "owner checks the new stripe colours on the tracking-sheet bill list",
-      "commits": [
-        {
-          "date": "2026-11-03",
-          "time": "01:11",
-          "sha": "a64537a",
-          "subject": "companion: recolour bill stripe — yellow review, light blue approved, blue invoiced, green paid",
-          "files": "src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts"
-        }
-      ]
-    },
-    {
-      "slug": "serene-ride",
-      "file": "2026-11-03-serene-ride.md",
-      "branch": "claude/serene-ride-r8v8me",
-      "status": "shipped",
-      "started": "2026-11-03T00:09:24Z",
-      "updated": "2026-11-03T00:29:01Z",
-      "goal": "",
-      "next": "confirm Turso call rate drops after deploy (Vercel outgoing_request to turso.io)",
-      "commits": [
-        {
-          "date": "2026-11-03",
-          "time": "00:09",
-          "sha": "930f2e6",
-          "subject": "companion: stop edge and node fighting over the db schema marker",
-          "files": "src/auth.ts, src/db/index.ts, src/db/schemaFingerprint.test.ts"
-        },
-        {
-          "date": "2026-11-03",
-          "time": "00:29",
-          "sha": "3eb5b03",
-          "subject": "companion: say \"just updated\" on the loading screen after a deploy",
-          "files": "src/components/LoadingScreen.tsx, src/components/UpdateNotice.tsx"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-02T20:45:13Z",
+      "updated": "2026-11-03T05:56:43Z",
       "goal": "",
-      "next": "Owner approves the Create Bills write path, then npm run ship; test on one statement and check the Office job bill (88 70 00, net, PDF attached)",
+      "next": "Owner: review the refined bill coding panel on localhost:3000; ship on 'ship it'.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1363,6 +1292,84 @@
           "sha": "ad4873e",
           "subject": "companion: show invoiced to date under job to date on the jobs page",
           "files": "src/app/trackingsheet/Board.tsx, src/lib/depositRead.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "21:56",
+          "sha": "2964cb3",
+          "subject": "companion: refine bill coding panel, span rings over bills and coding",
+          "files": "src/app/trackingsheet/BillCodingCard.tsx, src/app/trackingsheet/Board.tsx, src/components/CostCodeSelect.tsx, src/components/SplitGrid.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "sunset-statement-reconciliation",
+      "file": "2026-11-02-sunset-statement-reconciliation.md",
+      "branch": "claude/sunset-statement-reconciliation-r91e9j",
+      "status": "shipped",
+      "started": "2026-11-02T22:03:35Z",
+      "updated": "2026-11-03T03:02:29Z",
+      "goal": "",
+      "next": "owner to press Create Bills on /payments; confirm cost types for the Buybacks and Deposit leaves",
+      "commits": [
+        {
+          "date": "2026-11-02",
+          "time": "22:03",
+          "sha": "a2eaf07",
+          "subject": "companion: link sunset statement lines to bills on any job",
+          "files": "CODEBASE_MAP.md, src/app/api/sunset-statement-links/route.ts, src/app/api/sunset-statements/reconcile/route.ts, src/app/payments/page.tsx, src/components/SunsetLinkPicker.tsx, src/db/index.ts, +4 more"
+        },
+        {
+          "date": "2026-11-02",
+          "time": "22:09",
+          "sha": "ca722dc",
+          "subject": "companion: give the office 88 70 00 leaf a cost type so create bills stops failing",
+          "files": "src/lib/jobtread.ts"
+        }
+      ]
+    },
+    {
+      "slug": "determined-davinci",
+      "file": "2026-11-03-determined-davinci.md",
+      "branch": "claude/determined-davinci-l7a5jx",
+      "status": "shipped",
+      "started": "2026-11-03T01:11:01Z",
+      "updated": "2026-11-03T01:11:11Z",
+      "goal": "",
+      "next": "owner checks the new stripe colours on the tracking-sheet bill list",
+      "commits": [
+        {
+          "date": "2026-11-03",
+          "time": "01:11",
+          "sha": "a64537a",
+          "subject": "companion: recolour bill stripe — yellow review, light blue approved, blue invoiced, green paid",
+          "files": "src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, src/lib/billInvoiceState.test.ts, src/lib/billInvoiceState.ts"
+        }
+      ]
+    },
+    {
+      "slug": "serene-ride",
+      "file": "2026-11-03-serene-ride.md",
+      "branch": "claude/serene-ride-r8v8me",
+      "status": "shipped",
+      "started": "2026-11-03T00:09:24Z",
+      "updated": "2026-11-03T00:29:01Z",
+      "goal": "",
+      "next": "confirm Turso call rate drops after deploy (Vercel outgoing_request to turso.io)",
+      "commits": [
+        {
+          "date": "2026-11-03",
+          "time": "00:09",
+          "sha": "930f2e6",
+          "subject": "companion: stop edge and node fighting over the db schema marker",
+          "files": "src/auth.ts, src/db/index.ts, src/db/schemaFingerprint.test.ts"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "00:29",
+          "sha": "3eb5b03",
+          "subject": "companion: say \"just updated\" on the loading screen after a deploy",
+          "files": "src/components/LoadingScreen.tsx, src/components/UpdateNotice.tsx"
         }
       ]
     },
