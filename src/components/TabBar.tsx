@@ -350,9 +350,9 @@ export function TabBar() {
   if (pathname === "/login" || pathname === "/privacy") return null;
 
   const items = barFor(access.role, access.can, pin);
-  const more = drawerFor(access.role, access.can, pin);
+  const more = drawerFor(access.role, access.can, pin, access.menu);
   const drawerH = Math.ceil(more.length / 4) * DRAWER_ROW_REM + 0.75;
-  const rail = railFor(access.role, access.can, pin);
+  const rail = railFor(access.role, access.can, pin, access.menu);
   // One slot is decoration, and it would cost every page 56px to say nothing.
   if (items.length < 2) return null;
   const active = activeBarKey(items, pathname);

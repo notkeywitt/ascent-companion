@@ -399,25 +399,93 @@ const DESK_TOP: BarSlot[] = [
 export const RAIL_TOP: Partial<Record<Role, BarSlot[]>> = { admin: DESK_TOP, office: DESK_TOP };
 
 /**
- * The iPad rail and desktop sidebar: the top group (RAIL_TOP, else the bar),
- * the pinned page, then — after a space — every other workspace this person can
- * open. The rail has the height the bar lacks, so nothing is left for the menu.
+ * An admin's edit to one role's side menu (Admin → Access → Side Menu), stored
+ * in the `role_menu` table. `add` puts items on the top group; `hide` takes
+ * items off. Both hold menu keys (`menuKey`). It changes what the sidebar
+ * LISTS, never what the role can open: a hidden page still opens from the
+ * header search or a link, and an added page the role cannot open is skipped.
  */
-export function railFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
+export interface RoleMenu {
+  add: string[];
+  hide: string[];
+}
+export const NO_MENU_CHANGE: RoleMenu = { add: [], hide: [] };
+
+/** The Admin workspace never leaves the admin role's menu, so an edit here
+ *  cannot strand the editor that would undo it. */
+const ADMIN_MENU_KEY = "ws:admin";
+
+/** A side-menu item's stored key: "today", "ws:<workspace id>" or "page:<view>".
+ *  Prefixed because a workspace and a page can share an id ("employees"). */
+export function menuKey(item: BarItem): string {
+  if (item.key === "today") return "today";
+  return item.workspace ? `ws:${item.workspace}` : `page:${item.view}`;
+}
+
+function slotForKey(key: string): BarSlot | null {
+  if (key === "today") return { kind: "today" };
+  if (key.startsWith("ws:")) {
+    const id = key.slice(3);
+    return WORKSPACES.some((w) => w.id === id) ? { kind: "workspace", id } : null;
+  }
+  if (key.startsWith("page:")) {
+    const view = key.slice(5);
+    return TAB_BY_VIEW.has(view) ? { kind: "tab", view } : null;
+  }
+  return null;
+}
+
+/** Every item an admin can put on a side menu, in menu order: Home, then each
+ *  workspace followed by its own pages. A single-page workspace offers only
+ *  the workspace. */
+export const MENU_CHOICES: { key: string; label: string; view: string }[] = [
+  { key: "today", label: TODAY.label, view: "" },
+  ...WORKSPACES.flatMap((w) => [
+    { key: `ws:${w.id}`, label: `${w.title} (all)`, view: w.tabs[0].view },
+    ...(w.tabs.length > 1 ? w.tabs.map((t) => ({ key: `page:${t.view}`, label: t.label, view: t.view })) : []),
+  ]),
+];
+const MENU_KEYS = new Set(MENU_CHOICES.map((c) => c.key));
+
+/** Keep only known menu keys, once each (drops stale or garbage input). */
+export function cleanMenuKeys(v: unknown): string[] {
+  return Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && MENU_KEYS.has(x)))] : [];
+}
+
+/**
+ * The iPad rail and desktop sidebar: the top group (RAIL_TOP, else the bar),
+ * the pinned page, the role's added items, then — after a space — every other
+ * workspace this person can open. The role's hidden items are left out. The
+ * rail has the height the bar lacks, so nothing is left for the menu.
+ */
+export function railFor(
+  role: Role,
+  can: (view: string) => boolean,
+  pin = "",
+  menu: RoleMenu = NO_MENU_CHANGE,
+): BarItem[] {
+  const hide = new Set(menu.hide);
+  if (role === "admin") hide.delete(ADMIN_MENU_KEY);
+  const shown = (i: BarItem) => !hide.has(menuKey(i));
   const top = RAIL_TOP[role];
   const out = top ? resolveSlots(top, can) : barFor(role, can, pin);
   const item = top ? pinItem(out, can, pin) : null;
   if (item && !out.some((i) => i.view === item.view)) out.push(item);
-  const topCount = out.length;
+  const added = menu.add.map(slotForKey).filter((s): s is BarSlot => s !== null);
+  for (const i of resolveSlots(added, can)) {
+    if (!out.some((o) => menuKey(o) === menuKey(i))) out.push(i);
+  }
+  const rail = out.filter(shown);
+  const topCount = rail.length;
   for (const ws of WORKSPACES) {
     const tabs = reachableTabs(ws, can);
     // Skip a workspace already on the rail, or one whose every page already is.
-    if (!tabs.length || out.some((i) => i.workspace === ws.id)) continue;
-    if (tabs.every((t) => out.some((i) => i.view === t.view && !i.workspace))) continue;
-    out.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
+    if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`)) continue;
+    if (tabs.every((t) => rail.some((i) => i.view === t.view && !i.workspace))) continue;
+    rail.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
   }
-  if (out.length > topCount) out[topCount] = { ...out[topCount], gap: true };
-  return out;
+  if (rail.length > topCount && topCount > 0) rail[topCount] = { ...rail[topCount], gap: true };
+  return rail;
 }
 
 /**
@@ -457,7 +525,12 @@ export const DRAWER_SIZE = 12;
  * not already a bar slot; then single pages, in workspace order, that no slot
  * already opens. At most DRAWER_SIZE, and only what this person can open.
  */
-export function drawerFor(role: Role, can: (view: string) => boolean, pin = ""): BarItem[] {
+export function drawerFor(
+  role: Role,
+  can: (view: string) => boolean,
+  pin = "",
+  menu: RoleMenu = NO_MENU_CHANGE,
+): BarItem[] {
   const bar = barFor(role, can, pin);
   const taken = new Set(bar.map((i) => i.href));
   const out: BarItem[] = [];
@@ -467,7 +540,7 @@ export function drawerFor(role: Role, can: (view: string) => boolean, pin = ""):
     out.push({ ...i, gap: undefined });
   };
   const page = (t: WorkspaceTab): BarItem => ({ key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] });
-  for (const i of railFor(role, can, pin)) {
+  for (const i of railFor(role, can, pin, menu)) {
     if (bar.some((b) => b.key === i.key)) continue;
     // A workspace whose first page is a bar slot (Time, My Work) gives its
     // next page instead, under that page's own name.

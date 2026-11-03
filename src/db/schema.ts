@@ -106,6 +106,19 @@ export const roleAccess = sqliteTable("role_access", {
 export type RoleAccessRow = typeof roleAccess.$inferSelect;
 
 /**
+ * An admin's edit to one role's side menu (Admin → Access → Side Menu). No row
+ * = the shipped menu (RAIL_TOP / BARS in lib/workspaces.ts). It changes what
+ * the sidebar lists, never what the role can open — that is role_access.
+ * Read fresh on every page render, like page_copy, so a save shows at once.
+ */
+export const roleMenu = sqliteTable("role_menu", {
+  role: text("role").primaryKey(), // "admin" | "office" | "lead" | "field"
+  itemsAdd: text("items_add").notNull().default("[]"), // JSON menu keys, added to the top group
+  itemsHide: text("items_hide").notNull().default("[]"), // JSON menu keys, taken off the menu
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+/**
  * DB-editable layer on top of the hardcoded defaults in lib/digest/settings.ts
  * — lets an admin turn a check on/off or tune its config from /admin without a
  * redeploy. One row per check id; no row = use the hardcoded default

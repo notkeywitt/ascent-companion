@@ -16,6 +16,7 @@ import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
 import { loadCopyOverrides } from "@/lib/copyService";
+import { loadRoleMenu } from "@/lib/roleMenuService";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
@@ -112,6 +113,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       views = previewRole === "admin" ? [...ALL_VIEW_IDS] : await roleBaseFor(previewRole);
     }
   }
+  // The role's side-menu edit (Admin → Access → Side Menu), after any preview,
+  // so a preview shows that role's menu. Falls back to the shipped menu.
+  const menu = await loadRoleMenu(role);
 
   return (
     <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
@@ -158,7 +162,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <CopyProvider overrides={copyOverrides} canEdit={isAdmin}>
         {/* Admin: edit registry text where it sits (the menu's "Edit page text"). */}
         <CopyInPlace />
-        <AccessProvider role={role} views={views}>
+        <AccessProvider role={role} views={views} menu={menu}>
             {/* Bills whose vendor has no JobTread account are imported but never
                 pushed, and the failure is otherwise invisible. The provider checks
                 once per load (only for users who can act on it); the popup finds

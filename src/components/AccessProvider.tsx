@@ -2,18 +2,22 @@
 
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { Role } from "@/lib/views";
+import { NO_MENU_CHANGE, type RoleMenu } from "@/lib/workspaces";
 
 interface Access {
   role: Role;
   views: Set<string>;
   /** True if the current user may see the given view id. */
   can: (viewId: string) => boolean;
+  /** The role's side-menu edit from Admin → Access (lib/workspaces.ts railFor). */
+  menu: RoleMenu;
 }
 
 const AccessContext = createContext<Access>({
   role: "field",
   views: new Set<string>(),
   can: () => false,
+  menu: NO_MENU_CHANGE,
 });
 
 /**
@@ -24,18 +28,20 @@ const AccessContext = createContext<Access>({
 export function AccessProvider({
   role,
   views,
+  menu = NO_MENU_CHANGE,
   children,
 }: {
   role: Role;
   views: string[];
+  menu?: RoleMenu;
   children: ReactNode;
 }) {
   const key = views.join("|");
   const value = useMemo<Access>(() => {
     const set = new Set(views);
-    return { role, views: set, can: (id) => set.has(id) };
+    return { role, views: set, can: (id) => set.has(id), menu };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, key]);
+  }, [role, key, menu]);
   return <AccessContext.Provider value={value}>{children}</AccessContext.Provider>;
 }
 

@@ -155,6 +155,7 @@ including edge middleware.
 | `config.ts` | Server-side Pave config from env (`getPaveConfig`) + write gates. Never import into client code. |
 | `copy.ts` ⟂ | **Registry of editable on-screen text** — every string the office can reword from Admin → Page Text. English lives here as the shipped default; the DB only overrides. |
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |
+| `roleMenuService.ts` | Server read of `role_menu`, each role's side-menu edit from Admin → Access (applied by `railFor` in `workspaces.ts`). Returns no change on any DB failure. |
 | `views.ts` ⟂ | **Single source of truth for role-gated views** — `VIEWS`, `ROLE_VIEWS`, `resolveAllowedViews`, `viewIdForPath`. |
 | `origin.ts` ⟂ | **The cross-site (CSRF) guard** — `isSameSiteRequest` decides whether a state-changing request came from our own pages, by comparing its `Origin` against the `Host` it arrived at. Pure, so `middleware.ts` can call it on the edge. It exists because the session cookie is `SameSite=None` for the Chrome side panel, which switches the browser's own protection off for the whole app. |
 | `authMode.ts` ⟂ | **`noAuthConfigured()` — is any sign-in method configured at all?** One answer for the six places that need a local dev machine to work without Google OAuth. Every caller treats `true` as "let it through", so this is the one place a fail-open branch lives. |
@@ -630,7 +631,7 @@ Grouped by domain; each folder is `…/route.ts`.
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
 
-`schema.ts` tables: `allowed_users`, `role_access`, `usage_events`,
+`schema.ts` tables: `allowed_users`, `role_access`, `role_menu`, `usage_events`,
 `saved_bills`, `feature_requests`, `flagged_time_entries`,
 `labor_rate_catalog`, `labor_rate_groups`, `leads`, `lead_activities`,
 `lead_settings` (ONE row — the org's amber/red quiet thresholds; no row means

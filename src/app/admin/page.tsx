@@ -19,6 +19,13 @@ import {
   resolveAllowedViews,
   type Role,
 } from "@/lib/views";
+import {
+  MENU_CHOICES,
+  NO_MENU_CHANGE,
+  menuKey,
+  railFor,
+  type RoleMenu,
+} from "@/lib/workspaces";
 import { ROLE_LABEL, PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { startPreview, stopPreview } from "@/lib/previewClient";
 import { ActivityPanel } from "./ActivityPanel";
@@ -108,6 +115,7 @@ function AccessPanel() {
   const [envAdmins, setEnvAdmins] = useState<string[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [roleOverrides, setRoleOverrides] = useState<RoleOverrides>({});
+  const [roleMenus, setRoleMenus] = useState<Partial<Record<Role, RoleMenu>>>({});
   const [me, setMe] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<Role>("field");
@@ -134,6 +142,9 @@ function AccessPanel() {
   }
   useEffect(() => {
     load();
+    fetch("/api/team/menu")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((j) => j && setRoleMenus(j.roleMenus ?? {}));
   }, []);
 
   // Whether the admin is currently viewing the app as another role, read from
@@ -156,6 +167,15 @@ function AccessPanel() {
       body: JSON.stringify({ role: r, ...fields }),
     });
     if (res.ok) setRoleOverrides((await res.json()).roleOverrides ?? {});
+  }
+
+  async function patchMenu(r: Role, menu: RoleMenu) {
+    const res = await fetch("/api/team/menu", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: r, ...menu }),
+    });
+    if (res.ok) setRoleMenus((await res.json()).roleMenus ?? {});
   }
 
   async function add(e: React.FormEvent) {
@@ -249,6 +269,24 @@ function AccessPanel() {
       <ul className="mb-5 space-y-2">
         {EDITABLE_ROLES.map((r) => (
           <RoleRow key={r} role={r} override={roleOverrides[r] ?? NO_OVERRIDE} patchRole={patchRole} />
+        ))}
+      </ul>
+
+      <SectionLabel className="mb-1">Side Menu</SectionLabel>
+      <p className="mb-2 text-xs text-neutral-500">
+        What each role&rsquo;s side menu lists, on an iPad or a computer. Removing an item
+        does not take away access: the page still opens from search or a link. An added
+        item shows only if the role can open it. Changes show on the next page load.
+      </p>
+      <ul className="mb-5 space-y-2">
+        {ROLES.map((r) => (
+          <MenuRow
+            key={r}
+            role={r}
+            menu={roleMenus[r] ?? NO_MENU_CHANGE}
+            roleOverride={roleOverrides[r] ?? NO_OVERRIDE}
+            patchMenu={patchMenu}
+          />
         ))}
       </ul>
 
@@ -489,6 +527,121 @@ function RoleRow({
               </div>
             ))}
           </div>
+        </div>
+      )}
+    </li>
+  );
+}
+
+function MenuRow({
+  role,
+  menu,
+  roleOverride,
+  patchMenu,
+}: {
+  role: Role;
+  menu: RoleMenu;
+  roleOverride: RoleOverride;
+  patchMenu: (role: Role, menu: RoleMenu) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  // What the role can open (its Role Defaults included), which decides what
+  // its menu can list.
+  const can = useMemo(() => {
+    if (role === "admin") return () => true;
+    const views = resolveAllowedViews(role, roleOverride.viewsAllow, roleOverride.viewsDeny);
+    return (id: string) => views.has(id);
+  }, [role, roleOverride]);
+  const items = useMemo(() => railFor(role, can, "", menu), [role, can, menu]);
+  const onMenu = new Set(items.map(menuKey));
+  const choices = MENU_CHOICES.filter((c) => !onMenu.has(c.key) && (c.view === "" || can(c.view)));
+  const changeCount = menu.add.length + menu.hide.length;
+
+  function remove(key: string) {
+    if (menu.add.includes(key)) patchMenu(role, { ...menu, add: menu.add.filter((k) => k !== key) });
+    else patchMenu(role, { ...menu, hide: [...menu.hide, key] });
+  }
+
+  function addItem(key: string) {
+    // Un-hiding puts a shipped item back where it was; anything else joins the
+    // top group.
+    const next = { add: menu.add, hide: menu.hide.filter((k) => k !== key) };
+    if (!railFor(role, can, "", next).some((i) => menuKey(i) === key)) next.add = [...next.add, key];
+    patchMenu(role, next);
+  }
+
+  return (
+    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
+      <div className="flex items-center justify-between gap-2">
+        <span className="font-medium">{ROLE_LABEL[role]}</span>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          className="shrink-0 text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
+        >
+          Menu{changeCount > 0 ? ` (${changeCount})` : ""}
+        </button>
+      </div>
+
+      {open && (
+        <div className="mt-3 border-t border-line-soft pt-3 dark:border-white/10">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs text-neutral-500">
+              The <strong>{ROLE_LABEL[role]}</strong> side menu, top to bottom.
+            </span>
+            {changeCount > 0 && (
+              <button
+                onClick={() => patchMenu(role, NO_MENU_CHANGE)}
+                className="shrink-0 text-xs font-semibold text-neutral-500 hover:text-accent"
+              >
+                Reset to default
+              </button>
+            )}
+          </div>
+          <ul className="mb-3 divide-y divide-line-soft">
+            {items.map((i) => {
+              const key = menuKey(i);
+              const locked = role === "admin" && key === "ws:admin";
+              return (
+                <li key={key} className={`flex items-center justify-between gap-2 py-1.5 ${i.gap ? "mt-2" : ""}`}>
+                  <span className="min-w-0 truncate">
+                    {i.label}
+                    {menu.add.includes(key) && (
+                      <span className="ml-2 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                        added
+                      </span>
+                    )}
+                  </span>
+                  {locked ? (
+                    <span className="shrink-0 text-xs text-neutral-400">Always shown</span>
+                  ) : (
+                    <button
+                      onClick={() => remove(key)}
+                      className="shrink-0 text-xs font-semibold text-danger hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </li>
+              );
+            })}
+            {items.length === 0 && <li className="py-1.5 text-xs text-neutral-500">Nothing on this menu.</li>}
+          </ul>
+          {choices.length > 0 && (
+            <Select
+              value=""
+              onChange={(e) => e.target.value && addItem(e.target.value)}
+              className="w-full !py-1 text-xs"
+              aria-label={`Add an item to the ${ROLE_LABEL[role]} menu`}
+            >
+              <option value="">Add an item…</option>
+              {choices.map((c) => (
+                <option key={c.key} value={c.key}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </div>
       )}
     </li>

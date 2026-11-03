@@ -8,6 +8,7 @@ import {
   WORKSPACES,
   activeBarKey,
   barFor,
+  cleanMenuKeys,
   drawerFor,
   locate,
   railFor,
@@ -156,6 +157,39 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/bill/123")).toBe("close");
     expect(activeBarKey(rail, "/add-bill")).toBe("close");
     expect(activeBarKey(rail, "/bill-search")).not.toBe("close");
+  });
+});
+
+describe("a role's side-menu edit", () => {
+  const can = (role: (typeof ROLES)[number]) => {
+    const views = resolveAllowedViews(role);
+    return (v: string) => views.has(v);
+  };
+  it("takes a hidden item off the top group and the rest", () => {
+    const keys = railFor("office", can("office"), "", { add: [], hide: ["page:vendors", "ws:help"] }).map((i) => i.key);
+    expect(keys).not.toContain("vendors");
+    expect(keys).not.toContain("help");
+    expect(keys.slice(0, 6)).toEqual(["today", "close", "employees", "clients", "time", "tools"]);
+  });
+  it("puts an added item at the end of the top group, before the space", () => {
+    const items = railFor("office", can("office"), "", { add: ["page:bills"], hide: [] });
+    expect(items[7].key).toBe("bills");
+    expect(items[8].gap).toBe(true);
+  });
+  it("skips an added item the role cannot open", () => {
+    const keys = railFor("field", can("field"), "", { add: ["ws:admin"], hide: [] }).map((i) => i.key);
+    expect(keys).not.toContain("admin");
+  });
+  it("never takes Admin off the admin menu", () => {
+    const keys = railFor("admin", can("admin"), "", { add: [], hide: ["ws:admin"] }).map((i) => i.key);
+    expect(keys).toContain("admin");
+  });
+  it("keeps only known keys", () => {
+    expect(cleanMenuKeys(["today", "ws:clients", "page:bills", "ws:nope", 3, "today"])).toEqual([
+      "today",
+      "ws:clients",
+      "page:bills",
+    ]);
   });
 });
 

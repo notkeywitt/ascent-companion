@@ -119,7 +119,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "10lp-3bzr5q";
+export const SCHEMA_FINGERPRINT = "10uo-ucx930";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -226,6 +226,15 @@ async function applySchema() {
       role TEXT PRIMARY KEY,
       views_allow TEXT NOT NULL DEFAULT '[]',
       views_deny TEXT NOT NULL DEFAULT '[]',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  // Per-role side-menu edits on top of the shipped menu (lib/workspaces.ts).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS role_menu (
+      role TEXT PRIMARY KEY,
+      items_add TEXT NOT NULL DEFAULT '[]',
+      items_hide TEXT NOT NULL DEFAULT '[]',
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
