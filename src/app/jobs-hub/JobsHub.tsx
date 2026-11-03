@@ -292,8 +292,8 @@ export function JobsHub() {
             month's totals beside the map while no job is picked). */}
         <div className="grid gap-6 xl:h-[360px] xl:grid-cols-[320px_minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)]">
           {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it.
-              A phone or iPad picks from the dropdown over the map instead. */}
-          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 xl:flex">
+              A phone or iPad held upright picks from the dropdown over the map instead. */}
+          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 landscape:flex xl:flex">
             {!jobs && <Loading />}
             <div className="no-scrollbar max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto xl:max-h-none">
               {byPhase.map(([phase, list]) => (
@@ -399,9 +399,9 @@ export function JobsHub() {
             </div>
           </div>
           {/* The map, on the page beside the cards (owner, 2026-11-01). On a
-              phone or iPad it comes first, under the jobs as a dropdown (owner,
+              phone or iPad held upright it comes first, under the jobs as a dropdown (owner,
               2026-11-03). */}
-          <div className="order-first flex min-h-0 flex-col gap-3 xl:order-none">
+          <div className="order-first flex min-h-0 flex-col gap-3 landscape:order-none xl:order-none">
             <Select
               aria-label="Job"
               value={selectedId ?? ""}
@@ -411,7 +411,7 @@ export function JobsHub() {
                 const id = e.target.value || selectedId;
                 if (id) pick(id);
               }}
-              className="xl:hidden"
+              className="landscape:hidden xl:hidden"
             >
               <option value="">{jobs ? "All jobs" : "Loading jobs…"}</option>
               {byPhase.map(([phase, list]) => (
