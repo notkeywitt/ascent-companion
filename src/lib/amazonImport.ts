@@ -282,6 +282,28 @@ export function orderExternalId(orderId: string): string {
 }
 
 /**
+ * The Amazon Business items report for one whole month ("YYYY-MM"): the link
+ * Amazon's monthly "Your monthly spending summary" email carries, built here so
+ * it works for any month and before the email arrives. Amazon counts months
+ * from 0: the email for October 2026 says `month=9`, `day=31`.
+ */
+export function amazonReportUrl(ym: string): string {
+  const [y, m] = ym.split("-").map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  const q = new URLSearchParams({
+    reportType: "items_report_1",
+    dateSpanSelection: "CUSTOM_RANGE",
+    "fromDate.day": "1",
+    "fromDate.month": String(m - 1),
+    "fromDate.year": String(y),
+    "toDate.day": String(lastDay),
+    "toDate.month": String(m - 1),
+    "toDate.year": String(y),
+  });
+  return `https://www.amazon.com/b2b/aba/reports?${q}`;
+}
+
+/**
  * Best-effort job guess from the PO Number the office typed at checkout, e.g.
  * "Berger - Bunkhouse". The part before the dash must appear in a job's
  * customer or name; each later part narrows to the jobs whose name contains it.

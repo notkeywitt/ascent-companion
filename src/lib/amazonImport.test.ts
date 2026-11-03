@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { orderExtraLines, parseAmazonCsv, reconcileGap, suggestJob } from "./amazonImport";
+import {
+  amazonReportUrl,
+  orderExtraLines,
+  parseAmazonCsv,
+  reconcileGap,
+  suggestJob,
+} from "./amazonImport";
 
 /**
  * The bug these cover: the import built a bill from product lines + sales tax
@@ -133,5 +139,20 @@ describe("suggestJob", () => {
   it("still guesses a one-job customer", () => {
     expect(suggestJob("Ferron - Masonry", jobs)).toBe("ferr");
     expect(suggestJob("JR", jobs)).toBe("");
+  });
+});
+
+describe("amazonReportUrl", () => {
+  it("matches the October 2026 email link (zero-based month)", () => {
+    expect(amazonReportUrl("2026-10")).toBe(
+      "https://www.amazon.com/b2b/aba/reports?reportType=items_report_1&dateSpanSelection=CUSTOM_RANGE" +
+        "&fromDate.day=1&fromDate.month=9&fromDate.year=2026&toDate.day=31&toDate.month=9&toDate.year=2026",
+    );
+  });
+
+  it("ends each month on its last day", () => {
+    expect(amazonReportUrl("2026-09")).toContain("toDate.day=30&toDate.month=8&");
+    expect(amazonReportUrl("2028-02")).toContain("toDate.day=29&toDate.month=1&");
+    expect(amazonReportUrl("2027-01")).toContain("fromDate.month=0&fromDate.year=2027");
   });
 });

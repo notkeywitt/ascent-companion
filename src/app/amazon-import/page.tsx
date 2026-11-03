@@ -17,6 +17,7 @@ import {
   btn,
 } from "@/components/ui";
 import {
+  amazonReportUrl,
   orderExtraLines,
   parseAmazonCsv,
   reconcileGap,
@@ -123,6 +124,8 @@ export default function AmazonImportPage() {
   const [result, setResult] = useState<PostResult | null>(null);
 
   const months = useMemo(monthOptions, []);
+  // The month whose Amazon report to open; last month, the one the import is for.
+  const [reportYm, setReportYm] = useState(() => months[1].ym);
 
   useEffect(() => {
     fetch("/api/jobs")
@@ -538,15 +541,31 @@ export default function AmazonImportPage() {
               a month as CSV. Each order becomes one vendor bill; the job is guessed from the PO
               Number you typed at checkout.
             </p>
-            {/* Straight to the items report, month to date (owner, 2026-11-02). */}
-            <a
-              href="https://www.amazon.com/b2b/aba/reports?reportType=items_report_1&dateSpanSelection=MONTH_TO_DATE&ref=ab_ppx_hpr_redirect_report"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-2 inline-block text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
-            >
-              Open the Amazon Business items report ↗
-            </a>
+            {/* Straight to one month's items report: the link in Amazon's monthly
+                spending summary email (owner, 2026-11-03). */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="w-48">
+                <Select
+                  value={reportYm}
+                  onChange={(e) => setReportYm(e.target.value)}
+                  aria-label="Report month"
+                >
+                  {months.map((m) => (
+                    <option key={m.ym} value={m.ym}>
+                      {m.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <a
+                href={amazonReportUrl(reportYm)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-semibold text-accent hover:underline dark:text-accent-soft"
+              >
+                Open the Amazon Business items report ↗
+              </a>
+            </div>
           </Card>
 
           <Card>
