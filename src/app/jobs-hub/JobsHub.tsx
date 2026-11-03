@@ -11,7 +11,7 @@ import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
 import { LopezMap } from "@/components/LopezMap";
-import { Card, Loading, Segmented, Skeleton } from "@/components/ui";
+import { Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
@@ -291,8 +291,9 @@ export function JobsHub() {
             picked job's Job Board card with the map in its top right (the
             month's totals beside the map while no job is picked). */}
         <div className="grid gap-6 xl:h-[360px] xl:grid-cols-[320px_minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)]">
-          {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it. */}
-          <Card pad={false} className="flex min-h-0 min-w-0 flex-col overflow-hidden p-3">
+          {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it.
+              A phone picks from the dropdown over the map instead. */}
+          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 pad:flex">
             {!jobs && <Loading />}
             <div className="no-scrollbar max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto xl:max-h-none">
               {byPhase.map(([phase, list]) => (
@@ -397,8 +398,38 @@ export function JobsHub() {
               </div>
             </div>
           </div>
-          {/* The map, on the page beside the cards (owner, 2026-11-01). */}
-          <div className="min-h-64 xl:min-h-0">{map}</div>
+          {/* The map, on the page beside the cards (owner, 2026-11-01). On a
+              phone it comes first, under the jobs as a dropdown (owner,
+              2026-11-03). */}
+          <div className="order-first flex min-h-0 flex-col gap-3 pad:order-none">
+            <Select
+              aria-label="Job"
+              value={selectedId ?? ""}
+              disabled={!jobs}
+              // "All jobs" closes the open job: pick() toggles it off.
+              onChange={(e) => {
+                const id = e.target.value || selectedId;
+                if (id) pick(id);
+              }}
+              className="pad:hidden"
+            >
+              <option value="">{jobs ? "All jobs" : "Loading jobs…"}</option>
+              {byPhase.map(([phase, list]) => (
+                <optgroup key={phase} label={phase}>
+                  {list.map((j) => {
+                    const r = byJob.get(j.id);
+                    return (
+                      <option key={j.id} value={j.id}>
+                        {jobLabel(j)}
+                        {r && r.bills + r.labor > 0 ? ` · ${money0(r.bills + r.labor)}` : ""}
+                      </option>
+                    );
+                  })}
+                </optgroup>
+              ))}
+            </Select>
+            <div className="min-h-64 flex-1 xl:min-h-0">{map}</div>
+          </div>
         </div>
 
 
