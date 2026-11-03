@@ -225,6 +225,24 @@ including edge middleware.
 | `mileagePlace.ts` | **A From or To in plain words.** `resolvePlace` matches "Office", "the shop", "the dump", "Berger" or "#142" against the open jobs and the crew's regular stops (`KNOWN_PLACES`: Sunset, Blossom, LVM, the dump — add one there), and returns an address for Google to route. Office and Shop are ordinary jobs under the "Ascent" customer. Text that names no job is routed as typed; text that fits several jobs is refused with the names. `suggestPlaces` feeds the list that drops under each field as the driver types (`src/app/mileage-tracker/PlaceInput.tsx`). Pure — the page passes in the job list it holds. |
 | `nearestJob.ts` | **"Which job am I standing on?"** — the location-aware half of the field job pickers (`JobPicker`'s `showNearest`, Employee Time's job sheet). `useNearestJobs(jobs, enabled)` turns the device's fix plus each job's `location.latitude/longitude` into a distance per job and one nearest job. It asks for the fix only when a picker OPENS, never on mount, and remembers a denial for two minutes so re-opening the list can't nag. The picker's DEFAULT is still the last job logged; this only reorders the menu. |
 | `sentry.shared.ts` | Shared Sentry init. |
+| `billingMonths.ts` | **Billing months — the ONE list, the ONE label and the ONE issueDate rule** (a month's bills carry its LAST DAY as `issueDate`; `ym` "2026-07" is the key). Every month picker builds its options here. |
+| `money.ts` | `money` / `money0` — dollars as the app shows them: en-US, minus before the sign, and "—" (never $0.00) for a missing value. |
+| `jtLinks.ts` | Links OUT to JobTread's own web app, one definition per destination. Every URL shape is one the owner copied from the address bar, dated (the time page's org and per-job addresses, its `userId`/`startDate`/`endDate`/`timeEntryId` params). |
+| `combineLines.ts` | Combining two bill lines that share a cost code. The request is built once and STAGED, then applied at Save before the line writes (it deletes lines those writes would target), so Revert undoes it like any other edit. |
+| `splitBill.ts` | Split a draft bill in two: the picked lines move to a new draft bill (same job, vendor, dates, terms, a copy of the PDF, invoice number "-2"). Every line lands on the new bill before any comes off the old one. Backs `/api/split-bill`. |
+| `splitBillClient.ts` | The browser half of Split bill — one call and one outcome message for every host of the coding card. |
+| `qboLock.ts` | **The QuickBooks lock** — a bill or invoice already in QuickBooks cannot be edited or deleted by any role (owner, 2026-09-09). The one exception is a pure re-code, which moves no money. |
+| `invoicingEmail.ts` ⟂ | The month's Invoicing Package EMAIL: one item per job linking its tracking sheet, QuickBooks invoice and JobTread invoice. The route gathers the inputs; Apps Script attaches the PDFs and saves the Gmail draft. |
+| `monthActions.ts` | When each month-closing action last ran, per billing month (`month_action_runs`). Stamped by the action's own route on success; read by `/api/month-actions` for the Tracking Sheets all-jobs cards. |
+| `monthCostByJob.ts` | One billing month's cost per job and cost code (`getMonthCostByJob`), in the shape the cost rings take. Feeds `/api/trackingsheet/month-donuts`. |
+| `warranty.ts` | Warranty work (88 90 00) is Ascent's own cost: OUT of every per-job figure, IN the all-jobs month totals as its own slice. Keep in sync with `TRACKING_WARRANTY_CSI` in appscript `TrackingSheets.js`. |
+| `lopezMap.ts` ⟂ | The Lopez Island map's geometry: the OpenStreetMap coastline as one SVG path, and the flat projection that puts a job's latitude/longitude on it. |
+| `vendorCoi.ts` ⟂ | Vendor COI file names ("<Vendor> COI - <year>"), matching appscript `VendorCoi.js`. |
+| `vendorMail.ts` | **Did every vendor invoice get captured?** Mail from the vendor addresses on file in JobTread, joined to the bills. Read-only; the vendor address index is both its guarantee and its blind spot. |
+| `payRates.ts` | Pay rates are office information: the rate is stripped on the server before the roster leaves it, so a field phone never holds it. |
+| `leaveImport.ts` ⟂ | The TSheets/QuickBooks PTO and Sick balance CSV → a plan of signed adjustments per roster employee. Pure; `leaveService.ts` does the writes. |
+| `leaveLast.ts` ⟂ | Puts PTO and Sick Time at the bottom of a job's Work list on the time clock. |
+| `safetyTopics.ts` ⟂ | The safety meeting topic catalog — a year-plus of weekly talks picked for a small residential crew, each with its own talking points so it works with no signal. |
 
 ### `src/lib/invoiceReview/` — the monthly client-invoice review
 
@@ -282,6 +300,7 @@ Staged expansion plan: `INVOICE_ACCURACY_PLAN.md`.
 | `checks/markupDrift.ts` ⟂ | A customer's blended markup this month against their OWN recent median. Ascent charges different markups to different customers, so there is no house rate to check against — this check has no configured version that would work, only a learned one. Month-scoped so a customer with three jobs yields one finding, and it reports both directions (under-billing is the loss; over-billing is what the client notices). |
 | `checks/vendorSilent.ts` ⟂ | The first check that reads the review's own memory rather than this month's evidence: a vendor who bills four months in five and billed nothing this month. Cost-plus means that is missing REVENUE, and an invoice that was never sent leaves no trace anywhere else. Strict by design, and silent without enough history. |
 | `run.ts` | The order of operations: evidence → checks → rulings → narrative → file the run. Thin by design. |
+| `investigations.ts` | The status line of a month's investigation pass (running / done / error, one row per month in `invoice_review_investigations`). The pass runs detached, and the page polls this row. |
 
 Tests: `checks.test.ts` (what each check decides about money — the backup
 matcher against the real filename convention, every math tolerance, the
@@ -345,6 +364,11 @@ while its checks are off.
 | `checks/jobtreadTodos.ts` | Open JobTread to-dos (`isToDo=true`, `progress` null or `<1`), overdue or due within the window, grouped by assignee. Undated ones are skipped by default — a morning glance, not a backlog dump. Live-confirmed 2026-08-31: 223 to-dos org-wide, 42 open, 7 overdue + 3 due inside 7 days. |
 | `checks/emailSignals.ts` | Appointments and action items *mentioned in* recent inbox email, via ONE Claude pass. **The only check that sends email BODY text off-site** — every other one reads metadata only. The body is truncated and quote-stripped on the Apps Script side (`digestEmailContent`) before it ever reaches this app, and only the extracted result is kept. |
 | `checks/emailFollowUps.ts` | Inbox threads whose last message came from outside and went unanswered past a business-day threshold. |
+| `claude.ts` | The digest's OWN Claude client: the email-signals extraction and the reply-box parser. Separate from `claudeExtract.ts` and `anthropic.ts` on purpose. |
+| `overrides.ts` | The digest's live settings: `settings.ts` defaults layered with an admin's changes from `/admin` (`digest_settings_overrides`). Pure merge plus one DB read, read fresh every run. |
+| `checks/crewActivity.ts` | Who worked where yesterday, and who is clocked in now, from JobTread time entries. |
+| `checks/digestTodos.ts` | The office's own reminders set through the reply box (`digest_todos`) — the one check that reads the Companion's own database. |
+| `checks/jobtreadSchedule.ts` | JobTread's dated schedule items (site visits, inspections, installs) today or soon, filed under Calendar. |
 
 Items in a category flagged `dismissible` in `settings.ts` (To-Do, Follow-ups)
 carry a Dismiss button on the card. It POSTs `/api/digest/dismiss`, which stores
@@ -414,6 +438,8 @@ Each page is a server component (`page.tsx`) that hands non-secret context to a
   route is `/job-board` because `/jobs` is Job Cost), `labor-import`, `labor-rates`,
   `time-sync`, `notices` (post an announcement to the team — banner or popup,
   targeted at groups and/or named people, now or on a schedule; office + admin).
+  `vendor-mail` is now a section of Inbox (`/email?section=mail`); its page
+  redirects there.
 - **System / admin:** `admin`, `logs`, `historical-cost`, `requests`,
   `actions`, `journal` (the financial journal — every write the app has made to a bill, a
     line or a time entry, read-only; admin by default alongside Logs, and
@@ -457,6 +483,17 @@ Grouped by domain; each folder is `…/route.ts`.
   `vendor-bills/*`, `vendor-bill-count`, `stuck-vendors`, `needs-project`,
   `reassign-job`, `coding-draft` (the cross-device backup for staged, not-yet-
   synced coding — companion DB only, never JobTread; see `lib/codingDraft.ts`).
+- **Bill and vendor actions:** `bill-void` (POST — voids a bill, never
+  deletes it, through Apps Script `voidBill`), `split-bill` (POST — split a
+  draft bill in two, `lib/splitBill.ts`; preview only unless writes are on),
+  `shop-job` (GET — the "Ascent - Shop" job id for the buyback dialog),
+  `document-access` (GET/POST — a month's or one bill's client Document
+  Access list), `month-actions` (GET — when each month-closing action last ran),
+  `vendor-coi` (a vendor's COI in Drive, via appscript `VendorCoi.js`),
+  `vendor-create` (create a JobTread vendor with its sender address, refusing a
+  name that already exists), `vendor-details` (save a vendor's email, phone,
+  address and Bill Type), `vendor-mail` (+ `vendor-mail/seed` — the vendor-mail
+  completeness check and the one-period-at-a-time index fill).
 - **Invoicing surfaces:** `deposits` (GET — one job's deposit ledger and client
   payments; POST edits only the companion's `deposit_links` row, never JobTread),
   `deposits/apply` (POST — the one JobTread write: a DRAFT invoice's Deposit
@@ -546,6 +583,24 @@ Grouped by domain; each folder is `…/route.ts`.
   bar + its "Return to my view" link — see `src/lib/preview.ts`).
 - **JobTread pickers / links:** `JobPicker`, `CostCodeSelect`,
   `JtLink`, `LinkPending`, `BillStatusBadge`, `BillingSummary`.
+- **Bills and vendors:** `BillMove` (moving a bill between jobs, run in the
+  BACKGROUND by a provider in the root layout — the void-and-recreate takes
+  30–90 s), `InvoiceViewer` (a bill's scan as a flat image plus lightbox,
+  never an iframe), `SplitGrid` (the three-up workbench row with drag handles,
+  widths in localStorage), `DocumentAccess` (add a client contact to the
+  "Document Access" list of a month's bills or one bill), `LinkVendor` (point
+  an unresolved vendor name at the existing JobTread vendor through the Apps
+  Script `linkVendor` action), `CoiDot` (the green dot beside a vendor with a
+  COI on file), `PackageEmail` (the "Draft invoicing email" button).
+- **Navigation and pickers:** `JobTabs` (one job's pages as a tab row, each
+  opened on the job through `?jobId`), `PageTabs` (joins pages that are one
+  menu row: Audit, Look & Text, Help), `MonthPicker` (the billing month as a
+  tappable heading), `SafetyTopicPicker` (search, season and category over
+  `lib/safetyTopics.ts`).
+- **Chrome and admin:** `CopyInPlace` (Admin → edit page text in place),
+  `UpdateNotice` ("Ascent was just updated…" under the loading logo on the
+  first load after a deploy), `ScriptJobs` (one button per Apps Script
+  `COMPANION_TASKS` registry entry, from `GET /api/actions`).
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
   `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (`NoticeCenter` —
   BOTH reader surfaces for a notice, the banner stack under the header and the
@@ -614,7 +669,16 @@ read/client/none that before-value is. Append-only, never trimmed; see
 setup), `onboarding_intakes` (one row per invited new hire, keyed on the
 sign-in email — the profile, and when it went to the bookkeeper),
 `onboarding_submissions` (one filled, signed PDF per hire per form — they hold
-SSNs and bank numbers, so "Sent to bookkeeper" deletes them). Access via `src/db/index.ts`.
+SSNs and bank numbers, so "Sent to bookkeeper" deletes them).
+`month_action_runs` (one stamp per month-closing action, scope and month —
+see `src/lib/monthActions.ts`), `leave_import_aliases` (the hand-made CSV
+line → employee matches for the PTO balance import),
+`invoice_review_investigations` (one status row per month for the
+investigation pass), and the digest's own tables: `digest_settings_overrides`
+(an admin's per-check changes over `settings.ts`), `digest_ignore_rules`
+(senders the owner said to ignore), `digest_replies` (an audit row per reply-box
+message and its parse) and `digest_instructions` (standing preferences; inert
+since the brief stopped being model-written, 2026-09-04). Access via `src/db/index.ts`.
 
 (`bill_index`/`bill_line_index`/`bill_index_meta` back the `/bill-search` index —
 the searchable snapshot of every bill + line item, plus its refresh/seed
