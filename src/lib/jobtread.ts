@@ -5570,7 +5570,8 @@ async function resolveShopBuybackLeaf(cfg: PaveConfig, shopJobId: string): Promi
 // SUNSET STATEMENT BILLS — one draft Bill per monthly statement, on the Office
 // job (owner, 2026-11-02). The statement bill is what gets PAID; the per-job
 // Sunset invoices stay on their jobs for job cost. Its externalId is the
-// statement's sheet ExpID ("STMT-…"), so nothing else mistakes it for an invoice.
+// statement's sheet ExpID, so nothing else mistakes it for an invoice: "STMT-…"
+// before 2026-11-03, "<account #>_<Mon><Year>" ("11543_Oct2026") after.
 // ---------------------------------------------------------------------------
 
 /** The org cost code "88 70 00 Sunset Statements" every statement bill codes to. */
@@ -5578,9 +5579,10 @@ export const SUNSET_STATEMENT_CSI = "88 70 00";
 /** The cost type of the Office job's 88 70 00 leaf: Sunset sells materials. */
 export const SUNSET_STATEMENT_COST_TYPE = "Materials";
 
-/** Is this externalId a statement bill's (the sheet ExpID "STMT-…")? */
+/** Is this externalId a statement bill's — a statement ExpID, in either format?
+ *  Mirrors _sunpayIsStatementId in ascent-appscript (SunsetPayments.js). */
 export const isSunsetStatementBill = (externalId?: string | null) =>
-  /^STMT-/i.test(String(externalId ?? "").trim());
+  /^STMT-|^\d{3,8}_[A-Z][a-z]{2}\d{4}(_\d+)?$/i.test(String(externalId ?? "").trim());
 
 /**
  * The Office job's 88 70 00 budget leaf. Same REFRESH-ON-MISS then
@@ -5635,6 +5637,28 @@ export async function resolveSunsetStatementLeaf(cfg: PaveConfig): Promise<strin
  */
 export async function getSunsetStatementBills(cfg: PaveConfig): Promise<Map<string, string>> {
   const out = new Map<string, string>();
+  for (const b of await readSunsetStatementBills(cfg)) if (!out.has(b.externalId)) out.set(b.externalId, b.docId);
+  return out;
+}
+
+/** A statement bill's JobTread state, for the Sunset Statements page. */
+export interface SunsetStatementBillState {
+  docId: string;
+  externalId: string;
+  /** draft | pending | approved | denied. */
+  status: string;
+  /** "Bill" or "Expense" — decides what Approve sets (see approvalStatusFor). */
+  name: string;
+  cost: number;
+  amountPaid: number;
+  balance: number;
+  /** The newest payment's date ("" when none). */
+  paidAt: string;
+}
+
+/** Every vendor bill on the Office job that is a statement bill, voided ones included. */
+async function readSunsetStatementBills(cfg: PaveConfig): Promise<SunsetStatementBillState[]> {
+  const out: SunsetStatementBillState[] = [];
   await pageEach<any>(
     cfg,
     {
@@ -5647,7 +5671,17 @@ export async function getSunsetStatementBills(cfg: PaveConfig): Promise<Map<stri
           documents: {
             $: { where: { and: [["type", "vendorBill"]] }, ...args },
             nextPage: {},
-            nodes: { id: {}, externalId: {} },
+            nodes: {
+              id: {},
+              externalId: {},
+              status: {},
+              name: {},
+              cost: {},
+              amountPaid: {},
+              balance: {},
+              // A light connection: one or two payments per bill (probed 2026-11-03).
+              documentPayments: { $: { size: 10 }, nodes: { payment: { paidAt: {} } } },
+            },
           },
         },
       }),
@@ -5656,10 +5690,37 @@ export async function getSunsetStatementBills(cfg: PaveConfig): Promise<Map<stri
     (rows) => {
       for (const d of rows) {
         const ext = String(d.externalId ?? "").trim();
-        if (isSunsetStatementBill(ext) && !out.has(ext)) out.set(ext, d.id);
+        if (!isSunsetStatementBill(ext)) continue;
+        const paidAt = ((d.documentPayments?.nodes ?? []) as any[])
+          .map((n) => String(n?.payment?.paidAt ?? ""))
+          .sort()
+          .pop();
+        out.push({
+          docId: d.id,
+          externalId: ext,
+          status: String(d.status ?? ""),
+          name: String(d.name ?? ""),
+          cost: Number(d.cost) || 0,
+          amountPaid: Number(d.amountPaid) || 0,
+          balance: Number(d.balance) || 0,
+          paidAt: paidAt ?? "",
+        });
       }
     },
   );
+  return out;
+}
+
+/**
+ * The LIVE statement bill per statement ExpID. A voided (denied) bill only
+ * stands in when its statement has no other bill. Throws on a failed read.
+ */
+export async function getSunsetStatementBillStates(cfg: PaveConfig): Promise<Map<string, SunsetStatementBillState>> {
+  const out = new Map<string, SunsetStatementBillState>();
+  for (const b of await readSunsetStatementBills(cfg)) {
+    const had = out.get(b.externalId);
+    if (!had || (had.status === "denied" && b.status !== "denied")) out.set(b.externalId, b);
+  }
   return out;
 }
 

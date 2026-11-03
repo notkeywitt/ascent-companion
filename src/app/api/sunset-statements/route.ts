@@ -3,6 +3,9 @@ import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { sunsetStatements } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import { getPaveConfig, hasGrant } from "@/lib/config";
+import { getSunsetStatementBillStates, type SunsetStatementBillState } from "@/lib/jobtread";
+import { statementBillPaid } from "@/lib/sunsetStatementMonth";
 
 // The Sunset "/payments" list. Reads the statements from the sheet via Apps
 // Script (listSunsetStatements — lightweight, no model call), reconciles them into
@@ -14,8 +17,14 @@ import { callAppsScriptOrThrow } from "@/lib/appsScript";
 // request times the function out once there are more than a handful. The page fills the uncached rows in small
 // bounded batches via POST /api/sunset-statements/extract instead.
 //
+// It also reads each statement's bill on the Office job (Create Bills). A
+// statement whose bill is paid in full in JobTread is marked paid here, with
+// paidBy "JobTread" — JobTread is the source of truth for payment. Each row
+// carries its bill (`bill`), so the page can show it and Approve all knows the
+// drafts. A failed JobTread read leaves the list as it was (`billsRead: false`).
+//
 // Env (shared): APPS_SCRIPT_SYNC_URL, APPS_SCRIPT_SYNC_SECRET.
-export const maxDuration = 30; // one lightweight Apps Script call, no extraction
+export const maxDuration = 45; // one lightweight Apps Script call + one JobTread read, no extraction
 
 interface ListItem {
   expId: string;
@@ -70,6 +79,28 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // 2b. JobTread payment. Only ever sets paid — an "Undo paid" on a statement
+    //     whose bill is still paid in JobTread is re-marked on the next read.
+    let bills = new Map<string, SunsetStatementBillState>();
+    let billsRead = false;
+    if (hasGrant()) {
+      try {
+        bills = await getSunsetStatementBillStates(getPaveConfig());
+        billsRead = true;
+      } catch {
+        /* the list still loads without the bills */
+      }
+    }
+    for (const it of items) {
+      const b = bills.get(it.expId);
+      const row = byId.get(it.expId);
+      if (!b || !statementBillPaid(b) || (row && row.status === "paid")) continue;
+      await db
+        .update(sunsetStatements)
+        .set({ status: "paid", paidAt: b.paidAt || now, paidBy: "JobTread", updatedAt: now })
+        .where(eq(sunsetStatements.expId, it.expId));
+    }
+
     // 3. Return the current statements (sheet is source of truth for existence),
     //    filtered + newest-first. `pending` = how many still need extraction, so
     //    the page knows to fill them in.
@@ -81,9 +112,16 @@ export async function GET(req: NextRequest) {
     const pending = listed.filter((r) => r.extractedAt === "").length;
     const out = listed
       .filter((r) => (status === "all" ? true : r.status === status))
-      .sort((a, b) => b.statementDate.localeCompare(a.statementDate) || a.expId.localeCompare(b.expId));
+      .sort((a, b) => b.statementDate.localeCompare(a.statementDate) || a.expId.localeCompare(b.expId))
+      .map((r) => ({ ...r, bill: bills.get(r.expId) ?? null }));
+    // Every statement's bill, whatever the filter: Approve all acts on a whole
+    // month, paid-in-app statements included.
+    const monthBills = listed.flatMap((r) => {
+      const b = bills.get(r.expId);
+      return b ? [{ expId: r.expId, statementDate: r.statementDate, docId: b.docId, status: b.status, name: b.name }] : [];
+    });
 
-    return NextResponse.json({ ok: true, items: out, pending });
+    return NextResponse.json({ ok: true, items: out, pending, billsRead, monthBills });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Unknown error" },

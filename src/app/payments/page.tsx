@@ -15,6 +15,7 @@ import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { reconcileState } from "@/lib/sunsetReconcile";
 import type { SunsetCandidate } from "@/lib/sunsetLinks";
 import { money as moneyN } from "@/lib/money";
+import { approvalStatusFor, monthKeyLabel, statementMonthKey } from "@/lib/sunsetStatementMonth";
 
 // The TSYS hosted-payment page rejects requests that don't arrive through Sunset's
 // own site, so Pay goes to sunsetbuilderssupply.com and you click through from there.
@@ -36,7 +37,27 @@ interface Statement {
   extractedAt: string;
   status: string;
   paidAt: string;
+  /** "JobTread" when the list route marked it paid off its Office-job bill. */
+  paidBy?: string;
+  /** Its bill on the Office job (Create Bills), or null when it has none. */
+  bill?: { docId: string; status: string; name: string; amountPaid: number; balance: number; paidAt: string } | null;
 }
+
+/** One statement's Office-job bill, any status — what Approve all counts. */
+interface MonthBill {
+  expId: string;
+  statementDate: string;
+  docId: string;
+  status: string;
+  name: string;
+}
+
+const OFFICE_JOB_ID = "22PXevQbM9FQ"; // same as OFFICE_JOB_ID in src/lib/jobtread.ts
+const officeBillUrl = (docId: string) =>
+  `https://app.jobtread.com/jobs/${OFFICE_JOB_ID}/documents/${encodeURIComponent(docId)}`;
+const BILL_STATUS: Record<string, string> = { draft: "Draft", pending: "Approved", approved: "Approved", denied: "Voided" };
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 interface Invoice {
   number: string;
@@ -194,6 +215,9 @@ let snapRecon: {
 const openCards = new Set<string>(); // expIds whose invoice list is expanded
 let snapScrollY = 0;
 let snapFilter: Filter = "unpaid"; // the tab you were on, so a return doesn't reset it
+// The month picked ("" = all months; null = not picked yet, so the newest).
+let snapMonth: string | null = null;
+let snapMonthBills: MonthBill[] = [];
 
 interface BankDetails {
   routing: string;
@@ -272,7 +296,14 @@ const validSnapRecon = () =>
   snapRecon && Date.now() - snapRecon.at < SNAP_MAX_MS ? snapRecon : null;
 
 export default function PaymentsPage() {
-  const canOpenBill = useAccess().can("recode");
+  const access = useAccess();
+  const canOpenBill = access.can("recode");
+  // Approve all posts to /api/bill-status, which rides the "bill-approve" view.
+  const canApprove = access.can("bill-approve");
+  const [month, setMonth] = useState<string | null>(snapMonth);
+  const [monthBills, setMonthBills] = useState<MonthBill[]>(snapMonthBills);
+  const [approving, setApproving] = useState("");
+  const [approveMsg, setApproveMsg] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [filter, setFilter] = useState<Filter>(snapFilter);
   // First render only: what the snapshot can put on screen immediately. Reading it
   // in the state initializers (rather than an effect) is the point — an effect
@@ -433,6 +464,10 @@ export default function PaymentsPage() {
         }
         const list: Statement[] = json.items ?? [];
         setItems(list);
+        if (json.billsRead) {
+          snapMonthBills = json.monthBills ?? [];
+          setMonthBills(snapMonthBills);
+        }
         snapList = { at: Date.now(), filter: f, items: list };
         const uncached = list.filter((s) => !s.extractedAt).map((s) => s.expId);
         if (uncached.length) fill(uncached, token);
@@ -566,9 +601,62 @@ export default function PaymentsPage() {
     }
   }
 
+  // The months on screen, newest first. Not picked yet → the newest month.
+  const monthKeys = [...new Set(items.map((r) => statementMonthKey(r.statementDate)).filter(Boolean))].sort().reverse();
+  // A month the current tab no longer holds falls back to the newest, so a tab
+  // switch never leaves an empty list with no chip lit.
+  const activeMonth = month === "" ? "" : month && monthKeys.includes(month) ? month : monthKeys[0] ?? "";
+  const pickMonth = (m: string) => {
+    snapMonth = m;
+    setMonth(m);
+    setApproveMsg(null);
+  };
+  const visible = activeMonth ? items.filter((r) => statementMonthKey(r.statementDate) === activeMonth) : items;
+  // Draft statement bills for the month, from every statement (paid or not).
+  const monthDrafts = activeMonth
+    ? monthBills.filter((b) => b.status === "draft" && statementMonthKey(b.statementDate) === activeMonth)
+    : [];
+
+  /** Approve every draft statement bill of the month — the same write as the board's batch approve. */
+  async function approveAll() {
+    const drafts = monthDrafts;
+    if (!drafts.length || approving) return;
+    const label = monthKeyLabel(activeMonth);
+    if (!window.confirm(`Approve ${drafts.length} draft statement bill${drafts.length === 1 ? "" : "s"} for ${label} in JobTread? Approving locks each bill's lines.`)) return;
+    setApproveMsg(null);
+    const failures: string[] = [];
+    let previewed = false;
+    for (let i = 0; i < drafts.length; i++) {
+      setApproving(`${i + 1} of ${drafts.length}`);
+      const b = drafts[i];
+      try {
+        const r = await fetch("/api/bill-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId: b.docId, status: approvalStatusFor(b.name) }),
+        });
+        const j = await r.json();
+        if (!r.ok || j.error) failures.push(`${b.expId}: ${j.error ?? "Approve failed"}`);
+        else if (j.previewed) previewed = true;
+      } catch (e) {
+        failures.push(`${b.expId}: ${e instanceof Error ? e.message : "Request failed"}`);
+      }
+    }
+    setApproving("");
+    const ok = drafts.length - failures.length;
+    setApproveMsg(
+      previewed
+        ? { tone: "error", text: "JobTread writes are off, so nothing was approved." }
+        : failures.length
+          ? { tone: "error", text: `${ok} approved. ${failures.length} failed — ${failures.join("; ")}` }
+          : { tone: "success", text: `✓ ${ok} statement bill${ok === 1 ? "" : "s"} approved for ${label}.` },
+    );
+    load(filter, true);
+  }
+
   // The statement in the side pane: the one last picked, else the first with a PDF.
   const pdfStatement = wide
-    ? items.find((r) => r.expId === pdfFor && r.pdfUrl) ?? items.find((r) => r.pdfUrl)
+    ? visible.find((r) => r.expId === pdfFor && r.pdfUrl) ?? visible.find((r) => r.pdfUrl)
     : undefined;
 
   return (
@@ -625,6 +713,66 @@ export default function PaymentsPage() {
         </div>
       </div>
 
+      {/* The month. Approve all and Print act on the month picked here. */}
+      {monthKeys.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          {monthKeys.map((m) => (
+            <button
+              key={m}
+              onClick={() => pickMonth(m)}
+              className={
+                "rounded-full px-3 py-1 text-xs font-semibold transition " +
+                (activeMonth === m
+                  ? "bg-accent/10 text-accent dark:text-accent-soft"
+                  : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
+              }
+            >
+              {monthKeyLabel(m)}
+            </button>
+          ))}
+          <button
+            onClick={() => pickMonth("")}
+            className={
+              "rounded-full px-3 py-1 text-xs font-semibold transition " +
+              (activeMonth === ""
+                ? "bg-accent/10 text-accent dark:text-accent-soft"
+                : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
+            }
+          >
+            All months
+          </button>
+          {activeMonth && (
+            <div className="ml-auto flex items-center gap-1.5">
+              {canApprove && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!!approving || monthDrafts.length === 0}
+                  title="Approve every draft statement bill of this month on the Office job"
+                  onClick={approveAll}
+                >
+                  {approving ? `Approving ${approving}…` : `Approve all (${monthDrafts.length})`}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                title="A summary page, then every statement PDF of this month"
+                onClick={() => window.open(`/api/sunset-statements/print?month=${activeMonth}`, "_blank", "noopener")}
+              >
+                Print
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {approveMsg && (
+        <Banner tone={approveMsg.tone} className="mb-4 !py-2 text-xs">
+          {approveMsg.text}
+        </Banner>
+      )}
+
       {error && (
         <Banner tone="error" className="mb-4">
           {error}
@@ -666,7 +814,7 @@ export default function PaymentsPage() {
       />
 
       <ul className="space-y-2">
-        {items.map((s) => {
+        {visible.map((s) => {
           const done = !!s.extractedAt;
           const fail = !!failed[s.expId];
           const rc = recon[s.expId];
@@ -1008,7 +1156,10 @@ export default function PaymentsPage() {
                   </a>
                 ) : null}
                 <div className="ml-auto">
-                  {s.status === "paid" ? (
+                  {s.status === "paid" && s.paidBy === "JobTread" ? (
+                    // Paid in JobTread: undoing it here would only be re-marked on the next read.
+                    <span className="text-xs font-semibold text-ok">Paid in JT</span>
+                  ) : s.status === "paid" ? (
                     <Button variant="secondary" size="sm" disabled={busy[s.expId]} onClick={() => setPaid(s.expId, "unpaid")}>
                       {busy[s.expId] ? "…" : "Undo paid"}
                     </Button>
@@ -1020,9 +1171,26 @@ export default function PaymentsPage() {
                 </div>
               </div>
 
-              {s.status === "paid" && s.paidAt && (
-                <div className="mt-1.5 text-[11px] text-ok">
-                  Paid {new Date(s.paidAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              {(s.bill || (s.status === "paid" && s.paidAt)) && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px]">
+                  {s.status === "paid" && s.paidAt && (
+                    <span className="text-ok">
+                      Paid {shortDate(s.paidAt)}
+                      {s.paidBy === "JobTread" ? " in JobTread" : ""}
+                    </span>
+                  )}
+                  {s.bill && (
+                    <JtLink
+                      href={officeBillUrl(s.bill.docId)}
+                      className="text-neutral-500 underline decoration-current/40 underline-offset-2 hover:text-accent dark:text-neutral-400"
+                    >
+                      Office bill: {BILL_STATUS[s.bill.status] ?? s.bill.status}
+                      {s.bill.amountPaid > 0.005 && Math.abs(s.bill.balance) > 0.005
+                        ? ` · ${moneyN(s.bill.amountPaid)} paid, ${moneyN(s.bill.balance)} owed`
+                        : ""}{" "}
+                      ↗
+                    </JtLink>
+                  )}
                 </div>
               )}
             </li>
