@@ -3,11 +3,9 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { db, ensureDb } from "@/db";
 import { sunsetStatements, type SunsetStatement } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
-import { getPaveConfig, hasGrant } from "@/lib/config";
 import { driveIdFromLink } from "@/lib/houseManual";
-import { getSunsetStatementBillStates, type SunsetStatementBillState } from "@/lib/jobtread";
 import { money } from "@/lib/money";
-import { monthKeyLabel, statementBillPaid, statementMonthKey } from "@/lib/sunsetStatementMonth";
+import { monthKeyLabel, statementMonthKey } from "@/lib/sunsetStatementMonth";
 
 /**
  * GET /api/sunset-statements/print?month=YYYY-MM — one PDF to print: a summary
@@ -36,12 +34,6 @@ const fit = (font: PDFFont, size: number, text: string, width: number) => {
 
 const n = (v: string) => Number(v) || 0;
 
-function billLabel(b: SunsetStatementBillState | undefined) {
-  if (!b) return "No bill";
-  if (statementBillPaid(b)) return "Paid";
-  return { draft: "Draft", pending: "Approved", approved: "Approved", denied: "Voided" }[b.status] ?? b.status;
-}
-
 export async function GET(req: NextRequest) {
   const month = req.nextUrl.searchParams.get("month")?.trim() ?? "";
   if (!/^\d{4}-\d{2}$/.test(month)) return NextResponse.json({ error: "Pass ?month=YYYY-MM" }, { status: 400 });
@@ -52,14 +44,6 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => (a.accountName || a.project).localeCompare(b.accountName || b.project) || a.expId.localeCompare(b.expId));
   if (rows.length === 0) return NextResponse.json({ error: `No statements for ${monthKeyLabel(month)}.` }, { status: 404 });
 
-  let bills = new Map<string, SunsetStatementBillState>();
-  if (hasGrant()) {
-    try {
-      bills = await getSunsetStatementBillStates(getPaveConfig());
-    } catch {
-      /* the summary prints without the bill column filled */
-    }
-  }
 
   // Fetch the statement PDFs, a few at a time.
   const pdfs: (PDFDocument | null)[] = new Array(rows.length).fill(null);
@@ -147,13 +131,12 @@ export async function GET(req: NextRequest) {
       const w = font.widthOfTextAtSize(t, 9);
       page.drawText(t, { x: c.right ? c.x + c.w - w : c.x, y, size: 9, font });
     });
-    y -= 11;
-    const paid = r.status === "paid" ? `Paid ${r.paidAt ? r.paidAt.slice(0, 10) : ""}${r.paidBy === "JobTread" ? " in JobTread" : ""}` : "Unpaid";
-    const note = [paid, `Office bill: ${billLabel(bills.get(r.expId))}`, pdfs[i] ? "" : "PDF could not be read - not attached"]
-      .filter(Boolean)
-      .join("   ");
-    page.drawText(fit(font, 7.5, note, W - 2 * M - 2), { x: statusX, y, size: 7.5, font, color: pdfs[i] ? rgb(0.4, 0.4, 0.4) : rgb(0.7, 0.1, 0.1) });
     y -= 13;
+    // A statement whose PDF did not come through is named, so the print is not short by surprise.
+    if (!pdfs[i]) {
+      page.drawText("PDF could not be read - not attached", { x: statusX, y: y + 2, size: 7.5, font, color: rgb(0.7, 0.1, 0.1) });
+      y -= 9;
+    }
     total += n(r.total);
     net += n(r.net || r.total);
   });
