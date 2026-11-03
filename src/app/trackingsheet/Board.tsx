@@ -154,7 +154,7 @@ export interface BillRef {
   needsReview: boolean;
   invoiced: boolean;
   /** On any non-denied customer invoice, draft included, and whether the job's
-   *  month has an invoice at all — the stripe's two inputs (billInvoiceState). */
+   *  month has an invoice at all. `onInvoice` feeds the stripe (billInvoiceState). */
   onInvoice: boolean;
   monthInvoiceExists: boolean;
   fileCount: number;
@@ -1650,7 +1650,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       if (staged.has(l.id)) movedHere++;
     }
     const isOpen = openDocId === b.id;
-    const stripe = billInvoiceState(b);
+    const stripe = billInvoiceState({ ...b, paid: billPaidState(b) === "paid" });
     // On a phone this page is read-only and the coding drawer is
     // hidden, so a tapped bill opens its full detail page instead of
     // the (invisible) drawer. `from=recode` + `ym` + the `#bill-…`
@@ -1686,12 +1686,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         >
           {/* Invoicing lifecycle as an edge stripe, so a month can be
               triaged by colour down the left margin before a word is
-              read: wide red = flagged for review, green = out of draft
-              and on an invoice, thin red = an invoice exists for the
-              month and this bill is NOT on it, blue = out of draft,
-              reviewed, and no invoice raised yet. ONE axis only — see
-              billInvoiceState. Budget headroom, coding progress and
-              paid state are chips on the row, not stripe colours. */}
+              read: wide yellow = needs review, light blue = approved,
+              blue = on an invoice but not paid, green = on an invoice
+              and paid. See billInvoiceState. Budget headroom and coding
+              progress stay on the row's text, not the stripe. */}
           <span
             aria-hidden
             className={`shrink-0 ${stripe === "needs-review" ? "w-1" : "w-0.5"} ${

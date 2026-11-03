@@ -59,8 +59,8 @@ interface AllBill {
   /** The bill's 88 90 00 warranty-work lines — inside `cost`, out of TO BE INVOICED. */
   warranty?: number;
   /** On any non-denied customer invoice, draft included, and whether this
-   *  bill's job has an invoice for the month at all — the stripe's two inputs
-   *  (billInvoiceState). */
+   *  bill's job has an invoice for the month at all. `onInvoice` feeds the
+   *  stripe (billInvoiceState). */
   onInvoice: boolean;
   monthInvoiceExists: boolean;
   /** Paid-in-QuickBooks figures JobTread computes — read as a pair, see billPaidState. */
@@ -335,7 +335,7 @@ export function AllBills({ ym }: { ym: string }) {
   const renderBillCard = (b: AllBill) => {
     const active = wide && b.id === selId;
     const paid = billPaidState(b);
-    const stripe = billInvoiceState(b);
+    const stripe = billInvoiceState({ ...b, paid: paid === "paid" });
     const body = (
       <>
         <span className="flex items-baseline justify-between gap-3">
@@ -404,11 +404,10 @@ export function AllBills({ ym }: { ym: string }) {
                 : ""
           }`}
         >
-          {/* Invoicing lifecycle as an edge stripe, same one axis and the
-              same colours as the job board (billInvoiceState): wide red =
-              flagged for review, green = out of draft and on an invoice, thin
-              red = the job's month has an invoice and this bill is NOT on it,
-              blue = out of draft, reviewed, and no invoice raised yet. */}
+          {/* Invoicing lifecycle as an edge stripe, same colours as the job
+              board (billInvoiceState): wide yellow = needs review, light
+              blue = approved, blue = on an invoice but not paid, green =
+              on an invoice and paid. */}
           <span
             aria-hidden
             className={`shrink-0 ${stripe === "needs-review" ? "w-[5px]" : "w-[3px]"} ${
