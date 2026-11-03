@@ -2,9 +2,9 @@
 slug: mobile-donut-charts
 repo: ascent-companion
 branch: claude/mobile-donut-charts-wno2m9
-status: in-progress
+status: shipped
 started: 2026-11-03T18:31:52Z
-updated: 2026-11-03T18:31:52Z
+updated: 2026-11-03T18:31:54Z
 goal: 
 next: check the jobs page rings on a phone after deploy
 ---
