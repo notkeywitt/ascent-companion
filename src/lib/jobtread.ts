@@ -5747,10 +5747,40 @@ async function resolveCostCodeId(cfg: PaveConfig, number: string): Promise<strin
 }
 
 /**
+ * Is this externalId a vendor's own invoice number? Not one of the IDs the
+ * system mints: the Assistant's upload token ("INV-xxxxxxxx"), a JobTread
+ * document id ("22…", which an unmatched-import row is keyed on), or a buyback
+ * key ("BUYBACK-…").
+ */
+export function isVendorInvoiceNumber(externalId?: string | null): boolean {
+  const s = String(externalId ?? "").trim();
+  if (!s) return false;
+  if (/^INV-[0-9a-f]{8}$/i.test(s)) return false;
+  if (/^22[A-Za-z0-9]{8,}$/.test(s)) return false;
+  if (/^BUYBACK-/i.test(s)) return false;
+  return true;
+}
+
+/** The pre-2026-11-04 buyback key, kept so an older Shop bill is still found. */
+export const legacyBuybackExternalId = (sourceDocId: string) => `BUYBACK-${sourceDocId}`.substring(0, 32);
+
+/**
+ * The Shop bill's externalId for a buyback: "<invoice #>-BB", so the Sunset
+ * statement reconcile folds it back into the invoice it came off (owner,
+ * 2026-11-04). Falls back to the legacy key only when the source bill carries
+ * no vendor invoice number. Inside JobTread's 32-character cap.
+ */
+export function buybackExternalIdFor(sourceExternalId: string | null | undefined, sourceDocId: string): string {
+  const ext = String(sourceExternalId ?? "").trim();
+  return isVendorInvoiceNumber(ext) ? `${ext.slice(0, 29)}-BB` : legacyBuybackExternalId(sourceDocId);
+}
+
+/**
  * WRITE — "buyback": move one bill line off a client job's bill onto a draft bill
  * on the Ascent - Shop job (e.g. materials bought back for shop stock instead of
  * billed to the client). Reuses the same externalId idempotency trick
- * createVendorBill's callers use elsewhere (`BUYBACK-<sourceDocId>`, scoped to
+ * createVendorBill's callers use elsewhere (`<invoice #>-BB`, see
+ * buybackExternalIdFor, scoped to
  * the SHOP job's documents — see findShopBuybackBill) so repeated buybacks off
  * the SAME source bill land additively on the SAME shop bill instead of each
  * click minting a new one; this also means the frontend needs no session state
@@ -5779,6 +5809,7 @@ export async function buybackLine(
         subject: {},
         fromName: {},
         issueDate: {},
+        externalId: {},
         account: { id: {} },
       },
     }),
@@ -5787,9 +5818,14 @@ export async function buybackLine(
   const accountId = src.account?.id;
   if (!accountId) throw new Error("Source bill has no vendor account — can't create a Shop copy.");
 
-  const buybackExternalId = `BUYBACK-${args.sourceDocId}`.substring(0, 32);
+  const buybackExternalId = buybackExternalIdFor(src.externalId, args.sourceDocId);
+  const legacyExternalId = legacyBuybackExternalId(args.sourceDocId);
   const [shopDocIdFound, buybackLeafId] = await Promise.all([
-    findShopBuybackBill(cfg, shopJobId, buybackExternalId),
+    // A Shop bill made before the "<invoice #>-BB" form still carries
+    // "BUYBACK-<doc id>": find it too, so a second click adds to it.
+    findShopBuybackBill(cfg, shopJobId, buybackExternalId).then(
+      (hit) => hit ?? (buybackExternalId === legacyExternalId ? null : findShopBuybackBill(cfg, shopJobId, legacyExternalId)),
+    ),
     resolveShopBuybackLeaf(cfg, shopJobId),
   ]);
   let shopDocId = shopDocIdFound;

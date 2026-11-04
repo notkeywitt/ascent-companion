@@ -17,6 +17,8 @@ import {
   splitSunsetLines,
   sunsetCreditExternalId,
   sunsetSwitchBlocker,
+  buybackExternalIdFor,
+  isVendorInvoiceNumber,
   type PageWalk,
   type PaveConfig,
 } from "./jobtread";
@@ -753,5 +755,25 @@ describe("setBillFields — Push as", () => {
     await expect(write({ name: "Expense", qboDocumentType: "purchase" }, "bill")).rejects.toThrow(
       "JobTread kept Push as Bill.",
     );
+  });
+});
+
+describe("buybackExternalIdFor", () => {
+  it("keys a buyback on the source's Sunset invoice number", () => {
+    expect(buybackExternalIdFor("714536", "22PfZeNdFq6u")).toBe("714536-BB");
+    expect(buybackExternalIdFor("719582-CR", "d")).toBe("719582-CR-BB");
+  });
+  it("falls back to the legacy key when the source has no invoice number", () => {
+    for (const ext of ["", "INV-407785dd", "22PfZeNdFq6u", "BUYBACK-22PeB23GKKjp", null]) {
+      expect(buybackExternalIdFor(ext, "22PgDHAXaSwh")).toBe("BUYBACK-22PgDHAXaSwh");
+    }
+  });
+  it("stays inside JobTread's 32 characters", () => {
+    expect(buybackExternalIdFor("X".repeat(40), "d").length).toBe(32);
+  });
+  it("tells a vendor number from a minted id", () => {
+    expect(isVendorInvoiceNumber("714536")).toBe(true);
+    expect(isVendorInvoiceNumber("INV-407785dd")).toBe(false);
+    expect(isVendorInvoiceNumber("22PgjbZxTLcs")).toBe(false);
   });
 });

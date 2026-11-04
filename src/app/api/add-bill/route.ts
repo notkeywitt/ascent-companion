@@ -362,20 +362,22 @@ export async function POST(req: NextRequest) {
     warnings.push(...dates.warnings);
 
     // Vendor Bill Number (JobTread's externalId, shown as the bill's number and
-    // used for dedup). For non-Sunset bills, use the invoice/bill number Claude
-    // read off the document; when none is legible, fall back to <Vendor><MMDDYY>
-    // of the arrival date. Sunset keeps the per-file idempotency token it already
-    // carried (its own numbering convention is handled by the statement flow).
+    // used for dedup): the invoice/bill number Claude read off the document.
+    // Sunset too (owner, 2026-11-04): the statement reconcile matches by that
+    // number, and the dedup below then catches an invoice the email capture
+    // already filed. When none is legible, a non-Sunset bill falls back to
+    // <Vendor><MMDDYY> of the arrival date, and a Sunset bill to the per-file
+    // token.
     const extractedBillNumber = sanitizeBillNumber(String(extracted.InvoiceNumber ?? ""));
     // Disambiguator for the fallback: the per-file token's hex tail (INV-<tag>).
     const tag = externalId.replace(/^INV-/i, "").trim();
-    const billNumber = isSunset
-      ? externalId
-      : extractedBillNumber || fallbackBillNumber(vendor.name, arrival, tag);
-    if (!isSunset && !extractedBillNumber) {
+    const billNumber =
+      extractedBillNumber || (isSunset ? externalId : fallbackBillNumber(vendor.name, arrival, tag));
+    if (!extractedBillNumber) {
       warnings.push(
-        `No invoice number was legible on the document — set the Vendor Bill Number to "${billNumber}" ` +
-          `(vendor + arrival date + a unique tag). Edit it in JobTread if the invoice has a number.`,
+        `No invoice number was legible on the document — set the Vendor Bill Number to "${billNumber}"` +
+          (isSunset ? "" : " (vendor + arrival date + a unique tag)") +
+          `. Edit it in JobTread to the number printed on the invoice.`,
       );
     }
 
