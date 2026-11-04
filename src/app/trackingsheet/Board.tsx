@@ -991,7 +991,28 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     driveMainWindowToDoc(jobId, next.id);
     setOpenTimeId(null);
     setOpenDocId(next.id);
+    requestAnimationFrame(() =>
+      document.getElementById(`bill-${next.id}`)?.scrollIntoView({ block: "nearest" }),
+    );
   };
+  // Up / Down arrows step the open bill, the same as Previous / Next. They
+  // stand down while a field, a menu or a dialog has the keyboard, so a
+  // select or a text box still uses its own arrows.
+  const stepBillRef = useRef(stepBill);
+  stepBillRef.current = stepBill;
+  useEffect(() => {
+    if (!openDocId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t?.closest("input, select, textarea, [contenteditable='true'], [role='dialog'], [role='listbox']")) return;
+      e.preventDefault();
+      stepBillRef.current(e.key === "ArrowUp" ? -1 : 1);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openDocId]);
 
   const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
   const nonSunsetTotal = useMemo(
