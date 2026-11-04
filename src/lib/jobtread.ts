@@ -5663,13 +5663,17 @@ async function readSunsetStatementBills(cfg: PaveConfig): Promise<SunsetStatemen
     cfg,
     {
       label: "job.documents (Sunset statement bills)",
-      size: 50,
+      // 20 bills x 5 payments. 50 x 10 answers 413 "Request Entity Too Large" —
+      // JobTread sizes the request by page x nested page, not by what matches,
+      // and the page swallowed that error, so no statement was ever marked paid
+      // (probed live 2026-11-04). Only statement bills are asked for.
+      size: 20,
       maxPages: 200,
       query: (args) => ({
         job: {
           $: { id: OFFICE_JOB_ID },
           documents: {
-            $: { where: { and: [["type", "vendorBill"]] }, ...args },
+            $: { where: { and: [["type", "vendorBill"], ["externalId", "like", "STMT-%"]] }, ...args },
             nextPage: {},
             nodes: {
               id: {},
@@ -5679,8 +5683,8 @@ async function readSunsetStatementBills(cfg: PaveConfig): Promise<SunsetStatemen
               cost: {},
               amountPaid: {},
               balance: {},
-              // A light connection: one or two payments per bill (probed 2026-11-03).
-              documentPayments: { $: { size: 10 }, nodes: { payment: { paidAt: {} } } },
+              // One or two payments per bill (probed 2026-11-03).
+              documentPayments: { $: { size: 5 }, nodes: { payment: { paidAt: {} } } },
             },
           },
         },

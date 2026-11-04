@@ -312,6 +312,8 @@ export default function PaymentsPage() {
   const [items, setItems] = useState<Statement[]>(restored.list ? restored.list.items : []);
   const [loading, setLoading] = useState(!restored.list);
   const [error, setError] = useState("");
+  /** The statement bills could not be read, so JobTread payments are not shown. */
+  const [billsUnread, setBillsUnread] = useState(false);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const [filling, setFilling] = useState(false);
@@ -464,6 +466,7 @@ export default function PaymentsPage() {
         }
         const list: Statement[] = json.items ?? [];
         setItems(list);
+        setBillsUnread(json.billsRead === false);
         if (json.billsRead) {
           snapMonthBills = json.monthBills ?? [];
           setMonthBills(snapMonthBills);
@@ -776,6 +779,13 @@ export default function PaymentsPage() {
       {error && (
         <Banner tone="error" className="mb-4">
           {error}
+        </Banner>
+      )}
+
+      {billsUnread && (
+        <Banner tone="warning" className="mb-4">
+          Couldn&apos;t read the statement bills from JobTread, so a statement paid there may still show unpaid
+          here. Reload to try again.
         </Banner>
       )}
 
