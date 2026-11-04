@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-04T18:57:33Z",
+  "generatedAt": "2026-11-04T19:17:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-04T18:57:33Z",
+      "updated": "2026-11-04T19:17:04Z",
       "goal": "",
       "next": "On /payments: pick October 2026, press Print and check the summary + PDFs; check Paid in JT shows on statements whose Office bill is paid; Approve all on a month with draft statement bills.",
       "commits": [
@@ -1411,6 +1411,13 @@
           "sha": "36b58dc",
           "subject": "companion: number sunset bills and buybacks with the sunset invoice number",
           "files": "src/app/api/add-bill/route.ts, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-11-04",
+          "time": "11:17",
+          "sha": "af8cff6",
+          "subject": "companion: fix the statement-bill read that 413'd, so jobtread-paid statements show paid",
+          "files": "src/app/payments/page.tsx, src/lib/jobtread.ts"
         }
       ]
     },
