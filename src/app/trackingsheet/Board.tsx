@@ -3113,9 +3113,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {/* THE CHECK'S RESULT, wherever the check was run from. It sits at this
           spot in the DOM so it lands above the workbench on desktop (the grid
           below is `lg:order-1`) and below it on a phone, and it renders only
-          once there is something to report. */}
-      {!embed && jobId && (preSend.mem || preSend.error || preSendRunning) && (
-        <div className="order-last mt-4 lg:order-none lg:mb-4">
+          once there is something to report. Embedded (the Jobs page) it stays
+          at the foot of the sheet on every width. */}
+      {jobId && (preSend.mem || preSend.error || preSendRunning) && (
+        <div className={embed ? "order-last mt-4" : "order-last mt-4 lg:order-none lg:mb-4"}>
           <PreSendCheck
             run={preSend}
             linkFor={findingLink}
