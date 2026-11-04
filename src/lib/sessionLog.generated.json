@@ -1,35 +1,16 @@
 {
-  "generatedAt": "2026-11-03T18:31:54Z",
+  "generatedAt": "2026-11-04T18:57:33Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "mobile-donut-charts",
-      "file": "2026-11-03-mobile-donut-charts.md",
-      "branch": "claude/mobile-donut-charts-wno2m9",
-      "status": "shipped",
-      "started": "2026-11-03T18:31:52Z",
-      "updated": "2026-11-03T18:31:54Z",
-      "goal": "",
-      "next": "check the jobs page rings on a phone after deploy",
-      "commits": [
-        {
-          "date": "2026-11-03",
-          "time": "18:31",
-          "sha": "4ea9190",
-          "subject": "companion: stack the jobs page's cost rings under the job on a phone so they stop running off the card",
-          "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-03T18:18:18Z",
+      "updated": "2026-11-04T18:57:33Z",
       "goal": "",
-      "next": "Owner checks the Punch List tab on /jobs-hub; decide whether it needs the header fields (permit #, target date) and the sign-off block",
+      "next": "On /payments: pick October 2026, press Print and check the summary + PDFs; check Paid in JT shows on statements whose Office bill is paid; Approve all on a month with draft statement bills.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1360,6 +1341,95 @@
           "sha": "852c5cd",
           "subject": "companion: give ipads the jobs hub phone layout, map first under the jobs dropdown",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "10:19",
+          "sha": "bbccf2a",
+          "subject": "companion: keep the jobs hub list on a landscape ipad; the dropdown layout is for upright screens",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "10:20",
+          "sha": "d4e75d5",
+          "subject": "companion: give the jobs hub job tabs their own row under the header so they stop running off narrow screens",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "13:15",
+          "sha": "5a8dba5",
+          "subject": "companion: open any month's amazon items report from the import page, the same link amazon's monthly email carries",
+          "files": "src/app/amazon-import/page.tsx, src/lib/amazonImport.test.ts, src/lib/amazonImport.ts"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "13:20",
+          "sha": "bb4fead",
+          "subject": "companion: let admin add and remove items on each role's side menu from the access page",
+          "files": "CODEBASE_MAP.md, src/app/admin/page.tsx, src/app/api/team/menu/route.ts, src/app/layout.tsx, src/components/AccessProvider.tsx, src/components/TabBar.tsx, +5 more"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "14:00",
+          "sha": "fb53dff",
+          "subject": "companion: sunset statements get a month picker, approve all, print, and paid-in-jobtread status",
+          "files": "src/app/api/sunset-statements/print/route.ts, src/app/api/sunset-statements/route.ts, src/app/payments/page.tsx, src/lib/jobtread.ts, src/lib/sunsetStatementMonth.test.ts, src/lib/sunsetStatementMonth.ts"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "14:01",
+          "sha": "a9454d4",
+          "subject": "companion: let admin set the order of each role's side menu with up and down arrows",
+          "files": "src/app/admin/page.tsx, src/app/api/team/menu/route.ts, src/db/index.ts, src/db/schema.ts, src/lib/roleMenuService.ts, src/lib/workspaces.test.ts, +1 more"
+        },
+        {
+          "date": "2026-11-03",
+          "time": "14:14",
+          "sha": "6c1bf4b",
+          "subject": "companion: drop the paid and office-bill line from each row of the sunset statements print",
+          "files": "src/app/api/sunset-statements/print/route.ts"
+        },
+        {
+          "date": "2026-11-04",
+          "time": "10:13",
+          "sha": "2959698",
+          "subject": "step the open bill with the up and down arrow keys on the tracking sheets board",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-04",
+          "time": "10:23",
+          "sha": "e493d38",
+          "subject": "companion: show the Before you send card on the Jobs page tracking sheet",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-04",
+          "time": "10:37",
+          "sha": "36b58dc",
+          "subject": "companion: number sunset bills and buybacks with the sunset invoice number",
+          "files": "src/app/api/add-bill/route.ts, src/lib/jobtread.test.ts, src/lib/jobtread.ts"
+        }
+      ]
+    },
+    {
+      "slug": "mobile-donut-charts",
+      "file": "2026-11-03-mobile-donut-charts.md",
+      "branch": "claude/mobile-donut-charts-wno2m9",
+      "status": "shipped",
+      "started": "2026-11-03T18:31:52Z",
+      "updated": "2026-11-03T18:31:54Z",
+      "goal": "",
+      "next": "check the jobs page rings on a phone after deploy",
+      "commits": [
+        {
+          "date": "2026-11-03",
+          "time": "18:31",
+          "sha": "4ea9190",
+          "subject": "companion: stack the jobs page's cost rings under the job on a phone so they stop running off the card",
+          "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx"
         }
       ]
     },
