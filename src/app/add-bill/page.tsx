@@ -411,7 +411,7 @@ function AddBill() {
         description={
           noFile
             ? "No invoice to upload — type what the charge was and it lands as a draft vendor bill, filed with an Ascent record in place of the missing document."
-            : "Snap or upload an invoice — Claude extracts and codes it, and it lands as a draft vendor bill in the coding queue."
+            : undefined
         }
         actions={
           /* THE WAY OUT. This page is reached from the header's + button and
@@ -447,7 +447,6 @@ function AddBill() {
               includeAll={false}
               placeholder="Choose a job…"
             />
-            <p className="mt-1 text-xs text-neutral-500">The bill is created on this job.</p>
           </div>
 
           {noFile ? (
@@ -500,7 +499,7 @@ function AddBill() {
             </div>
           ) : (
             <div>
-              <Label>Invoice (PDF or photo)</Label>
+              <Label>Invoice</Label>
               <FileDrop
                 // Remounts when the file clears, so the zone forgets the old name.
                 key={file ? "picked" : "empty"}
@@ -533,17 +532,13 @@ function AddBill() {
             />
             <span>
               No invoice to upload
-              <span className="block text-xs text-neutral-500">
-                A phone order, a counter charge, a vendor who never sends one. Type what it was and
-                the bill is filed with an Ascent record in place of the invoice.
-              </span>
             </span>
           </label>
 
           <div>
             <Label>
               Vendor{" "}
-              {noFile || needVendor ? "(required)" : "(optional — matched from the invoice)"}
+              {noFile || needVendor ? "(required)" : ""}
             </Label>
             <Select value={vendorId} disabled={busy} onChange={(e) => setVendorId(e.target.value)}>
               <option value="">
@@ -634,10 +629,6 @@ function AddBill() {
             />
             <span>
               Single line — don&apos;t itemize
-              <span className="block text-xs text-neutral-500">
-                Collapse the whole invoice into one cost item at the net total (for bills with lots of
-                lines). Code it once in the queue.
-              </span>
             </span>
           </label>
 
