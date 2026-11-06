@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Banner,
   Card,
@@ -110,7 +110,24 @@ export function JobCard({
   /** Makes the customer name a button (the Jobs page's customer pop-up). */
   onCustomer?: () => void;
 }) {
-  const body = (
+  const [open, setOpen] = useState(false);
+  const detailsRef = useRef<HTMLDivElement>(null);
+  // The narrow card's drop-down closes on a click outside it or on Escape.
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: PointerEvent) => {
+      if (!detailsRef.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+
+  const head = (
     <>
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
@@ -140,6 +157,21 @@ export function JobCard({
             JT ↗
           </a>
         </div>
+      </div>
+      {/* A narrow card folds the details below into a drop-down (owner, 2026-11-06). */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="jc-toggle items-center gap-1 text-[12px] font-semibold text-neutral-600 hover:text-accent dark:text-neutral-300"
+      >
+        Job details <span aria-hidden className="text-[9px]">{open ? "▲" : "▼"}</span>
+      </button>
+    </>
+  );
+  const more = (
+    <div className="jc-more">
+      <div className="min-w-0">
         {onCustomer && c.customer ? (
           <button
             type="button"
@@ -173,7 +205,7 @@ export function JobCard({
           <p className="text-[12px] italic text-neutral-500">No open to-dos</p>
         )}
       </div>
-    </>
+    </div>
   );
   return (
     // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
@@ -183,17 +215,23 @@ export function JobCard({
       className={`flex h-full shrink-0 flex-col gap-2 ${aside ? "min-h-0 w-full overflow-hidden" : "w-72 pad:w-auto"}`}
     >
       {aside ? (
-        // A phone stacks the aside under the job: beside it, the aside's
-        // rings ran off the card's right edge (owner, 2026-11-03).
-        <div className="flex min-h-0 flex-1 flex-col gap-4 pad:flex-row">
-          {/* Scrolls when the card is held to a height (the Jobs page). */}
-          {/* The details hold a fixed width so the aside cannot squeeze them
-              (owner, 2026-11-06); the aside takes the rest. */}
-          <div className="no-scrollbar flex min-h-0 min-w-0 flex-col gap-2 overflow-y-auto pad:w-56 pad:shrink-0">{body}</div>
-          <div className="min-w-0 flex-1 pad:h-full">{aside}</div>
+        // The card answers to its own width, not the window's: see `.jc` in
+        // globals.css. Wide: details | aside. Narrower: the details fold into a
+        // drop-down under the name. Narrower still: the rings hide.
+        <div className="jc">
+          <div className="jc-row">
+            <div ref={detailsRef} data-open={open} className="jc-details no-scrollbar">
+              {head}
+              {more}
+            </div>
+            <div className="jc-aside">{aside}</div>
+          </div>
         </div>
       ) : (
-        body
+        <>
+          {head}
+          {more}
+        </>
       )}
       {footer && (
         <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">{footer}</div>

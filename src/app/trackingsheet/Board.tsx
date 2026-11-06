@@ -2095,7 +2095,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           under the page header for why there are two. */}
       <StatementBlock
         rule={false}
-        className="mb-4 hidden lg:block"
+        className={`mb-4 ${embed?.summarySlot ? "" : "hidden lg:block"}`}
         // All Time on the Jobs page: the job's cost to date, bills and labor,
         // from the same read as its All Time rings (owner, 2026-11-02).
         label={allTime ? "Job to date" : c("recode.statement.toBeInvoiced")}
@@ -2151,6 +2151,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         detail={donutDetail}
         ringSize={embed?.summarySlot ? 60 : undefined}
         compact={!!embed?.summarySlot}
+        className={embed?.summarySlot ? "jc-donuts" : undefined}
         scopeSlot={embed?.summarySlot ? embed.scopeSlot ?? null : undefined}
         onScopeChange={
           embed

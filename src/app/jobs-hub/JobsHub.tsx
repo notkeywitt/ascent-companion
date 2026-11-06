@@ -379,12 +379,12 @@ export function JobsHub() {
                     ) : undefined
                   }
                   aside={
-                    <div className="flex flex-col items-start gap-6 pad:h-full pad:flex-row">
+                    <div className="jc-aside-row">
                       {tab === "sheet" && canTrackingSheet && (
                         // Full width on a phone, where it sits under the job.
                         <div
                           ref={setSummarySlot}
-                          className="no-scrollbar w-full min-w-0 overflow-x-hidden pad:h-full pad:w-[300px] pad:shrink-0 pad:overflow-y-auto"
+                          className="jc-summary no-scrollbar"
                         />
                       )}
                       {/* The job's notes: only this job's, newest first. */}
@@ -397,7 +397,7 @@ export function JobsHub() {
                         onOpenBill={openBill}
                         onNotes={onJobNotes}
                         request={noteRequest}
-                        className="w-full pad:h-full pad:min-w-0 pad:flex-1"
+                        className="jc-notes"
                       />
                     </div>
                   }
