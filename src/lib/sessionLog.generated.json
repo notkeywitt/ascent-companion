@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-06T15:48:05Z",
+  "generatedAt": "2026-11-06T16:14:17Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "practical-newton",
+      "file": "2026-11-06-practical-newton.md",
+      "branch": "claude/practical-newton-eppiuh",
+      "status": "shipped",
+      "started": "2026-11-06T16:13:56Z",
+      "updated": "2026-11-06T16:14:16Z",
+      "goal": "",
+      "next": "owner tests the installed app on iPhone: bar stays put, new page opens at top, back returns to place, sheets lock the page",
+      "commits": [
+        {
+          "date": "2026-11-06",
+          "time": "16:13",
+          "sha": "0b83ccb",
+          "subject": "companion: scroll the installed app inside the page box so iphone stops dragging the tab bar up",
+          "files": "CODEBASE_MAP.md, src/app/globals.css, src/app/jobs-hub/JobsHub.tsx, src/app/layout.tsx, src/app/payments/page.tsx, src/components/AppScrollKeeper.tsx, +3 more"
+        }
+      ]
+    },
     {
       "slug": "busy-galileo",
       "file": "2026-11-05-busy-galileo.md",

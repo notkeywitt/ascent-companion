@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [practical-newton](.claude/sessions/2026-11-06-practical-newton.md) | 2026-11-06 | 1 | — |
 | [busy-galileo](.claude/sessions/2026-11-05-busy-galileo.md) | 2026-11-06 | 2 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-04 | 201 | — |
 | [mobile-donut-charts](.claude/sessions/2026-11-03-mobile-donut-charts.md) | 2026-11-03 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [epic-hopper](.claude/sessions/2026-10-29-epic-hopper.md) | 2026-10-30 | 7 | — |
 | [intelligent-rubin](.claude/sessions/2026-10-29-intelligent-rubin.md) | 2026-10-29 | 3 | — |
 | [gifted-meitner](.claude/sessions/2026-10-29-gifted-meitner.md) | 2026-10-29 | 1 | — |
-| [ascent-roof-color-query](.claude/sessions/2026-10-28-ascent-roof-color-query.md) | 2026-10-29 | 9 | — |

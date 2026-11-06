@@ -2,9 +2,9 @@
 slug: practical-newton
 repo: ascent-companion
 branch: claude/practical-newton-eppiuh
-status: in-progress
+status: shipped
 started: 2026-11-06T16:13:56Z
-updated: 2026-11-06T16:13:56Z
+updated: 2026-11-06T16:14:16Z
 goal: 
 next: owner tests the installed app on iPhone: bar stays put, new page opens at top, back returns to place, sheets lock the page
 ---
