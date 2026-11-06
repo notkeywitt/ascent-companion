@@ -32,10 +32,10 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-06 | 202 | — |
 | [zen-albattani](.claude/sessions/2026-11-06-zen-albattani.md) | 2026-11-06 | 1 | — |
 | [practical-newton](.claude/sessions/2026-11-06-practical-newton.md) | 2026-11-06 | 1 | — |
 | [busy-galileo](.claude/sessions/2026-11-05-busy-galileo.md) | 2026-11-06 | 2 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-04 | 201 | — |
 | [mobile-donut-charts](.claude/sessions/2026-11-03-mobile-donut-charts.md) | 2026-11-03 | 1 | — |
 | [sunset-statement-reconciliation](.claude/sessions/2026-11-02-sunset-statement-reconciliation.md) | 2026-11-03 | 2 | — |
 | [determined-davinci](.claude/sessions/2026-11-03-determined-davinci.md) | 2026-11-03 | 1 | — |

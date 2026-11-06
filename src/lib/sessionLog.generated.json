@@ -1,78 +1,14 @@
 {
-  "generatedAt": "2026-11-06T17:19:17Z",
+  "generatedAt": "2026-11-06T17:24:57Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "zen-albattani",
-      "file": "2026-11-06-zen-albattani.md",
-      "branch": "claude/zen-albattani-9aam0v",
-      "status": "shipped",
-      "started": "2026-11-06T17:12:55Z",
-      "updated": "2026-11-06T17:19:17Z",
-      "goal": "",
-      "next": "Check the cream phone bar on a real iPhone in light mode: contrast of inactive labels and the drawer tab's edge.",
-      "commits": [
-        {
-          "date": "2026-11-06",
-          "time": "17:19",
-          "sha": "bbe5dd2",
-          "subject": "companion: phone tab bar follows the theme (cream in light)",
-          "files": "src/components/TabBar.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "practical-newton",
-      "file": "2026-11-06-practical-newton.md",
-      "branch": "claude/practical-newton-eppiuh",
-      "status": "shipped",
-      "started": "2026-11-06T16:13:56Z",
-      "updated": "2026-11-06T16:14:16Z",
-      "goal": "",
-      "next": "owner tests the installed app on iPhone: bar stays put, new page opens at top, back returns to place, sheets lock the page",
-      "commits": [
-        {
-          "date": "2026-11-06",
-          "time": "16:13",
-          "sha": "0b83ccb",
-          "subject": "companion: scroll the installed app inside the page box so iphone stops dragging the tab bar up",
-          "files": "CODEBASE_MAP.md, src/app/globals.css, src/app/jobs-hub/JobsHub.tsx, src/app/layout.tsx, src/app/payments/page.tsx, src/components/AppScrollKeeper.tsx, +3 more"
-        }
-      ]
-    },
-    {
-      "slug": "busy-galileo",
-      "file": "2026-11-05-busy-galileo.md",
-      "branch": "claude/busy-galileo-e81oo4",
-      "status": "shipped",
-      "started": "2026-11-05T21:46:01Z",
-      "updated": "2026-11-06T15:48:05Z",
-      "goal": "",
-      "next": "",
-      "commits": [
-        {
-          "date": "2026-11-06",
-          "time": "04:05",
-          "sha": "8e2da88",
-          "subject": "companion: move UI rules from CLAUDE.md to THEME.md so they load only for UI work",
-          "files": "CLAUDE.md, THEME.md, src/app/globals.css"
-        },
-        {
-          "date": "2026-11-06",
-          "time": "15:48",
-          "sha": "025ee45",
-          "subject": "companion: slim CLAUDE.md, move Pave gotchas out, add pointers to the Apps Script repo",
-          "files": "CLAUDE.md, PAVE_GOTCHAS.md"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-04T19:17:04Z",
+      "updated": "2026-11-06T17:24:57Z",
       "goal": "",
       "next": "On /payments: pick October 2026, press Print and check the summary + PDFs; check Paid in JT shows on statements whose Office bill is paid; Approve all on a month with draft statement bills.",
       "commits": [
@@ -1482,6 +1418,77 @@
           "sha": "af8cff6",
           "subject": "companion: fix the statement-bill read that 413'd, so jobtread-paid statements show paid",
           "files": "src/app/payments/page.tsx, src/lib/jobtread.ts"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "09:24",
+          "sha": "c8168ad",
+          "subject": "companion: draw focus outline inside clipped list cards so corners show",
+          "files": "src/app/globals.css"
+        }
+      ]
+    },
+    {
+      "slug": "zen-albattani",
+      "file": "2026-11-06-zen-albattani.md",
+      "branch": "claude/zen-albattani-9aam0v",
+      "status": "shipped",
+      "started": "2026-11-06T17:12:55Z",
+      "updated": "2026-11-06T17:19:17Z",
+      "goal": "",
+      "next": "Check the cream phone bar on a real iPhone in light mode: contrast of inactive labels and the drawer tab's edge.",
+      "commits": [
+        {
+          "date": "2026-11-06",
+          "time": "17:19",
+          "sha": "bbe5dd2",
+          "subject": "companion: phone tab bar follows the theme (cream in light)",
+          "files": "src/components/TabBar.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "practical-newton",
+      "file": "2026-11-06-practical-newton.md",
+      "branch": "claude/practical-newton-eppiuh",
+      "status": "shipped",
+      "started": "2026-11-06T16:13:56Z",
+      "updated": "2026-11-06T16:14:16Z",
+      "goal": "",
+      "next": "owner tests the installed app on iPhone: bar stays put, new page opens at top, back returns to place, sheets lock the page",
+      "commits": [
+        {
+          "date": "2026-11-06",
+          "time": "16:13",
+          "sha": "0b83ccb",
+          "subject": "companion: scroll the installed app inside the page box so iphone stops dragging the tab bar up",
+          "files": "CODEBASE_MAP.md, src/app/globals.css, src/app/jobs-hub/JobsHub.tsx, src/app/layout.tsx, src/app/payments/page.tsx, src/components/AppScrollKeeper.tsx, +3 more"
+        }
+      ]
+    },
+    {
+      "slug": "busy-galileo",
+      "file": "2026-11-05-busy-galileo.md",
+      "branch": "claude/busy-galileo-e81oo4",
+      "status": "shipped",
+      "started": "2026-11-05T21:46:01Z",
+      "updated": "2026-11-06T15:48:05Z",
+      "goal": "",
+      "next": "",
+      "commits": [
+        {
+          "date": "2026-11-06",
+          "time": "04:05",
+          "sha": "8e2da88",
+          "subject": "companion: move UI rules from CLAUDE.md to THEME.md so they load only for UI work",
+          "files": "CLAUDE.md, THEME.md, src/app/globals.css"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "15:48",
+          "sha": "025ee45",
+          "subject": "companion: slim CLAUDE.md, move Pave gotchas out, add pointers to the Apps Script repo",
+          "files": "CLAUDE.md, PAVE_GOTCHAS.md"
         }
       ]
     },
