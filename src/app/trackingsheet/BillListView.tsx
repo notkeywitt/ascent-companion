@@ -22,6 +22,7 @@ export function BillListView({
   billCodeOptions,
   c,
   filteredBills,
+  groupSwitch,
   mode,
   nonSunsetBills,
   nonSunsetTotal,
@@ -38,6 +39,8 @@ export function BillListView({
   billCodeOptions: { number: string; name: string; }[];
   c: (key: string, vars?: Record<string, string | number>) => string;
   filteredBills: BillRef[];
+  /** The By bill / By cost code / Summary switch, when it rides in the Bills header. */
+  groupSwitch?: React.ReactNode;
   mode: "bill" | "code" | "summary";
   nonSunsetBills: BillRef[];
   nonSunsetTotal: number;
@@ -80,13 +83,16 @@ export function BillListView({
                         way — but OPEN by default, because this is the list the
                         page exists to work through. Closing it is what makes
                         room to read the labor or the Sunset run on one screen. */}
-                    <button
-                      type="button"
-                      onClick={() => setBillBlockOpen((v) => !v)}
-                      aria-expanded={billBlockOpen}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5 lg:py-2"
-                    >
-                      <span className="min-w-0 truncate text-sm font-semibold">
+                    {/* A ROW, not one button, like the Labor block: the
+                        chevron toggles the list and the group switch sits
+                        beside it, and a control inside a button is invalid. */}
+                    <div className="flex w-full items-baseline gap-2 px-3 py-3 lg:py-2">
+                      <button
+                        type="button"
+                        onClick={() => setBillBlockOpen((v) => !v)}
+                        aria-expanded={billBlockOpen}
+                        className="min-w-0 flex-1 truncate text-left text-sm font-semibold transition hover:text-accent"
+                      >
                         <span
                           aria-hidden
                           className={`mr-1.5 inline-block text-[9px] text-neutral-500 transition-transform dark:text-neutral-400 ${
@@ -97,11 +103,12 @@ export function BillListView({
                         </span>
                         Bills ({nonSunsetBills.length} bill
                         {nonSunsetBills.length === 1 ? "" : "s"})
-                      </span>
+                      </button>
+                      {groupSwitch && <div className="shrink-0 self-center">{groupSwitch}</div>}
                       <span className="shrink-0 text-sm font-semibold tabular-nums">
                         {money(nonSunsetTotal)}
                       </span>
-                    </button>
+                    </div>
                     {billBlockOpen && (
                       <>
                         {/* The list's own way to the cost-code filter — the same

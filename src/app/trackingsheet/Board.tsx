@@ -2151,6 +2151,23 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     </>
   );
 
+  const groupSwitch = (
+    <Segmented
+      label="Group bills"
+      value={mode}
+      onChange={setMode}
+      options={[
+        { value: "bill", label: "By bill" },
+        { value: "code", label: "By cost code" },
+        { value: "summary", label: "Summary" },
+      ]}
+    />
+  );
+  const groupInBillsHeader =
+    mode === "bill" &&
+    billBlockOpen &&
+    nonSunsetBills.length > 0;
+
   const centerCol = (
     <>
     {/* ─────────── CENTRE: the month's bills ─────────── */}
@@ -2229,17 +2246,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         {/* Grouping switch: one Segmented control, so the three options
             read as a set. The third is the client-facing rollup — what
             the month bills, in the shape the customer sees it, and the
-            source of the printed summary. Not a drag surface. */}
-        <Segmented
-          label="Group bills"
-          value={mode}
-          onChange={setMode}
-          options={[
-            { value: "bill", label: "By bill" },
-            { value: "code", label: "By cost code" },
-            { value: "summary", label: "Summary" },
-          ]}
-        />
+            source of the printed summary. Not a drag surface. While the
+            Bills block is open it rides in that block's header, like the
+            Labor block's Group switch (owner, 2026-11-06). */}
+        {!groupInBillsHeader && groupSwitch}
       </div>
     
       {/* ---- this month's time entries ----
@@ -2400,6 +2410,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     
       <BillListView
         billBlockOpen={billBlockOpen}
+        groupSwitch={groupInBillsHeader ? groupSwitch : null}
         billCodeFilter={billCodeFilter}
         billCodeOptions={billCodeOptions}
         c={c}
