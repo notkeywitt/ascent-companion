@@ -334,10 +334,10 @@ export function JobsHub() {
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the
             month's totals beside the map while no job is picked). */}
-        <div className="grid gap-6 xl:h-[360px] xl:grid-cols-[320px_minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)]">
+        <div className="grid gap-6 max-xl:landscape:grid-cols-[320px_minmax(0,1fr)] xl:h-[360px] xl:grid-cols-[320px_minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)]">
           {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it.
               A phone or iPad held upright picks from the dropdown over the map instead. */}
-          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 landscape:flex xl:flex">
+          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 landscape:flex xl:flex max-xl:landscape:col-start-1 max-xl:landscape:row-start-1">
             {!jobs && <Loading />}
             <div className="no-scrollbar max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto xl:max-h-none">
               {byPhase.map(([phase, list]) => (
@@ -374,7 +374,7 @@ export function JobsHub() {
           {/* The second card, with the month picker in its top right corner. */}
           {/* A phone puts the month controls in a row above the card: laid
               over its corner they covered the rings (owner, 2026-11-03). */}
-          <div className="relative flex min-h-0 min-w-0 flex-col gap-3 pad:block">
+          <div className="relative flex min-h-0 min-w-0 flex-col gap-3 pad:block max-xl:landscape:col-span-2 max-xl:landscape:row-start-2">
             {selected ? (
               details?.get(selected.id) ? (
                 <JobCard
@@ -461,10 +461,12 @@ export function JobsHub() {
               </div>
             )}
           </div>
-          {/* The map, on the page beside the cards (owner, 2026-11-01). On a
-              phone or iPad held upright it comes first, under the jobs as a dropdown (owner,
-              2026-11-03). */}
-          <div className="order-first flex min-h-0 flex-col gap-3 landscape:order-none xl:order-none">
+          {/* The map, on the page beside the cards (owner, 2026-11-01). Below
+              xl, held sideways, it shares the top row with the jobs list and the
+              job card spans the row under them. Held upright, the map comes
+              first, short enough to fit the screen, with the jobs dropdown
+              under it (owner, 2026-11-06). */}
+          <div className="order-first flex min-h-0 flex-col gap-3 landscape:order-none xl:order-none max-xl:landscape:col-start-2 max-xl:landscape:row-start-1">
             <Select
               aria-label="Job"
               value={selectedId ?? ""}
@@ -474,7 +476,7 @@ export function JobsHub() {
                 const id = e.target.value || selectedId;
                 if (id) pick(id);
               }}
-              className="landscape:hidden xl:hidden"
+              className="order-last landscape:hidden xl:hidden"
             >
               <option value="">{jobs ? "All jobs" : "Loading jobs…"}</option>
               {byPhase.map(([phase, list]) => (
@@ -491,7 +493,7 @@ export function JobsHub() {
                 </optgroup>
               ))}
             </Select>
-            <div className="min-h-64 flex-1 xl:min-h-0">{map}</div>
+            <div className="min-h-64 flex-1 xl:min-h-0 max-xl:portrait:h-[min(16rem,35svh)] max-xl:portrait:min-h-0 max-xl:portrait:flex-none">{map}</div>
           </div>
         </div>
 
