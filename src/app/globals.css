@@ -511,6 +511,11 @@ body {
   outline: 2px solid rgb(var(--accent) / 0.9);
   outline-offset: 1px;
 }
+/* A card that clips its overflow (rounded list cards) would cut an outline
+   drawn outside a row — the top corners vanish. Draw it inside instead. */
+.overflow-hidden :focus-visible {
+  outline-offset: -2px;
+}
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
