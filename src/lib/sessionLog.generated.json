@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T18:25:55Z",
+  "generatedAt": "2026-11-06T18:32:13Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-06T18:25:55Z",
+      "updated": "2026-11-06T18:32:13Z",
       "goal": "",
-      "next": "Look at /jobs-hub with a job picked: details fixed width, small stacked rings keyed by code + amount, Sync at the card foot, Notes header level with This Month / month.",
+      "next": "Look at /jobs-hub bill rows: Add Note / Note link scrolls to the notes panel; check it on a phone width.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1502,6 +1502,13 @@
           "sha": "c7b8d93",
           "subject": "companion: commit tsconfig.json as Next writes it, so builds stop dirtying the tree",
           "files": "tsconfig.json"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:32",
+          "sha": "a5181ef",
+          "subject": "companion: bill rows on the Jobs page get an Add Note link; a bill with a note shows Note and jumps to it",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx, src/components/NotesPanel.tsx"
         }
       ]
     },
