@@ -49,6 +49,8 @@ export function Donut({
   selectedKey = null,
   legend = true,
   onHover,
+  compact = false,
+  legendLabel,
 }: {
   slices: DonutSlice[];
   title?: string;
@@ -79,6 +81,15 @@ export function Donut({
   /** Told which slice is lifted (null when none), so the page can light the
    *  same thing elsewhere — the Jobs page's list row and map dot. */
   onHover?: (sliceKey: string | null) => void;
+  /**
+   * A small ring with its title, total and key BESIDE it, not under it: the
+   * Jobs page's job card stacks two of these (owner, 2026-11-06). The hole is
+   * too small for text, so the total moves up next to the title, and the key
+   * drops the percent.
+   */
+  compact?: boolean;
+  /** What a key row says; defaults to the slice's label. */
+  legendLabel?: (slice: DonutSlice) => string;
 }) {
   // Which arc is lifted. Hover on a pointer; a tap toggles it, since the rings
   // are read on a phone too and there is no hover there.
@@ -117,9 +128,33 @@ export function Donut({
 
   let offset = 0;
 
+  const sorted = positive.slice().sort((a, b) => b.value - a.value);
+  const keyRow = (s: DonutSlice) => (
+    <li
+      key={s.key}
+      // No hover card off the legend (owner, 2026-11-02): only the
+      // arc opens it, so reading down the legend pops nothing up.
+      onClick={onSelect ? () => onSelect(s.key) : undefined}
+      className={`flex items-center gap-2 text-xs ${
+        hover === s.key || selectedKey === s.key ? "font-semibold" : ""
+      } ${onSelect ? "cursor-pointer" : ""} ${selectedKey === s.key ? "text-accent" : ""}`}
+    >
+      <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+      <span className="min-w-0 flex-1 truncate text-neutral-600 dark:text-neutral-300">
+        {legendLabel ? legendLabel(s) : s.label}
+      </span>
+      <span className="shrink-0 tabular-nums text-neutral-500">{money(s.value)}</span>
+      {!compact && (
+        <span className="w-9 shrink-0 text-right tabular-nums text-neutral-400">
+          {pct(s.value, total)}%
+        </span>
+      )}
+    </li>
+  );
+
   return (
-    <figure className="m-0 flex flex-col items-center">
-      {title && (
+    <figure className={`m-0 flex ${compact ? "flex-row items-start gap-3" : "flex-col items-center"}`}>
+      {title && !compact && (
         <figcaption className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
           {title}
         </figcaption>
@@ -130,7 +165,7 @@ export function Donut({
           className="flex items-center justify-center rounded-full border border-dashed border-neutral-300 text-center text-[11px] text-neutral-400 dark:border-neutral-700"
           style={{ width: size, height: size }}
         >
-          {emptyLabel}
+          {!compact && emptyLabel}
         </div>
       ) : (
         <div className="relative" style={{ width: size, height: size }}>
@@ -236,7 +271,8 @@ export function Donut({
             </div>
           )}
 
-          {/* Center readout sits in the hole. */}
+          {/* Center readout sits in the hole (beside the ring when compact). */}
+          {!compact && (
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-sm font-semibold tabular-nums">{centerValue ?? money(total)}</span>
             {centerLabel && (
@@ -245,41 +281,26 @@ export function Donut({
               </span>
             )}
           </div>
+          )}
+        </div>
+      )}
+
+      {compact && (
+        <div className="min-w-0 flex-1">
+          <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            <span>{title}</span>
+            <span className="tabular-nums normal-case tracking-normal text-neutral-700 dark:text-neutral-200">
+              {centerValue ?? money(total)}
+            </span>
+          </div>
+          {total <= 0 && <p className="text-xs text-neutral-400">{emptyLabel}</p>}
+          {legend && sorted.length > 0 && <ul className="w-full space-y-0.5">{sorted.map(keyRow)}</ul>}
         </div>
       )}
 
       {/* Legend — identity is never color-alone. Sorted by value desc. */}
-      {legend && positive.length > 0 && (
-        <ul className="mt-3 w-full space-y-1">
-          {positive
-            .slice()
-            .sort((a, b) => b.value - a.value)
-            .map((s) => (
-              <li
-                key={s.key}
-                // No hover card off the legend (owner, 2026-11-02): only the
-                // arc opens it, so reading down the legend pops nothing up.
-                onClick={onSelect ? () => onSelect(s.key) : undefined}
-                className={`flex items-center gap-2 text-xs ${
-                  hover === s.key || selectedKey === s.key ? "font-semibold" : ""
-                } ${onSelect ? "cursor-pointer" : ""} ${
-                  selectedKey === s.key ? "text-accent" : ""
-                }`}
-              >
-                <span
-                  aria-hidden
-                  className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                  style={{ backgroundColor: s.color }}
-                />
-                <span className="min-w-0 flex-1 truncate text-neutral-600 dark:text-neutral-300">
-                  {s.label}
-                </span>
-                <span className="shrink-0 tabular-nums text-neutral-500">{money(s.value)}</span>
-                <span className="w-9 shrink-0 text-right tabular-nums text-neutral-400">
-                  {pct(s.value, total)}%
-                </span>
-              </li>
-            ))}
+      {!compact && legend && positive.length > 0 && (
+        <ul className="mt-3 w-full space-y-1">{sorted.map(keyRow)}
         </ul>
       )}
     </figure>

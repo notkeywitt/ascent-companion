@@ -187,8 +187,10 @@ export function JobCard({
         // rings ran off the card's right edge (owner, 2026-11-03).
         <div className="flex min-h-0 flex-1 flex-col gap-4 pad:flex-row">
           {/* Scrolls when the card is held to a height (the Jobs page). */}
-          <div className="no-scrollbar flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-y-auto">{body}</div>
-          <div className="min-w-0 shrink-0 pad:h-full">{aside}</div>
+          {/* The details hold a fixed width so the aside cannot squeeze them
+              (owner, 2026-11-06); the aside takes the rest. */}
+          <div className="no-scrollbar flex min-h-0 min-w-0 flex-col gap-2 overflow-y-auto pad:w-56 pad:shrink-0">{body}</div>
+          <div className="min-w-0 flex-1 pad:h-full">{aside}</div>
         </div>
       ) : (
         body

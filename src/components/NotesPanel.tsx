@@ -80,8 +80,11 @@ export function NotesPanel({
   jobLabel,
   ym,
   jobs,
+  hideHeading = false,
   className = "",
 }: {
+  /** Drop the job or month name after "Notes" — the card around it already says it. */
+  hideHeading?: boolean;
   /** The picked job, or null for the all-jobs view. */
   jobId: string | null;
   jobLabel?: string;
@@ -146,7 +149,9 @@ export function NotesPanel({
       <div className="flex shrink-0 items-center gap-3">
         <div className="min-w-0 truncate">
           <span className={caption}>Notes</span>
-          <span className="ml-2 text-[12px] text-neutral-500 dark:text-neutral-400">{heading}</span>
+          {!hideHeading && (
+            <span className="ml-2 text-[12px] text-neutral-500 dark:text-neutral-400">{heading}</span>
+          )}
         </div>
         {!adding && (
           <Button size="xs" variant="outline" className="shrink-0" onClick={() => setAdding(true)}>

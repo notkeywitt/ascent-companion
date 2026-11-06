@@ -2116,7 +2116,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         jobToDate={(embed && allTimeRingRows) || costDonutRows}
         monthLabel={monthLabel(ym)}
         detail={donutDetail}
-        ringSize={embed?.summarySlot ? 120 : undefined}
+        ringSize={embed?.summarySlot ? 60 : undefined}
+        compact={!!embed?.summarySlot}
         scopeSlot={embed?.summarySlot ? embed.scopeSlot ?? null : undefined}
         onScopeChange={
           embed

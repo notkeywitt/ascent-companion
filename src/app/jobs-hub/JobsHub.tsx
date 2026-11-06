@@ -341,13 +341,19 @@ export function JobsHub() {
                   c={details.get(selected.id)!}
                   nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
+                  // Sync at the card's foot, clear of the notes (owner, 2026-11-06).
+                  footer={
+                    ym && !allTimeOn ? (
+                      <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
+                    ) : undefined
+                  }
                   aside={
-                    <div className="flex items-start gap-6 pad:h-full">
+                    <div className="flex flex-col items-start gap-6 pad:h-full pad:flex-row">
                       {tab === "sheet" && canTrackingSheet && (
                         // Full width on a phone, where it sits under the job.
                         <div
                           ref={setSummarySlot}
-                          className="no-scrollbar w-full min-w-0 overflow-x-hidden pad:h-full pad:w-[520px] pad:overflow-y-auto"
+                          className="no-scrollbar w-full min-w-0 overflow-x-hidden pad:h-full pad:w-[300px] pad:shrink-0 pad:overflow-y-auto"
                         />
                       )}
                       {/* The job's notes: only this job's, newest first. */}
@@ -356,7 +362,8 @@ export function JobsHub() {
                         jobLabel={jobLabel(selected)}
                         ym={ym}
                         jobs={noteJobs}
-                        className="w-full pad:h-full pad:w-[340px]"
+                        hideHeading
+                        className="w-full pad:h-full pad:min-w-0 pad:flex-1"
                       />
                     </div>
                   }
@@ -409,11 +416,10 @@ export function JobsHub() {
               </Card>
             )}
             <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
-              {/* Sync, left of the month it syncs (owner, 2026-11-02): the
-                  Tracking Sheets page's own — every wired sheet and the
-                  month's Labor Report. */}
-              {selected && ym && !allTimeOn && <SyncAllTrackingSheetsFor ym={ym} className="max-w-56 text-right" />}
-              <div className="flex flex-col items-end gap-1">
+              {/* One row — the scope switch, then the month — so it sits
+                  level with the Notes header beside it (owner, 2026-11-06).
+                  Sync moved to the job card's foot. */}
+              <div className="flex items-center gap-3">
                 {selected && tab === "sheet" && <div ref={setScopeSlot} />}
                 {(selected || idleView === "month") && !allTimeOn && monthSelect}
               </div>

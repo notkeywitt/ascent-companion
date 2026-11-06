@@ -160,6 +160,9 @@ function otherCodes(
 const sum = (s: DonutSlice[]) => s.reduce((n, x) => n + x.value, 0);
 const hasCost = (rows: CostDonutRow[]) => rows.some((r) => r.bills > 0 || r.labor > 0);
 
+/** The key's text when compact: the cost code alone ("Other" for the rest). */
+const codeOnly = (s: { key: string }) => (s.key === "__other" ? "Other" : s.key);
+
 export function CostDonuts({
   month,
   jobToDate,
@@ -171,6 +174,7 @@ export function CostDonuts({
   onSelectLabor,
   selectedLaborKey = null,
   ringSize = 120,
+  compact = false,
   scopeSlot,
   onScopeChange,
   className = "",
@@ -181,8 +185,11 @@ export function CostDonuts({
   /** The Jobs page: draw the scope switch here, under its month picker, and
    *  drop the heading — the card already says what it is (owner, 2026-11-02). */
   scopeSlot?: HTMLElement | null;
-  /** Each ring's diameter, px. The Jobs page's job card draws them larger. */
+  /** Each ring's diameter, px. */
   ringSize?: number;
+  /** The Jobs page's job card: the rings stacked, each keyed by code and
+   *  amount only (owner, 2026-11-06). See Donut's `compact`. */
+  compact?: boolean;
   /** The selected month's cost by code — the scope the rings open on. */
   month: CostDonutRow[];
   /** The whole job's cost by code. */
@@ -359,13 +366,15 @@ export function CostDonuts({
       )}
 
       <div
-        className={`mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 ${collapsed ? "hidden lg:grid" : ""}`}
+        className={`mb-4 grid grid-cols-1 gap-4 ${compact ? "gap-3" : "sm:grid-cols-2"} ${collapsed ? "hidden lg:grid" : ""}`}
       >
         <Donut
           title="Bills"
           slices={bills}
           {...center("bills", sum(bills))}
           size={ringSize}
+          compact={compact}
+          legendLabel={compact ? codeOnly : undefined}
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
@@ -377,6 +386,8 @@ export function CostDonuts({
           slices={labor}
           {...center("labor", sum(labor))}
           size={ringSize}
+          compact={compact}
+          legendLabel={compact ? codeOnly : undefined}
           emptyLabel={`No labor logged ${emptySuffix}`}
           detail={ringDetail && ringDetail("labor")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
