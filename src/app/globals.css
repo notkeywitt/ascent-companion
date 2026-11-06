@@ -286,7 +286,7 @@
 
    The leading `html` is what beats Tailwind's own `.text-accent` — element +
    class outranks class alone, so this does not depend on stylesheet order (see
-   the ordering note in CLAUDE.md). */
+   the ordering note in THEME.md). */
 html .text-accent,
 html .hover\:text-accent:hover,
 html .group:hover .group-hover\:text-accent {
@@ -304,7 +304,7 @@ html .group:hover .group-hover\:text-accent {
    JobTread", and upper-casing that wraps it on a phone.
 
    Specificity, not stylesheet order, is what makes these win over the Tailwind
-   utility they override — see the note in CLAUDE.md. */
+   utility they override — see the note in THEME.md. */
 [data-palette="website"] .ui-caption {
   /* Was 0.18em: at 10–11px that read as spaced-out letters, not a word, and
      made captions the weakest text on the page (desktop review, 2026-10-19). */
@@ -453,7 +453,7 @@ body {
      those glyphs paint in `currentColor` like the words around them.
      It is a safety net, not the rule: a codepoint that is emoji-ONLY (📎, 📷,
      🎉) has no text presentation to fall back to and will still render in
-     colour. Do not add one — see the icon rule in CLAUDE.md. */
+     colour. Do not add one — see the icon rule in THEME.md. */
   font-variant-emoji: text;
   /* Unconditional, so no page can hide its last row behind the tab bar — each
      page's own `pb-*` stacks on top of this rather than having to include it. */

@@ -102,81 +102,9 @@ branch's record, so the next session can pick the work up cold. Read
   grant key is used).
 - **Shared logic:** `src/lib/**` — `jobtread.ts` (the typed Pave client + cache),
   `config.ts` (env + gates), `views.ts` (roles + gating), `auth.ts` (session).
-- **UI design system:** `src/components/ui.tsx` — **build every UI on these
-  primitives**, never hand-rolled styles (`PageHeader`, `Card`, `Input`, `Select`,
-  `Textarea`, `Button`, `Banner`, `Loading`, `EmptyState`, `SectionLabel`, `Toggle`),
-  plus the "Ledger" set: `SectionHeading` (brand rule + caption), `ListCard`/`ListRow`
-  (hairline-divided rows), `StatementBlock` (the page's ONE display figure), `Chip`
-  (status marks), `MetaLine` (dot-separated quiet state — the reason chips stay rare),
-  `QuietInput`/`quietInputCls` (a field with no border until focus, for dense editing
-  rows), `CountBadge`, `FilterChip`/`ChipScroller` (swipeable filter pills),
-  `Meter` (spend vs budget), `StickyActionBar` (a page's commit action, docked),
-  and the controls: `Tabs` (sibling pages above the title, sections below it),
-  `Segmented` (two to four views of the same content), `Checkbox`, `FileDrop`
-  (the file picker), `Dialog` (every modal — never a hand-rolled `fixed inset-0`
-  overlay), Button `size="xs"` (never `!py-… !text-xs`), and `tableCls` (one
-  table style).
-- **Status text is a token: `text-warn`, `text-danger`, `text-ok`** — never
-  `text-amber-600 dark:text-amber-400` by hand. Values in `globals.css`. Money
-  goes through `money` / `money0` (`src/lib/money.ts`); dates read
-  "Oct 19, 2026" (`en-US`, short month), never the browser's default format.
-- **Prefer a hairline to a box, and text to a pill.** A list of records is ONE
-  `Card pad={false}` with `divide-y divide-line-soft` rows — never a bordered card
-  per record. Ordinary state goes in a `MetaLine`; a `Chip` is spent only on the
-  exception (flagged, over budget, unsaved). A dense editing row uses quiet fields,
-  not a stroke around every input.
-- **Two Tailwind utilities for the same property are resolved by STYLESHEET order,
-  not attribute order.** `` `${quietInputCls} w-16` `` only works because the base
-  carries no width — if a base class string and a caller's extra both set one, the
-  one Tailwind emits later silently wins. Check the built CSS when overriding.
-- **Hairlines are tokens, not Tailwind neutrals.** Use `border-line` (card edge),
-  `border-line-soft` (divider between rows inside one card) and `border-line-strong`
-  (form controls). They're theme variables, so they flip light/dark on their own —
-  writing `border-neutral-200 dark:border-neutral-700/60` again spells out by hand
-  what the token already does.
-- **TWO palettes, and every colour rule below describes the GUIDELINES one —
-  which is no longer the default.** `data-palette` on `<html>` names the palette
-  and is always present. **`website` is what a new device gets** (2026-09-06):
-  the set read off ascentbuildingco.com, **black and white with no chroma at
-  all** — the accent AND the mark. `guidelines` is the ochre-on-cream set the
-  rules below describe, now the opt-in; its tokens are the bare `:root` block,
-  so its attribute value matches no rule and needs none. It is a per-device
-  choice (Appearance, in the ☰ menu). What this means when you write a
-  component:
-  reach for the TOKEN (`accent`, `brand`, `line`, `ink`, `accent-fg`), never the
-  literal (`ochre`, `offblack`), or your view will only be right in one palette
-  — and never assume `brand` is a hue, because in one palette it is black.
-  `THEME.md` carries both palettes and how to add a third. **To change a value,
-  tune it in `/theme`** (the admin-only editor — pickers, H/S/L sliders, live
-  contrast) and paste its Copy CSS output into `globals.css`; the editor writes
-  the tokens as inline styles, so the whole app is its own live preview.
-- **One brand hue, two grounds.** OCHRE is BOTH the interactive accent and the
-  graphic `brand` hue, in BOTH themes; the theme swaps the ground, not the color
-  (guide p.15 passes ochre on off-black at 6.70:1, and blocks it on cream at
-  2.41:1 — which is why light mode redirects `text-accent` to black). The logo
-  square, peak mark and marquee rules are `brand`; a filled accent takes an
-  off-black label (`accent-fg`), and so does the logo's knocked-out peak — p.17
-  pairs an ochre square with black, never cream.
-- **OLIVE is currently unpainted.** It stays in the palette as `olive`, but no
-  surface uses it: the owner asked for ochre marks in dark (2026-09-05), and a
-  brand ramp on the cost rings was tried and reverted (2026-09-10) — a chart
-  wants a neutral categorical set, which is `--viz-*` (Tableau 10, muted),
-  mirrored in `MIS_VIZ_COLORS` on the appscript side. If a future view wants
-  olive back as a supporting band (p.14's website ratio), it passes for
-  GRAPHICS and large text only — 4.31:1 on off-black — never body copy.
-- **`neutral-*` is a warm ramp, not Tailwind's.** `tailwind.config.ts` overrides
-  every `neutral` step with a brand-warm equivalent solved to the same relative
-  luminance, so contrast is unchanged and the grey stops reading blue. Keep using
-  `text-neutral-500` / `dark:text-neutral-400` for quiet text — they're warm now.
-- **No colour emoji. Every mark is flat monochrome, in both palettes and both
-  themes.** A mark paints in `currentColor` and gets its colour from the text
-  around it — so it is a text glyph (`→ ↗ ✓ ✕ ⚠ ⚑ ★`) or an inline SVG, never
-  an emoji. Two traps: a U+FE0F variation selector after a dual-presentation
-  glyph (`⚠️`) forces the colour form, so leave it off; and an emoji-ONLY
-  codepoint (📎 📷 🎉 👤 🌐 ➕ ❗ ✅ ❌) has no text form at all and will render in
-  colour whatever the CSS says — `font-variant-emoji: text` on `body` cannot
-  save it. If the neighbouring words already say it, drop the mark; that is what
-  the site does, which uses no icons at all.
+- **UI work: read `THEME.md` first.** Its "Rules for writing UI" section holds
+  the `ui.tsx` primitives, the status and hairline tokens, the two palettes,
+  the Tailwind ordering trap and the no-colour-emoji rule.
 - **Nav:** ONE list — `WORKSPACES` in `src/lib/workspaces.ts` groups every page
   into a workspace named for a recurring job (Invoicing, Incoming Bills, …). It
   feeds the header's ☰ menu (`src/components/AppMenu.tsx`), the bottom bar
@@ -219,7 +147,7 @@ branch's record, so the next session can pick the work up cold. Read
    workspace in `src/lib/workspaces.ts` so it's reachable — that list feeds the
    menu, the bar and the header's global search. `workspaces.test.ts` fails on a
    page that is on no workspace.
-4. **Build the UI on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
+4. **Build the UI on `ui.tsx` primitives** (rules in `THEME.md`). Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
    `src/app/unbilled`, `src/app/budget-import`).
 5. **Verify** (`npm run typecheck`, `npm test`, `npm run build`) before
