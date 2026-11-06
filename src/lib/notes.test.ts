@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   billingYmForDate,
   changedFields,
+  cleanBills,
   cleanInvolves,
   groupByBillingMonth,
   isNoteDate,
@@ -18,6 +19,7 @@ const base: NoteFields = {
   noteDate: "2026-10-19",
   billingYm: "2026-10",
   involves: ["Seth"],
+  bills: [],
 };
 
 describe("billingYmForDate", () => {
@@ -92,5 +94,23 @@ describe("groupByBillingMonth", () => {
     const g = groupByBillingMonth([n(1, "2026-09", "2026-09-30"), n(2, "2026-10", "2026-10-01"), n(3, "2026-10", "2026-10-20")]);
     expect(g.map((x) => x.ym)).toEqual(["2026-10", "2026-09"]);
     expect(g[0].notes.map((x) => x.id)).toEqual([3, 2]);
+  });
+});
+
+describe("bills", () => {
+  it("keeps well-formed links, drops repeats, bad ids and non-objects", () => {
+    expect(
+      cleanBills([
+        { docId: "abc123def", label: " Lowe's · #44 " },
+        { docId: "abc123def", label: "dup" },
+        { docId: "no!", label: "bad" },
+        "x",
+      ]),
+    ).toEqual([{ docId: "abc123def", label: "Lowe's · #44" }]);
+  });
+  it("a note read keeps its bills, and an edit that adds one is a change", () => {
+    const r = readNoteFields({ bills: [{ docId: "abc123def", label: "A" }] }, base);
+    expect(r.ok && r.fields.bills).toHaveLength(1);
+    expect(r.ok && changedFields(base, r.fields)).toEqual(["bills"]);
   });
 });

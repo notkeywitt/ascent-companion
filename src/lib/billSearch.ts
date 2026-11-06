@@ -727,3 +727,50 @@ async function likeSearch(q: string): Promise<Record<string, unknown>[]> {
   });
   return r.rows as unknown as Record<string, unknown>[];
 }
+
+/** One bill in the Notes picker. */
+export interface PickerBill {
+  docId: string;
+  vendor: string;
+  invoice: string;
+  amount: number;
+  issueDate: string;
+  status: string;
+  jobName: string;
+}
+
+/**
+ * Bills a note can be linked to: JobTread bills only (a note stores the
+ * document id), newest first. `jobId` narrows to one job; `q` matches vendor or
+ * invoice / bill number. With neither it returns the newest few.
+ */
+export async function listBillsForPicker(opts: { q?: string; jobId?: string }): Promise<PickerBill[]> {
+  await ensureDb();
+  const where = ["source = 'jobtread'", "jt_doc_id != ''"];
+  const args: (string | number)[] = [];
+  if (opts.jobId) {
+    where.push("job_id = ?");
+    args.push(opts.jobId);
+  }
+  const q = (opts.q ?? "").trim().replace(/[%_]/g, "");
+  if (q) {
+    where.push("(vendor LIKE ? OR invoice_id LIKE ? OR bill_number LIKE ?)");
+    args.push(`%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  args.push(25);
+  const r = await rawDb().execute({
+    sql: `SELECT jt_doc_id, vendor, invoice_id, bill_number, amount, issue_date, status, job_name
+            FROM bill_index WHERE ${where.join(" AND ")}
+           ORDER BY issue_date DESC, id DESC LIMIT ?`,
+    args,
+  });
+  return (r.rows as unknown as Record<string, unknown>[]).map((b) => ({
+    docId: String(b.jt_doc_id),
+    vendor: String(b.vendor ?? ""),
+    invoice: String(b.invoice_id || b.bill_number || ""),
+    amount: Number(b.amount ?? 0),
+    issueDate: String(b.issue_date ?? ""),
+    status: String(b.status ?? ""),
+    jobName: String(b.job_name ?? ""),
+  }));
+}

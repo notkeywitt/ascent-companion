@@ -24,6 +24,15 @@ export const NOTE_MAX_CHARS = 4000;
 export const INVOLVES_MAX = 12;
 export const INVOLVES_NAME_MAX = 60;
 
+/** A bill a note is about: the JobTread document id and a label saved at link time. */
+export interface NoteBill {
+  docId: string;
+  /** "Vendor · #invoice · $amount", so the link still reads if the bill moves. */
+  label: string;
+}
+
+export const BILLS_MAX = 10;
+
 /** The tags a note carries that a person can change. */
 export interface NoteFields {
   body: string;
@@ -32,6 +41,7 @@ export interface NoteFields {
   noteDate: string;
   billingYm: string;
   involves: string[];
+  bills: NoteBill[];
 }
 
 export interface Note extends NoteFields {
@@ -62,6 +72,31 @@ export const isNoteDate = (s: unknown): s is string => {
   const d = new Date(`${s}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 };
+
+/** Keep well-formed bill links, drop repeats by document id, cap the count. */
+export function cleanBills(raw: unknown): NoteBill[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: NoteBill[] = [];
+  for (const v of raw) {
+    const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+    const docId = typeof o.docId === "string" ? o.docId.trim() : "";
+    if (!JOB_ID.test(docId) || seen.has(docId)) continue;
+    seen.add(docId);
+    out.push({ docId, label: String(o.label ?? "").replace(/\s+/g, " ").trim().slice(0, 160) });
+    if (out.length >= BILLS_MAX) break;
+  }
+  return out;
+}
+
+/** Parse the stored JSON of a `bills` column; never throws. */
+export function parseBills(json: string | null | undefined): NoteBill[] {
+  try {
+    return cleanBills(JSON.parse(json ?? "[]"));
+  } catch {
+    return [];
+  }
+}
 
 /** Trim, collapse blanks, drop repeats (case-insensitive), cap the count and length. */
 export function cleanInvolves(raw: unknown): string[] {
@@ -127,7 +162,8 @@ export function readNoteFields(
   }
 
   const involves = has("involves") ? cleanInvolves(o.involves) : (base?.involves ?? []);
-  return { ok: true, fields: { body, jobId, jobLabel, noteDate, billingYm, involves } };
+  const bills = has("bills") ? cleanBills(o.bills) : (base?.bills ?? []);
+  return { ok: true, fields: { body, jobId, jobLabel, noteDate, billingYm, involves, bills } };
 }
 
 const FIELD_LABEL: Record<keyof NoteFields, string> = {
@@ -137,11 +173,12 @@ const FIELD_LABEL: Record<keyof NoteFields, string> = {
   noteDate: "Date",
   billingYm: "Billing month",
   involves: "Involves",
+  bills: "Bills",
 };
 
 /** The fields an edit changed. `jobLabel` rides with `jobId`, so it never shows twice. */
 export function changedFields(before: NoteFields, after: NoteFields): (keyof NoteFields)[] {
-  const keys: (keyof NoteFields)[] = ["body", "jobId", "noteDate", "billingYm", "involves"];
+  const keys: (keyof NoteFields)[] = ["body", "jobId", "noteDate", "billingYm", "involves", "bills"];
   return keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
 }
 

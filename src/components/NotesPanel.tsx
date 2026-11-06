@@ -8,11 +8,14 @@ import {
   billingYmForDate,
   changedFields,
   fieldLabel,
+  BILLS_MAX,
   groupByBillingMonth,
   type Note,
+  type NoteBill,
   type NoteEdit,
   type NoteFields,
 } from "@/lib/notes";
+import { money } from "@/lib/money";
 import { ORG_TZ } from "@/lib/orgTime";
 
 /**
@@ -138,15 +141,15 @@ export function NotesPanel({
 
   return (
     <div className={`flex min-h-0 min-w-0 flex-col gap-2 ${className}`}>
-      <div className="flex shrink-0 items-baseline justify-between gap-2">
-        <div className="min-w-0">
+      {/* The button sits beside the title, not at the panel's right edge: the
+          Jobs page lays its month picker over the card's top right corner. */}
+      <div className="flex shrink-0 items-center gap-3">
+        <div className="min-w-0 truncate">
           <span className={caption}>Notes</span>
-          <span className="ml-2 truncate text-[12px] text-neutral-500 dark:text-neutral-400">
-            {heading}
-          </span>
+          <span className="ml-2 text-[12px] text-neutral-500 dark:text-neutral-400">{heading}</span>
         </div>
         {!adding && (
-          <Button size="xs" variant="outline" onClick={() => setAdding(true)}>
+          <Button size="xs" variant="outline" className="shrink-0" onClick={() => setAdding(true)}>
             Add note
           </Button>
         )}
@@ -164,6 +167,7 @@ export function NotesPanel({
               noteDate: todayYmd(),
               billingYm: !jobId && ym ? ym : billingYmForDate(todayYmd()),
               involves: [],
+              bills: [],
             }}
             jobs={jobId ? [] : jobs}
             knownNames={knownNames}
@@ -294,6 +298,22 @@ function NoteRow({
   return (
     <li className="group py-2">
       <p className="whitespace-pre-wrap break-words text-[13px] leading-snug">{note.body}</p>
+      {note.bills.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1.5">
+          {note.bills.map((b) => (
+            <a
+              key={b.docId}
+              href={`/bill/${b.docId}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Open the bill"
+              className="rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-accent hover:text-accent"
+            >
+              {b.label || "Bill"}
+            </a>
+          ))}
+        </div>
+      )}
       <div className="mt-1 flex items-start justify-between gap-2">
         <MetaLine
           items={[
@@ -387,6 +407,8 @@ function show(k: keyof NoteFields, f: NoteFields): string {
       return monthLabel(f.billingYm);
     case "involves":
       return f.involves.length ? f.involves.join(", ") : "No one";
+    case "bills":
+      return f.bills?.length ? f.bills.map((b) => b.label || b.docId).join("; ") : "No bills";
     default:
       return String(f[k as "body"]);
   }
@@ -418,6 +440,7 @@ function NoteForm({
   // The billing month follows the date until the writer sets it themselves.
   const [ymTouched, setYmTouched] = useState(false);
   const [involves, setInvolves] = useState<string[]>(initial.involves);
+  const [bills, setBills] = useState<NoteBill[]>(initial.bills ?? []);
   const [draftName, setDraftName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -456,6 +479,7 @@ function NoteForm({
       noteDate,
       billingYm,
       involves: names,
+      bills,
     });
     setBusy(false);
     if (msg) setError(msg);
@@ -551,6 +575,7 @@ function NoteForm({
           ))}
         </datalist>
       </div>
+      <BillPicker jobId={jobId} bills={bills} onChange={setBills} />
       {error && <Banner tone="error">{error}</Banner>}
       <div className="flex justify-end gap-2">
         <Button size="xs" variant="ghost" onClick={onCancel} disabled={busy}>
@@ -560,6 +585,130 @@ function NoteForm({
           {busy ? "Saving…" : submitLabel}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- bill picker */
+
+const billLabel = (b: { vendor: string; invoice: string; amount: number }) =>
+  [b.vendor || "Bill", b.invoice && `#${b.invoice}`, money(b.amount)].filter(Boolean).join(" · ");
+
+/**
+ * Link a note to bills: the chosen ones as removable pills, then a search over
+ * the job's bills (every job's, while the note has none). Reads the local bill
+ * index through /api/notes/bills; the note keeps the document id and a label.
+ */
+function BillPicker({
+  jobId,
+  bills,
+  onChange,
+}: {
+  jobId: string;
+  bills: NoteBill[];
+  onChange: (b: NoteBill[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [found, setFound] = useState<
+    { docId: string; vendor: string; invoice: string; amount: number; issueDate: string; status: string; jobName: string }[] | null
+  >(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const ctrl = new AbortController();
+    setFound(null);
+    const t = setTimeout(() => {
+      const qs = new URLSearchParams({ q });
+      if (jobId) qs.set("jobId", jobId);
+      fetch(`/api/notes/bills?${qs}`, { signal: ctrl.signal })
+        .then((r) => r.json())
+        .then((d) => setFound(d.bills ?? []))
+        .catch(() => !ctrl.signal.aborted && setFound([]));
+    }, 200);
+    return () => {
+      clearTimeout(t);
+      ctrl.abort();
+    };
+  }, [open, q, jobId]);
+
+  const linked = new Set(bills.map((b) => b.docId));
+  return (
+    <div>
+      <span className={caption}>Bills</span>
+      {bills.length > 0 && (
+        <div className="mb-1 flex flex-wrap gap-1.5">
+          {bills.map((b) => (
+            <button
+              key={b.docId}
+              type="button"
+              onClick={() => onChange(bills.filter((x) => x.docId !== b.docId))}
+              title="Remove"
+              className="rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-danger hover:text-danger"
+            >
+              {b.label || "Bill"} ×
+            </button>
+          ))}
+        </div>
+      )}
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="block text-[12px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
+        >
+          + Link a bill
+        </button>
+      ) : (
+        <div className="space-y-1">
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={jobId ? "This job's bills — vendor or invoice #" : "Vendor or invoice #"}
+            aria-label="Find a bill"
+          />
+          <div className="max-h-40 overflow-y-auto rounded-lg border border-line-soft">
+            {found === null ? (
+              <div className="p-2">
+                <Loading />
+              </div>
+            ) : found.length === 0 ? (
+              <p className="p-2 text-[12px] text-neutral-500">No bills found.</p>
+            ) : (
+              <ul className="divide-y divide-line-soft">
+                {found.map((b) => (
+                  <li key={b.docId}>
+                    <button
+                      type="button"
+                      disabled={linked.has(b.docId) || bills.length >= BILLS_MAX}
+                      onClick={() => onChange([...bills, { docId: b.docId, label: billLabel(b) }])}
+                      className="flex w-full items-baseline justify-between gap-3 px-2.5 py-1.5 text-left text-[12px] hover:bg-line-soft disabled:opacity-40"
+                    >
+                      <span className="min-w-0 truncate">
+                        {billLabel(b)}
+                        {!jobId && b.jobName && (
+                          <span className="text-neutral-500"> · {b.jobName}</span>
+                        )}
+                      </span>
+                      <span className="shrink-0 text-neutral-500">{dayLabel(b.issueDate.slice(0, 10))}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              setQ("");
+            }}
+            className="text-[12px] text-neutral-500 hover:text-accent"
+          >
+            Done linking
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, like } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
 import { jobNoteEdits, jobNotes } from "@/db/schema";
 import { readJtUserLink } from "@/lib/jtUserLink";
 import {
   changedFields,
+  parseBills,
   parseInvolves,
   readNoteFields,
   type Note,
@@ -19,6 +20,7 @@ import {
  *   GET  ?jobId=            → { notes }   one job's notes, newest first
  *   GET  ?ym=               → { notes }   one billing month's notes, every job
  *   GET  (neither)          → { notes }   the 200 newest
+ *   GET  ?docId=            → { notes }   the notes linked to one bill
  *   GET  ?history=<noteId>  → { edits }   that note's edit history, oldest first
  *   POST   { body, jobId?, jobLabel?, noteDate?, billingYm?, involves? } → { note }
  *   PATCH  { id, updatedAt, ...changed fields } → { note }
@@ -43,6 +45,7 @@ const toNote = (r: Row): Note => ({
   billingYm: r.billingYm,
   body: r.body,
   involves: parseInvolves(r.involves),
+  bills: parseBills(r.bills),
   authorEmail: r.authorEmail,
   authorName: r.authorName,
   createdAt: r.createdAt,
@@ -57,6 +60,7 @@ const fieldsOf = (n: Note): NoteFields => ({
   noteDate: n.noteDate,
   billingYm: n.billingYm,
   involves: n.involves,
+  bills: n.bills,
 });
 
 const todayInOrg = () =>
@@ -103,9 +107,15 @@ export async function GET(req: NextRequest) {
   if (ym && !/^\d{4}-\d{2}$/.test(ym))
     return NextResponse.json({ error: "Pick a month." }, { status: 400 });
 
-  const where = jobId
-    ? eq(jobNotes.jobId, jobId)
-    : ym
+  const docId = q.get("docId")?.trim() ?? "";
+  if (docId && !/^[A-Za-z0-9]{6,32}$/.test(docId))
+    return NextResponse.json({ error: "Pick a bill." }, { status: 400 });
+
+  const where = docId
+    ? like(jobNotes.bills, `%"docId":"${docId}"%`)
+    : jobId
+      ? eq(jobNotes.jobId, jobId)
+      : ym
       ? eq(jobNotes.billingYm, ym)
       : undefined;
   const rows = await db
@@ -146,6 +156,7 @@ export async function POST(req: NextRequest) {
       billingYm: f.billingYm,
       body: f.body,
       involves: JSON.stringify(f.involves),
+      bills: JSON.stringify(f.bills),
       authorEmail: by.email,
       authorName: by.name,
       createdAt: at,
@@ -193,6 +204,7 @@ export async function PATCH(req: NextRequest) {
         billingYm: next.billingYm,
         body: next.body,
         involves: JSON.stringify(next.involves),
+        bills: JSON.stringify(next.bills),
         updatedAt: at,
         editCount: current.editCount + 1,
       })

@@ -1563,6 +1563,8 @@ export const jobNotes = sqliteTable("job_notes", {
   billingYm: text("billing_ym").notNull(),
   body: text("body").notNull(),
   involves: text("involves").notNull().default("[]"),
+  // JSON [{docId, label}] — the bills this note is about (JobTread document ids).
+  bills: text("bills").notNull().default("[]"),
   authorEmail: text("author_email").notNull().default(""),
   authorName: text("author_name").notNull().default(""),
   createdAt: text("created_at").notNull(),
