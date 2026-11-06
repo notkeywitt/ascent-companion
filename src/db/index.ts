@@ -119,7 +119,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "112t-1tjz83k";
+export const SCHEMA_FINGERPRINT = "123m-1a34b8o";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1155,6 +1155,43 @@ async function applySchema() {
       updated_by TEXT NOT NULL DEFAULT ''
     )
   `);
+  // Notes, kept forever, and their append-only edit history (see schema.ts jobNotes).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS job_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id TEXT NOT NULL DEFAULT '',
+      job_label TEXT NOT NULL DEFAULT '',
+      note_date TEXT NOT NULL,
+      billing_ym TEXT NOT NULL,
+      body TEXT NOT NULL,
+      involves TEXT NOT NULL DEFAULT '[]',
+      author_email TEXT NOT NULL DEFAULT '',
+      author_name TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      edit_count INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  await getClient().execute(
+    "CREATE INDEX IF NOT EXISTS job_notes_job ON job_notes (job_id, note_date)",
+  );
+  await getClient().execute(
+    "CREATE INDEX IF NOT EXISTS job_notes_ym ON job_notes (billing_ym, note_date)",
+  );
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS job_note_edits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_id INTEGER NOT NULL,
+      edited_at TEXT NOT NULL,
+      edited_by_email TEXT NOT NULL DEFAULT '',
+      edited_by_name TEXT NOT NULL DEFAULT '',
+      before TEXT NOT NULL,
+      after TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(
+    "CREATE INDEX IF NOT EXISTS job_note_edits_note ON job_note_edits (note_id, id)",
+  );
   // Job deposits entered by hand (see schema.ts depositLinks).
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS deposit_links (

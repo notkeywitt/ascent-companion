@@ -1546,6 +1546,46 @@ export const punchLists = sqliteTable("punch_lists", {
 });
 
 /**
+ * NOTES — kept forever (src/lib/notes.ts). One row per note, edited in place.
+ * Nothing deletes a row here, and no route offers to.
+ *
+ *   job_id / job_label  the job ("" = no job); the label is a snapshot
+ *   note_date           the day it is about, "YYYY-MM-DD"
+ *   billing_ym          the billing month it belongs to, "YYYY-MM"
+ *   involves            JSON array of names
+ *   author_*            from the session, never the request body
+ */
+export const jobNotes = sqliteTable("job_notes", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: text("job_id").notNull().default(""),
+  jobLabel: text("job_label").notNull().default(""),
+  noteDate: text("note_date").notNull(),
+  billingYm: text("billing_ym").notNull(),
+  body: text("body").notNull(),
+  involves: text("involves").notNull().default("[]"),
+  authorEmail: text("author_email").notNull().default(""),
+  authorName: text("author_name").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  editCount: integer("edit_count").notNull().default(0),
+});
+
+/**
+ * Every edit to a note, append-only: the whole note (the NoteFields JSON)
+ * before and after one save, with who saved it and when. Never updated,
+ * never deleted, never trimmed.
+ */
+export const jobNoteEdits = sqliteTable("job_note_edits", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  noteId: integer("note_id").notNull(),
+  editedAt: text("edited_at").notNull(),
+  editedByEmail: text("edited_by_email").notNull().default(""),
+  editedByName: text("edited_by_name").notNull().default(""),
+  before: text("before").notNull(),
+  after: text("after").notNull(),
+});
+
+/**
  * JOB DEPOSITS — the deposit the office enters by hand, for a deposit taken
  * before JobTread (Berger). One row per job; see src/lib/depositLinks.ts.
  *

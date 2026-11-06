@@ -559,13 +559,13 @@ export const VIEWS: ViewDef[] = [
   { id: "theme-editor", label: "Theme", group: "System", paths: ["/theme"] },
   // The desktop screen for every job at once: a compact job list, the month's
   // rings, one job's overview and the Lopez Island map. Its own routes: the
-  // job's files, and the Punch List tab (writes only the companion DB,
-  // punch_lists). Office, admin and lead (2026-11-03).
+  // job's files, the Punch List tab (writes only the companion DB,
+  // punch_lists) and Notes (job_notes, kept forever; src/lib/notes.ts). Office, admin and lead (2026-11-03).
   {
     id: "jobs-hub",
     label: "Jobs",
     group: "Office",
-    paths: ["/jobs-hub", "/api/jobs/files", "/api/punch-list"],
+    paths: ["/jobs-hub", "/api/jobs/files", "/api/punch-list", "/api/notes"],
   },
 ];
 

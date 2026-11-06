@@ -6,6 +6,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { HomeJobBoard, JobOverview } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeTodos } from "@/components/HomeTodos";
+import { NotesPanel } from "@/components/NotesPanel";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
@@ -214,6 +215,8 @@ export function JobsHub() {
     return [...groups].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));
   }, [listed]);
 
+  // The jobs a new note can be tagged with while no job is picked.
+  const noteJobs = useMemo(() => listed.map((j) => ({ id: j.id, label: jobLabel(j) })), [listed]);
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   // A new job or tab unmounts the view under the header, so an embedded page's
   // unsaved edits (the House Manual) would go without a word. Ask first.
@@ -347,6 +350,14 @@ export function JobsHub() {
                           className="no-scrollbar w-full min-w-0 overflow-x-hidden pad:h-full pad:w-[520px] pad:overflow-y-auto"
                         />
                       )}
+                      {/* The job's notes: only this job's, newest first. */}
+                      <NotesPanel
+                        jobId={selected.id}
+                        jobLabel={jobLabel(selected)}
+                        ym={ym}
+                        jobs={noteJobs}
+                        className="w-full pad:h-full pad:w-[340px]"
+                      />
                     </div>
                   }
                 />
@@ -364,11 +375,19 @@ export function JobsHub() {
                   ) : idleView === "jobs" ? (
                     <HomeJobBoard />
                   ) : ringItems ? (
-                    <div className="flex flex-col gap-3">
+                    // The rings, then the month's notes in the space beside
+                    // them (owner, 2026-11-06). The notes scroll on their own.
+                    <div className="flex h-full min-h-0 flex-col gap-6 pad:flex-row">
                       <MonthRings
                         items={ringItems}
                         onSelect={(id) => id !== WARRANTY_SLICE_KEY && pick(id)}
                         onHover={(id) => setHoverId(id === WARRANTY_SLICE_KEY ? null : id)}
+                      />
+                      <NotesPanel
+                        jobId={null}
+                        ym={ym}
+                        jobs={noteJobs}
+                        className="min-h-48 pad:h-full pad:min-w-[280px] pad:flex-1"
                       />
                     </div>
                   ) : (
@@ -581,7 +600,7 @@ function MonthRings({
         color: field === "labor" ? r.laborColor : r.color,
       }));
   return (
-    <div className="flex flex-wrap items-center gap-8">
+    <div className="flex shrink-0 flex-wrap items-center gap-8 pad:self-start">
       <div className="tabular-nums">
         <div className={caption}>All jobs · month</div>
         <div className="mt-1 text-[28px] font-bold leading-tight tracking-tight">
