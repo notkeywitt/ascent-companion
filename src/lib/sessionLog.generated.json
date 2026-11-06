@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T17:24:57Z",
+  "generatedAt": "2026-11-06T18:25:55Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-06T17:24:57Z",
+      "updated": "2026-11-06T18:25:55Z",
       "goal": "",
-      "next": "On /payments: pick October 2026, press Print and check the summary + PDFs; check Paid in JT shows on statements whose Office bill is paid; Approve all on a month with draft statement bills.",
+      "next": "Look at /jobs-hub with a job picked: details fixed width, small stacked rings keyed by code + amount, Sync at the card foot, Notes header level with This Month / month.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1425,6 +1425,83 @@
           "sha": "c8168ad",
           "subject": "companion: draw focus outline inside clipped list cards so corners show",
           "files": "src/app/globals.css"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "09:33",
+          "sha": "1315f39",
+          "subject": "companion: move group switch into the Bills header like Labor",
+          "files": "src/app/trackingsheet/BillListView.tsx, src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "09:51",
+          "sha": "324347e",
+          "subject": "companion: add Notes (tagged, editable in place, edit history, kept forever) to the Jobs page",
+          "files": "CODEBASE_MAP.md, src/app/api/notes/route.ts, src/app/jobs-hub/JobsHub.tsx, src/components/NotesPanel.tsx, src/db/index.ts, src/db/schema.ts, +3 more"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "09:52",
+          "sha": "7583d25",
+          "subject": "companion: keep group switch in Bills header when the block is closed",
+          "files": "src/app/trackingsheet/Board.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:02",
+          "sha": "242cfda",
+          "subject": "companion: link notes to bills; keep the Add note button clear of the month picker",
+          "files": "CODEBASE_MAP.md, src/app/api/notes/bills/route.ts, src/app/api/notes/route.ts, src/components/NotesPanel.tsx, src/db/index.ts, src/db/schema.ts, +3 more"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:06",
+          "sha": "aacbd59",
+          "subject": "companion: add notes card before drafting the invoicing email",
+          "files": "src/app/invoicing-summary/page.tsx, src/components/PackageEmail.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:12",
+          "sha": "962bbba",
+          "subject": "companion: jobs card makes room for notes — fixed details, small stacked rings, sync at the foot",
+          "files": "src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx, src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx, src/components/NotesPanel.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:14",
+          "sha": "b6b9964",
+          "subject": "companion: replace Jobs month selector with Draft Email, Sync Tracking Sheets and Check All Jobs buttons",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/components/PackageEmail.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:16",
+          "sha": "9997d9f",
+          "subject": "companion: notes add form floats below the card instead of scrolling inside it",
+          "files": "src/components/NotesPanel.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:18",
+          "sha": "aa087f9",
+          "subject": "companion: job card rings key the top three codes, amounts tight against them",
+          "files": "src/app/trackingsheet/CostDonuts.tsx, src/components/Donut.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:24",
+          "sha": "a4e4065",
+          "subject": "companion: notes link bills through the Tracking Sheet's month list pop-up; a linked bill opens on the Jobs page",
+          "files": "CODEBASE_MAP.md, src/app/api/notes/bills/route.ts, src/app/api/notes/month-bills/route.ts, src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/Board.tsx, +3 more"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:25",
+          "sha": "c7b8d93",
+          "subject": "companion: commit tsconfig.json as Next writes it, so builds stop dirtying the tree",
+          "files": "tsconfig.json"
         }
       ]
     },
