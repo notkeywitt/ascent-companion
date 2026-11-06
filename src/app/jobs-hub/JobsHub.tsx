@@ -384,7 +384,18 @@ export function JobsHub() {
                   // Sync at the card's foot, clear of the notes (owner, 2026-11-06).
                   footer={
                     ym && !allTimeOn ? (
-                      <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
+                      <div className="flex flex-wrap items-start justify-center gap-2">
+                        <DraftInvoicingEmail ym={ym} />
+                        <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
+                        {can("invoice-review") && (
+                          <Link
+                            href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
+                            className={btn("secondary", "md", "min-h-11")}
+                          >
+                            Check All Jobs
+                          </Link>
+                        )}
+                      </div>
                     ) : undefined
                   }
                   hub={{
