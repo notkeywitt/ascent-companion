@@ -381,7 +381,7 @@ function NoteRow({
     >
       <p className="whitespace-pre-wrap break-words text-[13px] leading-snug">{note.body}</p>
       {note.bills.length > 0 && (
-        <div className="mt-1 flex flex-wrap gap-1.5">
+        <div className="mt-1 flex flex-col items-start gap-1.5">
           {note.bills.map((b) => (
             <a
               key={b.docId}
@@ -395,7 +395,7 @@ function NoteRow({
                 if (onOpenBill?.(note, b)) e.preventDefault();
               }}
               title="Open the bill"
-              className="rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-accent hover:text-accent"
+              className="max-w-full truncate rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-accent hover:text-accent"
             >
               {b.label || "Bill"}
             </a>
