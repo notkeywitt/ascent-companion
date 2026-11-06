@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { Button, Input, Textarea, EmptyState, SectionLabel } from "@/components/ui";
 import { guidePathKey, selectorFor, type GuideTopic } from "@/lib/pageGuide";
+import { appScrollBy } from "@/lib/appScroll";
 
 /**
  * THE HELP OVERLAY — "what is that thing on the screen?", answered on the
@@ -158,8 +159,8 @@ export function PageGuide() {
     const box = el.getBoundingClientRect();
     const floor = window.innerHeight - DETAIL_H - PAD * 2;
     const scale = (window.innerWidth - LIST_W - PAD * 3) / window.innerWidth;
-    if (box.top < TOP + 16) window.scrollBy(0, (box.top - TOP - 48) / scale);
-    else if (box.bottom > floor) window.scrollBy(0, (box.bottom - floor + 24) / scale);
+    if (box.top < TOP + 16) appScrollBy((box.top - TOP - 48) / scale);
+    else if (box.bottom > floor) appScrollBy((box.bottom - floor + 24) / scale);
   }, [open, wide, topic]);
 
   /* ------------------------------------------------- pick an element */

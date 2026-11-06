@@ -400,6 +400,51 @@ html[data-rail="hidden"] {
   transition: padding-left 200ms ease-out;
 }
 
+/* THE INSTALLED APP SCROLLS INSIDE #app-shell, NOT THE WINDOW (owner,
+   2026-11-06). iPhone Home Screen apps drag a `position: fixed` bar along
+   with a scrolling document (WebKit bug 297779; JobTread's own app does it
+   too), so the tab bar crept up the screen. Here the document never scrolls:
+   html and body are exactly the screen, and #app-shell is the scroll box. The
+   tab bar is `fixed` inside it, and a scroll box carries no fixed child with
+   it, so the bar has nothing to ride.
+
+   A browser tab is untouched: the window scrolls, and Safari's toolbar still
+   collapses. Code that reads or sets the page's scroll goes through
+   src/lib/appScroll.ts so it works in both; AppScrollKeeper handles page-to-
+   page scroll, which the browser only does for the window. */
+@media (display-mode: standalone) {
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+  }
+  /* The bar's clearance moves to the box that scrolls (rule below). `html
+     body` so it outranks the plain `body` rule further down this file. */
+  html body {
+    padding-bottom: 0;
+  }
+  #app-shell {
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: var(--tabbar-h);
+  }
+  /* A sheet locks the page by setting `overflow: hidden` on body (Dialog,
+     InvoiceViewer, the time-entry sheet). Body no longer scrolls here, so
+     carry that lock to the box that does. */
+  body[style*="overflow: hidden"] #app-shell {
+    overflow-y: hidden;
+  }
+}
+@media print {
+  html,
+  body,
+  #app-shell {
+    height: auto !important;
+    overflow: visible !important;
+  }
+}
+
 /* The two things that must clear the top chrome, reading the ONE measured
    number instead of each guessing at it. A sticky right-hand column that
    guesses low slides its own heading under the search box the moment the page

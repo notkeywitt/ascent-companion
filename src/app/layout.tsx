@@ -22,6 +22,7 @@ import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
 import { PageGuide } from "@/components/PageGuide";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { AppScrollKeeper } from "@/components/AppScrollKeeper";
 import { SwipeBack } from "@/components/SwipeBack";
 import { RouteLoadingScreen } from "@/components/RouteLoadingScreen";
 import { noAuthConfigured } from "@/lib/authMode";
@@ -211,6 +212,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* Pull down from the top to reload — installed app only. Outside
                   #app-shell for the same reason as the help mark. */}
               <PullToRefresh />
+              {/* Installed app only: the page scrolls inside #app-shell, so
+                  page-to-page scroll (top on a new page, back to where you
+                  were) is done here, not by the browser. */}
+              <Suspense fallback={null}>
+                <AppScrollKeeper />
+              </Suspense>
               {/* Swipe right from the left edge to go back — installed app
                   only. It replaced the header's back button. */}
               <SwipeBack />

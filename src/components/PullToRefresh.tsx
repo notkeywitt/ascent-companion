@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PULL_THRESHOLD, pullArmed, pullDistance } from "@/lib/pullToRefresh";
+import { appScrollY } from "@/lib/appScroll";
 
 /**
  * Pull down from the top of any page to reload it.
@@ -32,7 +33,7 @@ export function PullToRefresh() {
     if (!standalone) return;
 
     function blocked(target: EventTarget | null): boolean {
-      if (window.scrollY > 0) return true;
+      if (appScrollY() > 0) return true;
       if (document.body.style.overflow === "hidden") return true;
       const el = target instanceof Element ? target : null;
       if (!el) return false;

@@ -27,6 +27,7 @@ import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import type { MapJob } from "@/lib/lopezMap";
 import type { JobsPageCard } from "@/lib/jobBoard";
 import { money0 } from "@/lib/money";
+import { appScrollTo, appScrollY } from "@/lib/appScroll";
 
 import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
 import { PunchList } from "./PunchList";
@@ -229,10 +230,10 @@ export function JobsHub() {
   const [heldHeight, setHeldHeight] = useState<number | undefined>(undefined);
   const switchTab = (t: Tab) => {
     if (t === tab || !confirmLeaveIfDirty()) return;
-    const y = window.scrollY;
+    const y = appScrollY();
     setHeldHeight(mainRef.current?.offsetHeight);
     setTab(t);
-    requestAnimationFrame(() => window.scrollTo({ top: y }));
+    requestAnimationFrame(() => appScrollTo(y));
   };
   useEffect(() => setHeldHeight(undefined), [selectedId]);
 

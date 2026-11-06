@@ -15,6 +15,7 @@ import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { reconcileState } from "@/lib/sunsetReconcile";
 import type { SunsetCandidate } from "@/lib/sunsetLinks";
 import { money as moneyN } from "@/lib/money";
+import { appScrollTo, appScrollY, onAppScroll } from "@/lib/appScroll";
 import { approvalStatusFor, monthKeyLabel, statementMonthKey } from "@/lib/sunsetStatementMonth";
 
 // The TSYS hosted-payment page rejects requests that don't arrive through Sunset's
@@ -568,15 +569,13 @@ export default function PaymentsPage() {
   // payloads, since then every card renders at its final height on the first
   // paint and the saved offset still points at the same statement.
   useEffect(() => {
-    if (restored.list && restored.recon && snapScrollY > 0) window.scrollTo(0, snapScrollY);
+    if (restored.list && restored.recon && snapScrollY > 0) appScrollTo(snapScrollY);
   }, [restored]);
 
   useEffect(() => {
-    const onScroll = () => {
-      snapScrollY = window.scrollY;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return onAppScroll(() => {
+      snapScrollY = appScrollY();
+    });
   }, []);
 
   async function setPaid(expId: string, status: "paid" | "unpaid") {
