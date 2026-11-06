@@ -2164,9 +2164,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     />
   );
   const groupInBillsHeader =
-    mode === "bill" &&
-    billBlockOpen &&
-    nonSunsetBills.length > 0;
+    mode === "bill" && filteredBills.length > 0 && nonSunsetBills.length > 0;
 
   const centerCol = (
     <>
@@ -2246,9 +2244,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         {/* Grouping switch: one Segmented control, so the three options
             read as a set. The third is the client-facing rollup — what
             the month bills, in the shape the customer sees it, and the
-            source of the printed summary. Not a drag surface. While the
-            Bills block is open it rides in that block's header, like the
-            Labor block's Group switch (owner, 2026-11-06). */}
+            source of the printed summary. Not a drag surface. In By bill
+            it rides in the Bills block's header, open or closed (owner,
+            2026-11-06); the other two views have no such header. */}
         {!groupInBillsHeader && groupSwitch}
       </div>
     
