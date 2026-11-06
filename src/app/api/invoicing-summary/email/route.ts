@@ -3,6 +3,7 @@ import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getInvoiceRefs, getJobPhaseMap } from "@/lib/jobtread";
 import { composeInvoicingEmail, PACKAGE_EMAIL_TO, type PackageJob } from "@/lib/invoicingEmail";
+import { jobInvoices } from "@/lib/packageInvoices";
 
 /**
  * POST { ym } — the month's Invoicing Package email as a Gmail draft in the
@@ -50,7 +51,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const cfg = getPaveConfig();
-    const invoiced = pkg.jobs.filter((j) => j.include && j.invoiceNumber).map((j) => j.jtJobId);
+    const invoiced = pkg.jobs
+      .filter((j) => j.include && jobInvoices(j).length > 0)
+      .map((j) => j.jtJobId);
     const [invoices, phases] = await Promise.all([getInvoiceRefs(cfg, invoiced), getJobPhaseMap(cfg)]);
     const email = composeInvoicingEmail({
       docTitle: pkg.docTitle,

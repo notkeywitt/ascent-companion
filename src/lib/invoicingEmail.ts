@@ -10,6 +10,7 @@
  * Gmail draft. The office reads and sends the draft by hand.
  */
 import type { PackageInvoice } from "./jobtread";
+import { jobInvoices, jtDocumentUrl } from "./packageInvoices";
 
 export const PACKAGE_EMAIL_TO = [
   "casey@ascentbuildingco.com",
@@ -28,7 +29,11 @@ export interface PackageJob {
   jobLabel: string;
   include: boolean;
   note: string;
+  /** The PRIMARY invoice's number — the whole list is `invoices`. */
   invoiceNumber: string;
+  /** Every invoice for the month, primary first (packageInvoices.ts). Absent
+   *  from an older Apps Script payload. */
+  invoices?: unknown;
   trackingSheetUrl: string;
   links: { jtInvoice: string; jtDocuments: string };
 }
@@ -68,10 +73,8 @@ export function composeInvoicingEmail({
 } {
   // Invoiced jobs first, the rest after with their notes — the October order.
   const included = jobs.filter((j) => j.include);
-  const ordered = [
-    ...included.filter((j) => j.invoiceNumber),
-    ...included.filter((j) => !j.invoiceNumber),
-  ];
+  const invoiced = (j: PackageJob) => jobInvoices(j).length > 0;
+  const ordered = [...included.filter(invoiced), ...included.filter((j) => !invoiced(j))];
 
   const sheets: SheetPdf[] = [];
   const pdfs: { id: string; name: string }[] = [];
@@ -91,18 +94,25 @@ export function composeInvoicingEmail({
       (precon && j.trackingSheetUrl ? " <b>(PRE-CON tab)</b>" : "");
 
     const subs: string[] = [];
-    const inv = j.invoiceNumber ? invoices[`${j.jtJobId}:${j.invoiceNumber}`] : undefined;
-    if (j.invoiceNumber) {
+    // Every invoice of the month — a job can have two: the normal one and a
+    // $0 warranty record (src/lib/warranty.ts). Each gets its QBO link, its
+    // JobTread link and its PDF.
+    for (const iv of jobInvoices(j)) {
+      const inv = iv.number ? invoices[`${j.jtJobId}:${iv.number}`] : undefined;
+      const tag = iv.warranty ? " (warranty record, $0)" : "";
       subs.push(
         inv?.qboId
-          ? a(`https://qbo.intuit.com/app/invoice?txnId=${inv.qboId}`, "QBO")
-          : "QBO — not pushed to QuickBooks yet",
+          ? a(`https://qbo.intuit.com/app/invoice?txnId=${inv.qboId}`, `QBO${iv.warranty ? " — warranty" : ""}`)
+          : `QBO${iv.warranty ? " — warranty" : ""} — not pushed to QuickBooks yet`,
       );
-      subs.push(a(j.links.jtInvoice, `JobTread invoice #${j.invoiceNumber}`));
-    }
-    if (inv) {
-      pdfs.push({ id: inv.id, name: inv.pdfName });
-      subs.push(`${esc(inv.pdfName)} (attached)`);
+      const id = iv.id || inv?.id;
+      subs.push(
+        a(id ? jtDocumentUrl(j.jtJobId, id) : j.links.jtInvoice, `JobTread invoice #${iv.number}`) + esc(tag),
+      );
+      if (inv) {
+        pdfs.push({ id: inv.id, name: inv.pdfName });
+        subs.push(`${esc(inv.pdfName)} (attached)`);
+      }
     }
     if (j.note) subs.push(esc(j.note));
     if (!subs.length) subs.push("No client invoice yet.");

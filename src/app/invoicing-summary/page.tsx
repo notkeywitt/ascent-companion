@@ -31,6 +31,7 @@ import {
   type InvoiceStatus,
   type PaymentState,
 } from "@/lib/invoiceStatus";
+import { jtDocumentUrl, type PackageJobInvoice } from "@/lib/packageInvoices";
 
 /**
  * Invoice Status — every job billed in a month, and where its client invoice
@@ -94,8 +95,18 @@ interface JobRow {
   billingFolderFiles: number;
   links: JobLinks;
   /** Payment and email state, read live from JobTread. Absent on a job with no
-   *  invoice, and when that read failed (the warnings say so). */
+   *  invoice, and when that read failed (the warnings say so). The PRIMARY
+   *  invoice's, when the job has two. */
   status?: InvoiceStatus | null;
+  /** Every invoice for the month, primary first, each with its own state. A
+   *  month can hold two: the normal one and a $0 warranty record. */
+  invoices?: (PackageJobInvoice & { status: InvoiceStatus | null })[];
+}
+
+/** A job's invoice states — every invoice, or the primary's alone on an old payload. */
+function jobStatuses(j: JobRow): InvoiceStatus[] {
+  const list = j.invoices?.length ? j.invoices.map((i) => i.status) : [j.status];
+  return list.filter((s): s is InvoiceStatus => !!s);
 }
 
 interface Summary {
@@ -319,12 +330,17 @@ export default function InvoicingSummaryPage() {
     bills: included.reduce((s, j) => s + j.bills, 0),
     invoiced: included.filter((j) => j.invoiced).length,
     customers: new Set(included.map((j) => j.customerLabel)).size,
+    // Over EVERY invoice of a job, not just its primary.
     due: included.reduce(
       (s, j) =>
-        s + (j.status && (j.status.payment === "open" || j.status.payment === "partPaid") ? j.status.balance : 0),
+        s +
+        jobStatuses(j).reduce(
+          (t, st) => t + (st.payment === "open" || st.payment === "partPaid" ? st.balance : 0),
+          0,
+        ),
       0,
     ),
-    paid: included.reduce((s, j) => s + (j.status ? j.status.amountPaid : 0), 0),
+    paid: included.reduce((s, j) => s + jobStatuses(j).reduce((t, st) => t + st.amountPaid, 0), 0),
   };
 
   return (
@@ -588,11 +604,27 @@ function JobItem({
       <MetaLine
         className="mt-1.5"
         items={[
-          job.invoiced ? (
-            <a key="inv" className="underline" href={job.links.jtInvoice} target="_blank" rel="noreferrer">
-              Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
-            </a>
-          ) : null,
+          ...(job.invoiced
+            ? job.invoices?.length
+              ? job.invoices.map((iv) => (
+                  <a
+                    key={`inv-${iv.id || iv.number}`}
+                    className="underline"
+                    href={iv.id ? jtDocumentUrl(job.jtJobId, iv.id) : job.links.jtInvoice}
+                    target="_blank"
+                    rel="noreferrer"
+                    title={iv.warranty ? "Warranty record: every line 88 90 00, billed at $0" : undefined}
+                  >
+                    {iv.warranty ? "Warranty" : "Invoice"}
+                    {iv.number ? ` #${iv.number}` : ""} ↗
+                  </a>
+                ))
+              : [
+                  <a key="inv" className="underline" href={job.links.jtInvoice} target="_blank" rel="noreferrer">
+                    Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
+                  </a>,
+                ]
+            : []),
           // The total is the client INVOICE on an invoiced job, so it is bigger
           // than labor plus bills by the markup and the tax. Printing the cost
           // beside it is what stops that reading as a wrong total.

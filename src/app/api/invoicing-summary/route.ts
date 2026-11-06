@@ -4,6 +4,7 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getInvoiceStatuses } from "@/lib/jobtread";
 import { invoiceStatus } from "@/lib/invoiceStatus";
+import { jobInvoices, type PackageJobInvoiceSource } from "@/lib/packageInvoices";
 
 /**
  * The monthly Invoicing Package — proxy to Apps Script
@@ -110,30 +111,41 @@ export async function GET(req: NextRequest) {
  * job. Read live from JobTread on every open, NOT from Apps Script's cache: a
  * payment or an opened email moves hourly, and the figures do not. A failed
  * read costs the marks, not the page — it becomes a warning.
+ *
+ * A month can hold two invoices on a job (a $0 warranty record beside the
+ * normal one), so each job also gets `invoices`: every one, primary first,
+ * each with its own status. `status` stays the primary's.
  */
 async function withInvoiceStatus(data: Record<string, unknown>) {
   const jobs = Array.isArray(data.jobs)
-    ? (data.jobs as { jtJobId: string; invoiceNumber?: unknown }[])
+    ? (data.jobs as (PackageJobInvoiceSource & { jtJobId: string })[])
     : [];
-  const invoiced = jobs.filter((j) => j.invoiceNumber);
-  if (invoiced.length === 0 || !hasGrant()) return data;
+  const lists = jobs.map((j) => jobInvoices(j));
+  const wanted = jobs.flatMap((j, k) =>
+    lists[k].filter((i) => i.number).map((i) => ({ jobId: j.jtJobId, number: i.number })),
+  );
+  const plain = {
+    ...data,
+    jobs: jobs.map((j, k) => ({ ...j, invoices: lists[k].map((i) => ({ ...i, status: null })) })),
+  };
+  if (wanted.length === 0 || !hasGrant()) return plain;
   try {
-    const raw = await getInvoiceStatuses(
-      getPaveConfig(),
-      invoiced.map((j) => ({ jobId: j.jtJobId, number: String(j.invoiceNumber) })),
-    );
+    const raw = await getInvoiceStatuses(getPaveConfig(), wanted);
     return {
       ...data,
-      jobs: jobs.map((j) => {
-        const r = j.invoiceNumber ? raw[`${j.jtJobId}:${j.invoiceNumber}`] : undefined;
-        return { ...j, status: r ? invoiceStatus(r) : null };
+      jobs: jobs.map((j, k) => {
+        const invoices = lists[k].map((i) => {
+          const r = i.number ? raw[`${j.jtJobId}:${i.number}`] : undefined;
+          return { ...i, status: r ? invoiceStatus(r) : null };
+        });
+        return { ...j, invoices, status: invoices[0]?.status ?? null };
       }),
     };
   } catch (e) {
     console.error("[invoicing-summary] invoice status", e);
     const warnings = Array.isArray(data.warnings) ? (data.warnings as string[]) : [];
     return {
-      ...data,
+      ...plain,
       warnings: [...warnings, "JobTread did not answer for invoice status, so paid and sent marks are missing. Refresh to try again."],
     };
   }

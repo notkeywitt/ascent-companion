@@ -60,3 +60,41 @@ describe("composeInvoicingEmail", () => {
     expect(out.subject).toBe("October '26 Invoicing Package");
   });
 });
+
+describe("composeInvoicingEmail — two invoices in one month (Seely, October 2026)", () => {
+  const out = composeInvoicingEmail({
+    docTitle: "November '26 Invoicing Package",
+    monthName: "November '26",
+    jobs: [
+      job({
+        jtJobId: "seely",
+        jobLabel: "Apartment Remod",
+        customerLabel: "Seely",
+        invoiceNumber: "134",
+        invoices: [
+          { id: "d134", number: "134", status: "pending", balance: 0, priceWithTax: 1700, warranty: false },
+          { id: "d130", number: "130", status: "pending", balance: 0, priceWithTax: 0, warranty: true },
+        ],
+      }),
+    ],
+    invoices: {
+      "seely:134": { id: "d134", qboId: "50001", pdfName: "Monthly Invoice 009-134.pdf" },
+      "seely:130": { id: "d130", qboId: "", pdfName: "Monthly Invoice 009-130.pdf" },
+    },
+    phases: {},
+  });
+
+  it("attaches both PDFs, the normal invoice first", () => {
+    expect(out.invoices).toEqual([
+      { id: "d134", name: "Monthly Invoice 009-134.pdf" },
+      { id: "d130", name: "Monthly Invoice 009-130.pdf" },
+    ]);
+  });
+
+  it("links each invoice and marks the warranty record", () => {
+    expect(out.html).toContain('href="https://app.jobtread.com/jobs/seely/documents/d134">JobTread invoice #134</a>');
+    expect(out.html).toContain('href="https://app.jobtread.com/jobs/seely/documents/d130">JobTread invoice #130</a> (warranty record, $0)');
+    expect(out.html).toContain('txnId=50001');
+    expect(out.html).toContain("QBO — warranty — not pushed to QuickBooks yet");
+  });
+});

@@ -102,7 +102,18 @@ export interface NoteJob {
   jobLabel: string;
   customerLabel: string;
   invoiceNumber: string;
+  /** Every invoice for the month (a $0 warranty record can sit beside the
+   *  normal one). Absent on an older payload; `invoiceNumber` stands in. */
+  invoices?: { number: string; warranty?: boolean }[];
   note: string;
+}
+
+/** "invoice #134 + warranty #130", or the primary's number on an older payload. */
+function invoiceLabel(j: NoteJob): string {
+  const list = j.invoices?.length ? j.invoices : j.invoiceNumber ? [{ number: j.invoiceNumber }] : [];
+  return list
+    .map((i) => `${"warranty" in i && i.warranty ? "warranty" : "invoice"} #${i.number}`)
+    .join(" + ");
 }
 
 /**
@@ -153,7 +164,7 @@ export function PackageEmailNotes({
   };
 
   // Invoiced jobs first, the order the email lists them in.
-  const ordered = [...jobs.filter((j) => j.invoiceNumber), ...jobs.filter((j) => !j.invoiceNumber)];
+  const ordered = [...jobs.filter((j) => invoiceLabel(j)), ...jobs.filter((j) => !invoiceLabel(j))];
 
   return (
     <Dialog
@@ -184,7 +195,7 @@ export function PackageEmailNotes({
           <label key={j.jtJobId} className="block">
             <span className="text-[13px] font-semibold">
               {j.jobLabel} - {j.customerLabel}
-              {j.invoiceNumber ? <span className="font-normal text-neutral-500"> · invoice #{j.invoiceNumber}</span> : null}
+              {invoiceLabel(j) ? <span className="font-normal text-neutral-500"> · {invoiceLabel(j)}</span> : null}
             </span>
             <Textarea
               rows={2}
