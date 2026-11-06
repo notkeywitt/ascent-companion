@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T19:31:19Z",
+  "generatedAt": "2026-11-06T19:53:25Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-06T19:31:19Z",
+      "updated": "2026-11-06T19:53:25Z",
       "goal": "",
-      "next": "Check /jobs-hub job card at three widths: B drops below 52rem, C below 36.5rem; total lines up over the rings.",
+      "next": "Deploy ascent-appscript MonthlyInvoicingSummary (invoice list per job), then check October Invoice Status shows Seely #134 + warranty #130 and the draft email holds both PDFs.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1551,6 +1551,27 @@
           "sha": "3045234",
           "subject": "companion: below xl the jobs list and map share the top row; upright, a screen-fitting map sits over the jobs dropdown",
           "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "11:31",
+          "sha": "63449e0",
+          "subject": "companion: show Draft Email and Check All Jobs beside Sync on a picked job's card",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "11:53",
+          "sha": "26ca745",
+          "subject": "companion: understand a $0 warranty invoice beside the month's normal one",
+          "files": "src/app/trackingsheet/BillingSummaryView.tsx, src/components/InvoiceReconcile.tsx, src/lib/invoiceReview/checks/markupDrift.ts, src/lib/invoiceReview/margin.test.ts, src/lib/invoiceReview/norms.ts, src/lib/invoiceReview/settings.ts, +3 more"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "11:53",
+          "sha": "57cddad",
+          "subject": "companion: invoice status and package email list every invoice on a job",
+          "files": "CODEBASE_MAP.md, src/app/api/invoicing-summary/email/route.ts, src/app/api/invoicing-summary/route.ts, src/app/invoicing-summary/page.tsx, src/components/PackageEmail.tsx, src/lib/invoicingEmail.test.ts, +3 more"
         }
       ]
     },
