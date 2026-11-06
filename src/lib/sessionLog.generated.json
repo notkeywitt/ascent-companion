@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T18:46:23Z",
+  "generatedAt": "2026-11-06T18:58:35Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-06T18:46:23Z",
+      "updated": "2026-11-06T18:58:35Z",
       "goal": "",
-      "next": "Check /jobs-hub with a job picked at three widths: details drop-down, rings hidden, notes under the total.",
+      "next": "Check /jobs-hub job card at three widths: B drops below 52rem, C below 36.5rem; total lines up over the rings.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1537,6 +1537,13 @@
           "sha": "5965ef9",
           "subject": "companion: narrow job card puts the total in the blank space right of the job name",
           "files": "src/app/globals.css"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:58",
+          "sha": "934a60b",
+          "subject": "companion: job card lays out as a head row (job, total, month) over fixed details, rings and notes that drop out, never shrink",
+          "files": "src/app/globals.css, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
         }
       ]
     },
