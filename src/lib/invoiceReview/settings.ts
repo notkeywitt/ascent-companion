@@ -300,7 +300,9 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // rather than from a guess made here about which codes are
         // pass-through. This list is the pressure valve that stops them ruling
         // on the same permit line every month forever.
-        passThroughCodes: [],
+        // 88 90 00 is warranty work: Ascent's own cost, billed at $0 on a
+        // warranty-record invoice (src/lib/warranty.ts). Never marked up.
+        passThroughCodes: ["88 90 00"],
         reportMissingMarkup: true,
         reportBelowCost: true,
       },

@@ -216,6 +216,18 @@ describe("markup-rate-drift", () => {
     expect(f[0].detail).toContain("$6,000.00");
   });
 
+  it("leaves a $0 warranty-record invoice out of the rate (Seely, Oct 2026)", () => {
+    // #130: every line 88 90 00, $10,165.75 of cost billed at $0, beside the
+    // normal invoice. Counted, it would read as a 1.22 customer billed ~6%.
+    const warranty = invoice(
+      [line({ id: "w1", code: "88 90 00", cost: 10165.75, price: 0 })],
+      { id: "i130", number: "130", cost: 10165.75, price: 0 },
+    );
+    const normal = invoice([], { id: "i134", cost: 50000, price: 61000 });
+    const m = month([job({ invoices: [normal, warranty] })], norms([ferron()]));
+    expect(run(m)).toEqual([]);
+  });
+
   it("says nothing when the customer has too little history", () => {
     expect(run(billed(50000, 55000, norms([ferron({ monthsSeen: 2 })])))).toEqual([]);
   });

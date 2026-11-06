@@ -1970,7 +1970,7 @@ const INVOICED_WHERE = {
 async function _approvedCustomerInvoices(
   cfg: PaveConfig,
   jobId: string,
-): Promise<{ id: string; name: string; issueDate: string | null; cost: number }[]> {
+): Promise<{ id: string; number: string; name: string; issueDate: string | null; cost: number }[]> {
   const r = await pave(cfg, {
     job: {
       $: { id: jobId },
@@ -1984,7 +1984,7 @@ async function _approvedCustomerInvoices(
             ],
           },
         },
-        nodes: { id: {}, name: {}, issueDate: {}, cost: {} },
+        nodes: { id: {}, number: {}, name: {}, issueDate: {}, cost: {} },
       },
     },
   });
@@ -1992,6 +1992,7 @@ async function _approvedCustomerInvoices(
   return nodes
     .map((n) => ({
       id: n.id,
+      number: n.number != null ? String(n.number) : "",
       name: String(n.name ?? ""),
       issueDate: n.issueDate ?? null,
       cost: n.cost ?? 0,
@@ -2299,6 +2300,9 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
   //    INVOICE from TOTAL PREVIOUSLY INVOICED the way the Tracking Sheet does.
   //    "Current" is the latest invoice by issueDate rather than a calendar
   //    window, so it can't drift from deriveBillingPeriod()'s 10th-to-10th rule.
+  //    A month can hold TWO invoices (the normal one and a $0 warranty record,
+  //    src/lib/warranty.ts), so "current" is every approved invoice issued in
+  //    the latest invoice's month, not the single newest one.
   let invoiced: Record<string, number> = {};
   let currentInvoice: Record<string, number> = {};
   let currentInvoiceLabel: string | null = null;
@@ -2307,10 +2311,22 @@ async function _getJobCostDetailUncached(cfg: PaveConfig, jobId: string): Promis
     if (invoices.length > 0) {
       invoiced = await _sumCostByCostCode(cfg, jobId, INVOICED_WHERE);
       const latest = invoices[0];
-      currentInvoice = await _sumCostByCostCode(cfg, jobId, [["document", "id"], latest.id]);
-      currentInvoiceLabel = latest.issueDate
-        ? `${latest.name} · ${latest.issueDate}`
-        : latest.name || null;
+      const ym = String(latest.issueDate ?? "").slice(0, 7);
+      const current = ym
+        ? invoices.filter((i) => String(i.issueDate ?? "").slice(0, 7) === ym)
+        : [latest];
+      currentInvoice = await _sumCostByCostCode(
+        cfg,
+        jobId,
+        current.length === 1
+          ? [["document", "id"], latest.id]
+          : [["document", "id"], "in", current.map((i) => i.id)],
+      );
+      const name =
+        current.length === 1
+          ? latest.name
+          : current.map((i) => (i.number ? `#${i.number}` : i.name)).join(" + ");
+      currentInvoiceLabel = latest.issueDate ? `${name} · ${latest.issueDate}` : name || null;
     }
   } catch {
     degraded.push("invoiced");
@@ -6810,7 +6826,7 @@ export async function getInvoiceReconciliation(
   //    88 80 00 line, and that tax is never billed to the client, so counting it
   //    would leave `remaining` permanently short of zero by the month's tax.
   //    Net of WARRANTY WORK too (88 90 00): Ascent's cost, billed to no client
-  //    (src/lib/warranty.ts). The time walk below skips warranty entries.
+  //    (src/lib/warranty.ts). The time walk below counts warranty entries at 0.
   const [taxByDoc, warrantyByDoc] = await Promise.all([
     getSalesTaxByDoc(cfg, year, month, jobId),
     getWarrantyByDoc(cfg, year, month, jobId),
@@ -6895,8 +6911,12 @@ export async function getInvoiceReconciliation(
     (rows) => {
       for (const t of rows) {
         if (!inMonth(t.startedAt)) continue;
-        if (String(t.costItem?.costCode?.number ?? "").trim() === WARRANTY_CSI) continue;
-        monthTime.push({ cost: t.cost ?? 0, invIds: invRefIds(t) });
+        // Warranty time is Ascent's cost, billed to no client, so it adds
+        // nothing to what is left to invoice. It still LINKS its invoice: a
+        // warranty-record invoice that carries only warranty time must be
+        // listed and reviewed like any other (src/lib/warranty.ts).
+        const warranty = String(t.costItem?.costCode?.number ?? "").trim() === WARRANTY_CSI;
+        monthTime.push({ cost: warranty ? 0 : t.cost ?? 0, invIds: invRefIds(t) });
       }
     },
   );

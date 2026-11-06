@@ -44,6 +44,7 @@ import { defineMonthCheck } from "../checkTypes";
 import { customerKey } from "../norms";
 import { cents, findingKey, money, type Finding } from "../types";
 import { depositPart } from "./shared";
+import { warrantyPart } from "@/lib/warranty";
 
 export interface MarkupDriftConfig {
   /** The customer must have been invoiced in at least this many prior months. */
@@ -93,8 +94,11 @@ export const markupDriftCheck = defineMonthCheck<MarkupDriftConfig>({
         // Deposit lines move cost and price by the same draw, which skews the
         // ratio; they are no part of the markup (DEPOSITS_PLAN.md).
         const dep = depositPart(inv);
-        t.cost += inv.cost - dep.cost;
-        t.price += inv.price - dep.price;
+        // Warranty lines (88 90 00) are Ascent's cost, billed at $0 — on a
+        // warranty-record invoice or a stray line. No part of the markup.
+        const war = warrantyPart(inv);
+        t.cost += inv.cost - dep.cost - war.cost;
+        t.price += inv.price - dep.price - war.price;
       }
       thisMonth.set(key, t);
     }

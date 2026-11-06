@@ -101,8 +101,8 @@ export function BillingSummaryView({
                           {recon.remaining - recon.onDraftInvoiceCost > 0.01 ? (
                             <>
                               , but {money(recon.remaining - recon.onDraftInvoiceCost)} is on no
-                              invoice at all — add it to the existing invoice rather than raising a
-                              second one.
+                              invoice at all — add it to the existing invoice. Raise a second one
+                              only for warranty work (every line 88 90 00, priced $0).
                             </>
                           ) : recon.draftBillCount > 0 ? (
                             <>
@@ -111,7 +111,7 @@ export function BillingSummaryView({
                               approved in JobTread.
                             </>
                           ) : (
-                            <>. Everything for the month is on it.</>
+                            <>. Everything for the month is on {recon.invoices.length === 1 ? "it" : "them"}.</>
                           )}
                         </p>
                       </>

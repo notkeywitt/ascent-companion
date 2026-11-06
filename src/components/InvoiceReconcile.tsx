@@ -166,8 +166,9 @@ export function InvoiceReconcile({
       </div>
       {readyToInvoice && (
         <div className="mt-0.5 opacity-80">
-          Every finalized bill and hour for this month is on the draft invoice below — send it in
-          JobTread to invoice it.
+          {invoices.filter((i) => i.status === "draft").length > 1
+            ? "Every finalized bill and hour for this month is on the draft invoices below — send them in JobTread to invoice them."
+            : "Every finalized bill and hour for this month is on the draft invoice below — send it in JobTread to invoice it."}
         </div>
       )}
       {/* Only when money is on no invoice at all. When the sole blocker is a
