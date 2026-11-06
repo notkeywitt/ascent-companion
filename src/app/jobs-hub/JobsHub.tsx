@@ -6,6 +6,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
 import { HomeTodos } from "@/components/HomeTodos";
 import { NotesPanel } from "@/components/NotesPanel";
+import type { Note, NoteBill } from "@/lib/notes";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
@@ -216,6 +217,21 @@ export function JobsHub() {
   // The jobs a new note can be tagged with while no job is picked.
   const noteJobs = useMemo(() => listed.map((j) => ({ id: j.id, label: jobLabel(j) })), [listed]);
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
+  /** A linked bill clicked in a note: the board opens it and scrolls to it. */
+  const [focusBill, setFocusBill] = useState<{ docId: string; label: string; nonce: number } | null>(null);
+  // Go to the bill's job and the note's billing month, on the Tracking sheet
+  // tab, and ask the board for the bill. False = this page cannot show it (no
+  // Tracking sheet, or a job not in the list), so the link opens normally.
+  const openBill = (note: Note, bill: NoteBill): boolean => {
+    const jid = bill.jobId || note.jobId;
+    if (!canTrackingSheet || !jid || !jobs?.some((j) => j.id === jid)) return false;
+    if ((jid !== selectedId || tab !== "sheet") && !confirmLeaveIfDirty()) return true;
+    if (note.billingYm) setPickedYm(note.billingYm);
+    setSelectedId(jid);
+    setTab("sheet");
+    setFocusBill({ docId: bill.docId, label: bill.label, nonce: Date.now() });
+    return true;
+  };
   // A new job or tab unmounts the view under the header, so an embedded page's
   // unsaved edits (the House Manual) would go without a word. Ask first.
   const pick = (id: string) => {
@@ -361,6 +377,7 @@ export function JobsHub() {
                         ym={ym}
                         jobs={noteJobs}
                         hideHeading
+                        onOpenBill={openBill}
                         className="w-full pad:h-full pad:min-w-0 pad:flex-1"
                       />
                     </div>
@@ -388,6 +405,7 @@ export function JobsHub() {
                         jobId={null}
                         ym={ym}
                         jobs={noteJobs}
+                        onOpenBill={openBill}
                         className="min-h-48 pad:h-full pad:min-w-[280px] pad:flex-1"
                       />
                     </div>
@@ -484,7 +502,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill }} />
             </Suspense>
           )
         ) : tab === "plans" ? (

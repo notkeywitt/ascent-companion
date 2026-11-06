@@ -29,6 +29,9 @@ export interface NoteBill {
   docId: string;
   /** "Vendor · #invoice · $amount", so the link still reads if the bill moves. */
   label: string;
+  /** The job the bill is on, saved at link time ("" on an older link) — where a
+   *  click on the link goes to find it. */
+  jobId?: string;
 }
 
 export const BILLS_MAX = 10;
@@ -83,7 +86,9 @@ export function cleanBills(raw: unknown): NoteBill[] {
     const docId = typeof o.docId === "string" ? o.docId.trim() : "";
     if (!JOB_ID.test(docId) || seen.has(docId)) continue;
     seen.add(docId);
-    out.push({ docId, label: String(o.label ?? "").replace(/\s+/g, " ").trim().slice(0, 160) });
+    const label = String(o.label ?? "").replace(/\s+/g, " ").trim().slice(0, 160);
+    const jid = typeof o.jobId === "string" && JOB_ID.test(o.jobId.trim()) ? o.jobId.trim() : "";
+    out.push(jid ? { docId, label, jobId: jid } : { docId, label });
     if (out.length >= BILLS_MAX) break;
   }
   return out;

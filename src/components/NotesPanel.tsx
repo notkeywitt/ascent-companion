@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { Banner, Button, Input, Loading, MetaLine, Select, Textarea } from "@/components/ui";
+import { AllBills, type PickedBill } from "@/app/trackingsheet/AllBills";
+import { Banner, Button, Dialog, Input, Loading, MetaLine, Select, Textarea } from "@/components/ui";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import {
   billingYmForDate,
@@ -82,8 +83,12 @@ export function NotesPanel({
   ym,
   jobs,
   hideHeading = false,
+  onOpenBill,
   className = "",
 }: {
+  /** Open a linked bill where the page can show it. Return false to fall back
+   *  to the bill's own page in a new tab. */
+  onOpenBill?: (note: Note, bill: NoteBill) => boolean;
   /** Drop the job or month name after "Notes" — the card around it already says it. */
   hideHeading?: boolean;
   /** The picked job, or null for the all-jobs view. */
@@ -217,6 +222,7 @@ export function NotesPanel({
                 onEdit={() => setEditingId(n.id)}
                 onDone={() => setEditingId(null)}
                 onChanged={replace}
+                onOpenBill={onOpenBill}
                 onSaved={saved}
               />
             ))}
@@ -239,6 +245,7 @@ export function NotesPanel({
                     onEdit={() => setEditingId(n.id)}
                     onDone={() => setEditingId(null)}
                     onChanged={replace}
+                onOpenBill={onOpenBill}
                     onSaved={saved}
                   />
                 ))}
@@ -263,7 +270,9 @@ function NoteRow({
   onDone,
   onChanged,
   onSaved,
+  onOpenBill,
 }: {
+  onOpenBill?: (note: Note, bill: NoteBill) => boolean;
   note: Note;
   showJob: boolean;
   editing: boolean;
@@ -316,6 +325,12 @@ function NoteRow({
               href={`/bill/${b.docId}`}
               target="_blank"
               rel="noreferrer"
+              onClick={(e) => {
+                // A plain click opens it on this page; a modified click keeps
+                // the browser's own new-tab behaviour.
+                if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                if (onOpenBill?.(note, b)) e.preventDefault();
+              }}
               title="Open the bill"
               className="rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-accent hover:text-accent"
             >
@@ -585,7 +600,7 @@ function NoteForm({
           ))}
         </datalist>
       </div>
-      <BillPicker jobId={jobId} bills={bills} onChange={setBills} />
+      <BillPicker jobId={jobId} ym={billingYm} bills={bills} onChange={setBills} />
       {error && <Banner tone="error">{error}</Banner>}
       <div className="flex justify-end gap-2">
         <Button size="xs" variant="ghost" onClick={onCancel} disabled={busy}>
@@ -601,48 +616,33 @@ function NoteForm({
 
 /* -------------------------------------------------------------- bill picker */
 
-const billLabel = (b: { vendor: string; invoice: string; amount: number }) =>
-  [b.vendor || "Bill", b.invoice && `#${b.invoice}`, money(b.amount)].filter(Boolean).join(" · ");
-
 /**
- * Link a note to bills: the chosen ones as removable pills, then a search over
- * the job's bills (every job's, while the note has none). Reads the local bill
- * index through /api/notes/bills; the note keeps the document id and a label.
+ * Link a note to bills: the chosen ones as removable pills, and a pop-up that
+ * holds the Tracking Sheet's own month bill list (AllBills in pick mode) for
+ * the note's billing month — narrowed to its job when it has one. A tap on a
+ * bill links or unlinks it. The note keeps the document id and a label.
  */
 function BillPicker({
   jobId,
+  ym,
   bills,
   onChange,
 }: {
   jobId: string;
+  ym: string;
   bills: NoteBill[];
   onChange: (b: NoteBill[]) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
-  const [found, setFound] = useState<
-    { docId: string; vendor: string; invoice: string; amount: number; issueDate: string; status: string; jobName: string }[] | null
-  >(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const ctrl = new AbortController();
-    setFound(null);
-    const t = setTimeout(() => {
-      const qs = new URLSearchParams({ q });
-      if (jobId) qs.set("jobId", jobId);
-      fetch(`/api/notes/bills?${qs}`, { signal: ctrl.signal })
-        .then((r) => r.json())
-        .then((d) => setFound(d.bills ?? []))
-        .catch(() => !ctrl.signal.aborted && setFound([]));
-    }, 200);
-    return () => {
-      clearTimeout(t);
-      ctrl.abort();
-    };
-  }, [open, q, jobId]);
-
-  const linked = new Set(bills.map((b) => b.docId));
+  const picked = useMemo(() => new Set(bills.map((b) => b.docId)), [bills]);
+  const toggle = (b: PickedBill) => {
+    if (picked.has(b.id)) return onChange(bills.filter((x) => x.docId !== b.id));
+    if (bills.length >= BILLS_MAX) return;
+    onChange([
+      ...bills,
+      { docId: b.id, label: `${b.vendor || "Bill"} · ${money(b.cost)}`, ...(b.jobId ? { jobId: b.jobId } : {}) },
+    ]);
+  };
   return (
     <div>
       <span className={caption}>Bills</span>
@@ -661,63 +661,34 @@ function BillPicker({
           ))}
         </div>
       )}
-      {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="block text-[12px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="block text-[12px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
+      >
+        + Link bills
+      </button>
+      {open && (
+        <Dialog
+          onClose={() => setOpen(false)}
+          size="xl"
+          title={`Link bills · ${monthLabel(ym)}`}
+          description={
+            jobId
+              ? "This job's bills for the billing month. Tap a bill to link or unlink it."
+              : "Every job's bills for the billing month. Tap a bill to link or unlink it."
+          }
+          footer={
+            <Button size="sm" onClick={() => setOpen(false)}>
+              Done{bills.length > 0 ? ` (${bills.length} linked)` : ""}
+            </Button>
+          }
         >
-          + Link a bill
-        </button>
-      ) : (
-        <div className="space-y-1">
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={jobId ? "This job's bills — vendor or invoice #" : "Vendor or invoice #"}
-            aria-label="Find a bill"
+          <AllBills
+            ym={ym}
+            pick={{ endpoint: "/api/notes/month-bills", jobId: jobId || undefined, picked, onToggle: toggle }}
           />
-          <div className="max-h-40 overflow-y-auto rounded-lg border border-line-soft">
-            {found === null ? (
-              <div className="p-2">
-                <Loading />
-              </div>
-            ) : found.length === 0 ? (
-              <p className="p-2 text-[12px] text-neutral-500">No bills found.</p>
-            ) : (
-              <ul className="divide-y divide-line-soft">
-                {found.map((b) => (
-                  <li key={b.docId}>
-                    <button
-                      type="button"
-                      disabled={linked.has(b.docId) || bills.length >= BILLS_MAX}
-                      onClick={() => onChange([...bills, { docId: b.docId, label: billLabel(b) }])}
-                      className="flex w-full items-baseline justify-between gap-3 px-2.5 py-1.5 text-left text-[12px] hover:bg-line-soft disabled:opacity-40"
-                    >
-                      <span className="min-w-0 truncate">
-                        {billLabel(b)}
-                        {!jobId && b.jobName && (
-                          <span className="text-neutral-500"> · {b.jobName}</span>
-                        )}
-                      </span>
-                      <span className="shrink-0 text-neutral-500">{dayLabel(b.issueDate.slice(0, 10))}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setOpen(false);
-              setQ("");
-            }}
-            className="text-[12px] text-neutral-500 hover:text-accent"
-          >
-            Done linking
-          </button>
-        </div>
+        </Dialog>
       )}
     </div>
   );

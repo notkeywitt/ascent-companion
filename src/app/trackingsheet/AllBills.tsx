@@ -106,8 +106,31 @@ const shortDate = (iso: string) => {
   return new Date(y, m - 1, d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+/** What a picker gets back when a bill is tapped. */
+export interface PickedBill {
+  id: string;
+  vendor: string;
+  cost: number;
+  issueDate: string;
+  jobId: string;
+}
+
+/**
+ * PICK MODE — the same list, used to choose bills (a note's linked bills,
+ * src/components/NotesPanel.tsx). No coding workbench and no bill pop-up: a tap
+ * ticks or unticks the bill. `jobId` narrows the month to one job. `endpoint`
+ * is the route to read, because the page holding the picker may not hold the
+ * Tracking Sheets view this list's own route is gated by.
+ */
+export interface BillPick {
+  endpoint: string;
+  jobId?: string;
+  picked: Set<string>;
+  onToggle: (b: PickedBill) => void;
+}
+
 /** The month's bills, all jobs. The billing month picker is the page's (AllJobs). */
-export function AllBills({ ym }: { ym: string }) {
+export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
   const [bills, setBills] = useState<AllBill[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -155,7 +178,7 @@ export function AllBills({ ym }: { ym: string }) {
     // Always show the whole month: draft, uninvoiced, and already-invoiced bills
     // alike, each tagged with its state below.
     fetch(
-      `/api/trackingsheet/all-bills?year=${y}&month=${Number(m)}&includeDrafts=1&includeInvoiced=1`,
+      `${pick?.endpoint ?? "/api/trackingsheet/all-bills"}?year=${y}&month=${Number(m)}&includeDrafts=1&includeInvoiced=1`,
     )
       .then((r) => r.json())
       .then((j) => {
@@ -172,6 +195,8 @@ export function AllBills({ ym }: { ym: string }) {
     return () => {
       alive = false;
     };
+    // The endpoint is fixed for a picker's life; a new one is a new picker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ym, reload]);
 
   /**
@@ -180,12 +205,14 @@ export function AllBills({ ym }: { ym: string }) {
    */
   const shown = useMemo(() => {
     let out = bills ?? [];
+    if (pick?.jobId) out = out.filter((b) => b.jobId === pick.jobId);
     if (kindFilter !== "all") out = out.filter((b) => b.isExpense === (kindFilter === "expense"));
     if (paidFilter !== "all") {
       out = out.filter((b) => (billPaidState(b) === "paid") === (paidFilter === "paid"));
     }
     return out;
-  }, [bills, kindFilter, paidFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bills, kindFilter, paidFilter, pick?.jobId]);
 
   // The headline figure is what's still TO BE INVOICED this month, so it stays
   // stable as the list grows: an already-invoiced bill is done, and a draft
@@ -317,10 +344,10 @@ export function AllBills({ ym }: { ym: string }) {
     didAutoSelect.current = false;
   }, [ym]);
   useEffect(() => {
-    if (!wide || didAutoSelect.current || orderedBills.length === 0) return;
+    if (pick || !wide || didAutoSelect.current || orderedBills.length === 0) return;
     didAutoSelect.current = true;
     setSelId(orderedBills[0].id);
-  }, [wide, orderedBills]);
+  }, [pick, wide, orderedBills]);
 
   // A filter can hide the bill the panel is on. Fall back to the first bill
   // still listed, so the panel never codes a bill that is off screen.
@@ -333,7 +360,8 @@ export function AllBills({ ym }: { ym: string }) {
   // up, tapping a bill SELECTS it (the coding panel is on screen); below that
   // it's a plain link to the bill's own page, same as before.
   const renderBillCard = (b: AllBill) => {
-    const active = wide && b.id === selId;
+    const ticked = !!pick?.picked.has(b.id);
+    const active = pick ? ticked : wide && b.id === selId;
     const paid = billPaidState(b);
     const stripe = billInvoiceState({ ...b, paid: paid === "paid" });
     const body = (
@@ -414,7 +442,23 @@ export function AllBills({ ym }: { ym: string }) {
               BILL_STRIPE_COLOR[stripe]
             }`}
           />
-          {wide ? (
+          {pick ? (
+            <button
+              type="button"
+              onClick={() =>
+                pick.onToggle({ id: b.id, vendor: b.vendor, cost: b.cost, issueDate: b.issueDate, jobId: b.jobId })
+              }
+              aria-pressed={ticked}
+              className="min-w-0 flex-1 p-3 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+            >
+              {ticked && (
+                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-accent">
+                  ✓ Linked
+                </span>
+              )}
+              {body}
+            </button>
+          ) : wide ? (
             <button
               type="button"
               onClick={() => select(b.id)}
@@ -490,27 +534,8 @@ export function AllBills({ ym }: { ym: string }) {
     );
   };
 
-  return (
-    <>
-
-      {error && (
-        <Banner tone="error" className="mb-4">
-          {error}
-        </Banner>
-      )}
-
-      {loading && <Loading label="Loading this month’s bills…" />}
-
-      {!loading && !error && (
-        // One column on a phone (the list alone), three from xl — the same
-        // Budget | bills | Coding shape as the job workbench and the
-        // needs-coding queue. `self-start` is what lets a sticky grid item
-        // scroll within its row instead of stretching to the row's height.
-        <SplitGrid>
-          <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
-            <DraftBudgetRail editor={editor} sel={sel} />
-          </section>
-
+  // The list itself — the page's middle column, and the whole of a picker.
+  const listSection = (
           <section className="min-w-0">
             <div className="mb-2 flex items-baseline justify-between gap-3">
               <SectionLabel>
@@ -518,7 +543,7 @@ export function AllBills({ ym }: { ym: string }) {
                 invoice
               </SectionLabel>
               <span className="shrink-0 text-xs text-neutral-500 dark:text-neutral-400">
-                {monthLabel} · all jobs
+                {monthLabel} · {pick?.jobId ? "this job" : "all jobs"}
               </span>
             </div>
 
@@ -628,6 +653,32 @@ export function AllBills({ ym }: { ym: string }) {
               </>
             )}
           </section>
+  );
+
+  return (
+    <>
+
+      {error && (
+        <Banner tone="error" className="mb-4">
+          {error}
+        </Banner>
+      )}
+
+      {loading && <Loading label="Loading this month’s bills…" />}
+
+      {!loading && !error && pick && listSection}
+
+      {!loading && !error && !pick && (
+        // One column on a phone (the list alone), three from xl — the same
+        // Budget | bills | Coding shape as the job workbench and the
+        // needs-coding queue. `self-start` is what lets a sticky grid item
+        // scroll within its row instead of stretching to the row's height.
+        <SplitGrid>
+          <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
+            <DraftBudgetRail editor={editor} sel={sel} />
+          </section>
+
+          {listSection}
 
           <section className="hidden min-w-0 xl:block xl:sticky sticky-below-header xl:self-start">
             <DraftCodingPanel

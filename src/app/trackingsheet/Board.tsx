@@ -367,6 +367,9 @@ export interface BoardEmbed {
   /** Told when the rings switch between This Month and All Time, so the Jobs
    *  page can hide what only a month uses (its month picker and Sync). */
   onScopeChange?: (scope: "month" | "job") => void;
+  /** Open this bill and scroll to it, once the month has loaded (a linked bill
+   *  clicked in a Jobs-page note). A new `nonce` asks again for the same bill. */
+  focusBill?: { docId: string; label: string; nonce: number } | null;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -1956,6 +1959,18 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     }
     setBillPopup({ docId: billId, jobId, label, jobName: jobTitle });
   };
+
+  // A bill asked for from outside (a note's linked bill): open it and scroll to
+  // it as soon as the month is on screen, once per request.
+  const focusBill = embed?.focusBill;
+  const focusDone = useRef(0);
+  useEffect(() => {
+    if (!focusBill || loading || !data || focusDone.current === focusBill.nonce) return;
+    focusDone.current = focusBill.nonce;
+    openFindingBill(focusBill.docId, focusBill.label);
+    // openFindingBill is rebuilt every render; the request's nonce is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusBill, loading, data]);
 
   /** Where each finding row goes. A link back to this same board is dropped. */
   const findingLink = (f: Finding): FindingLink | null => {
