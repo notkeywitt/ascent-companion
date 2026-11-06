@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [zen-albattani](.claude/sessions/2026-11-06-zen-albattani.md) | 2026-11-06 | 1 | — |
 | [practical-newton](.claude/sessions/2026-11-06-practical-newton.md) | 2026-11-06 | 1 | — |
 | [busy-galileo](.claude/sessions/2026-11-05-busy-galileo.md) | 2026-11-06 | 2 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-04 | 201 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-30 | 5 | — |
 | [epic-hopper](.claude/sessions/2026-10-29-epic-hopper.md) | 2026-10-30 | 7 | — |
 | [intelligent-rubin](.claude/sessions/2026-10-29-intelligent-rubin.md) | 2026-10-29 | 3 | — |
-| [gifted-meitner](.claude/sessions/2026-10-29-gifted-meitner.md) | 2026-10-29 | 1 | — |
