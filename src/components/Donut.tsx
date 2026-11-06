@@ -51,6 +51,7 @@ export function Donut({
   onHover,
   compact = false,
   legendLabel,
+  legendMax,
 }: {
   slices: DonutSlice[];
   title?: string;
@@ -90,6 +91,9 @@ export function Donut({
   compact?: boolean;
   /** What a key row says; defaults to the slice's label. */
   legendLabel?: (slice: DonutSlice) => string;
+  /** Compact only: list just the biggest N slices in the key. The ring still
+   *  draws every slice; hovering one names it. */
+  legendMax?: number;
 }) {
   // Which arc is lifted. Hover on a pointer; a tap toggles it, since the rings
   // are read on a phone too and there is no hover there.
@@ -286,15 +290,32 @@ export function Donut({
       )}
 
       {compact && (
-        <div className="min-w-0 flex-1">
-          <div className="mb-1 flex items-baseline justify-between gap-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-            <span>{title}</span>
-            <span className="tabular-nums normal-case tracking-normal text-neutral-700 dark:text-neutral-200">
-              {centerValue ?? money(total)}
-            </span>
-          </div>
-          {total <= 0 && <p className="text-xs text-neutral-400">{emptyLabel}</p>}
-          {legend && sorted.length > 0 && <ul className="w-full space-y-0.5">{sorted.map(keyRow)}</ul>}
+        // A two-column grid sized to its content: the amounts sit right after
+        // the longest code, right-aligned on each other, with no gap stretched
+        // across the card (owner, 2026-11-06). The title row shares the grid,
+        // so the total lines up over the amounts.
+        <div className="grid min-w-0 grid-cols-[auto_auto] items-baseline gap-x-4 gap-y-0.5 text-xs">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{title}</span>
+          <span className="text-right font-semibold tabular-nums text-neutral-700 dark:text-neutral-200">
+            {centerValue ?? money(total)}
+          </span>
+          {total <= 0 && <span className="col-span-2 text-neutral-400">{emptyLabel}</span>}
+          {legend &&
+            sorted.slice(0, legendMax).map((s) => (
+              <div
+                key={s.key}
+                onClick={onSelect ? () => onSelect(s.key) : undefined}
+                className={`col-span-2 grid grid-cols-subgrid ${onSelect ? "cursor-pointer" : ""} ${
+                  hover === s.key || selectedKey === s.key ? "font-semibold" : ""
+                } ${selectedKey === s.key ? "text-accent" : ""}`}
+              >
+                <span className="flex min-w-0 items-center gap-2 truncate text-neutral-600 dark:text-neutral-300">
+                  <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: s.color }} />
+                  {legendLabel ? legendLabel(s) : s.label}
+                </span>
+                <span className="text-right tabular-nums text-neutral-500">{money(s.value)}</span>
+              </div>
+            ))}
         </div>
       )}
 

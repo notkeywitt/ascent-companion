@@ -375,6 +375,7 @@ export function CostDonuts({
           size={ringSize}
           compact={compact}
           legendLabel={compact ? codeOnly : undefined}
+          legendMax={compact ? 3 : undefined}
           emptyLabel={`No vendor bills ${emptySuffix}`}
           detail={ringDetail && ringDetail("bills")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
@@ -388,6 +389,7 @@ export function CostDonuts({
           size={ringSize}
           compact={compact}
           legendLabel={compact ? codeOnly : undefined}
+          legendMax={compact ? 3 : undefined}
           emptyLabel={`No labor logged ${emptySuffix}`}
           detail={ringDetail && ringDetail("labor")}
           onDetailWanted={onDetailWanted && (() => onDetailWanted(scope))}
