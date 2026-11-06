@@ -238,8 +238,10 @@ const BUMP_H = 16;
 /* The edge ends at y 16.5, not 16: a 1px stroke centred there covers the same
    pixel row as the 1px top line it meets, so the joint has no step. */
 const BUMP_EDGE = "M0 16.5 C4.5 16.5 6.5 14.8 8.3 12.3 L13.4 4.6 C15.3 1.8 17.4 0.5 21.5 0.5 H54.5 C58.6 0.5 60.7 1.8 62.6 4.6 L67.7 12.3 C69.5 14.8 71.5 16.5 76 16.5";
-/* The bar's outline: one colour for the top line and the tab's edge. */
-const EDGE = "rgb(212 212 212 / 0.55)";
+/* The bar's outline: one colour for the top line and the tab's edge. Light:
+   the strong hairline token. Dark: a light-grey line on the dark glass. */
+const EDGE_BG = "bg-line-strong dark:bg-[rgb(212_212_212/0.55)]";
+const EDGE_STROKE = "stroke-line-strong dark:stroke-[rgb(212_212_212/0.55)]";
 /* One drawer row: a 4.5rem cell. The open drawer is its rows plus 0.75rem. */
 const DRAWER_ROW_REM = 4.5;
 
@@ -377,17 +379,17 @@ export function TabBar() {
           drawer is the bar itself, not a modal over the page. */}
       {open && <div aria-hidden className="fixed inset-0 z-20 pad:hidden" onClick={() => setOpen(false)} />}
 
-      {/* PHONE: edge to edge along the bottom, dark translucent glass in both
-          themes, a light-grey top line, the home indicator's inset as padding
+      {/* PHONE: edge to edge along the bottom, translucent glass that follows
+          the theme (cream in light, near-black in dark), a hairline top line, the home indicator's inset as padding
           INSIDE the bar. Closed, the drawer rows sit below the screen; open,
           the whole bar slides up by their height. What shows when closed, plus
           the tab above it, is --tabbar-h in globals.css.
           The glass is a LAYER, not the nav's own backdrop-filter, and the tab
-          is a filled SVG with no backdrop at all. The bar is always dark, so
-          its marks are white, not tokens. */}
+          is a filled SVG with no backdrop at all. Its marks are ink-dark in
+          light and white in dark. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-white transition-transform duration-300 ease-out print:hidden pad:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-neutral-900 transition-transform dark:text-white duration-300 ease-out print:hidden pad:hidden"
         style={{ transform: open ? "none" : `translateY(${drawerH}rem)` }}
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
@@ -399,9 +401,9 @@ export function TabBar() {
           else if (dy < -30) setOpen(false);
         }}
       >
-        <span aria-hidden className="absolute inset-0 bg-neutral-950/60 backdrop-blur-xl" />
+        <span aria-hidden className="absolute inset-0 bg-cream/85 backdrop-blur-xl dark:bg-neutral-950/60" />
         {/* No drawer: a plain top line. */}
-        {more.length === 0 && <span aria-hidden className="absolute inset-x-0 top-0 h-px" style={{ background: EDGE }} />}
+        {more.length === 0 && <span aria-hidden className={`absolute inset-x-0 top-0 h-px ${EDGE_BG}`} />}
         {/* The drawer's tab: a soft bump (16px) above the bar's top line, over
             an h-3 strip. --tabbar-h counts both. */}
         {more.length > 0 && (
@@ -414,16 +416,16 @@ export function TabBar() {
             className="group relative block h-3 w-full"
           >
             {/* The top line, in two halves that meet the tab's edge. */}
-            <span aria-hidden className="absolute left-0 top-0 h-px" style={{ background: EDGE, right: `calc(50% + ${BUMP_W / 2}px)` }} />
-            <span aria-hidden className="absolute right-0 top-0 h-px" style={{ background: EDGE, left: `calc(50% + ${BUMP_W / 2}px)` }} />
+            <span aria-hidden className={`absolute left-0 top-0 h-px ${EDGE_BG}`} style={{ right: `calc(50% + ${BUMP_W / 2}px)` }} />
+            <span aria-hidden className={`absolute right-0 top-0 h-px ${EDGE_BG}`} style={{ left: `calc(50% + ${BUMP_W / 2}px)` }} />
             <svg
               aria-hidden
               viewBox={`0 0 ${BUMP_W} ${BUMP_H}`}
               className="absolute left-1/2 -translate-x-1/2 overflow-visible"
               style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
             >
-              <path d={`${BUMP_EDGE} Z`} className="fill-neutral-950/80 transition group-active:fill-neutral-800/90" />
-              <path d={BUMP_EDGE} fill="none" stroke={EDGE} strokeWidth={1} />
+              <path d={`${BUMP_EDGE} Z`} className="fill-cream/95 transition group-active:fill-line dark:fill-neutral-950/80 dark:group-active:fill-neutral-800/90" />
+              <path d={BUMP_EDGE} fill="none" strokeWidth={1} className={EDGE_STROKE} />
             </svg>
             <span className="absolute inset-x-0 -top-2.5 flex justify-center">
               <GripIcon />
@@ -442,12 +444,12 @@ export function TabBar() {
                 onClick={guard}
                 // `active:` is the PRESS (paints the instant a finger lands); the
                 // overlay below is the WAIT (only while the navigation is in flight).
-                className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-white/10 ${
-                  on ? "text-white" : "text-white/60 hover:text-white"
+                className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 ${
+                  on ? "text-neutral-900 dark:text-white" : "text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white"
                 }`}
               >
-                {/* The active mark is a short white rule above the icon. */}
-                <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-white" : "bg-transparent"}`} />
+                {/* The active mark is a short rule above the icon, in the text colour. */}
+                <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-current" : "bg-transparent"}`} />
                 <Icon />
                 {labelOf(t)}
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
@@ -477,8 +479,8 @@ export function TabBar() {
                     guard(e);
                     if (!e.defaultPrevented) setOpen(false);
                   }}
-                  className={`relative flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 text-center text-[11px] font-semibold leading-tight transition active:bg-white/10 ${
-                    on ? "bg-white/10 text-white" : "text-white/70 hover:text-white"
+                  className={`relative flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 text-center text-[11px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 ${
+                    on ? "bg-black/5 text-neutral-900 dark:bg-white/10 dark:text-white" : "text-neutral-600 hover:text-neutral-900 dark:text-white/70 dark:hover:text-white"
                   }`}
                 >
                   <Icon />
