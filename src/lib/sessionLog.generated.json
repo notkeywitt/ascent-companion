@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-06T18:32:13Z",
+  "generatedAt": "2026-11-06T18:36:30Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-06T18:32:13Z",
+      "updated": "2026-11-06T18:36:30Z",
       "goal": "",
-      "next": "Look at /jobs-hub bill rows: Add Note / Note link scrolls to the notes panel; check it on a phone width.",
+      "next": "Check /jobs-hub with a job picked at three widths: details drop-down, rings hidden, notes under the total.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1509,6 +1509,13 @@
           "sha": "a5181ef",
           "subject": "companion: bill rows on the Jobs page get an Add Note link; a bill with a note shows Note and jumps to it",
           "files": "src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx, src/components/NotesPanel.tsx"
+        },
+        {
+          "date": "2026-11-06",
+          "time": "10:36",
+          "sha": "6009051",
+          "subject": "companion: job card folds by its own width — details drop down under the name, then rings hide and notes sit under the total",
+          "files": "src/app/globals.css, src/app/job-board/JobBoardPage.tsx, src/app/jobs-hub/JobsHub.tsx, src/app/trackingsheet/Board.tsx"
         }
       ]
     },
