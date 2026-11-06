@@ -1725,8 +1725,17 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               BILL_STRIPE_COLOR[stripe]
             }`}
           />
-          <button
-            type="button"
+          {/* A div, not a button: the Note link sits inside it beside the
+              vendor name, and a button cannot hold a button. */}
+          <div
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) {
+                e.preventDefault();
+                e.currentTarget.click();
+              }
+            }}
             onClick={() => {
               // Side-panel dual navigation — see the note on the
               // cost-code lane's chips above.
@@ -1744,7 +1753,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               }
             }}
             aria-expanded={belowXl ? undefined : isOpen}
-            className="min-w-0 flex-1 px-3 py-2.5 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
+            className="min-w-0 flex-1 cursor-pointer px-3 py-2.5 text-left transition hover:bg-accent/5 dark:hover:bg-white/5"
           >
             {/* Vendor and amount own the first line; the status
                 badges get their own wrapping line below. Inline,
@@ -1754,7 +1763,25 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                 flags were invisible exactly where they matter
                 most. */}
             <span className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate text-sm font-semibold">{b.label}</span>
+              <span className="flex min-w-0 items-baseline gap-3">
+                <span className="min-w-0 truncate text-sm font-semibold">{b.label}</span>
+                {embed?.onBillNote && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      embed.onBillNote?.(
+                        { docId: b.id, label: `${b.label} · ${money(b.cost)}` },
+                        embed.noteDocs?.get(b.id),
+                      );
+                    }}
+                    title={embed.noteDocs?.has(b.id) ? "Go to this bill's note" : "Add a note about this bill"}
+                    className="shrink-0 rounded px-1 text-xs font-semibold text-accent hover:underline"
+                  >
+                    {embed.noteDocs?.has(b.id) ? "Note" : "Add Note"}
+                  </button>
+                )}
+              </span>
               <span className="shrink-0 text-base font-semibold tabular-nums">{money(b.cost)}</span>
             </span>
 
@@ -1829,7 +1856,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                   })}
               </span>
             )}
-          </button>
+          </div>
           {/* Outside the button — a link nested in a button is
               invalid, and clicking it would also toggle the card.
               The dragstart guard stops the browser dragging the
@@ -1841,19 +1868,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             }}
             className="flex shrink-0 items-start"
           >
-            {embed?.onBillNote && (
-              <button
-                type="button"
-                onClick={() => {
-                  const noteId = embed.noteDocs?.get(b.id);
-                  embed.onBillNote?.({ docId: b.id, label: `${b.label} · ${money(b.cost)}` }, noteId);
-                }}
-                title={embed.noteDocs?.has(b.id) ? "Go to this bill's note" : "Add a note about this bill"}
-                className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-accent transition hover:underline"
-              >
-                {embed.noteDocs?.has(b.id) ? "Note" : "Add Note"}
-              </button>
-            )}
             <JtLink
               href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
               className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-400 transition hover:text-accent dark:text-neutral-500"
