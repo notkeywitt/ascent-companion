@@ -5,7 +5,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
 import { HomeTodos } from "@/components/HomeTodos";
-import { NotesPanel } from "@/components/NotesPanel";
+import { NotesPanel, type NoteRequest } from "@/components/NotesPanel";
 import type { Note, NoteBill } from "@/lib/notes";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
@@ -219,6 +219,23 @@ export function JobsHub() {
   const selected = jobs?.find((j) => j.id === selectedId) ?? null;
   /** A linked bill clicked in a note: the board opens it and scrolls to it. */
   const [focusBill, setFocusBill] = useState<{ docId: string; label: string; nonce: number } | null>(null);
+  /** Bills the picked job has notes on (bill id → newest note id), for the bill rows' Note link. */
+  const [noteDocs, setNoteDocs] = useState<Map<string, number>>(new Map());
+  const [noteRequest, setNoteRequest] = useState<NoteRequest | null>(null);
+  const onJobNotes = (notes: Note[]) => {
+    const m = new Map<string, number>();
+    // Newest first, so the first note seen for a bill is its newest.
+    for (const n of notes) for (const b of n.bills) if (!m.has(b.docId)) m.set(b.docId, n.id);
+    setNoteDocs(m);
+  };
+  const onBillNote = (bill: { docId: string; label: string }, noteId?: number) => {
+    const nonce = Date.now();
+    setNoteRequest(
+      noteId !== undefined
+        ? { nonce, kind: "show", noteId }
+        : { nonce, kind: "add", bill: { docId: bill.docId, label: bill.label, jobId: selectedId ?? undefined } },
+    );
+  };
   // Go to the bill's job and the note's billing month, on the Tracking sheet
   // tab, and ask the board for the bill. False = this page cannot show it (no
   // Tracking sheet, or a job not in the list), so the link opens normally.
@@ -378,6 +395,8 @@ export function JobsHub() {
                         jobs={noteJobs}
                         hideHeading
                         onOpenBill={openBill}
+                        onNotes={onJobNotes}
+                        request={noteRequest}
                         className="w-full pad:h-full pad:min-w-0 pad:flex-1"
                       />
                     </div>
@@ -502,7 +521,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, noteDocs, onBillNote }} />
             </Suspense>
           )
         ) : tab === "plans" ? (

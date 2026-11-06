@@ -370,6 +370,11 @@ export interface BoardEmbed {
   /** Open this bill and scroll to it, once the month has loaded (a linked bill
    *  clicked in a Jobs-page note). A new `nonce` asks again for the same bill. */
   focusBill?: { docId: string; label: string; nonce: number } | null;
+  /** Bills that have a note: bill id → the newest note's id. A row shows "Note"
+   *  for these and "Add Note" for the rest. */
+  noteDocs?: Map<string, number>;
+  /** A row's Add Note / Note link. `noteId` is set when the bill has a note. */
+  onBillNote?: (bill: { docId: string; label: string }, noteId?: number) => void;
 }
 
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
@@ -1836,6 +1841,19 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             }}
             className="flex shrink-0 items-start"
           >
+            {embed?.onBillNote && (
+              <button
+                type="button"
+                onClick={() => {
+                  const noteId = embed.noteDocs?.get(b.id);
+                  embed.onBillNote?.({ docId: b.id, label: `${b.label} · ${money(b.cost)}` }, noteId);
+                }}
+                title={embed.noteDocs?.has(b.id) ? "Go to this bill's note" : "Add a note about this bill"}
+                className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-accent transition hover:underline"
+              >
+                {embed.noteDocs?.has(b.id) ? "Note" : "Add Note"}
+              </button>
+            )}
             <JtLink
               href={`https://app.jobtread.com/jobs/${jobId}/documents/${b.id}`}
               className="inline-flex min-h-11 min-w-11 items-center justify-center px-3 text-xs font-semibold text-neutral-400 transition hover:text-accent dark:text-neutral-500"

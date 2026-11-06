@@ -77,6 +77,16 @@ function stampLabel(iso: string): string {
 const todayYmd = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: ORG_TZ }).format(new Date());
 
+/** A request from outside the panel: a bill row's Add Note / Note link. */
+export interface NoteRequest {
+  /** A new nonce asks again for the same thing. */
+  nonce: number;
+  /** "add": open the add form with this bill linked. "show": go to this note. */
+  kind: "add" | "show";
+  bill?: NoteBill;
+  noteId?: number;
+}
+
 export function NotesPanel({
   jobId,
   jobLabel,
@@ -84,8 +94,14 @@ export function NotesPanel({
   jobs,
   hideHeading = false,
   onOpenBill,
+  onNotes,
+  request,
   className = "",
 }: {
+  /** Told each time the list loads or changes, so the page can mark which bills have a note. */
+  onNotes?: (notes: Note[]) => void;
+  /** Scroll to the panel and open the add form, or go to one note. */
+  request?: NoteRequest | null;
   /** Open a linked bill where the page can show it. Return false to fall back
    *  to the bill's own page in a new tab. */
   onOpenBill?: (note: Note, bill: NoteBill) => boolean;
@@ -106,6 +122,37 @@ export function NotesPanel({
   /** The header row: the add form floats from its foot. */
   const headRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
+  /** Bills the add form starts with (set by a bill row's Add Note link). */
+  const [addBills, setAddBills] = useState<NoteBill[]>([]);
+  const [flashId, setFlashId] = useState<number | null>(null);
+  const requestDone = useRef(0);
+
+  useEffect(() => {
+    if (notes) onNotes?.(notes);
+    // onNotes is the page's setter; the list is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [notes]);
+
+  // A bill row asked for the panel: scroll it into view, then open the form or
+  // flash the note. A "show" waits for the list to load.
+  useEffect(() => {
+    if (!request || requestDone.current === request.nonce) return;
+    if (request.kind === "add") {
+      requestDone.current = request.nonce;
+      setAddBills(request.bill ? [request.bill] : []);
+      setEditingId(null);
+      setAdding(true);
+      headRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (notes === null) return;
+    requestDone.current = request.nonce;
+    const el = document.getElementById(`note-${request.noteId}`);
+    (el ?? headRef.current)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashId(request.noteId ?? null);
+    const t = window.setTimeout(() => setFlashId(null), 2000);
+    return () => window.clearTimeout(t);
+  }, [request, notes]);
 
   const load = useCallback(async () => {
     const qs = jobId ? `jobId=${encodeURIComponent(jobId)}` : ym ? `ym=${encodeURIComponent(ym)}` : "";
@@ -162,7 +209,15 @@ export function NotesPanel({
           )}
         </div>
         {!adding && (
-          <Button size="xs" variant="outline" className="shrink-0" onClick={() => setAdding(true)}>
+          <Button
+            size="xs"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => {
+              setAddBills([]);
+              setAdding(true);
+            }}
+          >
             Add note
           </Button>
         )}
@@ -181,7 +236,7 @@ export function NotesPanel({
               noteDate: todayYmd(),
               billingYm: !jobId && ym ? ym : billingYmForDate(todayYmd()),
               involves: [],
-              bills: [],
+              bills: addBills,
             }}
             jobs={jobId ? [] : jobs}
             knownNames={knownNames}
@@ -217,6 +272,7 @@ export function NotesPanel({
                 note={n}
                 showJob={false}
                 editing={editingId === n.id}
+                flash={flashId === n.id}
                 jobs={jobs}
                 knownNames={knownNames}
                 onEdit={() => setEditingId(n.id)}
@@ -240,6 +296,7 @@ export function NotesPanel({
                     note={n}
                     showJob
                     editing={editingId === n.id}
+                    flash={flashId === n.id}
                     jobs={jobs}
                     knownNames={knownNames}
                     onEdit={() => setEditingId(n.id)}
@@ -264,6 +321,7 @@ function NoteRow({
   note,
   showJob,
   editing,
+  flash,
   jobs,
   knownNames,
   onEdit,
@@ -276,6 +334,8 @@ function NoteRow({
   note: Note;
   showJob: boolean;
   editing: boolean;
+  /** Lit for a moment after a bill row's Note link points here. */
+  flash?: boolean;
   jobs: NoteJob[];
   knownNames: string[];
   onEdit: () => void;
@@ -288,7 +348,7 @@ function NoteRow({
 
   if (editing) {
     return (
-      <li className="py-2">
+      <li id={`note-${note.id}`} className="py-2">
         <NoteForm
           initial={note}
           jobs={jobs}
@@ -315,7 +375,10 @@ function NoteRow({
   }
 
   return (
-    <li className="group py-2">
+    <li
+      id={`note-${note.id}`}
+      className={`group py-2 transition-colors duration-700 ${flash ? "bg-accent/10" : ""}`}
+    >
       <p className="whitespace-pre-wrap break-words text-[13px] leading-snug">{note.body}</p>
       {note.bills.length > 0 && (
         <div className="mt-1 flex flex-wrap gap-1.5">
