@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Banner, Button, Input, Loading, MetaLine, Select, Textarea } from "@/components/ui";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
@@ -97,6 +98,8 @@ export function NotesPanel({
   const [notes, setNotes] = useState<Note[] | null>(null);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
+  /** The header row: the add form floats from its foot. */
+  const headRef = useRef<HTMLDivElement>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
@@ -146,7 +149,7 @@ export function NotesPanel({
     <div className={`flex min-h-0 min-w-0 flex-col gap-2 ${className}`}>
       {/* The button sits beside the title, not at the panel's right edge: the
           Jobs page lays its month picker over the card's top right corner. */}
-      <div className="flex shrink-0 items-center gap-3">
+      <div ref={headRef} className="flex shrink-0 items-center gap-3">
         <div className="min-w-0 truncate">
           <span className={caption}>Notes</span>
           {!hideHeading && (
@@ -164,6 +167,7 @@ export function NotesPanel({
         {error && <Banner tone="error">{error}</Banner>}
 
         {adding && (
+          <FloatingBelow anchor={headRef} onClose={() => setAdding(false)}>
           <NoteForm
             initial={{
               body: "",
@@ -191,6 +195,7 @@ export function NotesPanel({
               return "";
             }}
           />
+          </FloatingBelow>
         )}
 
         {notes === null ? (
@@ -715,5 +720,57 @@ function BillPicker({
         </div>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------ floating form */
+
+/**
+ * The add form floats over the page from the foot of the Notes header, as wide
+ * as the panel, and runs past the card's bottom edge instead of scrolling
+ * inside it (owner, 2026-11-06). A portal, because the Jobs page's card clips
+ * what overflows it. Fixed to the header's place on screen, re-measured on any
+ * scroll or resize (the page may scroll inside #app-shell, not the window).
+ * Escape closes it, as Cancel does.
+ */
+function FloatingBelow({
+  anchor,
+  onClose,
+  children,
+}: {
+  anchor: React.RefObject<HTMLElement | null>;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const r = anchor.current?.getBoundingClientRect();
+      if (r) setBox({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 320) });
+    };
+    measure();
+    window.addEventListener("scroll", measure, true);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, true);
+      window.removeEventListener("resize", measure);
+    };
+  }, [anchor]);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onClose]);
+  if (!box) return null;
+  // Kept inside the window's right edge when the panel is narrower than 320px.
+  const left = Math.max(8, Math.min(box.left, window.innerWidth - box.width - 8));
+  return createPortal(
+    <div
+      className="fixed z-40 rounded-lg shadow-xl"
+      style={{ top: box.top, left, width: box.width }}
+    >
+      {children}
+    </div>,
+    document.body,
   );
 }
