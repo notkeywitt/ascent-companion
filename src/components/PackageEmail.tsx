@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Banner, Button } from "@/components/ui";
+import { useRef, useState } from "react";
+import { Banner, Button, Dialog, Textarea } from "@/components/ui";
 
 /**
  * "Draft invoicing email" — POST /api/invoicing-summary/email, which saves the
@@ -46,13 +46,22 @@ export function usePackageEmail(ym: string) {
 
 /** The button, on the Package tab's action bar (moved from Tracking Sheets'
  *  all-jobs row 2026-10-18, so the package and its email sit together). */
-export function PackageEmailButton({ email, ym }: { email: ReturnType<typeof usePackageEmail>; ym: string }) {
+export function PackageEmailButton({
+  email,
+  ym,
+  onOpen,
+}: {
+  email: ReturnType<typeof usePackageEmail>;
+  ym: string;
+  /** Opens the notes card; the card's own button runs the draft. */
+  onOpen: () => void;
+}) {
   return (
     <Button
       variant="secondary"
-      onClick={email.run}
+      onClick={onOpen}
       disabled={email.running || !ym}
-      title="Save the Invoicing Package email as a Gmail draft, each job's tracking sheet and JobTread invoice attached as PDFs. Pressed again, it replaces this month's draft with the latest."
+      title="Add a note to each job, then save the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs. Pressed again, it replaces this month's draft with the latest."
     >
       {email.running ? "Drafting email…" : email.done ? "Update invoicing email" : "Draft invoicing email"}
     </Button>
@@ -84,5 +93,108 @@ export function PackageEmailResult({ email }: { email: ReturnType<typeof usePack
         </Banner>
       )}
     </div>
+  );
+}
+
+export interface NoteJob {
+  jtJobId: string;
+  jobLabel: string;
+  customerLabel: string;
+  invoiceNumber: string;
+  note: string;
+}
+
+/**
+ * The card that opens before the email is drafted: one text box per job in the
+ * email. A note is the line under that job in the email, and it is the same
+ * note the job's "Edit for the email" panel holds — saved to the month's sheet,
+ * so it stays for the next edit and the next draft. Each box saves on blur;
+ * "Draft email" waits for every save to land first, because Apps Script reads
+ * the notes when it builds the draft.
+ */
+export function PackageEmailNotes({
+  jobs,
+  running,
+  onPatch,
+  onSave,
+  onDraft,
+  onClose,
+}: {
+  jobs: NoteJob[];
+  running: boolean;
+  onPatch: (jobId: string, note: string) => void;
+  /** Saves one job's note; resolves false when the save failed. */
+  onSave: (jobId: string, note: string) => Promise<boolean>;
+  onDraft: () => Promise<void> | void;
+  onClose: () => void;
+}) {
+  const pending = useRef(new Set<Promise<boolean>>());
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const saveNote = (jobId: string, note: string) => {
+    const p = onSave(jobId, note);
+    pending.current.add(p);
+    void p.finally(() => pending.current.delete(p));
+  };
+
+  const draft = async () => {
+    setBusy(true);
+    setFailed(false);
+    const results = await Promise.all([...pending.current]);
+    if (results.includes(false)) {
+      setFailed(true);
+      setBusy(false);
+      return;
+    }
+    await onDraft();
+    setBusy(false);
+  };
+
+  // Invoiced jobs first, the order the email lists them in.
+  const ordered = [...jobs.filter((j) => j.invoiceNumber), ...jobs.filter((j) => !j.invoiceNumber)];
+
+  return (
+    <Dialog
+      onClose={onClose}
+      busy={busy || running}
+      size="lg"
+      title="Notes for the invoicing email"
+      description="A note prints as the last line under its job. Leave a box empty for no note. Notes stay saved."
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={busy || running}>
+            Cancel
+          </Button>
+          <Button onClick={draft} disabled={busy || running}>
+            {busy || running ? "Drafting email…" : "Draft email"}
+          </Button>
+        </>
+      }
+    >
+      {failed && (
+        <Banner tone="error" className="mb-3">
+          A note did not save. Fix it and press Draft email again.
+        </Banner>
+      )}
+      {ordered.length === 0 && <p className="text-[13px] text-neutral-500">No jobs are included this month.</p>}
+      <div className="space-y-3">
+        {ordered.map((j) => (
+          <label key={j.jtJobId} className="block">
+            <span className="text-[13px] font-semibold">
+              {j.jobLabel} - {j.customerLabel}
+              {j.invoiceNumber ? <span className="font-normal text-neutral-500"> · invoice #{j.invoiceNumber}</span> : null}
+            </span>
+            <Textarea
+              rows={2}
+              value={j.note}
+              placeholder="Note"
+              onChange={(e) => onPatch(j.jtJobId, e.target.value)}
+              onBlur={(e) => saveNote(j.jtJobId, e.target.value)}
+            />
+          </label>
+        ))}
+      </div>
+    </Dialog>
   );
 }

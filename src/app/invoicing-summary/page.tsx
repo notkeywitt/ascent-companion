@@ -1,7 +1,7 @@
 "use client";
 
 import { InvoicingTabs } from "@/components/InvoicingTabs";
-import { PackageEmailButton, PackageEmailResult, usePackageEmail } from "@/components/PackageEmail";
+import { PackageEmailButton, PackageEmailNotes, PackageEmailResult, usePackageEmail } from "@/components/PackageEmail";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
@@ -181,6 +181,7 @@ export default function InvoicingSummaryPage() {
   const [filter, setFilter] = useState<Filter>("all");
   const [savingField, setSavingField] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [notesOpen, setNotesOpen] = useState(false);
 
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 
@@ -239,8 +240,8 @@ export default function InvoicingSummaryPage() {
    * every blur would take tens of seconds.
    */
   const save = useCallback(
-    async (fieldKey: string, patch: Record<string, unknown>) => {
-      if (!data) return;
+    async (fieldKey: string, patch: Record<string, unknown>): Promise<boolean> => {
+      if (!data) return false;
       setSavingField(fieldKey);
       setSaveError("");
       try {
@@ -251,8 +252,10 @@ export default function InvoicingSummaryPage() {
         });
         const body = await res.json();
         if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+        return true;
       } catch (e) {
         setSaveError(e instanceof Error ? e.message : "That edit did not save.");
+        return false;
       } finally {
         setSavingField("");
       }
@@ -455,8 +458,22 @@ export default function InvoicingSummaryPage() {
 
           <PackageEmailResult email={email} />
 
+          {notesOpen && (
+            <PackageEmailNotes
+              jobs={included}
+              running={email.running}
+              onPatch={(id, note) => patchJob(id, { note })}
+              onSave={(id, note) => save(`${id}:note`, { jobId: id, note })}
+              onDraft={async () => {
+                await email.run();
+                setNotesOpen(false);
+              }}
+              onClose={() => setNotesOpen(false)}
+            />
+          )}
+
           <StickyActionBar>
-            <PackageEmailButton email={email} ym={ym} />
+            <PackageEmailButton email={email} ym={ym} onOpen={() => setNotesOpen(true)} />
             <button type="button" className={btn("ghost", "md")} onClick={() => void load(ym, true)}>
               Refresh figures
             </button>
