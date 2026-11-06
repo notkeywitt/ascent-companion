@@ -107,6 +107,8 @@ export function JobsHub() {
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
   /** …and the rings' month / job-to-date switch, under the month picker. */
   const [scopeSlot, setScopeSlot] = useState<HTMLElement | null>(null);
+  /** …and the rings alone, in the card's own column (owner, 2026-11-06). */
+  const [ringsSlot, setRingsSlot] = useState<HTMLElement | null>(null);
   /** The rings' scope. All Time has no month, so the month picker and the
    *  month's Sync hide then (owner, 2026-11-02). A new board starts on This
    *  Month, so a new job or month does too. */
@@ -314,6 +316,13 @@ export function JobsHub() {
 
   useEffect(() => setRingScope("month"), [selectedId, ym]);
   const allTimeOn = !!selectedId && tab === "sheet" && ringScope === "job";
+  // One row — the rings' scope switch, then the month.
+  const monthControls = (
+    <div className="flex items-center gap-3">
+      {selected && tab === "sheet" && <div ref={setScopeSlot} />}
+      {!allTimeOn && monthSelect}
+    </div>
+  );
 
   return (
     <main
@@ -378,16 +387,14 @@ export function JobsHub() {
                       <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
                     ) : undefined
                   }
-                  aside={
-                    <div className="jc-aside-row">
-                      {tab === "sheet" && canTrackingSheet && (
-                        // Full width on a phone, where it sits under the job.
-                        <div
-                          ref={setSummarySlot}
-                          className="jc-summary no-scrollbar"
-                        />
-                      )}
-                      {/* The job's notes: only this job's, newest first. */}
+                  hub={{
+                    total:
+                      tab === "sheet" && canTrackingSheet ? <div ref={setSummarySlot} /> : undefined,
+                    controls: monthControls,
+                    rings:
+                      tab === "sheet" && canTrackingSheet ? <div ref={setRingsSlot} /> : undefined,
+                    // The job's notes: only this job's, newest first.
+                    notes: (
                       <NotesPanel
                         jobId={selected.id}
                         jobLabel={jobLabel(selected)}
@@ -397,10 +404,10 @@ export function JobsHub() {
                         onOpenBill={openBill}
                         onNotes={onJobNotes}
                         request={noteRequest}
-                        className="jc-notes"
+                        className="min-h-48 flex-1"
                       />
-                    </div>
-                  }
+                    ),
+                  }}
                 />
               ) : details ? (
                 <Card />
@@ -447,15 +454,12 @@ export function JobsHub() {
                 </div>
               </Card>
             )}
-            <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
-              {/* One row — the scope switch, then the month — so it sits
-                  level with the Notes header beside it (owner, 2026-11-06).
-                  Sync moved to the job card's foot. */}
-              <div className="flex items-center gap-3">
-                {selected && tab === "sheet" && <div ref={setScopeSlot} />}
-                {!allTimeOn && monthSelect}
+            {/* A picked job's card carries these in its head row (owner, 2026-11-06). */}
+            {!selected && (
+              <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
+                {monthControls}
               </div>
-            </div>
+            )}
           </div>
           {/* The map, on the page beside the cards (owner, 2026-11-01). On a
               phone or iPad held upright it comes first, under the jobs as a dropdown (owner,
@@ -521,7 +525,7 @@ export function JobsHub() {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, noteDocs, onBillNote }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, noteDocs, onBillNote }} />
             </Suspense>
           )
         ) : tab === "plans" ? (

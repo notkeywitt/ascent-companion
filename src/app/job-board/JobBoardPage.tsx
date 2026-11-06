@@ -90,13 +90,12 @@ function ToDoLine({ t }: { t: JobToDo }) {
   );
 }
 
-/** `aside` sits in the card's right column — the Jobs page's to-be-invoiced
- *  figure (owner, 2026-11-01). `footer` is a row of its own across the foot of
- *  the card, centred — the Jobs page's tabs, clear of the job's text (owner,
+/** `hub` lays the card out for the Jobs page (owner, 2026-11-06). `footer` is
+ *  a row of its own across the foot of the card, centred — the Jobs page's tabs, clear of the job's text (owner,
  *  2026-11-02). */
 export function JobCard({
   c,
-  aside,
+  hub,
   footer,
   onCustomer,
   nameLink = true,
@@ -105,7 +104,15 @@ export function JobCard({
    *  page's card, which already is that page — owner, 2026-11-02). */
   nameLink?: boolean;
   c: JobsPageCard;
-  aside?: React.ReactNode;
+  /** The Jobs page's card (owner, 2026-11-06): a head row (A) of the job, the
+   *  `total` and the `controls`; under it the details (B), the `rings` (C) and
+   *  the `notes` (D). See `.jc` in globals.css. */
+  hub?: {
+    total?: React.ReactNode;
+    controls?: React.ReactNode;
+    rings?: React.ReactNode;
+    notes?: React.ReactNode;
+  };
   footer?: React.ReactNode;
   /** Makes the customer name a button (the Jobs page's customer pop-up). */
   onCustomer?: () => void;
@@ -127,112 +134,126 @@ export function JobCard({
     };
   }, [open]);
 
-  const head = (
-    <>
-      <div className="min-w-0">
-        <div className="flex items-baseline gap-2">
-          {/* The name opens the job's own pages (record, cost, specs …) through
-              the job tab row (stage 4); the number and JobTread's ↗ sit right
-              beside it (owner, 2026-11-02). */}
-          {nameLink ? (
-            <Link
-              href={`/job-board/${encodeURIComponent(c.id)}`}
-              className="min-w-0 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
-            >
-              {c.name}
-            </Link>
-          ) : (
-            <span className="min-w-0 truncate text-sm font-semibold tracking-tight">{c.name}</span>
-          )}
-          {c.number && (
-            <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">#{c.number}</span>
-          )}
-          <a
-            href={jtJobUrl(c.id)}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`${c.name} in JobTread`}
-            className="shrink-0 text-[11px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
-          >
-            JT ↗
-          </a>
-        </div>
-      </div>
-      {/* A narrow card folds the details below into a drop-down (owner, 2026-11-06). */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        className="jc-toggle items-center gap-1 text-[12px] font-semibold text-neutral-600 hover:text-accent dark:text-neutral-300"
+  const nameRow = (
+    <div className="flex items-baseline gap-2">
+      {/* The name opens the job's own pages (record, cost, specs …) through
+          the job tab row (stage 4); the number and JobTread's ↗ sit right
+          beside it (owner, 2026-11-02). */}
+      {nameLink ? (
+        <Link
+          href={`/job-board/${encodeURIComponent(c.id)}`}
+          className="min-w-0 truncate text-sm font-semibold tracking-tight hover:text-accent dark:hover:text-accent-soft"
+        >
+          {c.name}
+        </Link>
+      ) : (
+        <span className="min-w-0 truncate text-sm font-semibold tracking-tight">{c.name}</span>
+      )}
+      {c.number && (
+        <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">#{c.number}</span>
+      )}
+      <a
+        href={jtJobUrl(c.id)}
+        target="_blank"
+        rel="noreferrer"
+        aria-label={`${c.name} in JobTread`}
+        className="shrink-0 text-[11px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
       >
-        Job details <span aria-hidden className="text-[9px]">{open ? "▲" : "▼"}</span>
-      </button>
-    </>
-  );
-  const more = (
-    <div className="jc-more">
-      <div className="min-w-0">
-        {onCustomer && c.customer ? (
-          <button
-            type="button"
-            onClick={onCustomer}
-            className="block max-w-full truncate text-left text-[12px] text-neutral-700 hover:text-accent dark:text-neutral-300 dark:hover:text-accent-soft"
-          >
-            {c.customer}
-          </button>
-        ) : (
-          <div className="truncate text-[12px] text-neutral-700 dark:text-neutral-300">
-            {c.customer || "No customer"}
-          </div>
-        )}
-        {/* Two lines: a rural San Juan County address wraps, and one line loses the road. */}
-        <div className="line-clamp-2 text-[11px] text-neutral-500 dark:text-neutral-400">
-          {c.address || "No address in JobTread"}
-        </div>
-      </div>
-
-      <ScheduleNow c={c} />
-
-      <div className="mt-auto border-t border-line-soft pt-2">
-        <BlockLabel>To-dos</BlockLabel>
-        {c.todos.length > 0 ? (
-          <ul className="mt-0.5 space-y-1.5">
-            {c.todos.map((t) => (
-              <ToDoLine key={t.id} t={t} />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-[12px] italic text-neutral-500">No open to-dos</p>
-        )}
-      </div>
+        JT ↗
+      </a>
     </div>
   );
-  return (
-    // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
-    // cell sets the width (`pad:w-auto` is emitted after the bare width). The
-    // Jobs page's card (`aside`) is no scroller card: it spans the screen.
-    <Card
-      className={`flex h-full shrink-0 flex-col gap-2 ${aside ? "min-h-0 w-full overflow-hidden" : "w-72 pad:w-auto"}`}
-    >
-      {aside ? (
-        // The card answers to its own width, not the window's: see `.jc` in
-        // globals.css. Wide: details | aside. Narrower: the details fold into a
-        // drop-down under the name. Narrower still: the rings hide.
+  const customer =
+    onCustomer && c.customer ? (
+      <button
+        type="button"
+        onClick={onCustomer}
+        className="block max-w-full truncate text-left text-[12px] text-neutral-700 hover:text-accent dark:text-neutral-300 dark:hover:text-accent-soft"
+      >
+        {c.customer}
+      </button>
+    ) : (
+      <div className="truncate text-[12px] text-neutral-700 dark:text-neutral-300">
+        {c.customer || "No customer"}
+      </div>
+    );
+  // Two lines: a rural San Juan County address wraps, and one line loses the road.
+  const address = (
+    <div className="line-clamp-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+      {c.address || "No address in JobTread"}
+    </div>
+  );
+  const todos = (
+    <div className="mt-auto border-t border-line-soft pt-2">
+      <BlockLabel>To-dos</BlockLabel>
+      {c.todos.length > 0 ? (
+        <ul className="mt-0.5 space-y-1.5">
+          {c.todos.map((t) => (
+            <ToDoLine key={t.id} t={t} />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[12px] italic text-neutral-500">No open to-dos</p>
+      )}
+    </div>
+  );
+  // B: what the Jobs page's card folds away first.
+  const details = (
+    <>
+      {address}
+      <ScheduleNow c={c} />
+      {todos}
+    </>
+  );
+
+  if (hub) {
+    return (
+      <Card className="flex h-full min-h-0 w-full shrink-0 flex-col gap-2 overflow-hidden">
+        {/* The card answers to its own width, not the window's: see `.jc` in
+            globals.css (owner, 2026-11-06). */}
         <div className="jc">
-          <div className="jc-row">
-            <div ref={detailsRef} data-open={open} className="jc-details no-scrollbar">
-              {head}
-              {more}
+          <div className="jc-head">
+            <div ref={detailsRef} className="jc-name">
+              {nameRow}
+              {customer}
+              {/* With B folded away, the details drop down from here. */}
+              <button
+                type="button"
+                onClick={() => setOpen((o) => !o)}
+                aria-expanded={open}
+                className="jc-toggle mt-1 items-center gap-1 text-[12px] font-semibold text-neutral-600 hover:text-accent dark:text-neutral-300"
+              >
+                Job details <span aria-hidden className="text-[9px]">{open ? "▲" : "▼"}</span>
+              </button>
+              {open && <div className="jc-pop">{details}</div>}
             </div>
-            <div className="jc-aside">{aside}</div>
+            {hub.total && <div className="jc-total">{hub.total}</div>}
+            {hub.controls && <div className="jc-controls">{hub.controls}</div>}
+          </div>
+          <div className="jc-body">
+            <div className="jc-b no-scrollbar">{details}</div>
+            {hub.rings && <div className="jc-c no-scrollbar">{hub.rings}</div>}
+            {hub.notes && <div className="jc-d">{hub.notes}</div>}
           </div>
         </div>
-      ) : (
-        <>
-          {head}
-          {more}
-        </>
-      )}
+        {footer && (
+          <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">{footer}</div>
+        )}
+      </Card>
+    );
+  }
+
+  return (
+    // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
+    // cell sets the width (`pad:w-auto` is emitted after the bare width).
+    <Card className="flex h-full w-72 shrink-0 flex-col gap-2 pad:w-auto">
+      <div className="min-w-0">
+        {nameRow}
+        {customer}
+        {address}
+      </div>
+      <ScheduleNow c={c} />
+      {todos}
       {footer && (
         <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">{footer}</div>
       )}

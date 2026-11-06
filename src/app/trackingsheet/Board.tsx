@@ -358,6 +358,9 @@ export interface BoardEmbed {
   /** Where to draw the to-be-invoiced figure and the rings instead of at the
    *  head of the bills column (the Jobs page's job card). */
   summarySlot?: HTMLElement | null;
+  /** Set (even to null while it mounts): the rings go here and `summarySlot`
+   *  takes the figure alone (the Jobs page's job card, owner 2026-11-06). */
+  ringsSlot?: HTMLElement | null;
   /** Where the rings' month / job-to-date switch goes (under the Jobs page's
    *  month picker). */
   scopeSlot?: HTMLElement | null;
@@ -2103,13 +2106,13 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // The month's bills column (the CENTRE of the board).
   // The month's to-be-invoiced figure and its rings — the head of the bills
   // column, or the Jobs page's job card when it hands the board a slot.
-  const summaryBlock = (
+  const totalBlock = (
     <>
       {/* The desktop copy of the headline figure — see the mobile one
           under the page header for why there are two. */}
       <StatementBlock
         rule={false}
-        className={`mb-4 ${embed?.summarySlot ? "" : "hidden lg:block"}`}
+        className={embed?.summarySlot ? "" : "mb-4 hidden lg:block"}
         // All Time on the Jobs page: the job's cost to date, bills and labor,
         // from the same read as its All Time rings (owner, 2026-11-02).
         label={allTime ? "Job to date" : c("recode.statement.toBeInvoiced")}
@@ -2149,7 +2152,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             : "checking JobTread…"
         }
       />
-    
+    </>
+  );
+  const ringsBlock = (
+    <>
       {/* Where the money went, by cost code — bills in one ring, labor in
           the other. Opens on the SELECTED MONTH, which is what this page
           is for; the caption switches it to the whole job. It heads the
@@ -2165,7 +2171,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         detail={donutDetail}
         ringSize={embed?.summarySlot ? 60 : undefined}
         compact={!!embed?.summarySlot}
-        className={embed?.summarySlot ? "jc-donuts" : undefined}
         scopeSlot={embed?.summarySlot ? embed.scopeSlot ?? null : undefined}
         onScopeChange={
           embed
@@ -2197,6 +2202,12 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         }}
       />
       )}
+    </>
+  );
+  const summaryBlock = (
+    <>
+      {totalBlock}
+      {ringsBlock}
     </>
   );
 
@@ -3228,7 +3239,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
 
       {overlays}
-      {embed?.summarySlot && createPortal(summaryBlock, embed.summarySlot)}
+      {/* With a `ringsSlot` too, the figure and the rings go to separate places
+          in the job card (owner, 2026-11-06). */}
+      {embed?.summarySlot &&
+        createPortal(embed.ringsSlot !== undefined ? totalBlock : summaryBlock, embed.summarySlot)}
+      {embed?.ringsSlot && createPortal(ringsBlock, embed.ringsSlot)}
     </Frame>
   );
 }
