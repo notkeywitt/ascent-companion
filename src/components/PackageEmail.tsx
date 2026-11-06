@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useAccess } from "@/components/AccessProvider";
 import { Banner, Button, Dialog, Textarea } from "@/components/ui";
 
 /**
@@ -196,5 +197,80 @@ export function PackageEmailNotes({
         ))}
       </div>
     </Dialog>
+  );
+}
+
+/**
+ * "Draft Email" on its own — the same action as Invoice Status's button, for a
+ * page that does not hold the month's job list. It reads the month, opens the
+ * notes card, saves each note, then drafts. Renders nothing without the
+ * "invoicing-summary" view.
+ */
+export function DraftInvoicingEmail({ ym, className }: { ym: string; className?: string }) {
+  const { can } = useAccess();
+  const email = usePackageEmail(ym);
+  const [jobs, setJobs] = useState<NoteJob[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  if (!can("invoicing-summary")) return null;
+
+  const open = async () => {
+    setLoading(true);
+    setLoadError("");
+    try {
+      const res = await fetch(`/api/invoicing-summary?ym=${encodeURIComponent(ym)}`, { cache: "no-store" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
+      setJobs(((body.jobs ?? []) as (NoteJob & { include: boolean })[]).filter((j) => j.include));
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not read the month.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={className}>
+      <Button
+        variant="secondary"
+        className="min-h-11"
+        onClick={open}
+        disabled={email.running || loading || !ym}
+        title="Add a note to each job, then save the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs."
+      >
+        {email.running || loading ? "Drafting email…" : email.done ? "Update Email" : "Draft Email"}
+      </Button>
+      {loadError && (
+        <p role="alert" className="mt-1 text-xs text-danger">
+          {loadError}
+        </p>
+      )}
+      <PackageEmailResult email={email} />
+      {jobs && (
+        <PackageEmailNotes
+          jobs={jobs}
+          running={email.running}
+          onPatch={(id, note) => setJobs((js) => js && js.map((j) => (j.jtJobId === id ? { ...j, note } : j)))}
+          onSave={async (id, note) => {
+            try {
+              const res = await fetch("/api/invoicing-summary", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ op: "save", ym, jobId: id, note }),
+              });
+              return res.ok;
+            } catch {
+              return false;
+            }
+          }}
+          onDraft={async () => {
+            await email.run();
+            setJobs(null);
+          }}
+          onClose={() => setJobs(null)}
+        />
+      )}
+    </div>
   );
 }

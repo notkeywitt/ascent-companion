@@ -3,8 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
-import { HomeJobBoard, JobOverview } from "@/components/HomeJobBoard";
-import { HomeLeadBoard } from "@/components/HomeLeadBoard";
+import { JobOverview } from "@/components/HomeJobBoard";
 import { HomeTodos } from "@/components/HomeTodos";
 import { NotesPanel } from "@/components/NotesPanel";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
@@ -12,11 +11,13 @@ import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
 import { LopezMap } from "@/components/LopezMap";
-import { Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
+import { Card, Loading, Segmented, Select, Skeleton, btn } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
 import { CustomerPopup } from "@/app/clients/CustomerPopup";
+import Link from "next/link";
+import { DraftInvoicingEmail } from "@/components/PackageEmail";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { BudgetImport } from "@/app/budget-import/BudgetImport";
 import { Specs } from "@/app/specs/Specs";
@@ -88,9 +89,6 @@ export function JobsHub() {
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  /** What the card shows while no job is picked: the month's rings, or Home's
-   *  Leads or Active Jobs board (owner, 2026-11-02). */
-  const [idleView, setIdleView] = useState<"month" | "leads" | "jobs">("month");
   /** The job whose customer the pop-up shows (owner, 2026-11-02). */
   const [customerOf, setCustomerOf] = useState<string | null>(null);
   /** The list row under the pointer: its dot lights on the map meanwhile. */
@@ -377,11 +375,7 @@ export function JobsHub() {
               // The list's height, with the tabs on their own row at the foot.
               <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
                 <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
-                  {idleView === "leads" ? (
-                    <HomeLeadBoard storeAs="jobs-hub" />
-                  ) : idleView === "jobs" ? (
-                    <HomeJobBoard />
-                  ) : ringItems ? (
+                  {ringItems ? (
                     // The rings, then the month's notes in the space beside
                     // them (owner, 2026-11-06). The notes scroll on their own.
                     <div className="flex h-full min-h-0 flex-col gap-6 pad:flex-row">
@@ -401,17 +395,18 @@ export function JobsHub() {
                     <Skeleton className="h-48 w-full rounded-xl" />
                   )}
                 </div>
-                <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">
-                  <Segmented
-                    label="Show"
-                    value={idleView}
-                    onChange={setIdleView}
-                    options={[
-                      { value: "month" as const, label: "This month" },
-                      ...(can("leads") ? [{ value: "leads" as const, label: "Leads" }] : []),
-                      { value: "jobs" as const, label: "Active Jobs" },
-                    ]}
-                  />
+                <div className="flex shrink-0 flex-wrap items-start justify-center gap-2 border-t border-line-soft pt-3">
+                  {/* The month's actions, for the month picked above. */}
+                  <DraftInvoicingEmail ym={ym} />
+                  <SyncAllTrackingSheetsFor ym={ym} />
+                  {can("invoice-review") && (
+                    <Link
+                      href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
+                      className={btn("secondary", "md", "min-h-11")}
+                    >
+                      Check All Jobs
+                    </Link>
+                  )}
                 </div>
               </Card>
             )}
@@ -421,7 +416,7 @@ export function JobsHub() {
                   Sync moved to the job card's foot. */}
               <div className="flex items-center gap-3">
                 {selected && tab === "sheet" && <div ref={setScopeSlot} />}
-                {(selected || idleView === "month") && !allTimeOn && monthSelect}
+                {!allTimeOn && monthSelect}
               </div>
             </div>
           </div>
