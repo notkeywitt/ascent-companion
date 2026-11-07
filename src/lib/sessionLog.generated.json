@@ -1,33 +1,14 @@
 {
-  "generatedAt": "2026-11-07T14:40:10Z",
+  "generatedAt": "2026-11-07T14:42:34Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "hopeful-davinci",
-      "file": "2026-11-07-hopeful-davinci.md",
-      "branch": "claude/hopeful-davinci-805y9j",
-      "status": "shipped",
-      "started": "2026-11-07T14:33:10Z",
-      "updated": "2026-11-07T14:40:10Z",
-      "goal": "",
-      "next": "No code change this session. Decide whether to drop the per-turn touch in .claude/hooks/session-stop.sh.",
-      "commits": [
-        {
-          "date": "2026-11-07",
-          "time": "14:40",
-          "sha": "8dfaa2f",
-          "subject": "companion: call tracking sheet focus-bill hooks before the no-job return",
-          "files": "src/app/trackingsheet/Board.tsx"
-        }
-      ]
-    },
     {
       "slug": "sweet-pascal",
       "file": "2026-11-07-sweet-pascal.md",
       "branch": "claude/sweet-pascal-l9p1bu",
       "status": "shipped",
       "started": "2026-11-07T14:26:41Z",
-      "updated": "2026-11-07T14:34:27Z",
+      "updated": "2026-11-07T14:40:58Z",
       "goal": "",
       "next": "None. Description text removed from five employee pages.",
       "commits": [
@@ -44,6 +25,32 @@
           "sha": "575ef53",
           "subject": "companion: name opens employee editor, new hires button, safety meeting in drawer",
           "files": "src/app/employees/page.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-07",
+          "time": "14:40",
+          "sha": "ddb311d",
+          "subject": "companion: remove two help lines from employee edit panel",
+          "files": "src/app/employees/JobTreadSections.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "hopeful-davinci",
+      "file": "2026-11-07-hopeful-davinci.md",
+      "branch": "claude/hopeful-davinci-805y9j",
+      "status": "shipped",
+      "started": "2026-11-07T14:33:10Z",
+      "updated": "2026-11-07T14:40:10Z",
+      "goal": "",
+      "next": "No code change this session. Decide whether to drop the per-turn touch in .claude/hooks/session-stop.sh.",
+      "commits": [
+        {
+          "date": "2026-11-07",
+          "time": "14:40",
+          "sha": "8dfaa2f",
+          "subject": "companion: call tracking sheet focus-bill hooks before the no-job return",
+          "files": "src/app/trackingsheet/Board.tsx"
         }
       ]
     },
