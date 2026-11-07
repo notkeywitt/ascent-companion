@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Dialog } from "@/components/ui";
 import { JobPicker } from "@/components/JobPicker";
 import {
   clearLocalTrip,
@@ -391,6 +392,12 @@ export function MileageClient({
   // never replaces an address the driver typed.
   const autoToRef = useRef("");
 
+  // A trip that ended where it began (0 miles). The driver names the
+  // destination; we log the round trip from the start point to it.
+  const [loopEnd, setLoopEnd] = useState<{ lat: number; lng: number } | null>(null);
+  const [loopDest, setLoopDest] = useState("");
+  const [loopErr, setLoopErr] = useState("");
+
   // History view. isAdmin/users come from the server (which enforces access).
   const [trips, setTrips] = useState<Record<string, string>[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -693,6 +700,19 @@ export function MileageClient({
     try {
       const pos = await getTripFix();
       const endTime = new Date().toISOString();
+      // Ended where it began, and never moved: Google would return 0 miles.
+      // Ask for the destination instead of saving an empty trip.
+      const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      const home = { lat: start.startLat, lng: start.startLng };
+      const stayed =
+        haversineKm(home, here) < TRAIL_MIN_GAP_KM &&
+        [...waypoints, ...trail].every((p) => haversineKm(home, p) < TRAIL_MIN_GAP_KM);
+      if (stayed) {
+        setLoopDest("");
+        setLoopErr("");
+        setLoopEnd(here);
+        return;
+      }
       // Route-shaping points = marked stops + auto trail, in travel (time) order,
       // downsampled to fit the Routes API's intermediate cap.
       const routePoints = downsample(
@@ -747,6 +767,84 @@ export function MileageClient({
       setPhase("done");
     } catch (e) {
       setErr(geoError(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Save a zero-mile trip as a round trip: start point → destination → start point.
+  async function saveLoop() {
+    if (!start || !loopEnd) return;
+    setLoopErr("");
+    const dest = routeTarget("Destination", loopDest, loopMatch);
+    if (!loopDest.trim()) {
+      setLoopErr("Type or pick a destination.");
+      return;
+    }
+    if (dest.error) {
+      setLoopErr(dest.error);
+      return;
+    }
+    setBusy(true);
+    try {
+      const rr = await fetch("/api/mileage/route-miles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ from: `${start.startLat},${start.startLng}`, to: dest.place }),
+      });
+      const route = (await rr.json()) as { ok?: boolean; oneWayMiles?: number; startAddress?: string; error?: string };
+      if (!rr.ok || !route.ok || route.oneWayMiles == null) {
+        setLoopErr(route.error || "Could not get the miles. Check the destination and try again.");
+        return;
+      }
+      const total = tripMiles(route.oneWayMiles, true);
+      const from = route.startAddress || `${start.startLat.toFixed(5)},${start.startLng.toFixed(5)}`;
+      const to = savedPlace(loopDest, loopMatch);
+      const res = await fetch("/api/mileage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          manual: true,
+          miles: total,
+          date: today(new Date(start.startTime)),
+          driver,
+          jobId,
+          jobLabel,
+          purpose: purpose.trim(),
+          startAddress: from,
+          endAddress: to,
+          roundTrip: true,
+          clientKey: tripKey,
+        }),
+      });
+      const json: TripResult = await res.json();
+      if (!res.ok || json.ok === false) {
+        setLoopErr(json.error || "Could not save the trip.");
+        return;
+      }
+      const durationMin = Math.max(0, Math.round((Date.now() - new Date(start.startTime).getTime()) / 60000));
+      setSummary({
+        miles: json.miles ?? total,
+        startAddress: from,
+        endAddress: from,
+        via: to,
+        stops: 0,
+        durationMin,
+        jobLabel,
+        purpose: purpose.trim(),
+        startLatLng: "",
+        endLatLng: "",
+        polyline: "",
+      });
+      saveLastJob(jobId, jobLabel);
+      clearLocalTrip();
+      void clearServerTrip();
+      setRestoredElsewhere(false);
+      setStart(null);
+      setLoopEnd(null);
+      setPhase("done");
+    } catch (e) {
+      setLoopErr(e instanceof Error ? e.message : "Could not save the trip.");
     } finally {
       setBusy(false);
     }
@@ -840,6 +938,8 @@ export function MileageClient({
   // What a From/To text names: a job (Office and Shop are jobs), or an address.
   const fromMatch = useMemo(() => resolvePlace(fromPlace, jobs), [fromPlace, jobs]);
   const toMatch = useMemo(() => resolvePlace(toPlace, jobs), [toPlace, jobs]);
+
+  const loopMatch = useMemo(() => resolvePlace(loopDest, jobs), [loopDest, jobs]);
 
   function onRoundTrip(on: boolean) {
     setRoundTrip(on);
@@ -1326,6 +1426,39 @@ export function MileageClient({
           >
             {busy && !addingStop ? "Saving trip…" : "End trip"}
           </button>
+
+          {loopEnd && (
+            <Dialog
+              onClose={() => setLoopEnd(null)}
+              busy={busy}
+              title="No miles recorded"
+              description="Something went wrong and no miles were recorded. Type your destination to calculate your mileage."
+              footer={
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="secondary" onClick={() => setLoopEnd(null)} disabled={busy}>
+                    Back
+                  </Button>
+                  <Button type="button" onClick={saveLoop} disabled={busy || !loopDest.trim()}>
+                    {busy ? "Saving…" : "Save trip"}
+                  </Button>
+                </div>
+              }
+            >
+              <div className="space-y-2">
+                <Label htmlFor="mlg-loop-dest">Destination</Label>
+                <PlaceInput
+                  id="mlg-loop-dest"
+                  value={loopDest}
+                  onChange={setLoopDest}
+                  jobs={jobs}
+                  placeholder="Office, Shop, Sunset, a job, or an address"
+                />
+                <PlaceHint match={loopMatch} />
+                <p className="text-xs text-neutral-500">Miles are the round trip from where you started.</p>
+                {loopErr && <Banner tone="error">{loopErr}</Banner>}
+              </div>
+            </Dialog>
+          )}
 
           <button
             type="button"
