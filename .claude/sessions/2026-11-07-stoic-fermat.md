@@ -2,9 +2,9 @@
 slug: stoic-fermat
 repo: ascent-companion
 branch: claude/stoic-fermat-lnckb1
-status: in-progress
+status: shipped
 started: 2026-11-07T14:42:27Z
-updated: 2026-11-07T14:46:23Z
+updated: 2026-11-07T14:46:25Z
 goal: 
 next: none — miles page help text removed and shipped
 ---
