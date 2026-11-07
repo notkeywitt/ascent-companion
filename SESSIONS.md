@@ -14,7 +14,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 44d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 52d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 57d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
-| [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 57d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
+| [billing-month-selector](.claude/sessions/2026-09-10-billing-month-selector.md) | `claude/billing-month-selector-o8rbtx` | 58d ago | 3 | after ./deploy.sh lands on appscript: push this to main, then set a month on ho… |
 | [gemini-claude-transition-status](.claude/sessions/2026-09-09-gemini-claude-transition-status.md) | `claude/gemini-claude-transition-status-cib68c` | 59d ago | 1 | owner: delete GEMINI_KEY + GEMINI_MODEL from Vercel; decide whether ANTHROPIC_M… |
 | [trip-recording-persistence](.claude/sessions/2026-09-08-trip-recording-persistence.md) | `claude/trip-recording-persistence-evilps` | 59d ago | 3 | verify on the phone: start a trip, force-quit the app, reopen — the trip should… |
 | [ci-verify-job-failures](.claude/sessions/2026-09-06-ci-verify-job-failures.md) | `claude/ci-verify-job-failures-wcfpyk` | 61d ago | 1 | push this branch to remote main — main is still red until the Link fix lands th… |
@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [blissful-planck](.claude/sessions/2026-11-07-blissful-planck.md) | 2026-11-07 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-06 | 223 | — |
 | [zen-albattani](.claude/sessions/2026-11-06-zen-albattani.md) | 2026-11-06 | 1 | — |
 | [practical-newton](.claude/sessions/2026-11-06-practical-newton.md) | 2026-11-06 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | 2026-10-30 | 8 | — |
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-30 | 5 | — |
 | [epic-hopper](.claude/sessions/2026-10-29-epic-hopper.md) | 2026-10-30 | 7 | — |
-| [intelligent-rubin](.claude/sessions/2026-10-29-intelligent-rubin.md) | 2026-10-29 | 3 | — |

@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-06T19:53:25Z",
+  "generatedAt": "2026-11-07T01:16:24Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "blissful-planck",
+      "file": "2026-11-07-blissful-planck.md",
+      "branch": "claude/blissful-planck-h0qy7r",
+      "status": "shipped",
+      "started": "2026-11-07T01:12:51Z",
+      "updated": "2026-11-07T01:16:23Z",
+      "goal": "",
+      "next": "Check the Jobs Hub on a phone: pill row gone, desktop strip unchanged.",
+      "commits": [
+        {
+          "date": "2026-11-07",
+          "time": "01:16",
+          "sha": "abc64da",
+          "subject": "companion: hide workspace tab strip on jobs hub phone view",
+          "files": "src/components/WorkspaceTabs.tsx"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
