@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T14:30:11Z",
+  "generatedAt": "2026-11-07T14:34:27Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/sweet-pascal-l9p1bu",
       "status": "shipped",
       "started": "2026-11-07T14:26:41Z",
-      "updated": "2026-11-07T14:30:11Z",
+      "updated": "2026-11-07T14:34:27Z",
       "goal": "",
       "next": "None. Description text removed from five employee pages.",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "c575285",
           "subject": "companion: remove description text from employee pages",
           "files": "src/app/employees/page.tsx, src/app/labor-rates/PayTypeRules.tsx, src/app/labor-rates/page.tsx, src/app/onboarding/office/OnboardingOffice.tsx, src/app/safety-meeting/page.tsx"
+        },
+        {
+          "date": "2026-11-07",
+          "time": "14:34",
+          "sha": "575ef53",
+          "subject": "companion: name opens employee editor, new hires button, safety meeting in drawer",
+          "files": "src/app/employees/page.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.ts"
         }
       ]
     },
