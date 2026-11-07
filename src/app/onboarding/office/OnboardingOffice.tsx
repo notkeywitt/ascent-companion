@@ -171,7 +171,7 @@ export function OnboardingOffice() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-3">
-      <PageHeader title="New Hires" description="Invite a new hire. They sign in, fill their profile and sign each form." />
+      <PageHeader title="New Hires" />
       {children}
     </main>
   );

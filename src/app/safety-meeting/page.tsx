@@ -190,7 +190,6 @@ export default function SafetyMeetingPage() {
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Safety Meeting"
-        description="Set the meeting details, then pass the iPad around — each person picks their name and signs."
         className="!mb-4"
       />
 

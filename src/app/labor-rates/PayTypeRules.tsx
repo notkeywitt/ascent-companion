@@ -157,10 +157,6 @@ export function PayTypeRules({ members }: { members: Member[] }) {
   return (
     <section className="mb-8">
       <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-neutral-500">Time page defaults</h2>
-      <p className="mb-3 text-sm text-neutral-500">
-        Set the cost code an employee starts on for a job, and the pay type they get on a job and cost code. The time
-        page selects both for them. They can still change either.
-      </p>
       {err && (
         <Banner tone="error" className="mb-3">
           {err}
