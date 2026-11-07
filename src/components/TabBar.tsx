@@ -351,8 +351,22 @@ export function TabBar() {
   // The bar is chrome for the signed-in app; these two pages have none.
   if (pathname === "/login" || pathname === "/privacy") return null;
 
-  const items = barFor(access.role, access.can, pin);
-  const more = drawerFor(access.role, access.can, pin, access.menu);
+  const baseItems = barFor(access.role, access.can, pin);
+  const baseMore = drawerFor(access.role, access.can, pin, access.menu);
+  // A page picked from the drawer takes the bar's centre slot, lit, so the
+  // collapsed bar names the current page. The slot it displaces takes its place
+  // in the drawer, so nothing becomes unreachable. A page a bar slot already
+  // covers keeps the plain bar.
+  const hereIn = (i: BarItem) => i.covers.some((href) => isHereRoot(href));
+  const onBar = baseItems.some((i) => (i.key === "today" ? pathname === "/" : hereIn(i)));
+  const drawerIdx = onBar || baseItems.length < 3 ? -1 : baseMore.findIndex(hereIn);
+  const centre = Math.floor(baseItems.length / 2);
+  const items = baseItems.slice();
+  const more = baseMore.slice();
+  if (drawerIdx >= 0) {
+    items[centre] = baseMore[drawerIdx];
+    more[drawerIdx] = baseItems[centre];
+  }
   const drawerH = Math.ceil(more.length / 4) * DRAWER_ROW_REM + 0.75;
   const rail = railFor(access.role, access.can, pin, access.menu);
   // One slot is decoration, and it would cost every page 56px to say nothing.
