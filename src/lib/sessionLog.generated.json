@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T14:46:25Z",
+  "generatedAt": "2026-11-07T14:52:43Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,15 +8,22 @@
       "branch": "claude/stoic-fermat-lnckb1",
       "status": "shipped",
       "started": "2026-11-07T14:42:27Z",
-      "updated": "2026-11-07T14:46:25Z",
+      "updated": "2026-11-07T14:52:43Z",
       "goal": "",
-      "next": "none — miles page help text removed and shipped",
+      "next": "none — zero-mile pop-up shipped; watch first real same-spot trip",
       "commits": [
         {
           "date": "2026-11-07",
           "time": "14:46",
           "sha": "a15748f",
           "subject": "companion: remove help text from miles page",
+          "files": "src/app/mileage-tracker/MileageClient.tsx"
+        },
+        {
+          "date": "2026-11-07",
+          "time": "14:52",
+          "sha": "211d304",
+          "subject": "companion: ask for a destination when a trip ends with 0 miles",
           "files": "src/app/mileage-tracker/MileageClient.tsx"
         }
       ]
