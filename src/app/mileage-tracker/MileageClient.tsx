@@ -1009,18 +1009,7 @@ export function MileageClient({
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader
-        title="Miles"
-        description={
-          <>
-            Miles are calculated based on where you start and stop your trip.
-            <span className="mt-1 block text-xs">
-              If you leave the app open, it will track you live, but it does not run in the
-              background. If you start and stop recording at the same location, miles will be 0.
-            </span>
-          </>
-        }
-      />
+      <PageHeader title="Miles" />
 
       {err && (
         <Banner tone="error" className="mb-4">
@@ -1129,9 +1118,6 @@ export function MileageClient({
           </Card>
 
           <Card className="space-y-3">
-            <p className="text-xs text-neutral-500">
-              Type Office, Shop, Sunset, Blossom, LVM, the dump, a job name or an address in From and To, then tap Get miles. Or type the miles below.
-            </p>
             <div>
               <div className="flex items-baseline justify-between">
                 <Label htmlFor="mlg-from">From</Label>
