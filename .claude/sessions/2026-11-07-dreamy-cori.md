@@ -2,9 +2,9 @@
 slug: dreamy-cori
 repo: ascent-companion
 branch: claude/dreamy-cori-pnjel8
-status: in-progress
+status: shipped
 started: 2026-11-07T01:17:46Z
-updated: 2026-11-07T01:22:40Z
+updated: 2026-11-07T01:22:41Z
 goal: 
 next: Check the swapped centre slot on a phone; confirm the displaced tab sits in the drawer.
 ---

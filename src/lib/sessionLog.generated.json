@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-07T01:16:24Z",
+  "generatedAt": "2026-11-07T01:22:41Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "dreamy-cori",
+      "file": "2026-11-07-dreamy-cori.md",
+      "branch": "claude/dreamy-cori-pnjel8",
+      "status": "shipped",
+      "started": "2026-11-07T01:17:46Z",
+      "updated": "2026-11-07T01:22:41Z",
+      "goal": "",
+      "next": "Check the swapped centre slot on a phone; confirm the displaced tab sits in the drawer.",
+      "commits": [
+        {
+          "date": "2026-11-07",
+          "time": "01:22",
+          "sha": "64590be",
+          "subject": "companion: show drawer page in the bar's centre slot",
+          "files": "src/components/TabBar.tsx"
+        }
+      ]
+    },
     {
       "slug": "blissful-planck",
       "file": "2026-11-07-blissful-planck.md",

@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [dreamy-cori](.claude/sessions/2026-11-07-dreamy-cori.md) | 2026-11-07 | 1 | — |
 | [blissful-planck](.claude/sessions/2026-11-07-blissful-planck.md) | 2026-11-07 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-06 | 223 | — |
 | [zen-albattani](.claude/sessions/2026-11-06-zen-albattani.md) | 2026-11-06 | 1 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [ascentbot-knowledge-sources](.claude/sessions/2026-10-30-ascentbot-knowledge-sources.md) | 2026-10-30 | 6 | — |
 | [ascentbot-architecture](.claude/sessions/2026-10-28-ascentbot-architecture.md) | 2026-10-30 | 8 | — |
 | [admiring-hawking](.claude/sessions/2026-10-29-admiring-hawking.md) | 2026-10-30 | 5 | — |
-| [epic-hopper](.claude/sessions/2026-10-29-epic-hopper.md) | 2026-10-30 | 7 | — |
