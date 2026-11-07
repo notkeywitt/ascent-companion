@@ -2,9 +2,9 @@
 slug: sweet-pascal
 repo: ascent-companion
 branch: claude/sweet-pascal-l9p1bu
-status: in-progress
+status: shipped
 started: 2026-11-07T14:26:41Z
-updated: 2026-11-07T14:30:10Z
+updated: 2026-11-07T14:30:11Z
 goal: 
 next: None. Description text removed from five employee pages.
 ---
