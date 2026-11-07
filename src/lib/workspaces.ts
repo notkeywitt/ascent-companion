@@ -548,8 +548,14 @@ export function drawerFor(
   const bar = barFor(role, can, pin);
   const taken = new Set(bar.map((i) => i.href));
   const out: BarItem[] = [];
+  // Safety Meeting keeps the drawer's last slot (owner, 2026-11-07): the
+  // foreman reaches it from any page without opening the Employees workspace.
+  const safetyTab = TAB_BY_VIEW.get("safety-meeting");
+  const safety = safetyTab && can(safetyTab.view) && !taken.has(safetyTab.href) ? safetyTab : undefined;
+  if (safety) taken.add(safety.href);
+  const cap = DRAWER_SIZE - (safety ? 1 : 0);
   const add = (i: BarItem) => {
-    if (out.length >= DRAWER_SIZE || taken.has(i.href)) return;
+    if (out.length >= cap || taken.has(i.href)) return;
     taken.add(i.href);
     out.push({ ...i, gap: undefined });
   };
@@ -568,5 +574,6 @@ export function drawerFor(
   for (const t of EXTRA_LINKS) {
     if (can(t.view)) add(page(t));
   }
+  if (safety) out.push(page(safety));
   return out;
 }

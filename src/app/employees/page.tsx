@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+
+import { useAccess } from "@/components/AccessProvider";
 
 import {
   Banner,
@@ -71,6 +74,7 @@ function rateSummary(u: JtUser | undefined): { text: string; count: number } | n
 }
 
 export default function EmployeesPage() {
+  const access = useAccess();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [statuses, setStatuses] = useState<string[]>([]);
   const [jtUsers, setJtUsers] = useState<JtUser[]>([]);
@@ -381,6 +385,15 @@ export default function EmployeesPage() {
         className="!mb-3"
       />
 
+      {access.can("new-hires") && (
+        <Link
+          href="/onboarding/office"
+          className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400 pad:hidden"
+        >
+          New Hires
+        </Link>
+      )}
+
       {/* Controls */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -430,7 +443,7 @@ export default function EmployeesPage() {
             <span>{linkedCount} linked to JobTread</span>
           </div>
           <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
-            <table className={`${tableCls.root} min-w-[58rem]`}>
+            <table className={`${tableCls.root} min-w-[52rem]`}>
               <thead>
                 <tr>
                   <SortHead label="Name" k="name" />
@@ -440,14 +453,20 @@ export default function EmployeesPage() {
                   <th className={tableCls.th}>Rate</th>
                   <th className={tableCls.th}>Phone</th>
                   <th className={tableCls.th}>Email</th>
-                  <th className={tableCls.th} />
                 </tr>
               </thead>
               <tbody>
                 {view.map((e) => (
                   <tr key={e.id} className={tableCls.tr}>
                     <td className={`${tableCls.td} font-medium`}>
-                      {e.firstName} {e.lastName}
+                      <button
+                        type="button"
+                        onClick={() => openEdit(e)}
+                        className="text-left text-accent hover:underline"
+                        title="Edit this employee"
+                      >
+                        {e.firstName} {e.lastName}
+                      </button>
                     </td>
                     <td className={`${tableCls.td} text-neutral-600 dark:text-neutral-400`}>{e.position}</td>
                     <td className={tableCls.td}>
@@ -499,19 +518,11 @@ export default function EmployeesPage() {
                         <span className="text-neutral-400">—</span>
                       )}
                     </td>
-                    <td className={`${tableCls.td} text-right`}>
-                      <button
-                        onClick={() => openEdit(e)}
-                        className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600"
-                      >
-                        Edit
-                      </button>
-                    </td>
                   </tr>
                 ))}
                 {view.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-3 py-6 text-center text-sm text-neutral-500">
+                    <td colSpan={7} className="px-3 py-6 text-center text-sm text-neutral-500">
                       No matching employees.
                     </td>
                   </tr>

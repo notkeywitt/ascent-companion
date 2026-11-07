@@ -45,10 +45,12 @@ export function WorkspaceTabs() {
   return (
     // From 2xl the sidebar lists these same tabs, so the strip steps aside.
     // The Jobs Hub drops it on a phone (owner, 2026-11-07): its job picker and
-    // tabs sit right under the header already.
+    // tabs sit right under the header already. Employees drops it on a phone
+    // too (owner, 2026-11-07): New Hires is a button under the title, and the
+    // other pages are in the drawer.
     <nav
       aria-label={here.workspace.title}
-      className={`px-4 pt-3 print:hidden pad:px-7 2xl:hidden ${here.tab.view === "jobs-hub" ? "max-pad:hidden" : ""}`}
+      className={`px-4 pt-3 print:hidden pad:px-7 2xl:hidden ${here.tab.view === "jobs-hub" || here.tab.view === "employees" ? "max-pad:hidden" : ""}`}
     >
       <ChipScroller>
         {tabs.map((t) => {
