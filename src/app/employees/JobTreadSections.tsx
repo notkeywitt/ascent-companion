@@ -164,9 +164,6 @@ export function PayTypes({
         </Button>
         {saved && !dirty && <span className="text-xs text-neutral-500">{saved}</span>}
       </div>
-      <p className="mt-2 text-[11px] text-neutral-400">
-        Saves this exact list, in this order. The first is the default on the Time page. Same rule as Pay Rates.
-      </p>
       {err && (
         <Banner tone="error" className="mt-2">
           {err}
@@ -263,7 +260,6 @@ export function JobAccess({ membershipId }: { membershipId: string }) {
         <>
           <p className="text-sm">
             On {onCount} of {jobs.length} open jobs.
-            <span className="text-neutral-500"> They can only clock in to jobs they are on.</span>
           </p>
           {missing.length > 0 && (
             <div className="mt-2 flex flex-wrap gap-2">
