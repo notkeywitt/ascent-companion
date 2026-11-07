@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-07T14:34:27Z",
+  "generatedAt": "2026-11-07T14:40:58Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/sweet-pascal-l9p1bu",
       "status": "shipped",
       "started": "2026-11-07T14:26:41Z",
-      "updated": "2026-11-07T14:34:27Z",
+      "updated": "2026-11-07T14:40:58Z",
       "goal": "",
       "next": "None. Description text removed from five employee pages.",
       "commits": [
@@ -25,6 +25,13 @@
           "sha": "575ef53",
           "subject": "companion: name opens employee editor, new hires button, safety meeting in drawer",
           "files": "src/app/employees/page.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-07",
+          "time": "14:40",
+          "sha": "ddb311d",
+          "subject": "companion: remove two help lines from employee edit panel",
+          "files": "src/app/employees/JobTreadSections.tsx"
         }
       ]
     },
