@@ -1592,6 +1592,20 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  // A bill asked for from outside (a note's linked bill): open it and scroll to
+  // it as soon as the month is on screen, once per request. It sits above the
+  // no-job return so the hook order never changes. The `!jobId` check matters:
+  // with no job the render returns before openFindingBill is defined.
+  const focusBill = embed?.focusBill;
+  const focusDone = useRef(0);
+  useEffect(() => {
+    if (!jobId || !focusBill || loading || !data || focusDone.current === focusBill.nonce) return;
+    focusDone.current = focusBill.nonce;
+    openFindingBill(focusBill.docId, focusBill.label);
+    // openFindingBill is rebuilt every render; the request's nonce is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobId, focusBill, loading, data]);
+
   // Defensive only: ClientInvoicing.tsx routes the no-job case to <AllJobs />
   // before this component ever mounts, so this is the guard for a direct render,
   // not a state the office can reach.
@@ -1994,18 +2008,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     }
     setBillPopup({ docId: billId, jobId, label, jobName: jobTitle });
   };
-
-  // A bill asked for from outside (a note's linked bill): open it and scroll to
-  // it as soon as the month is on screen, once per request.
-  const focusBill = embed?.focusBill;
-  const focusDone = useRef(0);
-  useEffect(() => {
-    if (!focusBill || loading || !data || focusDone.current === focusBill.nonce) return;
-    focusDone.current = focusBill.nonce;
-    openFindingBill(focusBill.docId, focusBill.label);
-    // openFindingBill is rebuilt every render; the request's nonce is the trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [focusBill, loading, data]);
 
   /** Where each finding row goes. A link back to this same board is dropped. */
   const findingLink = (f: Finding): FindingLink | null => {
