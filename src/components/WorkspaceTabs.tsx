@@ -44,7 +44,12 @@ export function WorkspaceTabs() {
 
   return (
     // From 2xl the sidebar lists these same tabs, so the strip steps aside.
-    <nav aria-label={here.workspace.title} className="px-4 pt-3 print:hidden pad:px-7 2xl:hidden">
+    // The Jobs Hub drops it on a phone (owner, 2026-11-07): its job picker and
+    // tabs sit right under the header already.
+    <nav
+      aria-label={here.workspace.title}
+      className={`px-4 pt-3 print:hidden pad:px-7 2xl:hidden ${here.tab.view === "jobs-hub" ? "max-pad:hidden" : ""}`}
+    >
       <ChipScroller>
         {tabs.map((t) => {
           const on = t.view === here.tab.view;
