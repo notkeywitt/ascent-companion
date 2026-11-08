@@ -8,7 +8,7 @@
       "branch": "claude/sleepy-ptolemy-ocio2n",
       "status": "shipped",
       "started": "2026-11-08T18:48:05Z",
-      "updated": "2026-11-08T18:58:06Z",
+      "updated": "2026-11-08T19:00:47Z",
       "goal": "weekly office summary skill (/weekly-summary) + first draft",
       "next": "After Keillor edits or sends the Nov 2-7 summary draft, run /weekly-summary learn",
       "commits": [
