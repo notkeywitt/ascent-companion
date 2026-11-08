@@ -9,8 +9,21 @@ first, and its rules win over the defaults in `SKILL.md`.
 
 ## Sections
 
-- Order: Needs you, Billing, Invoicing, Leads, Requisitions, People & payroll,
-  Office upkeep, Systems, Coming up.
+- Order: Needs you, Heads-ups, Billing, Invoicing, Leads, Requisitions & crew
+  requests, People & payroll, Office upkeep, Systems, Coming up.
+- **Heads-ups:** something that went wrong this week and how it was fixed
+  (e.g. invoices went to placeholder client emails, then re-sent). What
+  happened, who it touched, the fix, anything still open. Skip if nothing broke.
+- **Leads:** every open lead, not only this week's. One table row each: name,
+  place, scope, days open, source, next step + due date, contact. Mark new this
+  week. Next step unknown → "next step?". Oldest-untouched leads are the point.
+- **Requisitions & crew requests:** gear or supplies the crew asked for
+  (respirators, gloves, a magnet sweeper), with cost if known and "buy?".
+- **Office upkeep › Subscriptions & accounts:** renewals, cancellations, splits,
+  card and login changes. Each with cost and a proposed answer ("cancel 1Password?
+  Apple Passwords covers us").
+- **Coming up › Meetings to schedule:** meetings Casey or Ty need to set (clients,
+  leads, vendors), with two or three open slots taken from their calendars.
 
 ## Tone and format
 
@@ -35,3 +48,6 @@ first, and its rules win over the defaults in `SKILL.md`.
 - 2026-11-08 — file started with the defaults.
 - 2026-11-08 — from Keillor's edits to Nov 2–7: leave out voided bills, Apps
   Script failures, and the Prepared-by line.
+- 2026-11-08 — from Keillor's past recaps to Casey (Aug–Sep 2025, Aug 2026):
+  added Heads-ups, fuller Leads, crew requests, subscriptions & accounts,
+  meetings to schedule.

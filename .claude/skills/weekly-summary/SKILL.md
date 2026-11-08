@@ -55,6 +55,7 @@ Run the reads in parallel. Each source feeds named sections.
 | Bills and invoices created this week | JobTread `query`: `documents` with `createdAt` in the week, nodes `type name number status cost price issueDate job{name number} account{name}`. Map job numbers to customers through `jobs{ location{ account{name} } }`. A second query with `count` and `sum` gives totals; do not add numbers by hand. | Billing, Invoicing |
 | Requisitions | Not reachable from a Claude Code session today (Apps Script web app behind the app's sign-in). Write one line under Requisitions: "Not checked — open /requisitions." unless the user pastes the list. | Requisitions |
 | Signal chats | Not reachable from a Claude Code session today (messages live in the companion DB, sent by the office Mac mini). Same treatment as requisitions. If the user pastes an export, use it. | any section |
+| Open leads | JobTread customers whose customer **Status** custom field is "New Lead" (see `src/lib/leads.ts`: page the Status field's values, then read each account's `createdAt`, "Lead Source", "Notes", contact). The app's next steps live in its own DB, which a session can't read: write "next step?" unless the user pastes them. | Leads |
 | Calendar, next week | Google Calendar `list_events` on the office calendar, Mon–Sat after the summary week. Only meetings Casey or Ty attend. | Coming up |
 
 Status words in JobTread: `denied` **is** a voided bill. Leave voided bills out
@@ -149,8 +150,11 @@ each section label, the Ascent header and footer. It saves to
 7. Put `<!-- doc: https://docs.google.com/document/d/<id>/edit -->` on line 2 of
    the `.md`. The email links to it.
 
-A PDF is File › Download › PDF in the Doc. Do not save a PDF copy to Drive
-unless asked.
+**The PDF goes to Drive › Weekly Wraps** (folder `1C4DfDHeEoczgXb0kd10Tj1X50Ho1voxb`),
+named `Office Weekly Summary — <Mon DD>–<Sat DD>, <YYYY>.pdf`. A Claude Code
+session cannot put it there today: Drive `create_file` takes no file reference,
+and a ~100 KB PDF is too long to send as typed base64. Until a route exists,
+tell the user to save it with File › Download › PDF in the Doc.
 
 ### 6. Make the Gmail draft
 
