@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
 status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T20:43:27Z
+updated: 2026-11-08T21:25:15Z
 goal: weekly office summary skill (/weekly-summary) + first draft
-next: Confirm Apps Script deploy run 20 succeeded; then check Drive > Weekly Wraps holds 'Office Weekly Summary — Nov 2–7, 2026.pdf' within ~30 min
+next: Confirm 'Office Weekly Summary — Nov 2–7, 2026.pdf' appears in Drive > Weekly Wraps after the 21:42 UTC expenditure-summary run
 ---
 
 ## Log
@@ -23,6 +23,8 @@ next: Confirm Apps Script deploy run 20 succeeded; then check Drive > Weekly Wra
 - 2026-11-08 20:30 · `fe7622c` companion: weekly summary adds heads-ups, open leads, crew requests, subscriptions, meetings
   .claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/preferences.md
 - 2026-11-08 20:43 · `8968165` companion: weekly summary pdf now files itself in weekly wraps
+  .claude/skills/weekly-summary/SKILL.md
+- 2026-11-08 21:25 · `c80993a` companion: weekly summary pdf rides the expenditure summary trigger
   .claude/skills/weekly-summary/SKILL.md
 
 ## Notes
