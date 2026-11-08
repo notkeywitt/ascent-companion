@@ -35,8 +35,6 @@ import {
   jobRingRows,
   monthRingRows,
   remainingOf,
-  usedOf,
-  type Headroom,
 } from "./headroom";
 import {
   BillCodingCard,
@@ -44,7 +42,26 @@ import {
   money0,
   type CodingCardCtl,
 } from "./BillCodingCard";
-import { billLineMath, round2, type LineEdit } from "@/lib/billLineMath";
+import { billLineMath, type LineEdit } from "@/lib/billLineMath";
+import {
+  allTimeRingRowsOf,
+  approvalTaxOn,
+  billCodeAmounts,
+  billsCostTotal,
+  billTaxOf,
+  hoursLabel,
+  isTaxDirty,
+  jobToDateTotal,
+  laneRowsOf,
+  railGroupsOf,
+  railRowsOf,
+  remainingForCode,
+  splitLinesByDoc,
+  taxViewOf,
+  tightestCodesOf,
+  timeHeadroomOf,
+  toBeInvoiced,
+} from "./boardMath";
 import { TimeCodingCard } from "./TimeCodingCard";
 import { AllTimeLists } from "./AllTimeLists";
 import {
@@ -92,7 +109,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { discardDraft, draftSavedAtLabel } from "@/lib/codingDraft";
-import { isSalesTaxLine, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
+import { SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import type { CombineRequest } from "@/lib/combineLines";
 import { MonthPicker } from "@/components/MonthPicker";
@@ -292,31 +309,11 @@ function defaultYm(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-/**
- * Is this cost code the DIVISION itself ("04 00 00", "26 00 00")? Everything
- * after the first two digits is zero. JobTread leaves these without a
- * parentCostCode — they ARE the parent — so their own name names the division.
- * (Mirrors `isDivisionLevelCode` in lib/jobtread.ts; this file is a client
- * component and can't import that server module.)
- */
-function isDivisionLevelCode(number: string): boolean {
-  const digits = String(number ?? "").replace(/\D/g, "");
-  return digits.length >= 4 && /^0+$/.test(digits.slice(2));
-}
-
-/**
- * Hours as a headline figure: "350 hrs", "349.8 hrs". One decimal, but only
- * when there is one — a month's total reading "350.0 hrs" is noise, and
- * rounding it away entirely would hide a part-hour.
- */
-const hoursLabel = (n: number) => {
-  const v = Math.round(n * 10) / 10;
-  return `${Number.isInteger(v) ? v : v.toFixed(1)} hrs`;
-};
-
 /** Per-cost-code money, after staged moves. */
 // The budget math — Headroom, usedOf, remainingOf, isCommitted and the rail /
-// ring builders — lives in ./headroom.ts, with its tests.
+// ring builders — lives in ./headroom.ts, with its tests. The board's other
+// money math (tax per bill, totals, the rail's groups, the lanes, hours) lives
+// in ./boardMath.ts, with its tests.
 
 /* <Meter> now lives in components/ui — the budget bar is the same object here,
    on the mobile headroom rail, and on any future page that shows spend against
@@ -442,7 +439,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   const [recon, setRecon] = useState<Recon | null>(null);
   // Tell the Jobs page when the figure moves, not when it first arrives: the
   // list beside it read the same month on load and is only stale after a write.
-  const figure = recon ? recon.remaining + recon.draftBillsCost : null;
+  const figure = recon ? toBeInvoiced(recon) : null;
   const lastFigure = useRef<number | null>(null);
   const onFigureChange = embed?.onFigureChange;
   useEffect(() => {
@@ -573,20 +570,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // Codeable lines per bill, with the 88 80 00 sales-tax line taken OUT — it is
   // not something the office codes, and leaving it in would let a tax amount be
   // edited as if it were a material line. `taxByDoc` keeps what each one carried.
-  const { linesByDoc, taxByDoc } = useMemo(() => {
-    const m = new Map<string, JobBillLine[]>();
-    const tax = new Map<string, number>();
-    for (const l of data?.lines ?? []) {
-      if (isSalesTaxLine(l)) {
-        tax.set(l.docId, round2((tax.get(l.docId) ?? 0) + (Number(l.cost) || 0)));
-        continue;
-      }
-      const arr = m.get(l.docId) ?? [];
-      arr.push(l);
-      m.set(l.docId, arr);
-    }
-    return { linesByDoc: m, taxByDoc: tax };
-  }, [data]);
+  const { linesByDoc, taxByDoc } = useMemo(() => splitLinesByDoc(data?.lines ?? []), [data]);
 
   /**
    * A bill's sales tax: its 88 80 00 line plus any legacy `nonRecoverableTax`.
@@ -594,17 +578,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * of its tax. Exactly one of the two is non-zero in practice.
    */
   const billTax = useCallback(
-    (b: { id: string; nonRecoverableTax?: number } | undefined | null) =>
-      b ? round2((taxByDoc.get(b.id) ?? 0) + (Number(b.nonRecoverableTax) || 0)) : 0,
+    (b: { id: string; nonRecoverableTax?: number } | undefined | null) => billTaxOf(taxByDoc, b),
     [taxByDoc],
   );
 
-  const taxDirty = Object.entries(taxEdits).some(([docId, v]) => {
-    if (v === "") return false;
-    const bill = data?.bills.find((b) => b.id === docId);
-    if (!bill) return false;
-    return round2(Number(v) || 0) !== round2(billTax(bill));
-  });
+  const taxDirty = isTaxDirty(taxEdits, data?.bills, billTax);
   const dirty =
     staged.size > 0 ||
     timeStaged.size > 0 ||
@@ -809,44 +787,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     [data, codeOf, timeCodeOf, headroom],
   );
 
-  const railRows = useMemo(() => {
-    const q = codeQuery.trim().toLowerCase();
-    // Labor-only codes count: a code with hours but no budget and no bills is
-    // over budget by definition, and hiding it would hide that.
-    const rows = [...headroom.values()].filter(
-      (h) => h.budget !== 0 || h.spent !== 0 || h.drafts !== 0 || h.labor !== 0,
-    );
-    const matched = q ? rows.filter((h) => `${h.code} ${h.name}`.toLowerCase().includes(q)) : rows;
-    return matched.sort((a, b) => a.code.localeCompare(b.code));
-  }, [headroom, codeQuery]);
+  // Labor-only codes count: a code with hours but no budget and no bills is
+  // over budget by definition, and hiding it would hide that.
+  const railRows = useMemo(() => railRowsOf(headroom, codeQuery), [headroom, codeQuery]);
 
   /**
    * The rail, grouped into collapsible CSI divisions. A division's figures are
    * the sum of its codes', so a collapsed division still says whether there's
    * room in it — otherwise collapsing would hide the answer you came for.
    */
-  const railGroups = useMemo(() => {
-    const g = new Map<string, { code: string; name: string; rows: Headroom[] }>();
-    for (const h of railRows) {
-      const dc = h.code.replace(/\D/g, "").slice(0, 2) || "—";
-      const e = g.get(dc) ?? { code: dc, name: "", rows: [] };
-      // A division is named by JobTread's parent cost code. A code that IS the
-      // division ("04 00 00 Masonry") has no parent, so its own name names the
-      // division — otherwise the header falls back to the number and reads
-      // "04 04".
-      if (!e.name) e.name = h.division || (isDivisionLevelCode(h.code) ? h.name : "");
-      e.rows.push(h);
-      g.set(dc, e);
-    }
-    return [...g.values()]
-      .map((e) => ({
-        ...e,
-        budget: e.rows.reduce((s, r) => s + r.budget, 0),
-        used: e.rows.reduce((s, r) => s + usedOf(r), 0),
-        remaining: e.rows.reduce((s, r) => s + remainingOf(r), 0),
-      }))
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }, [railRows]);
+  const railGroups = useMemo(() => railGroupsOf(railRows), [railRows]);
 
   /**
    * The tightest cost codes, for the phone's headroom rail.
@@ -869,13 +819,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * same eight backwards. The cards you get are different ones.
    */
   const tightestCodes = useMemo(
-    () =>
-      railRows
-        .filter((h) => h.budget > 0)
-        .sort((a, b) =>
-          headroomMostLeft ? remainingOf(b) - remainingOf(a) : remainingOf(a) - remainingOf(b),
-        )
-        .slice(0, 8),
+    () => tightestCodesOf(railRows, headroomMostLeft),
     [railRows, headroomMostLeft],
   );
 
@@ -1025,9 +969,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     return () => window.removeEventListener("keydown", onKey);
   }, [openDocId]);
 
-  const sunsetTotal = useMemo(() => sunsetBills.reduce((s, b) => s + b.cost, 0), [sunsetBills]);
+  const sunsetTotal = useMemo(() => billsCostTotal(sunsetBills), [sunsetBills]);
   const nonSunsetTotal = useMemo(
-    () => nonSunsetBills.reduce((s, b) => s + b.cost, 0),
+    () => billsCostTotal(nonSunsetBills),
     [nonSunsetBills],
   );
 
@@ -1061,10 +1005,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * genuinely has less room than that page can see.
    */
   const timeHeadroomFor = useCallback(
-    (code: string): CodeHeadroom | null => {
-      const h = headroom.get(code);
-      return h ? { name: h.name, remaining: h.budget - usedOf(h) } : null;
-    },
+    (code: string): CodeHeadroom | null => timeHeadroomOf(headroom, code),
     [headroom],
   );
 
@@ -1087,8 +1028,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // live as the office types, same as bill/[docId]'s tax field.
   const openStoredTax = billTax(openBill);
   const openTaxEdit = openBill ? taxEdits[openBill.id] : undefined;
-  const openTaxView =
-    openTaxEdit !== undefined && openTaxEdit !== "" ? Number(openTaxEdit) || 0 : openStoredTax;
+  const openTaxView = taxViewOf(openTaxEdit, openStoredTax);
 
   /** De-taxed display values + the whole-bill payload for the open bill. */
   const openMath = useMemo(
@@ -1206,40 +1146,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * code reads as one thing you can move, with a ×3 badge, not three identical
    * chips.
    */
-  const laneRows = useMemo(() => {
-    const byCode = new Map<string, Map<string, JobBillLine[]>>();
-    for (const l of data?.lines ?? []) {
-      const code = codeOf(l) || "(uncoded)";
-      const lanes = byCode.get(code) ?? new Map<string, JobBillLine[]>();
-      const arr = lanes.get(l.docId) ?? [];
-      arr.push(l);
-      lanes.set(l.docId, arr);
-      byCode.set(code, lanes);
-    }
-    const billById = new Map((data?.bills ?? []).map((b) => [b.id, b]));
-    return [...byCode.entries()]
-      .map(([code, lanes]) => {
-        const all = [...lanes.entries()]
-          .map(([docId, ls]) => ({
-            key: `${code}/${docId}`,
-            docId,
-            lines: ls,
-            cost: ls.reduce((s, l) => s + l.cost, 0),
-            label: billById.get(docId)?.vendor ?? ls[0]?.name ?? "Bill",
-            status: billById.get(docId)?.status ?? ls[0]?.billStatus ?? "",
-            invoiced: billById.get(docId)?.invoiced ?? false,
-          }))
-          .sort((a, b) => b.cost - a.cost);
-        const total = all.reduce((s, x) => s + x.cost, 0);
-        return {
-          code,
-          h: headroom.get(code),
-          stacks: all,
-          total,
-        };
-      })
-      .sort((a, b) => a.code.localeCompare(b.code));
-  }, [data, codeOf, headroom]);
+  const laneRows = useMemo(
+    () => laneRowsOf(data?.lines ?? [], data?.bills ?? [], codeOf, headroom),
+    [data, codeOf, headroom],
+  );
 
   /**
    * Options for the coding dropdown — every non-labor budget leaf on the job.
@@ -1327,10 +1237,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     // The board's headroom carries labor and this month's drafts as well as
     // committed spend, which is why the card asks for a number rather than
     // computing one from a budget it can't see.
-    remainingFor: (code) => {
-      const h = headroom.get(code);
-      return h ? remainingOf(h) : null;
-    },
+    remainingFor: (code) => remainingForCode(headroom, code),
     bulkCode,
     setBulkCode,
     applyCodeToAll,
@@ -1451,18 +1358,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // The Jobs page's All Time rings, from the same whole-job read as its All
   // Time lists, so a ring and the list under it add up to the same figure
   // (owner, 2026-11-02). Committed bills only, as that read is.
-  const allTimeRingRows = useMemo<CostDonutRow[] | null>(() => {
-    if (!contributors) return null;
-    const m = new Map<string, CostDonutRow>();
-    const row = (code: string) => {
-      let r = m.get(code);
-      if (!r) m.set(code, (r = { code, name: headroom.get(code)?.name ?? "", bills: 0, labor: 0 }));
-      return r;
-    };
-    for (const l of contributors.bills) if (l.code) row(l.code).bills += l.cost;
-    for (const t of contributors.time) if (t.code) row(t.code).labor += t.cost;
-    return [...m.values()].filter((r) => r.bills !== 0 || r.labor !== 0);
-  }, [contributors, headroom]);
+  const allTimeRingRows = useMemo<CostDonutRow[] | null>(
+    () => allTimeRingRowsOf(contributors, headroom),
+    [contributors, headroom],
+  );
   // All Time lists the whole job, so it needs the whole-job read now, not on hover.
   useEffect(() => {
     if (allTime) ensureContributors();
@@ -1688,13 +1587,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // stays identical whichever list a bill sits in.
   const renderBillCard = (b: BillRef) => {
     const lines = linesByDoc.get(b.id) ?? [];
-    const codes = new Map<string, number>();
-    let movedHere = 0;
-    for (const l of lines) {
-      const c = codeOf(l);
-      codes.set(c, (codes.get(c) ?? 0) + l.cost);
-      if (staged.has(l.id)) movedHere++;
-    }
+    const { codes, movedHere } = billCodeAmounts(lines, codeOf, staged);
     const isOpen = openDocId === b.id;
     const stripe = billInvoiceState({ ...b, paid: billPaidState(b) === "paid" });
     // On a phone this page is read-only and the coding drawer is
@@ -2122,7 +2015,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           allTime ? (
             <>
               {allTimeRingRows
-                ? money(allTimeRingRows.reduce((s, r) => s + r.bills + r.labor, 0))
+                ? money(jobToDateTotal(allTimeRingRows))
                 : "—"}
               {invoiced !== null && (
                 <span className="mt-1 block text-sm font-semibold tracking-normal text-neutral-500 dark:text-neutral-400">
@@ -2131,7 +2024,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               )}
             </>
           ) : recon ? (
-            money(recon.remaining + recon.draftBillsCost)
+            money(toBeInvoiced(recon))
           ) : (
             "—"
           )
@@ -2834,7 +2727,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           <ul className="space-y-2">
             {draftBills.map((b) => {
               const target = approvalTarget(b);
-              const taxOn = billTax(b) > 0;
+              const taxOn = approvalTaxOn(billTax(b));
               const pushQb = !b.qboIsIgnored;
               return (
                 <li
@@ -2873,7 +2766,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-line pt-3 dark:border-neutral-700">
             <SectionLabel>Total</SectionLabel>
             <span className="text-xl font-bold tabular-nums">
-              {money(draftBills.reduce((s, b) => s + b.cost, 0))}
+              {money(billsCostTotal(draftBills))}
             </span>
           </div>
           {data && !data.writesEnabled && (
@@ -2982,7 +2875,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         rule={false}
         className="mb-4 lg:hidden"
         label={c("recode.statement.toBeInvoiced")}
-        value={recon ? money(recon.remaining + recon.draftBillsCost) : "—"}
+        value={recon ? money(toBeInvoiced(recon)) : "—"}
         sub={
           recon
             ? `${money(recon.remaining)} approved${

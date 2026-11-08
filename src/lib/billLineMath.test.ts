@@ -284,3 +284,137 @@ describe("isRecodeOnly", () => {
     expect(m.wholeBillChanges.every(isRecodeOnly)).toBe(true);
   });
 });
+
+/**
+ * Cases the Tracking Sheets board meets every month that the tests above do
+ * not reach: credit lines, zero lines, many-line rounding, a multi-line legacy
+ * bill and the editor's edge inputs. Pinned 2026-11-08 (SIMPLICITY_AUDIT
+ * finding 01, Option B).
+ */
+describe("billLineMath — realistic bills", () => {
+  const draft = (lines: MathLine[], over: Partial<Parameters<typeof billLineMath>[0]> = {}) =>
+    billLineMath({ ...base, lines, ...over });
+
+  it("rounds the subtotal and total once, after summing many cent lines", () => {
+    const lines = [
+      line({ id: "l1", quantity: 3, unitCost: 19.99, cost: 59.97 }),
+      line({ id: "l2", quantity: 7, unitCost: 4.15, cost: 29.05 }),
+      line({ id: "l3", quantity: 1, unitCost: 0.01, cost: 0.01 }),
+      line({ id: "l4", quantity: 12, unitCost: 2.33, cost: 27.96 }),
+    ];
+    const m = draft(lines, { storedTax: 10.75 });
+    expect(m.subtotal).toBe(116.99);
+    expect(m.total).toBe(127.74);
+    expect(m.dirty).toBe(false);
+  });
+
+  it("nets a credit line and a negative quantity into the subtotal", () => {
+    const lines = [
+      line({ id: "l1", quantity: 1, unitCost: 1_000, cost: 1_000 }),
+      line({ id: "l2", quantity: 1, unitCost: -250, cost: -250 }), // vendor credit
+      line({ id: "l3", quantity: -2, unitCost: 45.5, cost: -91 }), // returned goods
+    ];
+    const m = draft(lines, { storedTax: -8.12 });
+    expect(m.subtotal).toBe(659);
+    expect(m.total).toBe(650.88);
+    expect(m.wholeBillChanges.map((c) => c.unitCost)).toEqual([1_000, -250, 45.5]);
+    expect(m.wholeBillChanges.map((c) => c.quantity)).toEqual([1, 1, -2]);
+  });
+
+  it("carries a zero-amount line without making the bill dirty", () => {
+    const m = draft([line(), line({ id: "l2", quantity: 0, unitCost: 12, cost: 0 })]);
+    expect(m.subtotal).toBe(100);
+    expect(m.dirty).toBe(false);
+    expect(m.wholeBillChanges[1]).toMatchObject({ quantity: 0, unitCost: 12 });
+  });
+
+  it("a whole credit memo is negative throughout", () => {
+    const m = draft([line({ quantity: 1, unitCost: -412.37, cost: -412.37 })], { storedTax: -36.29 });
+    expect(m.subtotal).toBe(-412.37);
+    expect(m.total).toBe(-448.66);
+  });
+
+  it("a tax preview of 0 replaces the stored tax (it is not 'no preview')", () => {
+    const m = draft([line()], { storedTax: 8.9, taxView: 0 });
+    expect(m.total).toBe(100);
+  });
+
+  it("an empty quantity or unit field keeps what JobTread holds", () => {
+    const m = draft([line()], { edits: { l1: { quantity: "", unitCost: "" } } });
+    expect(m.targets[0]).toMatchObject({ qty: 2, preTaxUnit: 50 });
+    expect(m.dirty).toBe(false);
+  });
+
+  it("a typed unit cost is written rounded to cents, float half-way included", () => {
+    // 1.005 * 100 is 100.4999… in a double, so it rounds DOWN (see round2).
+    // NOTE: possible bug — the subtotal is computed from the UNROUNDED unit
+    // (2 × 1.005 = 2.01) while the save writes the rounded one (2 × 1.00), so
+    // the screen shows a cent more than JobTread will hold.
+    const m = draft([line()], { edits: { l1: { unitCost: "1.005" } } });
+    expect(m.wholeBillChanges[0].unitCost).toBe(1);
+    expect(m.subtotal).toBe(2.01);
+    expect(m.dirty).toBe(true);
+  });
+
+  it("a unit-cost change under half a cent is not a change", () => {
+    const m = draft([line()], { edits: { l1: { unitCost: "50.004" } } });
+    expect(m.dirty).toBe(false);
+    expect(m.wholeBillChanges[0].unitCost).toBe(50);
+  });
+
+  it("a quantity edit moves the subtotal and counts as a change", () => {
+    const m = draft([line()], { edits: { l1: { quantity: "3.5" } } });
+    expect(m.subtotal).toBe(175);
+    expect(m.pendingCount).toBe(1);
+  });
+
+  it("a non-draft bill still reports its subtotal and total, and sends no cost", () => {
+    const m = draft([line(), line({ id: "l2", quantity: 1, unitCost: 19.54, cost: 19.54 })], {
+      status: "pending",
+      storedTax: 9.8,
+    });
+    expect(m.subtotal).toBe(119.54);
+    expect(m.total).toBe(129.34);
+    expect(m.wholeBillChanges[0].unitCost).toBeUndefined();
+  });
+
+  it("a draft save sends the code's description with each coded line", () => {
+    const m = draft([line(), line({ id: "l2", jobCostItemId: undefined })], { picked: { l1: "b2" } });
+    expect(m.wholeBillChanges[0].description).toBe("09 911 00 - Painting");
+    expect(m.wholeBillChanges[1].description).toBeUndefined();
+  });
+});
+
+describe("billLineMath — a multi-line legacy bill", () => {
+  // Stored $59.54 tax-inclusive across two lines; the legacy field says $4.59
+  // of it is tax, so the lines show $54.95 between them.
+  const lines = [
+    line({ id: "l1", quantity: 1, unitCost: 40, cost: 40 }),
+    line({ id: "l2", quantity: 1, unitCost: 19.54, cost: 19.54 }),
+  ];
+  const m = billLineMath({ ...base, storedTax: 4.59, legacyTaxField: 4.59, lines });
+
+  it("de-taxes every line by the same factor", () => {
+    expect(m.targets[0].preTaxUnit).toBeCloseTo(40 * (54.95 / 59.54), 9);
+    expect(m.targets[1].preTaxUnit).toBeCloseTo(19.54 * (54.95 / 59.54), 9);
+  });
+
+  it("writes cent-rounded lines that still add to the de-taxed subtotal", () => {
+    const written = m.wholeBillChanges.map((c) => c.unitCost ?? NaN);
+    expect(written).toEqual([36.92, 18.03]);
+    expect(round2(written[0] + written[1])).toBe(54.95);
+    expect(m.subtotal).toBe(54.95);
+    expect(m.total).toBe(59.54);
+  });
+
+  it("does not de-tax when the lines sum to zero (no division by zero)", () => {
+    const z = billLineMath({
+      ...base,
+      storedTax: 4.59,
+      legacyTaxField: 4.59,
+      lines: [line({ quantity: 1, unitCost: 0, cost: 0 })],
+    });
+    expect(z.deTax(10)).toBe(10);
+    expect(z.total).toBe(4.59);
+  });
+});

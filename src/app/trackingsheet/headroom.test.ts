@@ -137,3 +137,81 @@ describe("isCommitted", () => {
     expect(["pending", "approved", "draft", "denied"].map(isCommitted)).toEqual([true, true, false, false]);
   });
 });
+
+/** Credits, uncoded lines and overruns — pinned 2026-11-08 (SIMPLICITY_AUDIT finding 01, Option B). */
+describe("buildHeadroom — credits, uncoded lines and overruns", () => {
+  it("transfers a staged committed credit line like any other line", () => {
+    const h = build([line("a", "09 64 00", -312.5, "approved")], [], { a: "09 30 00" });
+    expect(h.get("09 64 00")?.spent).toBe(4_312.5);
+    expect(h.get("09 30 00")?.spent).toBe(-312.5);
+  });
+
+  it("a committed line staged to uncoded leaves its old code and lands nowhere", () => {
+    const h = build([line("a", "09 64 00", 800, "pending")], [], { a: "" });
+    expect(h.get("09 64 00")?.spent).toBe(3_200);
+    expect(h.has("")).toBe(false);
+  });
+
+  it("a committed line that was uncoded is added whole to the code it is staged onto", () => {
+    const h = build([line("a", "", 640.18, "approved")], [], { a: "09 30 00" });
+    expect(h.get("09 30 00")?.spent).toBe(640.18);
+  });
+
+  it("a denied bill's line counts as a draft under its code", () => {
+    // NOTE: possible bug — a denied (voided) bill is excluded from every other
+    // roll-up, but isCommitted is false for "denied", so this adds its lines to
+    // `drafts`. Harmless only while /api/trackingsheet never loads denied bills.
+    const h = build([line("a", "09 30 00", 99.99, "denied")], []);
+    expect(h.get("09 30 00")?.drafts).toBe(99.99);
+  });
+
+  it("a zero-amount draft line still creates a row for an unknown code", () => {
+    const h = build([line("a", "31 23 00", 0, "draft")], []);
+    expect(h.get("31 23 00")).toMatchObject({ budget: 0, drafts: 0, droppable: false });
+  });
+
+  it("labor staged to uncoded leaves its old code and lands nowhere", () => {
+    const h = build([], [time("t", "09 64 00", 412.5)], { t: "" });
+    expect(h.get("09 64 00")?.labor).toBe(587.5);
+    expect(h.has("")).toBe(false);
+  });
+
+  it("a budget leaf with no cost adds nothing to the code's budget", () => {
+    const h = buildHeadroom({
+      divisions: [],
+      leavesByCode: new Map([["05 50 00", [{ name: "Metal Fab" }, { name: "Railings", cost: 2_250.75 }]]]),
+      lines: [] as Line[],
+      timeEntries: [] as Time[],
+      codeOf: (l) => l.code,
+      timeCodeOf: (t) => t.code,
+    });
+    expect(h.get("05 50 00")?.budget).toBe(2_250.75);
+  });
+
+  it("an overrun reads as negative remaining", () => {
+    const h = build([line("a", "09 30 00", 5_400, "draft")], []);
+    expect(remainingOf(h.get("09 30 00")!)).toBe(-400);
+  });
+});
+
+describe("jobRingRows — credits", () => {
+  it("keeps a code a credit drove negative", () => {
+    const h = build([line("a", "09 30 00", -120, "draft")], []);
+    expect(jobRingRows(h).find((r) => r.code === "09 30 00")).toEqual({
+      code: "09 30 00",
+      name: "Tile",
+      bills: -120,
+      labor: 0,
+    });
+  });
+});
+
+describe("monthRingRows — uncoded", () => {
+  it("leaves an uncoded line or entry out of the month's rings", () => {
+    const lines = [line("a", "", 500, "draft")];
+    const times = [time("t", "", 80)];
+    const h = build(lines, times);
+    const rows = monthRingRows({ lines, timeEntries: times, codeOf: (l) => l.code, timeCodeOf: (t) => t.code, headroom: h });
+    expect(rows).toEqual([]);
+  });
+});
