@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
 status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T21:25:15Z
+updated: 2026-11-08T21:25:16Z
 goal: weekly office summary skill (/weekly-summary) + first draft
 next: Confirm 'Office Weekly Summary — Nov 2–7, 2026.pdf' appears in Drive > Weekly Wraps after the 21:42 UTC expenditure-summary run
 ---
