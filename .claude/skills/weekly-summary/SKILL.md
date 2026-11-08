@@ -152,8 +152,8 @@ each section label, the Ascent header and footer. It saves to
 
 **The PDF lands in Drive › Weekly Wraps on its own** (folder
 `1C4DfDHeEoczgXb0kd10Tj1X50Ho1voxb`), named `<Doc name>.pdf`. The Apps Script
-side (`WeeklyWraps.js` in `ascent-appscript`) checks Office Weekly Summaries on
-every 30-minute tracking-sheet sync: a new Doc gets a PDF, and an edited Doc's
+side (`WeeklyWraps.js` in `ascent-appscript`) checks Office Weekly Summaries
+every 30 minutes (it rides the expenditure summary's trigger): a new Doc gets a PDF, and an edited Doc's
 PDF is refreshed in place. Do not upload a PDF from the session. To get it at
 once, run `exportWeeklyWrapPdfs` in the Apps Script editor.
 
