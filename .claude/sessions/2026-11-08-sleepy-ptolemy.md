@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
 status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T21:48:37Z
+updated: 2026-11-08T21:48:38Z
 goal: weekly office summary skill (/weekly-summary) + first draft
 next: After Keillor edits or sends the Nov 2–7 summary, run /weekly-summary learn; next Monday run /weekly-summary for Nov 9–14
 ---
