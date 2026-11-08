@@ -146,7 +146,23 @@ including edge middleware.
 
 | File | Purpose |
 |---|---|
-| `jobtread.ts` | The typed Pave client + the verified read/write calls behind the app. Every call was confirmed live; TODO fields are unverified (probe-first). |
+| `jobtread.ts` | The typed Pave client + the verified read/write calls behind the app. Every call was confirmed live; TODO fields are unverified (probe-first). Since 2026-11-08 this file only re-exports the parts below; import from `@/lib/jobtread`, never from a part. The parts follow the file's old section headers, and several hold more than their name says — the rows below list what each really holds. |
+| `jobtread/core.ts` | `pave()` (retry, timeout; never retries a write), `PaveConfig`, the reference-data cache, `pageAll`/`pageEach`, and every value another part reads at load time. Imports no other part — `jobtread/load.test.ts` holds that rule. |
+| `jobtread/unbilled.ts` | Two helpers: is a bill or time entry on a client invoice yet (`_isInvoicedToClient`, `_isOnAnyInvoice`). |
+| `jobtread/codingQueue.ts` | Draft bills and bill detail; bill field writes (dates, number, tax, status); bill and job files; job budget and cost-to-complete; time-trackable cost codes; sales tax and warranty by document. |
+| `jobtread/jobCostDetail.ts` | The `/jobs` cost tree (`getJobCostDetail`, contributors); untaxed lines; job bills, time and lines for a month; the job list, a user's jobs, job phases. |
+| `jobtread/homeJobBoard.ts` | Home job board and Gantt; vendors (list, addresses, emails, detail, bills, contacts); house-manual specs; org users and pay rates; bill LINE writes (`updateLine`, `createLine`, `deleteLine` with its journal snapshot, `combineLines`). |
+| `jobtread/invoiceStaging.ts` | `getMonthlyBills` only. |
+| `jobtread/billIngestion.ts` | Bill creation (`createVendorBill`, `replaceBillLines`); Sunset credits and expense accounts; the externalId lookups that stop a duplicate bill; the shop job and buybacks. |
+| `jobtread/sunsetStatements.ts` | Sunset statement bills; buyback lines; document file attach/delete; month invoicing reads (`getAllBillsForMonth`, `getUninvoicedBills`, `getInvoiceReconciliation`, open client invoices). |
+| `jobtread/timeEntries.ts` | Time entries: org-timezone conversion, create/update/delete with journal snapshots, and the user/org/export reads. |
+| `jobtread/tasks.ts` | Schedule tasks and to-dos (create/update/delete); members by email; job notes; bought lines and scope lines. |
+| `jobtread/jobAccess.ts` | Job access: the people listed on a job. |
+| `jobtread/documentAccess.ts` | Document access: the people listed on a document. |
+| `jobtread/jobDeposits.ts` | Job deposits (read only): `getJobDepositInputs`. Rules in `deposits.ts`. |
+| `jobtread/depositDraws.ts` | Deposit draws (write): a draft invoice's single Deposit line. |
+| `jobtread/clientInvoiceRefs.ts` | Client invoice references: the Invoicing Package email's QBO links and PDFs. |
+| `jobtread/depositChecks.ts` | Deposit checks (Home → Deposit checks): file upload to a job folder, invoices for a payment, recording invoice payments. |
 | `jobsCache.ts` | The org's open jobs in Next's Data Cache (5-min TTL), shared by `/api/jobs` AND any server component that wants to preload the list into its HTML (e.g. `/employee-time`). Also `getTimeClockJobs`, the time clock's per-employee list. |
 | `jtUserLink.ts` | **email → JobTread identity, cached in the DB** (`jt_user_links`). The roster answer costs a ~3 s Apps Script round trip, so read it here: `readJtUserLink` (DB only, safe on a render path) / `resolveJtUserLink` (falls back to Apps Script and writes back). `readJtUserLinkByJtUserId` is the reverse, for naming the person an admin is filing time for. |
 | `actingAs.ts` | **Whose time is this /employee-time request about?** Applies the rule below to a real request: reads the session, resolves the caller's own JobTread user, and checks any other subject against the live org roster before it reaches a write. Acting swaps the SUBJECT, never the attribution — `email` and `role` stay the signed-in admin's, so the log's Logged By and the financial journal both name who really did it. |
@@ -214,6 +230,7 @@ including edge middleware.
 | `botAdmin.ts` | `requireBotAdmin` — the `ascentbot` view check shared by the `/api/ascentbot` routes. |
 | `amazonImport.ts` | Amazon Business monthly CSV → JobTread vendor bills. |
 | `sunsetStatementBill.ts` | The shape of a Sunset statement's bill on the Office job ("Create Bills" on `/payments`): issue date, and two 88 70 00 lines — the total and the prompt discount as a negative line. Pure, unit-tested; the write is `src/app/api/sunset-statement-bills/`. |
+| `sunsetStatementMonth.ts` | The Sunset Statements page's month: which statements Approve all and Print act on, and what a statement's Office-job bill says about payment. Pure. |
 | `sunsetLinks.ts` | **Sunset statement line → bill links** (the "Link" on `/payments`). `sunsetLineKey` must match appscript `_sunreconNormNum` — the reconcile finds a link by it. `rankCandidates` orders the picker: unclaimed first, then closest amount, then same date. The links live in `sunset_statement_links`; the write is `src/app/api/sunset-statement-links/`; the reconcile route passes them to appscript, whose month-wide match (`_sunreconAssignMonth`) applies them before any automatic match. Pure, unit-tested. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |

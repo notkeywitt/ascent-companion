@@ -329,6 +329,10 @@ build time. The page renders an empty list.
 2. Keep `pave()` and the cache in one file. Every other file calls it.
 3. Do this after the board split in finding 01. Both touch the same code.
 
+**Progress 2026-11-08.** Split into 16 parts under `src/lib/jobtread/`, one per old
+section header, moved verbatim; `jobtread.ts` re-exports the same public names.
+The `any` types are untouched.
+
 ### 09 — The tests run after the deploy, not before · FIGURES · ✅ FIXED 2026-09-29
 
 `main` is production and a push deploys at once.

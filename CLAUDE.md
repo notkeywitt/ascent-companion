@@ -114,9 +114,11 @@ branch turning into a push conflict; `main` moves dozens of commits a day.
 
 ## How to build a new page (the recipe)
 
-1. **Read JobTread through a purpose-built route.** Add the read to
-   `src/lib/jobtread.ts` (the typed Pave client — page with `pageAll`/`pageEach`)
-   and a `src/app/api/<name>/route.ts` that calls it. The route runs on the
+1. **Read JobTread through a purpose-built route.** Add the read to the
+   matching part of the typed Pave client under `src/lib/jobtread/` (page with
+   `pageAll`/`pageEach`), re-export it from `src/lib/jobtread.ts`, and add a
+   `src/app/api/<name>/route.ts` that imports it from `@/lib/jobtread`. A value
+   that two parts read at load time goes in `jobtread/core.ts`. The route runs on the
    server, so the grant key never reaches the browser. Compose the query from
    **`JT_API_REFERENCE.md`** (in this repo — the complete Pave schema). Worked
    example end-to-end: **`src/app/jobs/`**, which reads `/api/jobs/browser` and
