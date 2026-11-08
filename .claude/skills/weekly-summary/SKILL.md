@@ -57,8 +57,8 @@ Run the reads in parallel. Each source feeds named sections.
 | Signal chats | Not reachable from a Claude Code session today (messages live in the companion DB, sent by the office Mac mini). Same treatment as requisitions. If the user pastes an export, use it. | any section |
 | Calendar, next week | Google Calendar `list_events` on the office calendar, Mon–Sat after the summary week. Only meetings Casey or Ty attend. | Coming up |
 
-Status words in JobTread: `denied` **is** a voided bill. Never call it "deleted"
-or "rejected".
+Status words in JobTread: `denied` **is** a voided bill. Leave voided bills out
+of the summary entirely, and out of every count and total.
 
 ### 3. Sort into sections
 
@@ -67,8 +67,7 @@ Drop a section that has nothing in it. Do not write "Nothing this week".
 
 1. **Needs you** — decisions or replies Casey or Ty owe. Name who. Max 5 items.
 2. **Billing (vendor bills in)** — count and total of bills entered, the large
-   ones (≥ $2,500) by vendor, job and amount, bills voided and re-entered and
-   why, invoices that arrived but are not in JobTread yet, invoices still
+   ones (≥ $2,500) by vendor, job and amount, invoices that arrived but are not in JobTread yet, invoices still
    requested from vendors.
 3. **Invoicing (to clients)** — client invoices and change orders drafted or
    sent, by customer and job. Billing-cycle status (the 10th cutoff, the 15th send).
@@ -79,7 +78,7 @@ Drop a section that has nothing in it. Do not write "Nothing this week".
    benefits paperwork.
 7. **Office upkeep** — snacks, coffee, supplies, equipment, subscriptions,
    renewals.
-8. **Systems** — Apps Script failures, app issues, AscentBot questions it
+8. **Systems** — app issues Casey or Ty would act on, AscentBot questions it
    could not answer. One line each.
 9. **Coming up** — next week's dates and deadlines.
 
@@ -95,7 +94,6 @@ The email and the Google Doc both come from this one file.
 <!-- gmail-draft-id: (filled in at step 6) -->
 <!-- doc: (filled in at step 5) -->
 # Week of Nov 2 – Nov 7, 2026
-Prepared by Keillor  ·  For Casey Zautke & Ty O'Steen  ·  <today>
 
 ### Needs you
 | Who | Item |
@@ -103,7 +101,7 @@ Prepared by Keillor  ·  For Casey Zautke & Ty O'Steen  ·  <today>
 | Casey | **Topic:** one line. |
 
 ### Billing (vendor bills in)
-> 89 bills entered this week · $111,950.75 total · 7 voided
+> 89 bills entered this week · $111,950.75 total
 | Vendor | Job | Amount | Note |
 |---|---|---|---|
 - **Label:** a bullet

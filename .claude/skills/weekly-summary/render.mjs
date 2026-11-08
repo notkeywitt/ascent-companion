@@ -66,7 +66,8 @@ if (mode === "text") {
 
 // ── email ────────────────────────────────────────────────────────────
 // The same Field Binder look as the Doc, in inline styles: Gmail drops most
-// <style> rules, and keeps inline ones when Keillor edits the draft.
+// <style> rules, and keeps inline ones when Keillor edits the draft. Gmail also
+// strips the `background` shorthand, so fills use background-color + bgcolor.
 if (mode === "email") {
   const F = "font-family:Helvetica,Arial,sans-serif;color:#1b1b17;";
   const GREY = "color:#6b6b66;";
@@ -81,19 +82,20 @@ if (mode === "email") {
   let metaDone = false;
   for (const b of blocks) {
     if (b.t === "title") h += `<div style="font-size:20px;font-weight:bold;margin:2px 0">${inline(b.s)}</div>`;
-    else if (b.t === "p" && !metaDone && b.s !== "-Keillor") {
+    else if (b.t === "p" && !metaDone) {
       metaDone = true;
-      h += `<div style="font-size:11px;${GREY}">${inline(b.s)}`;
-      if (doc) h += ` · <a href="${doc[1]}" style="${GREY}">Printable version</a>`;
-      h += `</div>`;
-    } else if (b.t === "h") h += `<div style="font-size:13px;font-weight:bold;${LINE}padding-bottom:4px;margin:18px 0 7px">${inline(plain(b.s).toUpperCase())}</div>`;
-    else if (b.t === "ul") h += `<ul style="margin:6px 0;padding-left:20px">${b.items.map((i) => `<li style="margin:0 0 3px">${inline(i)}</li>`).join("")}</ul>`;
-    else if (b.t === "callout") h += `<div style="font-size:14px;font-weight:bold;border-left:4px solid #b3261e;background:#fbedec;padding:6px 10px;margin:0 0 8px">${inline(plain(b.s))}</div>`;
+      h += `<div style="font-size:11px;${GREY}">${inline(b.s)}</div>`;
+    } else if (b.t === "h") {
+      if (!metaDone && doc) h += `<div style="font-size:11px;"><a href="${doc[1]}" style="${GREY}">Printable version (PDF)</a></div>`;
+      metaDone = true;
+      h += `<div style="font-size:13px;font-weight:bold;${LINE}padding-bottom:4px;margin:18px 0 7px">${inline(plain(b.s).toUpperCase())}</div>`;
+    } else if (b.t === "ul") h += `<ul style="margin:6px 0;padding-left:20px">${b.items.map((i) => `<li style="margin:0 0 3px">${inline(i)}</li>`).join("")}</ul>`;
+    else if (b.t === "callout") h += `<div style="font-size:14px;font-weight:bold;border-left:4px solid #b3261e;background-color:#fbedec;padding:6px 10px;margin:0 0 8px">${inline(plain(b.s))}</div>`;
     else if (b.t === "table") {
       const [head, ...rows] = b.rows;
       h += `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;margin:6px 0">`;
-      h += `<tr>${head.map((c) => `<td style="${CELL}background:#1b1b17;color:#fff;font-weight:bold;font-size:11px">${inline(plain(c).toUpperCase())}</td>`).join("")}</tr>`;
-      h += rows.map((r, i) => `<tr${i % 2 ? ' style="background:#f3f3f1"' : ""}>${r.map((c, j) => `<td valign="top" style="${CELL}${j ? "" : "font-weight:bold;"}">${inline(c)}</td>`).join("")}</tr>`).join("");
+      h += `<tr>${head.map((c) => `<td bgcolor="#1b1b17" style="${CELL}background-color:#1b1b17;color:#ffffff;font-weight:bold;font-size:11px">${inline(plain(c).toUpperCase())}</td>`).join("")}</tr>`;
+      h += rows.map((r, i) => `<tr>${r.map((c, j) => `<td valign="top"${i % 2 ? ' bgcolor="#f3f3f1"' : ""} style="${CELL}${i % 2 ? "background-color:#f3f3f1;" : ""}${j ? "" : "font-weight:bold;"}">${inline(c)}</td>`).join("")}</tr>`).join("");
       h += "</table>";
     } else h += `<p style="margin:14px 0 0">${inline(b.s)}</p>`;
   }
@@ -131,9 +133,13 @@ let metaDone = false;
 for (const b of blocks) {
   if (b.t === "title") h += `<p class="ti">${inline(b.s)}</p>`;
   else if (b.t === "p" && !metaDone) {
+    // The optional line between the title and the first section.
     metaDone = true;
     h += `<p class="me">${inline(b.s)}</p>`;
-  } else if (b.t === "h") h += `<p class="h">${inline(plain(b.s).toUpperCase())}</p>`;
+  } else if (b.t === "h") {
+    metaDone = true;
+    h += `<p class="h">${inline(plain(b.s).toUpperCase())}</p>`;
+  }
   else if (b.t === "ul") h += `<ul>${b.items.map((i) => `<li>${inline(i)}</li>`).join("")}</ul>`;
   else if (b.t === "callout") h += `<p class="co">${inline(plain(b.s))}</p>`;
   else if (b.t === "table") {

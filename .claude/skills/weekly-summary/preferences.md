@@ -19,9 +19,19 @@ first, and its rules win over the defaults in `SKILL.md`.
 
 ## Leave out
 
+- Voided bills: no void counts, no "voided and re-entered" lines, no voids in
+  the bill totals line. They are bookkeeping, not news.
+- Apps Script and other back-end automation: no sync failures, no script
+  errors. Systems keeps only things Casey or Ty would act on (e.g. AscentBot
+  questions it could not answer).
+- The "Prepared by / For / date" line under the title. The title and the
+  dates are enough.
+
 - Marketing, newsletters, cold pitches (website redesigns, estimating services).
 - Personal mail that lands in the office inbox (personal insurance, Spotify).
 
 ## Changelog
 
-- 2026-11-08 — file started with the defaults. No edits learned yet.
+- 2026-11-08 — file started with the defaults.
+- 2026-11-08 — from Keillor's edits to Nov 2–7: leave out voided bills, Apps
+  Script failures, and the Prepared-by line.
