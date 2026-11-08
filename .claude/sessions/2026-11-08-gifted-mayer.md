@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/gifted-mayer-k88maj
 status: shipped
 started: 2026-11-08T15:44:15Z
-updated: 2026-11-08T17:58:49Z
+updated: 2026-11-08T18:02:09Z
 goal: Answer: how Claude feels about this project (no code change)
-next: Owner ok needed to push 3 commits to main (gateway removal, jobtread split, board math tests). Then: retire low-use pages per the Vercel counts; owner to decide on the 4 pinned possible bugs (billLineMath rounding first).
+next: Owner to decide on the 3 remaining pinned possible bugs in boardMath/headroom tests (credit-memo tax shows Off; uncoded cost missing from Job to date; voided lines counted as drafts if ever loaded). Page retirement: owner said none yet.
 ---
 
 ## Log
@@ -20,5 +20,7 @@ next: Owner ok needed to push 3 commits to main (gateway removal, jobtread split
   .githooks/pre-push, CLAUDE.md, CODEBASE_MAP.md, FRONTEND_ARCHITECTURE.md, docs/plans/SIMPLICITY_AUDIT.md, src/app/api/amazon-import/last-month/route.ts, +6 more
 - 2026-11-08 17:20 · `ab25f62` companion: split jobtread.ts into one file per section
   CLAUDE.md, CODEBASE_MAP.md, docs/plans/SIMPLICITY_AUDIT.md, src/lib/jobtread.ts, src/lib/jobtread/billIngestion.ts, src/lib/jobtread/clientInvoiceRefs.ts, +15 more
+- 2026-11-08 18:02 · `0a0cd5e` companion: round a typed unit cost before the subtotal
+  src/lib/billLineMath.test.ts, src/lib/billLineMath.ts
 
 ## Notes
