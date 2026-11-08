@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T20:21:44Z",
+  "generatedAt": "2026-11-08T20:30:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/sleepy-ptolemy-ocio2n",
       "status": "shipped",
       "started": "2026-11-08T18:48:05Z",
-      "updated": "2026-11-08T20:21:44Z",
+      "updated": "2026-11-08T20:30:04Z",
       "goal": "weekly office summary skill (/weekly-summary) + first draft",
-      "next": "Keillor picks which recap topics (purchase approvals, crew requests, subscriptions, meetings, client payments, marketing, heads-ups, fuller leads) to add to weekly-summary preferences.md",
+      "next": "Pick a route for saving the weekly PDF to Drive > Weekly Wraps (Apps Script action vs PDF attached to the email)",
       "commits": [
         {
           "date": "2026-11-08",
@@ -39,6 +39,13 @@
           "sha": "77f2641",
           "subject": "companion: weekly summary drops voids, apps script and prepared-by line",
           "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/drafts/2026-11-07-final.md, .claude/skills/weekly-summary/preferences.md, .claude/skills/weekly-summary/render.mjs"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "20:30",
+          "sha": "fe7622c",
+          "subject": "companion: weekly summary adds heads-ups, open leads, crew requests, subscriptions, meetings",
+          "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/preferences.md"
         }
       ]
     },

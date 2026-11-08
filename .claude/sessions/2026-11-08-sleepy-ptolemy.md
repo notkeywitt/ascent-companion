@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
 status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T20:30:03Z
+updated: 2026-11-08T20:30:04Z
 goal: weekly office summary skill (/weekly-summary) + first draft
 next: Pick a route for saving the weekly PDF to Drive > Weekly Wraps (Apps Script action vs PDF attached to the email)
 ---
