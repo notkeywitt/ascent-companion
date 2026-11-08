@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-11-08T19:27:06Z",
+  "generatedAt": "2026-11-08T19:46:08Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "sleepy-ptolemy",
+      "file": "2026-11-08-sleepy-ptolemy.md",
+      "branch": "claude/sleepy-ptolemy-ocio2n",
+      "status": "shipped",
+      "started": "2026-11-08T18:48:05Z",
+      "updated": "2026-11-08T19:46:08Z",
+      "goal": "weekly office summary skill (/weekly-summary) + first draft",
+      "next": "After Keillor edits the Nov 2-7 summary (email or Doc), run /weekly-summary learn",
+      "commits": [
+        {
+          "date": "2026-11-08",
+          "time": "18:57",
+          "sha": "4e092ad",
+          "subject": "companion: add weekly office summary skill",
+          "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/drafts/2026-11-07-claude.md, .claude/skills/weekly-summary/preferences.md"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "19:46",
+          "sha": "f58453f",
+          "subject": "companion: weekly summary as a field-binder style google doc",
+          "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/drafts/2026-11-07-claude.md, .claude/skills/weekly-summary/fix-doc.mjs, .claude/skills/weekly-summary/render.mjs"
+        }
+      ]
+    },
     {
       "slug": "keen-ramanujan",
       "file": "2026-11-08-keen-ramanujan.md",
@@ -12,25 +38,6 @@
       "goal": "",
       "next": "Owner checks /ai-cost chat spend; if 2x is affordable, build an admin-only 'Ask with Opus' switch on /chat (per-request model in src/lib/anthropic.ts).",
       "commits": []
-    },
-    {
-      "slug": "sleepy-ptolemy",
-      "file": "2026-11-08-sleepy-ptolemy.md",
-      "branch": "claude/sleepy-ptolemy-ocio2n",
-      "status": "shipped",
-      "started": "2026-11-08T18:48:05Z",
-      "updated": "2026-11-08T19:00:47Z",
-      "goal": "weekly office summary skill (/weekly-summary) + first draft",
-      "next": "After Keillor edits or sends the Nov 2-7 summary draft, run /weekly-summary learn",
-      "commits": [
-        {
-          "date": "2026-11-08",
-          "time": "18:57",
-          "sha": "4e092ad",
-          "subject": "companion: add weekly office summary skill",
-          "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/drafts/2026-11-07-claude.md, .claude/skills/weekly-summary/preferences.md"
-        }
-      ]
     },
     {
       "slug": "gifted-mayer",
