@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T17:58:49Z",
+  "generatedAt": "2026-11-08T18:02:10Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/gifted-mayer-k88maj",
       "status": "shipped",
       "started": "2026-11-08T15:44:15Z",
-      "updated": "2026-11-08T17:58:49Z",
+      "updated": "2026-11-08T18:02:09Z",
       "goal": "Answer: how Claude feels about this project (no code change)",
-      "next": "Owner ok needed to push 3 commits to main (gateway removal, jobtread split, board math tests). Then: retire low-use pages per the Vercel counts; owner to decide on the 4 pinned possible bugs (billLineMath rounding first).",
+      "next": "Owner to decide on the 3 remaining pinned possible bugs in boardMath/headroom tests (credit-memo tax shows Off; uncoded cost missing from Job to date; voided lines counted as drafts if ever loaded). Page retirement: owner said none yet.",
       "commits": [
         {
           "date": "2026-11-08",
@@ -39,6 +39,13 @@
           "sha": "ab25f62",
           "subject": "companion: split jobtread.ts into one file per section",
           "files": "CLAUDE.md, CODEBASE_MAP.md, docs/plans/SIMPLICITY_AUDIT.md, src/lib/jobtread.ts, src/lib/jobtread/billIngestion.ts, src/lib/jobtread/clientInvoiceRefs.ts, +15 more"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "18:02",
+          "sha": "0a0cd5e",
+          "subject": "companion: round a typed unit cost before the subtotal",
+          "files": "src/lib/billLineMath.test.ts, src/lib/billLineMath.ts"
         }
       ]
     },
