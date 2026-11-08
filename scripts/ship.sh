@@ -45,7 +45,9 @@ ledger=$(node scripts/session.mjs path 2>/dev/null || true)
 # ── 1. commit the ledger ────────────────────────────────────────────────────
 # post-commit stages each entry but cannot commit it. Anything left is this
 # session's own record, and it must travel with the work.
-if [ -n "$ledger" ] && ! git diff --quiet -- "$ledger" 2>/dev/null; then
+# `git status`, not `git diff`: a session that changed no code never committed,
+# so its ledger is still untracked, and `git diff` cannot see an untracked file.
+if [ -n "$ledger" ] && [ -n "$(git status --porcelain -- "$ledger" 2>/dev/null)" ]; then
   git add -- "$ledger"
 fi
 if [ -n "$ledger" ] && ! git diff --cached --quiet -- "$ledger" 2>/dev/null; then
