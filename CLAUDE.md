@@ -121,10 +121,9 @@ branch turning into a push conflict; `main` moves dozens of commits a day.
    **`JT_API_REFERENCE.md`** (in this repo — the complete Pave schema). Worked
    example end-to-end: **`src/app/jobs/`**, which reads `/api/jobs/browser` and
    `/api/jobs/cost-detail` (those two routes are not yet on the `jobs` view's
-   `paths` — step 3 — because a lead's job panel also reads cost-detail). The
-   generic gateway (`gatewayQuery` → `/api/pave`, below) is legacy, not the
-   pattern: its two callers are Email Invoices' bill lookup and Today's Sunset
-   count. Move those before removing it (`docs/plans/SIMPLICITY_AUDIT.md` finding 04).
+   `paths` — step 3 — because a lead's job panel also reads cost-detail). There
+   is no generic gateway: `/api/pave`, which ran any query the browser composed,
+   was removed on 2026-11-08. Do not add one back.
 2. **Server page → client component.** The `page.tsx` is a server component that
    renders a `"use client"` component, and that component fetches the route.
    (Pattern: `src/app/jobs/page.tsx` → `JobsBrowser.tsx`.)
@@ -149,23 +148,22 @@ repos — known weak points, decisions already made and closed (don't re-litigat
 stack), and a staged checklist of agreed cleanup work. **Read it before starting a
 refactor or asking "should we rewrite X"** — and tick its checklist as stages land.
 
-## The Pave gateway — data access & write safety
+## JobTread data access & write safety
 
-`POST /api/pave { query }` (`src/app/api/pave/route.ts`) runs any Pave query the
-browser composes. Rules baked in:
+Every JobTread read and write goes through a purpose-built route in
+`src/app/api/**` that calls `src/lib/jobtread.ts`. The browser never composes a
+Pave query.
 
-- **Reads** (no mutation at the query root) → allowed for any signed-in role.
-- **Writes** (`create*`/`update*`/`delete*`/… root fields) → **triple-gated**:
-  `writesEnabled()` **and** `gatewayWritesEnabled()` (env `COMPANION_GATEWAY_WRITES_ENABLED`,
-  ships default-off) **and** the mutation is on the caller's per-role allowlist in
-  `src/lib/paveGateway.ts`. New pages are **read-first**; don't add writes or touch
-  the allowlist without the owner's ok.
+- **Writes** go through `writesEnabled()` (`src/lib/config.ts`). New pages are
+  **read-first**. Don't add a write path without the owner's ok.
+- `src/lib/paveGateway.ts` outlived the gateway. `findMutations` defines what
+  counts as a write, and `pave()` never retries one. Its per-role mutation
+  allowlist no longer gates any route.
 
-> ⚠️ **Two different flags — don't conflate them.**
-> `COMPANION_WRITES_ENABLED` is the **master** switch and is **ARMED in production**:
-> coding saves, bill creation, invoicing, time entries and leave posting are all
-> real writes to the live JobTread org today. `COMPANION_GATEWAY_WRITES_ENABLED` is
-> the separate, narrower gate above, covering only `/api/pave`.
+> ⚠️ **`COMPANION_WRITES_ENABLED` is the master switch and is ARMED in production.**
+> Coding saves, bill creation, invoicing, time entries and leave posting are all
+> real writes to the live JobTread org today. `COMPANION_GATEWAY_WRITES_ENABLED`
+> gated only the removed `/api/pave`, so it now gates nothing.
 >
 > Neither runtime value is visible from this repo — they're Vercel env vars. The
 > `false` in `.env.example` is a safe **local** default, not a statement about
@@ -187,10 +185,9 @@ The reference implementation is `_jtVoidDocument` in `ascent-appscript/JobTread.
 (it also quarantines the bill's Drive PDF). Route a void through the appscript side
 rather than writing a second one here.
 
-`deleteDocument`, `deletePayment` and `deleteDocumentPayment` sit on the
-office/admin allowlist in `src/lib/paveGateway.ts`, so the gateway will run them.
-Nothing but this rule stops it. Do not compose a document delete, and do not add
-one to a purpose-built route.
+No route composes a document delete today. Only this rule keeps it that way. Do
+not add `deleteDocument`, `deletePayment` or `deleteDocumentPayment` to a
+purpose-built route.
 
 A single bill **line** is different, and deleting one is allowed: `/api/delete-line`
 does it deliberately, and `getLineJournalSnapshot` (`src/lib/jobtread.ts`) captures

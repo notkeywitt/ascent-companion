@@ -5347,6 +5347,75 @@ export async function replaceBillLines(
 }
 
 /**
+ * The bill on a job that carries this externalId (an ExpID), among the job's 50
+ * newest bills, or "" when none matches yet. Email Invoices' "Code this bill →"
+ * link uses it right after a push, so the newest bills are where it lands. Pave
+ * cannot filter on externalId, so the match is made here.
+ */
+export async function findNewJobBillByExternalId(
+  cfg: PaveConfig,
+  jobId: string,
+  externalId: string,
+): Promise<string> {
+  const target = externalId.trim();
+  if (!target) return "";
+  const r = await pave<{ job: { documents: { nodes: { id: string; externalId?: string }[] } } }>(cfg, {
+    job: {
+      $: { id: jobId },
+      documents: {
+        $: {
+          size: 50,
+          where: { "=": [{ field: "type" }, { value: "vendorBill" }] },
+          sortBy: [{ field: "createdAt", order: "desc" }],
+        },
+        nodes: { id: {}, externalId: {} },
+      },
+    },
+  });
+  return r.job.documents.nodes.find((d) => (d.externalId ?? "").trim() === target)?.id ?? "";
+}
+
+/**
+ * The newest month an Amazon import filed bills into, "YYYY-MM", or "" for
+ * never. The import files each order on the LAST day of its billing month and
+ * ids it `AMZ-<order>`, so the newest such bill's issue date names the month.
+ * A voided (denied) bill does not count. Pave cannot filter on externalId, so
+ * the newest Amazon bills are read and the id is checked here.
+ */
+export async function getLastAmazonBillMonth(cfg: PaveConfig): Promise<string> {
+  type R = {
+    currentGrant: {
+      organization: {
+        documents: { nodes: { issueDate?: string; externalId?: string; status?: string }[] };
+      };
+    };
+  };
+  const r = await pave<R>(cfg, {
+    currentGrant: {
+      organization: {
+        documents: {
+          $: {
+            size: 50,
+            where: {
+              and: [
+                { "=": [{ field: "type" }, { value: "vendorBill" }] },
+                { like: [{ field: ["account", "name"] }, { value: "%Amazon%" }] },
+              ],
+            },
+            sortBy: [{ field: "issueDate", order: "desc" }],
+          },
+          nodes: { issueDate: {}, externalId: {}, status: {} },
+        },
+      },
+    },
+  });
+  const bill = r.currentGrant.organization.documents.nodes.find(
+    (d) => (d.externalId ?? "").startsWith("AMZ-") && d.status !== "denied",
+  );
+  return (bill?.issueDate ?? "").slice(0, 7);
+}
+
+/**
  * Idempotency check (port of findExistingBillByExternalId): does the vendor
  * account already have a document with this externalId? Pages the account's
  * documents and matches client-side — server-side `where` on externalId 400s.

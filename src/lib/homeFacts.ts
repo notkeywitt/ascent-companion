@@ -10,7 +10,6 @@
  * opened many times a day.
  */
 import { companyDateParts } from "@/lib/billing";
-import { gatewayQuery } from "@/lib/paveGatewayClient";
 import { reconcileState, type ReconcileResult } from "@/lib/sunsetReconcile";
 
 const MIN = 60_000;
@@ -57,43 +56,14 @@ export function previousMonth(now = new Date()): string {
 
 /**
  * The newest month an Amazon import filed bills into, "YYYY-MM", or "" for
- * never. The import files each order on the LAST day of its billing month and
- * ids it `AMZ-<order>`, so the newest such bill's issue date names the month.
- * A voided (denied) bill does not count. Pave cannot filter on externalId, so
- * the newest Amazon bills are read and the id is checked here.
+ * never. The rule lives in `getLastAmazonBillMonth` (src/lib/jobtread.ts).
  */
 export function lastAmazonMonth(): Promise<string> {
   return cached("amazon", 10 * MIN, async () => {
-    type R = {
-      currentGrant: {
-        organization: {
-          documents: { nodes: { issueDate?: string; externalId?: string; status?: string }[] };
-        };
-      };
-    };
-    const r = await gatewayQuery<R>({
-      currentGrant: {
-        organization: {
-          documents: {
-            $: {
-              size: 50,
-              where: {
-                and: [
-                  { "=": [{ field: "type" }, { value: "vendorBill" }] },
-                  { like: [{ field: ["account", "name"] }, { value: "%Amazon%" }] },
-                ],
-              },
-              sortBy: [{ field: "issueDate", order: "desc" }],
-            },
-            nodes: { issueDate: {}, externalId: {}, status: {} },
-          },
-        },
-      },
-    });
-    const bill = r.currentGrant.organization.documents.nodes.find(
-      (d) => (d.externalId ?? "").startsWith("AMZ-") && d.status !== "denied",
-    );
-    return (bill?.issueDate ?? "").slice(0, 7);
+    const r = await fetch("/api/amazon-import/last-month");
+    if (!r.ok) throw new Error(String(r.status));
+    const j = (await r.json()) as { month?: string };
+    return j.month ?? "";
   });
 }
 

@@ -222,6 +222,12 @@ person down a path nobody else took.
 > **This removes a risk.** The gateway allowlist lets `deleteDocument` run. Only
 > a written rule stops a bill being destroyed. Option A removes that door.
 
+**Fixed 2026-11-08.** The last two callers moved to purpose-built routes
+(`/api/trackingsheet/bill-for-expid`, `/api/amazon-import/last-month`).
+`/api/pave` and `paveGatewayClient.ts` are deleted. `paveGateway.ts` stays:
+`pave()` uses its `findMutations`. Its allowlist and `gatewayWritesEnabled()`
+(`config.ts`) now gate nothing; removing them needs the owner's ok.
+
 ### 05 — The same 45 lines are copied across the API · CHANGE COST
 
 Six routes set six fields on one bill — `bill-duedate`, `bill-issuedate`,

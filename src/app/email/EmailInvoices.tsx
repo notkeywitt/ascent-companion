@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Banner, Button, CardSkeletonList, Checkbox, EmptyState, PageHeader, Select } from "@/components/ui";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
-import { gatewayQuery } from "@/lib/paveGatewayClient";
 
 // The Assistant's replacement for the Gmail add-on "Log Invoice" card. Lists
 // unprocessed inbox emails (from Apps Script), and for each one you pick a
@@ -629,20 +628,10 @@ function CodeBillLink({ jtJobId, expId }: { jtJobId: string; expId: string }) {
   const [docId, setDocId] = useState<string | null>(null);
   useEffect(() => {
     if (!can) return;
-    gatewayQuery<{ job: { documents: { nodes: { id: string; externalId?: string }[] } } }>({
-      job: {
-        $: { id: jtJobId },
-        documents: {
-          $: {
-            size: 50,
-            where: { "=": [{ field: "type" }, { value: "vendorBill" }] },
-            sortBy: [{ field: "createdAt", order: "desc" }],
-          },
-          nodes: { id: {}, externalId: {} },
-        },
-      },
-    })
-      .then((r) => setDocId(r.job.documents.nodes.find((d) => (d.externalId ?? "").trim() === expId)?.id ?? ""))
+    const qs = new URLSearchParams({ jobId: jtJobId, expId });
+    fetch(`/api/trackingsheet/bill-for-expid?${qs}`)
+      .then((r) => (r.ok ? (r.json() as Promise<{ docId?: string }>) : { docId: "" }))
+      .then((j) => setDocId(j.docId ?? ""))
       .catch(() => setDocId(""));
   }, [can, jtJobId, expId]);
   if (!can || docId === null) return null;

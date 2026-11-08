@@ -34,6 +34,11 @@ restore_configs() {
 }
 trap restore_configs EXIT
 
+# The last build's generated route types name every route that existed then.
+# After a route is deleted they point at a missing file and fail the typecheck
+# below. The build regenerates them, so drop them first.
+rm -rf .next-prepush/types
+
 if ! npm run typecheck; then
   echo "pre-push: typecheck FAILED — push blocked" >&2
   exit 1

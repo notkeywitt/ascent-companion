@@ -44,7 +44,7 @@ matching row here.
 
 | To work on… | Start in |
 |---|---|
-| A **new read-only page** over JobTread | copy `src/app/jobs/` (`page.tsx` → `JobsBrowser.tsx`), compose query per `JT_API_REFERENCE.md`, add the read to `src/lib/jobtread.ts` and a purpose-built `src/app/api/<name>/route.ts` (not `gatewayQuery`, which is legacy — see `CLAUDE.md`) |
+| A **new read-only page** over JobTread | copy `src/app/jobs/` (`page.tsx` → `JobsBrowser.tsx`), compose query per `JT_API_REFERENCE.md`, add the read to `src/lib/jobtread.ts` and a purpose-built `src/app/api/<name>/route.ts` (there is no generic gateway) |
 | **A customer's or job's JobTread RECORD** (name, number, phase, address, contact, price type) | `src/lib/clientDirectory.ts` (reads + the write allowlist) → routes `src/app/api/clients/*` → page `src/app/clients/`. Editing lives HERE; `/jobs` reports a job's cost and changes nothing |
 | **A job's invoice capture email tag** (the `_JT Invoice <Customer> - <Job>` Gmail label) | button on `src/app/clients/` → `src/app/clients/InvoiceTagCard.tsx` → `/api/clients/invoice-tag` → appscript `EmailToJtInvoice.js` (`listInvoiceTags`/`createInvoiceTag`). The label TEXT is always composed on the Apps Script side |
 | **Gating / who sees what** | `src/lib/views.ts` (the single source of truth: `VIEWS`, `ROLE_VIEWS`), enforced by `src/middleware.ts` |
@@ -55,7 +55,7 @@ matching row here.
 | **The IPAD (tablet) layout** — home console, the rail, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`. From `pad` up the bottom bar is a left RAIL, and from `2xl` a sidebar listing the current workspace's pages (`src/components/TabBar.tsx`, `railFor` in `src/lib/workspaces.ts`); its width is `--rail-w` (`globals.css`), which `#app-shell` and every `fixed inset-x-0` bar (`left: var(--rail-w)`) move right by |
 | **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/workspaces.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
-| **The Pave gateway** (generic JobTread access + write policy) | `src/app/api/pave/route.ts` + `src/lib/paveGateway.ts` (policy) + `src/lib/paveGatewayClient.ts` (browser) |
+| **What counts as a JobTread write** (`findMutations`; `pave()` never retries one) | `src/lib/paveGateway.ts`. The generic `/api/pave` gateway was removed 2026-11-08; its per-role allowlist there gates no route now. |
 | **Verified JobTread reads/writes** (not the generic gateway) | `src/lib/jobtread.ts` |
 | **Billing period / bill-date rules** | `src/lib/billing.ts` (keep in lockstep with appscript `Config.js`); the month the office SET, overriding the 10th cutoff — `src/lib/billingMonth.ts`, route `/api/billing-month`, control in `HomeMasthead`. The route sets BOTH sides (here + the appscript Script Property) and refuses the change if the push fails. |
 | **Bill line money math** (edit/save a bill's lines) | `src/lib/billLineMath.ts` |
@@ -152,8 +152,7 @@ including edge middleware.
 | `actingAs.ts` | **Whose time is this /employee-time request about?** Applies the rule below to a real request: reads the session, resolves the caller's own JobTread user, and checks any other subject against the live org roster before it reaches a write. Acting swaps the SUBJECT, never the attribution — `email` and `role` stay the signed-in admin's, so the log's Logged By and the financial journal both name who really did it. |
 | `timeSubject.ts` ⟂ | The rule itself, with no imports so it is testable without a session: your own JobTread user always, someone else's only as admin, and an UNLINKED person may still identify themselves (the reason `userId` was ever loose in a request body). |
 | `employeeClock.ts` | The running clock (`readOpenClock`) and the last job/cost/pay a person used (`readLastUsed`), shared by `/employee-time`'s server shell and its clock route. |
-| `paveGateway.ts` ⟂ | Policy + query inspection for the generic `/api/pave` gateway (read/write classification, per-role write allowlist). |
-| `paveGatewayClient.ts` | Browser-safe `gatewayQuery(query)` — POSTs to `/api/pave`; no grant key. |
+| `paveGateway.ts` ⟂ | Read/write classification of a Pave query (`findMutations`), used by `pave()`. Also the per-role mutation allowlist left from the removed `/api/pave` gateway; it gates no route now. |
 | `config.ts` | Server-side Pave config from env (`getPaveConfig`) + write gates. Never import into client code. |
 | `copy.ts` ⟂ | **Registry of editable on-screen text** — every string the office can reword from Admin → Page Text. English lives here as the shipped default; the DB only overrides. |
 | `copyService.ts` | Server half of the above: reads `page_copy` overrides. Returns `{}` on any DB failure so copy can never blank a page. |

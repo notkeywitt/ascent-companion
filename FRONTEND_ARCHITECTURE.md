@@ -27,40 +27,18 @@ and gets reused as-is:
 
 1. **The `grantKey` never reaches the browser.** All Pave traffic goes through Next.js server code
    (route handlers / server actions). The client calls *our* endpoints; only the server holds the key.
-2. **Writes stay behind `writesEnabled()` + an allowlist** (see gateway below). Reads are open to
-   authorized roles; mutations are explicitly enumerated.
+2. **Writes stay behind `writesEnabled()`**, each in its own purpose-built route. Reads are open
+   to the roles a view's `paths` allow.
 3. **Role/view gating** (`lib/views.ts`) decides which views + data each role sees — enforced in
    middleware, not just hidden in the UI.
 
-## The "customizable" core — a generic guarded Pave gateway
+## No generic gateway
 
-Today each view needs a bespoke `src/app/api/*` route. Because we now hold the **entire schema**, we
-can add **one** server endpoint that executes an arbitrary Pave query object, so new views compose
-queries directly instead of waiting on a new route:
-
-```
-POST /api/pave            (server-only; grantKey injected server-side)
-  body: { query: <Pave query object, WITHOUT the $.grantKey> }
-  guard:
-    - require an authenticated session; resolve role from the JWT
-    - REJECT if the query contains any mutation root field (create*/update*/delete*/send*/submit*/
-      rerun*/cancel*/close*/renameFolder/markCommentAsUnread/notify*) UNLESS:
-        * writesEnabled() is true, AND
-        * the mutation name is in an explicit per-role ALLOWLIST
-    - inject $.grantKey (+ organizationId defaults) server-side
-    - pass through pave() so cachedRef / retry / error-normalization still apply
-  response: the Pave result tree (or { errors } normalized)
-```
-
-- **Reads:** any authorized role can run any read query — the schema is the contract, and
-  [JT_API_REFERENCE.md](JT_API_REFERENCE.md) tells the view author exactly what to select.
-- **Writes:** default-denied. A mutation only runs when the gate is on *and* the mutation is
-  allowlisted for that role. This is the single choke point for the "never fight the JT→sheet mirror"
-  rule (CLAUDE.md) — keep the appscript mirror as the source of truth and only allow front-end writes
-  that don't race it.
-- **Keep bespoke typed routes** for hot or multi-step paths (add-bill, invoice staging, budget
-  cost-to-complete) where server-side composition/validation matters. The gateway is for the long
-  tail of read views and simple writes.
+An earlier design here added one endpoint, `POST /api/pave`, that ran any Pave
+query the browser composed. It was built, then removed on 2026-11-08: its last
+two callers moved to purpose-built routes. Every view reads and writes JobTread
+through its own route in `src/app/api/**`, which calls `src/lib/jobtread.ts`.
+The route is what a view's `paths` gate in `src/lib/views.ts`.
 
 ## View roadmap (each maps to a JT_API_REFERENCE.md domain)
 
@@ -88,11 +66,9 @@ after each introspection refresh.
 **Introspect before you build.** When a view needs a field the reference doesn't already list, run
 the 4-step recipe (see JT_API_REFERENCE.md → Fundamentals) against the live schema, add it to the
 doc, then build. For any **write** of a newly-used field, still probe behavior first (CLAUDE.md
-rule #3) before enabling it in the gateway allowlist.
+rule #3) before you add it to a route.
 
 ## Open items before coding
 
-- Confirm the gateway's mutation allowlist per role with the owner (which writes the front end may do
-  vs. which must stay in the appscript mirror).
 - Finish the last two API-reference domains (Logs/Forms/Automation) once the MCP connector is back,
   so reporting/automation views aren't guesswork.
