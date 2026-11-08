@@ -1,6 +1,6 @@
 ---
 name: weekly-summary
-description: Draft the weekly Office summary email for Casey and Ty from the week's office mail, JobTread bills and invoices, and other office sources, and save it as a Gmail draft in the office account. Also learns from the office manager's edits to that draft. Use when the user types /weekly-summary, says "weekly summary", "office summary", "draft the week", or "learn from my edits" / "review my summary edits".
+description: Draft the weekly Office summary for Casey and Ty from the week's office mail, JobTread bills and invoices, and other office sources. Saves it as a Gmail draft in the office account and as a printable Google Doc in the Field Binder style. Also learns from the office manager's edits to that draft. Use when the user types /weekly-summary, says "weekly summary", "office summary", "draft the week", or "learn from my edits" / "review my summary edits".
 ---
 
 # Weekly Office summary
@@ -27,6 +27,8 @@ Two modes. Pick one from what the user typed:
 | `preferences.md` | The house style: sections, order, tone, what to leave out. **Read it first, every run.** It overrides any default below. | Learn mode |
 | `drafts/<week-end>-claude.md` | The draft exactly as Claude wrote it. Learn mode diffs against it. | Draft mode |
 | `drafts/<week-end>-final.md` | The email as Keillor sent it (or left it). | Learn mode |
+| `render.mjs` | Turns one draft `.md` into the email HTML, the plain-text body, or the Doc HTML. | — |
+| `fix-doc.mjs` | Second pass on the Google Doc: section rules, callout, column widths, table borders. | — |
 
 `<week-end>` is the Saturday that closes the week, `YYYY-MM-DD`.
 
@@ -84,33 +86,93 @@ Drop a section that has nothing in it. Do not write "Nothing this week".
 Leave out: marketing mail, newsletters, vendor receipts already captured as
 bills, personal mail, verification codes, spam pitches.
 
-### 4. Write
+### 4. Write the draft source
 
-- Plain, short, scannable. Bullets, not paragraphs. One fact per bullet.
-- Lead each bullet with the job or vendor name in bold.
+Write `drafts/<week-end>-claude.md` in the Markdown that `render.mjs` reads.
+The email and the Google Doc both come from this one file.
+
+```
+<!-- gmail-draft-id: (filled in at step 6) -->
+<!-- doc: (filled in at step 5) -->
+# Week of Nov 2 – Nov 7, 2026
+Prepared by Keillor  ·  For Casey Zautke & Ty O'Steen  ·  <today>
+
+### Needs you
+| Who | Item |
+|---|---|
+| Casey | **Topic:** one line. |
+
+### Billing (vendor bills in)
+> 89 bills entered this week · $111,950.75 total · 7 voided
+| Vendor | Job | Amount | Note |
+|---|---|---|---|
+- **Label:** a bullet
+
+-Keillor
+```
+
+- `### ` is a section. `- ` is a bullet. `> ` is the red-ruled callout (one per
+  section at most; use it for the headline number). A `|` table's first row is
+  its header.
+- Use a table for rows that share columns: Needs you, large bills, client
+  invoices, leads, coming up. Use bullets for everything else.
+- Plain, short, scannable. One fact per bullet or cell. Bold the topic at the
+  start of a bullet.
 - Amounts as `$1,234.56`. Jobs as "Customer — Job" (e.g. "Moon Spring — Pole Barn").
-- Open with one line: the week's dates. Close with `-Keillor`.
 - Mark anything uncertain with `(check)` rather than guessing.
 
-### 5. Save and draft
+### 5. Make the Google Doc (the printable version)
 
-1. Write the body as Markdown to `drafts/<week-end>-claude.md`. Top line:
-   `<!-- gmail-draft-id: <id> -->` once you have the id (step 3).
-2. Convert to simple HTML (`<h3>`, `<ul>`, `<li>`, `<b>`; no CSS, no colours).
-3. Gmail `create_draft`: to Casey and Ty, subject
-   `Office Weekly Summary — <Mon Mon-DD>–<Sat Mon-DD>, <YYYY>`, `htmlBody` plus a
-   plain-text `body`, `includeSignature: false`.
-4. Put the draft id on the first line of the `-claude.md` file.
-5. Commit the `-claude.md` file and push (see "Saving" below).
-6. Reply with the draft link and a list of what you could not check.
+The Doc copies the look of the Field Binder tabs in Drive folder
+`1nkr6dnDSxx0PSSmuFZZ5dipJLjB4jDuL` (Gormley Studio): Helvetica Neue, ink
+`#1b1b17`, grey `#6b6b66`, dark header row, `#f3f3f1` zebra rows, a rule under
+each section label, the Ascent header and footer. It saves to
+**Drive › Office Weekly Summaries** (folder `1WtvdHQfgH1I8pb6ngjAOVjHGwbpTXBuD`).
+
+1. `node render.mjs drafts/<week-end>-claude.md doc` → HTML.
+2. Drive `create_file`: title `Office Weekly Summary — <Mon DD>–<Sat DD>, <YYYY>`,
+   `parentId` the folder above, `contentMimeType: text/html`, `textContent` the
+   HTML. Drive converts it to a Google Doc.
+3. Docs `update_doc` with `createHeader` and `createFooter` (type `DEFAULT`) and
+   `updateDocumentStyle`: Letter page, 54 pt margins, 30 pt header and footer
+   margins. Note the header and footer ids from the reply.
+4. Docs `update_doc`, `segmentId` = those ids:
+   - Header: insert `ASCENTBUILDINGCO.COM\nOFFICE@ASCENTBUILDINGCO.COM`, both
+     right-aligned, Roboto weight 300, ink; line 1 at 11 pt, line 2 at 8 pt.
+   - Footer: insert `ASCENT BUILDING CO.\n4223 CENTER RD.\nLOPEZ ISLAND, WA. 98261`,
+     8 pt, ink; line 1 Rubik 300, lines 2–3 Roboto 300.
+5. Docs `read_doc` (the result saves to a file), then
+   `node fix-doc.mjs <that file> drafts/<week-end>-claude.md` → a `requests`
+   array. Send it with `update_doc`. Run `read_doc` again first if any text
+   changed since the read.
+6. Check it: Drive `download_file_content` with `exportMimeType:
+   application/pdf`, decode, `pdftoppm -r 70 -png`, and look at each page.
+   Fix and re-run step 5 if a rule, width or header is off.
+7. Put `<!-- doc: https://docs.google.com/document/d/<id>/edit -->` on line 2 of
+   the `.md`. The email links to it.
+
+A PDF is File › Download › PDF in the Doc. Do not save a PDF copy to Drive
+unless asked.
+
+### 6. Make the Gmail draft
+
+1. `node render.mjs drafts/<week-end>-claude.md email` → `htmlBody`;
+   `node render.mjs drafts/<week-end>-claude.md text` → `body`.
+2. Gmail `create_draft`: to Casey and Ty, subject
+   `Office Weekly Summary — <Mon DD>–<Sat DD>, <YYYY>`, `includeSignature: false`.
+3. Put the draft id on line 1 of the `.md`.
+4. Commit the `.md` and push (see "Saving").
+5. Reply with the draft link, the Doc link, and a list of what you could not check.
 
 ## Learn mode
 
 1. Find the newest `drafts/*-claude.md` that has no matching `-final.md`.
-2. Find Keillor's version, in this order:
+2. Find Keillor's version. Keillor may edit the email, the Doc, or both.
+   Read both and treat the union of the changes as the edit. In this order:
    - Sent mail: `in:sent subject:"Office Weekly Summary"` in the week after
      `<week-end>`. Read it with `get_thread` (`PLAIN_TEXT`).
    - Else the draft by id (`get_draft`, `PLAIN_TEXT`) — it is still unsent.
+   - The Doc: Drive `read_file_content` on the id in the `<!-- doc: -->` line.
    - Else ask the user.
 3. Save Keillor's version to `drafts/<week-end>-final.md`.
 4. Compare the two. List each change as one of:
