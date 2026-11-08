@@ -150,11 +150,12 @@ each section label, the Ascent header and footer. It saves to
 7. Put `<!-- doc: https://docs.google.com/document/d/<id>/edit -->` on line 2 of
    the `.md`. The email links to it.
 
-**The PDF goes to Drive › Weekly Wraps** (folder `1C4DfDHeEoczgXb0kd10Tj1X50Ho1voxb`),
-named `Office Weekly Summary — <Mon DD>–<Sat DD>, <YYYY>.pdf`. A Claude Code
-session cannot put it there today: Drive `create_file` takes no file reference,
-and a ~100 KB PDF is too long to send as typed base64. Until a route exists,
-tell the user to save it with File › Download › PDF in the Doc.
+**The PDF lands in Drive › Weekly Wraps on its own** (folder
+`1C4DfDHeEoczgXb0kd10Tj1X50Ho1voxb`), named `<Doc name>.pdf`. The Apps Script
+side (`WeeklyWraps.js` in `ascent-appscript`) checks Office Weekly Summaries on
+every 30-minute tracking-sheet sync: a new Doc gets a PDF, and an edited Doc's
+PDF is refreshed in place. Do not upload a PDF from the session. To get it at
+once, run `exportWeeklyWrapPdfs` in the Apps Script editor.
 
 ### 6. Make the Gmail draft
 
