@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [sleepy-ptolemy](.claude/sessions/2026-11-08-sleepy-ptolemy.md) | 2026-11-08 | 1 | weekly office summary skill (/weekly-summary) + first draft |
 | [keen-ramanujan](.claude/sessions/2026-11-08-keen-ramanujan.md) | 2026-11-08 | 0 | — |
 | [gifted-mayer](.claude/sessions/2026-11-08-gifted-mayer.md) | 2026-11-08 | 5 | Answer: how Claude feels about this project (no code change) |
 | [stoic-fermat](.claude/sessions/2026-11-07-stoic-fermat.md) | 2026-11-07 | 2 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [mobile-donut-charts](.claude/sessions/2026-11-03-mobile-donut-charts.md) | 2026-11-03 | 1 | — |
 | [sunset-statement-reconciliation](.claude/sessions/2026-11-02-sunset-statement-reconciliation.md) | 2026-11-03 | 2 | — |
 | [determined-davinci](.claude/sessions/2026-11-03-determined-davinci.md) | 2026-11-03 | 1 | — |
-| [serene-ride](.claude/sessions/2026-11-03-serene-ride.md) | 2026-11-03 | 2 | — |

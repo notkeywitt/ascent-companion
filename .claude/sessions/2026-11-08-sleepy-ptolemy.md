@@ -2,9 +2,9 @@
 slug: sleepy-ptolemy
 repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
-status: in-progress
+status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T18:57:51Z
+updated: 2026-11-08T18:58:06Z
 goal: weekly office summary skill (/weekly-summary) + first draft
 next: After Keillor edits or sends the Nov 2-7 summary draft, run /weekly-summary learn
 ---
