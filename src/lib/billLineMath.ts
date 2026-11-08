@@ -212,8 +212,11 @@ export function billLineMath({
     const qStr = edits[line.id]?.quantity;
     const uStr = edits[line.id]?.unitCost;
     const qty = isDraft && qStr !== undefined && qStr !== "" ? Number(qStr) : (line.quantity ?? 0);
+    // A typed unit cost is rounded to cents HERE, not only at save: the save
+    // writes cents, so the subtotal must be built from the same cents or the
+    // screen shows a different total than JobTread will hold ($1.005 × 2).
     const preTaxUnit =
-      isDraft && uStr !== undefined && uStr !== "" ? Number(uStr) : curPreTaxUnit;
+      isDraft && uStr !== undefined && uStr !== "" ? round2(Number(uStr)) : curPreTaxUnit;
     return { line, qty, preTaxUnit, curPreTaxUnit };
   });
 

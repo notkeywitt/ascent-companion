@@ -347,12 +347,15 @@ describe("billLineMath — realistic bills", () => {
 
   it("a typed unit cost is written rounded to cents, float half-way included", () => {
     // 1.005 * 100 is 100.4999… in a double, so it rounds DOWN (see round2).
-    // NOTE: possible bug — the subtotal is computed from the UNROUNDED unit
-    // (2 × 1.005 = 2.01) while the save writes the rounded one (2 × 1.00), so
-    // the screen shows a cent more than JobTread will hold.
+    // The subtotal is built from the same rounded unit the save writes, so the
+    // screen and JobTread agree: 2 × $1.00 = $2.00 (fixed 2026-11-08; before,
+    // the screen showed $2.01).
     const m = draft([line()], { edits: { l1: { unitCost: "1.005" } } });
     expect(m.wholeBillChanges[0].unitCost).toBe(1);
-    expect(m.subtotal).toBe(2.01);
+    expect(m.subtotal).toBe(2);
+    expect(m.subtotal).toBe(
+      round2(m.wholeBillChanges.reduce((s, c) => s + (c.unitCost ?? 0) * (c.quantity ?? 0), 0)),
+    );
     expect(m.dirty).toBe(true);
   });
 
