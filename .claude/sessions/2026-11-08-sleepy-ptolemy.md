@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
 status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T20:21:44Z
+updated: 2026-11-08T20:30:03Z
 goal: weekly office summary skill (/weekly-summary) + first draft
-next: Keillor picks which recap topics (purchase approvals, crew requests, subscriptions, meetings, client payments, marketing, heads-ups, fuller leads) to add to weekly-summary preferences.md
+next: Pick a route for saving the weekly PDF to Drive > Weekly Wraps (Apps Script action vs PDF attached to the email)
 ---
 
 ## Log
@@ -20,5 +20,7 @@ next: Keillor picks which recap topics (purchase approvals, crew requests, subsc
   .claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/render.mjs
 - 2026-11-08 20:18 · `77f2641` companion: weekly summary drops voids, apps script and prepared-by line
   .claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/drafts/2026-11-07-final.md, .claude/skills/weekly-summary/preferences.md, .claude/skills/weekly-summary/render.mjs
+- 2026-11-08 20:30 · `fe7622c` companion: weekly summary adds heads-ups, open leads, crew requests, subscriptions, meetings
+  .claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/preferences.md
 
 ## Notes
