@@ -65,22 +65,41 @@ if (mode === "text") {
 }
 
 // ── email ────────────────────────────────────────────────────────────
+// The same Field Binder look as the Doc, in inline styles: Gmail drops most
+// <style> rules, and keeps inline ones when Keillor edits the draft.
 if (mode === "email") {
-  let h = "";
+  const F = "font-family:Helvetica,Arial,sans-serif;color:#1b1b17;";
+  const GREY = "color:#6b6b66;";
+  const LINE = "border-bottom:1px solid #1b1b17;";
+  const CELL = "padding:5px 7px;border:1px solid #dcdcd8;font-size:12px;";
   const doc = readFileSync(file, "utf8").match(/<!-- doc: (\S+) -->/);
-  if (doc) h += `<p>Printable version (Google Doc, File → Download → PDF): <a href="${doc[1]}">Office Weekly Summary</a></p>`;
+
+  let h = `<div style="${F}max-width:640px;font-size:13px;line-height:1.4">`;
+  // Header: the Doc's right-aligned web and email lines.
+  h += `<div style="text-align:right;font-weight:300;letter-spacing:.5px">ASCENTBUILDINGCO.COM<br><span style="font-size:10px">OFFICE@ASCENTBUILDINGCO.COM</span></div>`;
+  h += `<div style="font-size:10px;font-weight:bold;${GREY}margin-top:14px">OFFICE · WEEKLY SUMMARY</div>`;
+  let metaDone = false;
   for (const b of blocks) {
-    if (b.t === "title") h += `<h2>${inline(b.s)}</h2>`;
-    else if (b.t === "h") h += `<h3>${inline(b.s)}</h3>`;
-    else if (b.t === "ul") h += `<ul>${b.items.map((i) => `<li>${inline(i)}</li>`).join("")}</ul>`;
-    else if (b.t === "callout") h += `<p><b>${inline(plain(b.s))}</b></p>`;
+    if (b.t === "title") h += `<div style="font-size:20px;font-weight:bold;margin:2px 0">${inline(b.s)}</div>`;
+    else if (b.t === "p" && !metaDone && b.s !== "-Keillor") {
+      metaDone = true;
+      h += `<div style="font-size:11px;${GREY}">${inline(b.s)}`;
+      if (doc) h += ` · <a href="${doc[1]}" style="${GREY}">Printable version</a>`;
+      h += `</div>`;
+    } else if (b.t === "h") h += `<div style="font-size:13px;font-weight:bold;${LINE}padding-bottom:4px;margin:18px 0 7px">${inline(plain(b.s).toUpperCase())}</div>`;
+    else if (b.t === "ul") h += `<ul style="margin:6px 0;padding-left:20px">${b.items.map((i) => `<li style="margin:0 0 3px">${inline(i)}</li>`).join("")}</ul>`;
+    else if (b.t === "callout") h += `<div style="font-size:14px;font-weight:bold;border-left:4px solid #b3261e;background:#fbedec;padding:6px 10px;margin:0 0 8px">${inline(plain(b.s))}</div>`;
     else if (b.t === "table") {
       const [head, ...rows] = b.rows;
-      h += `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse"><tr>${head.map((c) => `<th align="left">${inline(c)}</th>`).join("")}</tr>`;
-      h += rows.map((r) => `<tr>${r.map((c) => `<td valign="top">${inline(c)}</td>`).join("")}</tr>`).join("");
+      h += `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;margin:6px 0">`;
+      h += `<tr>${head.map((c) => `<td style="${CELL}background:#1b1b17;color:#fff;font-weight:bold;font-size:11px">${inline(plain(c).toUpperCase())}</td>`).join("")}</tr>`;
+      h += rows.map((r, i) => `<tr${i % 2 ? ' style="background:#f3f3f1"' : ""}>${r.map((c, j) => `<td valign="top" style="${CELL}${j ? "" : "font-weight:bold;"}">${inline(c)}</td>`).join("")}</tr>`).join("");
       h += "</table>";
-    } else h += `<p>${inline(b.s)}</p>`;
+    } else h += `<p style="margin:14px 0 0">${inline(b.s)}</p>`;
   }
+  // Footer: the Doc's address block.
+  h += `<div style="font-size:10px;font-weight:300;margin-top:22px;border-top:1px solid #dcdcd8;padding-top:8px">ASCENT BUILDING CO.<br>4223 CENTER RD.<br>LOPEZ ISLAND, WA. 98261</div>`;
+  h += `</div>`;
   process.stdout.write(h + "\n");
   process.exit(0);
 }

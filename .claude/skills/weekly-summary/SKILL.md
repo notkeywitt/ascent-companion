@@ -156,6 +156,10 @@ unless asked.
 
 ### 6. Make the Gmail draft
 
+The email HTML copies the Doc's look in inline styles (Gmail drops most
+`<style>` rules): header, grey label, section rules, dark-header tables, red
+callout, address footer, and a "Printable version" link to the Doc.
+
 1. `node render.mjs drafts/<week-end>-claude.md email` → `htmlBody`;
    `node render.mjs drafts/<week-end>-claude.md text` → `body`.
 2. Gmail `create_draft`: to Casey and Ty, subject
