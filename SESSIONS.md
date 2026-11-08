@@ -26,13 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 55d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 56d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [gifted-mayer](.claude/sessions/2026-11-08-gifted-mayer.md) | 2026-11-08 | 2 | Answer: how Claude feels about this project (no code change) |
+| [gifted-mayer](.claude/sessions/2026-11-08-gifted-mayer.md) | 2026-11-08 | 4 | Answer: how Claude feels about this project (no code change) |
 | [stoic-fermat](.claude/sessions/2026-11-07-stoic-fermat.md) | 2026-11-07 | 2 | — |
 | [sweet-pascal](.claude/sessions/2026-11-07-sweet-pascal.md) | 2026-11-07 | 3 | — |
 | [hopeful-davinci](.claude/sessions/2026-11-07-hopeful-davinci.md) | 2026-11-07 | 1 | — |

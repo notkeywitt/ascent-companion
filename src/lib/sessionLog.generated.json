@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T16:03:16Z",
+  "generatedAt": "2026-11-08T17:58:49Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/gifted-mayer-k88maj",
       "status": "shipped",
       "started": "2026-11-08T15:44:15Z",
-      "updated": "2026-11-08T16:03:16Z",
+      "updated": "2026-11-08T17:58:49Z",
       "goal": "Answer: how Claude feels about this project (no code change)",
-      "next": "Owner decides: delete the two done plans (NAVIGATION, CONSOLIDATION) after folding their surviving rules into THEME.md / FRONTEND_ARCHITECTURE.md; fold SIMPLICITY_AUDIT open findings into ARCHITECTURE_REVIEW.",
+      "next": "Owner ok needed to push 3 commits to main (gateway removal, jobtread split, board math tests). Then: retire low-use pages per the Vercel counts; owner to decide on the 4 pinned possible bugs (billLineMath rounding first).",
       "commits": [
         {
           "date": "2026-11-08",
@@ -25,6 +25,20 @@
           "sha": "73be4e0",
           "subject": "companion: move plans to docs/plans with status lines",
           "files": ".claude/skills/invoice-review/SKILL.md, ARCHITECTURE_REVIEW.md, CLAUDE.md, CODEBASE_MAP.md, README.md, docs/plans/CONSOLIDATION_PLAN.md, +5 more"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "17:12",
+          "sha": "6b3540f",
+          "subject": "companion: remove the generic /api/pave gateway",
+          "files": ".githooks/pre-push, CLAUDE.md, CODEBASE_MAP.md, FRONTEND_ARCHITECTURE.md, docs/plans/SIMPLICITY_AUDIT.md, src/app/api/amazon-import/last-month/route.ts, +6 more"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "17:20",
+          "sha": "ab25f62",
+          "subject": "companion: split jobtread.ts into one file per section",
+          "files": "CLAUDE.md, CODEBASE_MAP.md, docs/plans/SIMPLICITY_AUDIT.md, src/lib/jobtread.ts, src/lib/jobtread/billIngestion.ts, src/lib/jobtread/clientInvoiceRefs.ts, +15 more"
         }
       ]
     },

@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/gifted-mayer-k88maj
 status: shipped
 started: 2026-11-08T15:44:15Z
-updated: 2026-11-08T17:24:28Z
+updated: 2026-11-08T17:58:49Z
 goal: Answer: how Claude feels about this project (no code change)
 next: Owner ok needed to push 3 commits to main (gateway removal, jobtread split, board math tests). Then: retire low-use pages per the Vercel counts; owner to decide on the 4 pinned possible bugs (billLineMath rounding first).
 ---
