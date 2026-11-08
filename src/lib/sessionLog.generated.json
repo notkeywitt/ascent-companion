@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T15:52:57Z",
+  "generatedAt": "2026-11-08T16:03:16Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/gifted-mayer-k88maj",
       "status": "shipped",
       "started": "2026-11-08T15:44:15Z",
-      "updated": "2026-11-08T15:52:57Z",
+      "updated": "2026-11-08T16:03:16Z",
       "goal": "Answer: how Claude feels about this project (no code change)",
-      "next": "Check JobTread for the Seth 9/16 and Wyatt 9/14 duplicate time entries; void or remove them with the owner's ok.",
+      "next": "Owner decides: delete the two done plans (NAVIGATION, CONSOLIDATION) after folding their surviving rules into THEME.md / FRONTEND_ARCHITECTURE.md; fold SIMPLICITY_AUDIT open findings into ARCHITECTURE_REVIEW.",
       "commits": [
         {
           "date": "2026-11-08",
@@ -18,6 +18,13 @@
           "sha": "009f48c",
           "subject": "companion: ship commits an untracked session ledger",
           "files": "scripts/ship.sh"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "16:03",
+          "sha": "73be4e0",
+          "subject": "companion: move plans to docs/plans with status lines",
+          "files": ".claude/skills/invoice-review/SKILL.md, ARCHITECTURE_REVIEW.md, CLAUDE.md, CODEBASE_MAP.md, README.md, docs/plans/CONSOLIDATION_PLAN.md, +5 more"
         }
       ]
     },
