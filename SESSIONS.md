@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [sleepy-ptolemy](.claude/sessions/2026-11-08-sleepy-ptolemy.md) | 2026-11-08 | 5 | weekly office summary skill (/weekly-summary) + first draft |
+| [sleepy-ptolemy](.claude/sessions/2026-11-08-sleepy-ptolemy.md) | 2026-11-08 | 6 | weekly office summary skill (/weekly-summary) + first draft |
 | [keen-ramanujan](.claude/sessions/2026-11-08-keen-ramanujan.md) | 2026-11-08 | 0 | — |
 | [gifted-mayer](.claude/sessions/2026-11-08-gifted-mayer.md) | 2026-11-08 | 5 | Answer: how Claude feels about this project (no code change) |
 | [stoic-fermat](.claude/sessions/2026-11-07-stoic-fermat.md) | 2026-11-07 | 2 | — |

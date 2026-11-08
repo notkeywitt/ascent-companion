@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T20:41:20Z",
+  "generatedAt": "2026-11-08T20:43:27Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/sleepy-ptolemy-ocio2n",
       "status": "shipped",
       "started": "2026-11-08T18:48:05Z",
-      "updated": "2026-11-08T20:41:20Z",
+      "updated": "2026-11-08T20:43:27Z",
       "goal": "weekly office summary skill (/weekly-summary) + first draft",
       "next": "Confirm Apps Script deploy run 20 succeeded; then check Drive > Weekly Wraps holds 'Office Weekly Summary — Nov 2–7, 2026.pdf' within ~30 min",
       "commits": [
@@ -46,6 +46,13 @@
           "sha": "fe7622c",
           "subject": "companion: weekly summary adds heads-ups, open leads, crew requests, subscriptions, meetings",
           "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/preferences.md"
+        },
+        {
+          "date": "2026-11-08",
+          "time": "20:43",
+          "sha": "8968165",
+          "subject": "companion: weekly summary pdf now files itself in weekly wraps",
+          "files": ".claude/skills/weekly-summary/SKILL.md"
         }
       ]
     },
