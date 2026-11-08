@@ -1,5 +1,7 @@
 # DEPOSITS_PLAN.md — job deposits and client payments
 
+Status: in progress — 2026-11-08
+
 The staged plan for showing each job's deposit and client payments in the
 Assistant, and for applying part of a deposit to a client invoice.
 

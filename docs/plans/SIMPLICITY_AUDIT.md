@@ -1,5 +1,7 @@
 # SIMPLICITY_AUDIT.md — `ascent-companion`
 
+Status: in progress — 2026-11-08
+
 Read 2026-09-14 against the working tree: **482 files, 117,545 lines** of
 TypeScript in `src/`. Every figure below was measured, not carried over from an
 earlier document.

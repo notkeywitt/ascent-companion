@@ -1,6 +1,8 @@
 # CONSOLIDATION_PLAN.md — `ascent-companion`
 
-Read 2026-10-18 against the working tree. Status: **agreed 2026-10-18** (owner answers
+Status: done — 2026-11-08
+
+Read 2026-10-18 against the working tree. Agreed 2026-10-18 (owner answers
 below). Stage 0 is next. Web version, with the before/after chart and a
 "where did my page go?" lookup: <https://claude.ai/artifact/9i159BFud4dbuvjwVcgTbj>
 

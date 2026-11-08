@@ -22,7 +22,7 @@ Every page sits in one of ten **workspaces**, each named for a job the office
 repeats. `src/lib/workspaces.ts` is the one list: it feeds the header's ☰ menu,
 the bottom bar (a left rail on iPad) and the header search. Inside a workspace a
 tab strip moves between its pages and carries the job and the billing month.
-The plan behind this layout is `NAVIGATION_PLAN.md`.
+The plan behind this layout is `docs/plans/NAVIGATION_PLAN.md`.
 
 | Workspace | Pages |
 |---|---|

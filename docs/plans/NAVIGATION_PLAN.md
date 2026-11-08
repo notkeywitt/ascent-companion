@@ -1,5 +1,7 @@
 # NAVIGATION_PLAN.md — `ascent-companion`
 
+Status: done — 2026-11-08
+
 Read 2026-09-29 against the working tree. Every figure below was measured in the
 code, not carried over. Web version, with mockups, the page-change chart and a
 "where did my page go?" lookup:

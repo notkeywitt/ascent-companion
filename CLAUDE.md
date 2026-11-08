@@ -124,7 +124,7 @@ branch turning into a push conflict; `main` moves dozens of commits a day.
    `paths` — step 3 — because a lead's job panel also reads cost-detail). The
    generic gateway (`gatewayQuery` → `/api/pave`, below) is legacy, not the
    pattern: its two callers are Email Invoices' bill lookup and Today's Sunset
-   count. Move those before removing it (`SIMPLICITY_AUDIT.md` finding 04).
+   count. Move those before removing it (`docs/plans/SIMPLICITY_AUDIT.md` finding 04).
 2. **Server page → client component.** The `page.tsx` is a server component that
    renders a `"use client"` component, and that component fetches the route.
    (Pattern: `src/app/jobs/page.tsx` → `JobsBrowser.tsx`.)
@@ -228,6 +228,18 @@ Do this:
 2. If the fix needs a change there, say so. Then attach it: `add_repo` with owner `notkeywitt`, repo `ascent-appscript`.
 3. Read its `CLAUDE.md` before you edit. It has its own hard rules (no scope change in `appsscript.json`, probe every write, keep DRY_RUN guards).
 4. A push there deploys nothing. The deploy is a separate step the owner approves.
+
+## Docs — where a new one goes
+
+- **Do not add a new `.md` file at the repo root.** Put the fact in the doc that
+  already owns its topic. `CODEBASE_MAP.md` lists which doc owns what.
+- **A plan or an audit goes in `docs/plans/`.** That folder holds work that is
+  proposed or under way, not rules. Code comments may cite a plan by bare file name.
+- **Every file in `docs/plans/` starts with a status line**, directly under its
+  title: `Status: draft | agreed | in progress | done — YYYY-MM-DD`. Update it
+  when the state changes. A test fails on a plan without one.
+- **When a plan is done, delete it.** First move any rule it holds that is still
+  true into the doc that owns the topic. Git history keeps the plan's text.
 
 ## Don't touch without asking
 

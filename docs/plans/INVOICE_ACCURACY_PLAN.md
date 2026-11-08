@@ -1,5 +1,7 @@
 # INVOICE_ACCURACY_PLAN.md — from "monthly review" to "perfect bookkeeper"
 
+Status: in progress — 2026-11-08
+
 The staged plan for expanding the Assistant's Claude capabilities until client
 invoicing mistakes stop happening. Centered on JobTread, learning as it goes.
 

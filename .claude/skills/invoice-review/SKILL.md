@@ -77,7 +77,7 @@ Other switches:
   (`src/lib/invoiceReview/schedule.ts`): early looks on the 5th and 8th, then
   nightly from the 11th (the day after the cutoff) to send day on the 15th. It
   rides the Daily Digest's scheduler call rather than a cron of its own — Vercel
-  Hobby's 2-cron cap (see the incident note in `INVOICE_ACCURACY_PLAN.md`). A
+  Hobby's 2-cron cap (see the incident note in `docs/plans/INVOICE_ACCURACY_PLAN.md`). A
   scheduled run is filed with `ranBy: "schedule"`. Outside that window a stored
   run is only as current as the last manual run. Check `storedAt` before
   assuming it's fresh. Use it when you want to
@@ -358,7 +358,7 @@ the only thing that will explain the silence. To lift one:
 | The filing run (admin button, or `?scheduled=1` from the digest's scheduler call on review days — `invoiceReview/schedule.ts`) | `src/app/api/invoice-review/run/route.ts` |
 | The page | `src/app/invoice-review/InvoiceReview.tsx` |
 | The Drive + Gmail reads (other repo) | `ascent-appscript/ClientInvoiceReview.js` |
-| Where this is all going | `INVOICE_ACCURACY_PLAN.md` |
+| Where this is all going | `docs/plans/INVOICE_ACCURACY_PLAN.md` |
 
 **Adding a check** is a new file in `checks/`, a config block in `settings.ts`,
 and one line in `registry.ts`. Nothing else needs touching.
