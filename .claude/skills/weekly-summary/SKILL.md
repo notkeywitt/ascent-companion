@@ -159,9 +159,9 @@ once, run `exportWeeklyWrapPdfs` in the Apps Script editor.
 
 ### 6. Make the Gmail draft
 
-The email HTML copies the Doc's look in inline styles (Gmail drops most
-`<style>` rules): header, grey label, section rules, dark-header tables, red
-callout, address footer, and a "Printable version" link to the Doc.
+The email is plain: section headings and bullets with a bold lead, no tables,
+colours, header or footer (Keillor's call, 2026-11-09). `render.mjs` turns
+each table row into one bullet. The Doc keeps the Field Binder look.
 
 1. `node render.mjs drafts/<week-end>-claude.md email` → `htmlBody`;
    `node render.mjs drafts/<week-end>-claude.md text` → `body`.

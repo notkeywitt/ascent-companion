@@ -27,6 +27,8 @@ first, and its rules win over the defaults in `SKILL.md`.
 
 ## Tone and format
 
+- Email: plain headings and bullets only. No tables, colours, header or
+  footer in the email. The styled look belongs to the Doc and its PDF.
 - Bullets, one fact each. Bold the job or vendor at the start of the bullet.
 - Sign off `-Keillor`.
 
@@ -51,3 +53,5 @@ first, and its rules win over the defaults in `SKILL.md`.
 - 2026-11-08 — from Keillor's past recaps to Casey (Aug–Sep 2025, Aug 2026):
   added Heads-ups, fuller Leads, crew requests, subscriptions & accounts,
   meetings to schedule.
+- 2026-11-09 — email back to plain bullets; the Field Binder look stays in
+  the Doc and PDF only.

@@ -47,17 +47,28 @@ const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, 
 const inline = (s) => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
 const plain = (s) => s.replace(/\*\*/g, "");
 
+// One table row as one bullet, for the email and the text body:
+//   | Casey | **Old computer:** keep it? |   →  **Casey — Old computer:** keep it?
+//   | Tue 11/10 | Billing cutoff |           →  **Tue 11/10:** Billing cutoff
+const rowBullet = (row) => {
+  const cells = row.filter((c) => c && c !== "—");
+  const [first, second = "", ...rest] = cells;
+  const m = second.match(/^\*\*(.+?):\*\*\s*(.*)$/);
+  if (m) return [`**${plain(first)} — ${m[1]}:** ${m[2]}`, ...rest].join(" · ");
+  return `**${plain(first)}:** ` + [second, ...rest].filter(Boolean).join(" · ");
+};
+
 // ── text ─────────────────────────────────────────────────────────────
 if (mode === "text") {
   const out = [];
   const doc = readFileSync(file, "utf8").match(/<!-- doc: (\S+) -->/);
-  if (doc) out.push("Printable version: " + doc[1], "");
+  if (doc) out.push("Printable version: " + doc[1], "");  // Gmail shows it as a plain link
   for (const b of blocks) {
     if (b.t === "title") out.push(plain(b.s));
     else if (b.t === "h") out.push("", plain(b.s).toUpperCase());
     else if (b.t === "ul") b.items.forEach((i) => out.push("- " + plain(i)));
-    else if (b.t === "callout") out.push("! " + plain(b.s));
-    else if (b.t === "table") b.rows.slice(1).forEach((r) => out.push("- " + r.map(plain).filter((c) => c && c !== "—").join(" · ")));
+    else if (b.t === "callout") out.push("- " + plain(b.s));
+    else if (b.t === "table") b.rows.slice(1).forEach((r) => out.push("- " + plain(rowBullet(r))));
     else out.push(b.s === "-Keillor" ? "\n" + b.s : plain(b.s));
   }
   process.stdout.write(out.join("\n").trim() + "\n");
@@ -65,43 +76,29 @@ if (mode === "text") {
 }
 
 // ── email ────────────────────────────────────────────────────────────
-// The same Field Binder look as the Doc, in inline styles: Gmail drops most
-// <style> rules, and keeps inline ones when Keillor edits the draft. Gmail also
-// strips the `background` shorthand, so fills use background-color + bgcolor.
+// Plain on purpose (Keillor, 2026-11-09): section headings and bullets, no
+// tables, colours, header or footer. The Doc carries the Field Binder look.
+// A table row becomes one bullet (rowBullet, above).
 if (mode === "email") {
-  const F = "font-family:Helvetica,Arial,sans-serif;color:#1b1b17;";
-  const GREY = "color:#6b6b66;";
-  const LINE = "border-bottom:1px solid #1b1b17;";
-  const CELL = "padding:5px 7px;border:1px solid #dcdcd8;font-size:12px;";
   const doc = readFileSync(file, "utf8").match(/<!-- doc: (\S+) -->/);
-
-  let h = `<div style="${F}max-width:640px;font-size:13px;line-height:1.4">`;
-  // Header: the Doc's right-aligned web and email lines.
-  h += `<div style="text-align:right;font-weight:300;letter-spacing:.5px">ASCENTBUILDINGCO.COM<br><span style="font-size:10px">OFFICE@ASCENTBUILDINGCO.COM</span></div>`;
-  h += `<div style="font-size:10px;font-weight:bold;${GREY}margin-top:14px">OFFICE · WEEKLY SUMMARY</div>`;
-  let metaDone = false;
+  let h = "";
+  let linkDone = false;
+  const link = () => {
+    if (!linkDone && doc) h += `<p>Printable version: <a href="${doc[1]}">Office Weekly Summary</a></p>`;
+    linkDone = true;
+  };
   for (const b of blocks) {
-    if (b.t === "title") h += `<div style="font-size:20px;font-weight:bold;margin:2px 0">${inline(b.s)}</div>`;
-    else if (b.t === "p" && !metaDone) {
-      metaDone = true;
-      h += `<div style="font-size:11px;${GREY}">${inline(b.s)}</div>`;
-    } else if (b.t === "h") {
-      if (!metaDone && doc) h += `<div style="font-size:11px;"><a href="${doc[1]}" style="${GREY}">Printable version (PDF)</a></div>`;
-      metaDone = true;
-      h += `<div style="font-size:13px;font-weight:bold;${LINE}padding-bottom:4px;margin:18px 0 7px">${inline(plain(b.s).toUpperCase())}</div>`;
-    } else if (b.t === "ul") h += `<ul style="margin:6px 0;padding-left:20px">${b.items.map((i) => `<li style="margin:0 0 3px">${inline(i)}</li>`).join("")}</ul>`;
-    else if (b.t === "callout") h += `<div style="font-size:14px;font-weight:bold;border-left:4px solid #b3261e;background-color:#fbedec;padding:6px 10px;margin:0 0 8px">${inline(plain(b.s))}</div>`;
-    else if (b.t === "table") {
-      const [head, ...rows] = b.rows;
-      h += `<table cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;margin:6px 0">`;
-      h += `<tr>${head.map((c) => `<td bgcolor="#1b1b17" style="${CELL}background-color:#1b1b17;color:#ffffff;font-weight:bold;font-size:11px">${inline(plain(c).toUpperCase())}</td>`).join("")}</tr>`;
-      h += rows.map((r, i) => `<tr>${r.map((c, j) => `<td valign="top"${i % 2 ? ' bgcolor="#f3f3f1"' : ""} style="${CELL}${i % 2 ? "background-color:#f3f3f1;" : ""}${j ? "" : "font-weight:bold;"}">${inline(c)}</td>`).join("")}</tr>`).join("");
-      h += "</table>";
-    } else h += `<p style="margin:14px 0 0">${inline(b.s)}</p>`;
+    if (b.t === "title") h += `<p>${inline(b.s)}</p>`;
+    else if (b.t === "h") {
+      link();
+      h += `<h3>${inline(b.s)}</h3>`;
+    } else if (b.t === "ul") h += `<ul>${b.items.map((i) => `<li>${inline(i)}</li>`).join("")}</ul>`;
+    else if (b.t === "callout") h += `<ul><li><b>${inline(plain(b.s))}</b></li></ul>`;
+    else if (b.t === "table") h += `<ul>${b.rows.slice(1).map((r) => `<li>${inline(rowBullet(r))}</li>`).join("")}</ul>`;
+    else h += `<p>${inline(b.s)}</p>`;
   }
-  // Footer: the Doc's address block.
-  h += `<div style="font-size:10px;font-weight:300;margin-top:22px;border-top:1px solid #dcdcd8;padding-top:8px">ASCENT BUILDING CO.<br>4223 CENTER RD.<br>LOPEZ ISLAND, WA. 98261</div>`;
-  h += `</div>`;
+  // One list per section: a table, a callout and bullets in a row are one list.
+  h = h.replace(/<\/ul><ul>/g, "");
   process.stdout.write(h + "\n");
   process.exit(0);
 }
