@@ -3,6 +3,25 @@
   "repo": "ascent-companion",
   "sessions": [
     {
+      "slug": "magical-ride",
+      "file": "2026-11-09-magical-ride.md",
+      "branch": "claude/magical-ride-5b0ymy",
+      "status": "shipped",
+      "started": "2026-11-09T19:24:18Z",
+      "updated": "2026-11-09T19:45:43Z",
+      "goal": "",
+      "next": "Check on a real shift: type a note on the phone, clock out on the desktop; confirm the note carried over and nothing was duplicated.",
+      "commits": [
+        {
+          "date": "2026-11-09",
+          "time": "19:43",
+          "sha": "9346551",
+          "subject": "companion: save the running clock's note to jobtread so it follows you across devices",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/components/TimeBug.tsx, src/lib/clockNoteSync.test.ts, src/lib/clockNoteSync.ts"
+        }
+      ]
+    },
+    {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
@@ -1621,25 +1640,6 @@
           "sha": "0d810ef",
           "subject": "companion: pick the employee on both sides of split view",
           "files": "src/app/employee-time/WeekCompare.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "magical-ride",
-      "file": "2026-11-09-magical-ride.md",
-      "branch": "claude/magical-ride-5b0ymy",
-      "status": "shipped",
-      "started": "2026-11-09T19:24:18Z",
-      "updated": "2026-11-09T19:43:34Z",
-      "goal": "",
-      "next": "Check on a real shift: type a note on the phone, clock out on the desktop; confirm the note carried over and nothing was duplicated.",
-      "commits": [
-        {
-          "date": "2026-11-09",
-          "time": "19:43",
-          "sha": "9346551",
-          "subject": "companion: save the running clock's note to jobtread so it follows you across devices",
-          "files": "CODEBASE_MAP.md, src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/components/TimeBug.tsx, src/lib/clockNoteSync.test.ts, src/lib/clockNoteSync.ts"
         }
       ]
     },
