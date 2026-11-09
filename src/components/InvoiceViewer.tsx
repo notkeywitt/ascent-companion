@@ -110,6 +110,76 @@ function usePageCount(file: InvoiceFile) {
   return count;
 }
 
+/* --------------------------------------------------------------------- print */
+
+const escHtml = (s: string) =>
+  s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]!);
+
+/**
+ * Print the bill: every rasterised page, one per sheet. The original PDF lives
+ * on JobTread's CDN, a different origin, so the browser will not let this page
+ * print it directly. The 2048px page images print cleanly at letter size.
+ *
+ * Same route as the leads sheet (LeadsBoard.printLeads): a hidden iframe on a
+ * phone or a plain tab, a new top-level tab inside JobTread's side panel, where
+ * window.print() is blocked in-frame. The page prints from `onload`, which waits
+ * for every image.
+ *
+ * A file the rasteriser will not render has no images to print, so its
+ * original opens in a new tab and the browser's own viewer prints it.
+ */
+export function printInvoice(file: InvoiceFile, pages: number) {
+  if (!flatImageSrc(file)) {
+    if (file.url) window.open(file.url, "_blank", "noopener");
+    return;
+  }
+  const title = escHtml(file.name || "Invoice");
+  const imgs = Array.from(
+    { length: pages },
+    (_, i) => `<img src="${escHtml(pageSrc(file, i + 1))}" alt="page ${i + 1}">`,
+  ).join("\n");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  @page { margin: 0.25in; }
+  html, body { margin: 0; padding: 0; background: #fff; }
+  img { display: block; width: 100%; height: auto; max-height: 10.4in; object-fit: contain; margin: 0 auto; break-after: page; page-break-after: always; }
+  img:last-child { break-after: auto; page-break-after: auto; }
+</style></head>
+<body onload="window.focus(); window.print();">
+${imgs}
+</body></html>`;
+
+  const framed = window.top !== window.self;
+  if (!framed) {
+    const frame = document.createElement("iframe");
+    frame.setAttribute("aria-hidden", "true");
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+    document.body.appendChild(frame);
+    const fw = frame.contentWindow;
+    if (!fw) {
+      frame.remove();
+      return;
+    }
+    const remove = () => {
+      if (frame.parentNode) frame.remove();
+    };
+    fw.addEventListener("afterprint", () => setTimeout(remove, 300));
+    setTimeout(remove, 60_000); // some mobile browsers never fire afterprint
+    fw.document.open();
+    fw.document.write(html);
+    fw.document.close();
+    return;
+  }
+  const win = window.open("", "_blank");
+  if (!win) {
+    if (file.url) window.location.assign(file.url); // popup blocked — best effort
+    return;
+  }
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
+}
+
 /* ------------------------------------------------------------------ lightbox */
 
 /**
@@ -235,6 +305,30 @@ export function InvoiceLightbox({
           >
             {isPdf ? "Open the full PDF ↗" : "Open the original ↗"}
           </a>
+        )}
+        {(src || file.url) && (
+          <button
+            type="button"
+            onClick={() => printInvoice(file, pages)}
+            aria-label="Print"
+            title={pages > 1 ? `Print all ${pages} pages` : "Print"}
+            className="shrink-0 rounded-lg p-1.5 text-white/80 hover:text-white"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M6 9V3h12v6" />
+              <rect x="3" y="9" width="18" height="8" rx="2" />
+              <path d="M6 14h12v7H6z" />
+            </svg>
+          </button>
         )}
         <button
           type="button"
