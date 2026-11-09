@@ -1,49 +1,16 @@
 {
-  "generatedAt": "2026-11-09T19:48:24Z",
+  "generatedAt": "2026-11-09T20:55:50Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "magical-ride",
-      "file": "2026-11-09-magical-ride.md",
-      "branch": "claude/magical-ride-5b0ymy",
-      "status": "shipped",
-      "started": "2026-11-09T19:24:18Z",
-      "updated": "2026-11-09T19:48:24Z",
-      "goal": "",
-      "next": "Check on a real shift: type a note on the phone, clock out on the desktop; confirm the note carried over and nothing was duplicated.",
-      "commits": [
-        {
-          "date": "2026-11-09",
-          "time": "19:43",
-          "sha": "9346551",
-          "subject": "companion: save the running clock's note to jobtread so it follows you across devices",
-          "files": "CODEBASE_MAP.md, src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/components/TimeBug.tsx, src/lib/clockNoteSync.test.ts, src/lib/clockNoteSync.ts"
-        },
-        {
-          "date": "2026-11-09",
-          "time": "19:47",
-          "sha": "aab43cd",
-          "subject": "companion: update session ledger",
-          "files": ""
-        },
-        {
-          "date": "2026-11-09",
-          "time": "19:47",
-          "sha": "a89bb52",
-          "subject": "companion: record stale session branch after rebase",
-          "files": ""
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T19:44:04Z",
+      "updated": "2026-11-09T20:55:50Z",
       "goal": "",
-      "next": "On Split View, put another employee on the left and confirm it reads only; put yourself back and confirm editing returns.",
+      "next": "Owner ok, then npm run ship: LSWDD bill list + Approve All + pay-by pop-up (commit deb03e9e)",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1654,6 +1621,53 @@
           "sha": "0d810ef",
           "subject": "companion: pick the employee on both sides of split view",
           "files": "src/app/employee-time/WeekCompare.tsx"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "12:47",
+          "sha": "4260bd7",
+          "subject": "companion: track vendor coi expiry and requests, add request cois draft",
+          "files": "CODEBASE_MAP.md, src/app/api/vendor-coi/status/route.ts, src/app/api/vendor-details/route.ts, src/app/vendors/page.tsx, src/db/index.ts, src/db/schema.ts, +4 more"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "12:53",
+          "sha": "deb03e9",
+          "subject": "companion: lswdd bill list, approve all, and pay-by reminder",
+          "files": "CODEBASE_MAP.md, src/app/api/lswdd/bills/route.ts, src/app/layout.tsx, src/app/lswdd/StatementBills.tsx, src/app/lswdd/page.tsx, src/components/HomeReminders.tsx, +6 more"
+        }
+      ]
+    },
+    {
+      "slug": "magical-ride",
+      "file": "2026-11-09-magical-ride.md",
+      "branch": "claude/magical-ride-5b0ymy",
+      "status": "shipped",
+      "started": "2026-11-09T19:24:18Z",
+      "updated": "2026-11-09T19:48:24Z",
+      "goal": "",
+      "next": "Check on a real shift: type a note on the phone, clock out on the desktop; confirm the note carried over and nothing was duplicated.",
+      "commits": [
+        {
+          "date": "2026-11-09",
+          "time": "19:43",
+          "sha": "9346551",
+          "subject": "companion: save the running clock's note to jobtread so it follows you across devices",
+          "files": "CODEBASE_MAP.md, src/app/api/employee-time/clock/route.ts, src/app/employee-time/EmployeeTimeClient.tsx, src/components/TimeBug.tsx, src/lib/clockNoteSync.test.ts, src/lib/clockNoteSync.ts"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "19:47",
+          "sha": "aab43cd",
+          "subject": "companion: update session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-11-09",
+          "time": "19:47",
+          "sha": "a89bb52",
+          "subject": "companion: record stale session branch after rebase",
+          "files": ""
         }
       ]
     },
