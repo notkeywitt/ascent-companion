@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 import { useAccess } from "@/components/AccessProvider";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
-import { Button, Label, Select, Spinner, Textarea } from "@/components/ui";
+import { Button, Input, Label, Select, Spinner, Textarea } from "@/components/ui";
 import { defaultCostCode, matchPayType, type CostCodeDefault, type PayTypeRule } from "@/lib/payTypeMatch";
 import {
   LS_CLOCK,
@@ -34,11 +34,14 @@ import {
  *
  *   Job   — the running entry's job
  *   Work  — its cost code
+ *   Start / End — the entry's hours. Start is the clock-in; change it to
+ *           correct a late clock-in. End follows the clock until changed; it
+ *           is when Clock out or Switch closes the entry.
  *   Notes — the note the entry closes with (required)
  *   [Switch] [Clock out]
  *
- * Switch stamps the moment it is pressed and asks for the next job and work.
- * Start then closes the running entry at that moment, with the note, and opens
+ * Switch stamps the moment it is pressed (or the End box, if changed) and asks
+ * for the next job and work. Start new entry then closes the running entry at that moment, with the note, and opens
  * the new one at the same moment (POST op "switch" — the same call the Time
  * page's Work row makes). Changing the Job or Work box does the same as Switch.
  * Cancel leaves the running entry alone.
@@ -108,6 +111,17 @@ function fmt12h(stamp: string): string {
   const [h, m] = stamp.slice(11, 16).split(":").map(Number);
   if (Number.isNaN(h)) return "";
   return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/** Minutes as "3h 12m". */
+function fmtHours(ms: number): string {
+  const m = Math.max(0, Math.round(ms / 60000));
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+}
+
+function fmtDay(ymd: string): string {
+  const d = new Date(`${ymd}T12:00:00`);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function fmtElapsed(ms: number): string {
@@ -230,6 +244,10 @@ export function TimeBug() {
 
   // Switching: the moment Switch was pressed, and the picks for the new entry.
   const [switchAt, setSwitchAt] = useState("");
+  // The hours boxes. "" = untouched: Start is the clock-in, End is now (or
+  // the moment Switch was pressed). "HH:MM" once the person changes one.
+  const [startEdit, setStartEdit] = useState("");
+  const [endEdit, setEndEdit] = useState("");
   const [pickJobId, setPickJobId] = useState("");
   const [pickCostId, setPickCostId] = useState("");
 
@@ -256,7 +274,7 @@ export function TimeBug() {
     const api = documentPip();
     if (!api || pipRef.current) return;
     try {
-      const win = await api.requestWindow({ width: 340, height: 430 });
+      const win = await api.requestWindow({ width: 340, height: 500 });
       dressPipWindow(win);
       // Closed from its own title bar, or the tab went away: back in the page.
       win.addEventListener("pagehide", () => {
@@ -285,6 +303,8 @@ export function TimeBug() {
   useEffect(() => {
     if (shownId === null) return;
     setNote(savedNoteFor(shownId) || clockRef.current?.notes || "");
+    setStartEdit("");
+    setEndEdit("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shownId]);
 
@@ -459,11 +479,34 @@ export function TimeBug() {
     announceNote("bug", text);
   }
 
+  // The entry's start and end as the boxes say, "YYYY-MM-DDTHH:MM:SS". An
+  // edited Start keeps the clock-in's day; an edited End is today.
+  function startStamp(): string {
+    if (!clock) return "";
+    return startEdit ? `${clock.startedAt.slice(0, 10)}T${startEdit}:00` : clock.startedAt;
+  }
+  function endStamp(): string {
+    if (endEdit) return `${nowLocalSeconds().slice(0, 10)}T${endEdit}:00`;
+    return switchAt || nowLocalSeconds();
+  }
+  /** The hours, checked. Returns an error to show, or "". */
+  function checkHours(start: string, end: string): string {
+    const limit = Date.now() + 60000;
+    if (new Date(start).getTime() > limit) return "The start time is in the future.";
+    if (new Date(end).getTime() > limit) return "The end time is in the future.";
+    if (end <= start) {
+      return startEdit || endEdit
+        ? "The end time must be after the start time."
+        : "You clocked in less than a second ago. Use the Time page to cancel the clock-in.";
+    }
+    return "";
+  }
+
   function startSwitch(next?: { jobId?: string; costId?: string }) {
     if (!clock) return;
     setErr("");
     if (!switching) {
-      setSwitchAt(nowLocalSeconds());
+      setSwitchAt(endStamp());
       setPickJobId(clock.jobId);
       setPickCostId(clock.costItemId);
       loadMyTypes();
@@ -504,6 +547,13 @@ export function TimeBug() {
     const ruled = rules ? matchPayType(rules.pay, { jtUserId: rules.me, jobId: pickJobId, costCode: item?.number ?? "" }) : "";
     const payType = ruled && (!myTypes || myTypes.includes(ruled)) ? ruled : clock.payType;
     const closedNote = note.trim();
+    const entryStart = startStamp();
+    const at = endStamp();
+    const bad = checkHours(entryStart, at);
+    if (bad) {
+      setErr(bad);
+      return;
+    }
     setErr("");
     setBusy(true);
     try {
@@ -516,7 +566,10 @@ export function TimeBug() {
           jobId: pickJobId,
           costItemId: pickCostId,
           payType,
-          startTime: switchAt,
+          // The switch moment: the old entry ends and the new one starts here.
+          startTime: at,
+          startEdited: !!startEdit,
+          entryStart,
           note: closedNote,
         }),
       });
@@ -536,7 +589,7 @@ export function TimeBug() {
       }
       const next: OpenEntry = {
         entryId: json.entryId || "",
-        startedAt: json.startedAt || switchAt,
+        startedAt: json.startedAt || at,
         jobId: pickJobId,
         jobLabel: job ? jobLabel(job) : clock.jobLabel,
         costItemId: pickCostId,
@@ -546,7 +599,6 @@ export function TimeBug() {
         employee: clock.employee,
         notes: "",
       };
-      const at = fmt12h(switchAt);
       writeLocalClock(next, !!json.previewed);
       // The note went out with the closed entry; the new one starts blank.
       clearSavedNote();
@@ -555,7 +607,7 @@ export function TimeBug() {
       setSwitchAt("");
       announceClock({
         source: "bug",
-        message: `Switched at ${at}. The hours before it stay on ${clock.costCode || "the old code"}.`,
+        message: `Switched at ${fmt12h(at)}. The hours before it stay on ${clock.costCode || "the old code"}.`,
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not switch.");
@@ -570,9 +622,11 @@ export function TimeBug() {
       setErr("A note is required to clock out.");
       return;
     }
-    const endTime = nowLocalSeconds();
-    if (endTime <= clock.startedAt) {
-      setErr("You clocked in less than a second ago. Use the Time page to cancel the clock-in.");
+    const startTime = startStamp();
+    const endTime = endStamp();
+    const bad = checkHours(startTime, endTime);
+    if (bad) {
+      setErr(bad);
       return;
     }
     const local = readLocalClock();
@@ -593,8 +647,9 @@ export function TimeBug() {
           costItemId: clock.costItemId,
           costCode: clock.costCode,
           payType: clock.payType,
-          startTime: clock.startedAt,
-          startEdited: false,
+          startTime,
+          // Only a corrected start is written back to JobTread.
+          startEdited: !!startEdit,
           endTime,
           note: note.trim(),
           photos: [],
@@ -656,6 +711,12 @@ export function TimeBug() {
       : costItems.map((c) => ({ id: c.id, label: costLabel(c) }));
 
   const startMs = clock ? new Date(clock.startedAt).getTime() : 0;
+  // The hours boxes' figures, redrawn with the elapsed clock.
+  const nowStamp = nowLocalSeconds();
+  const todayYmd = nowStamp.slice(0, 10);
+  const shownEnd = (switchAt || nowStamp).slice(11, 16);
+  const startBoxMs = clock ? new Date(startStamp()).getTime() : 0;
+  const endMs = endEdit ? new Date(`${todayYmd}T${endEdit}:00`).getTime() : switchAt ? new Date(switchAt).getTime() : nowMs || Date.now();
 
   const bug = (
     <aside
@@ -727,7 +788,8 @@ export function TimeBug() {
         <div className="space-y-2 px-3 pb-3 pt-2">
           {switching && (
             <p className="text-xs text-neutral-500">
-              Your entry closes at {fmt12h(switchAt)}. Pick the next job and work, then tap Start.
+              Your entry closes at {fmt12h(endEdit ? `${todayYmd}T${endEdit}` : switchAt)}. Pick the next job and
+              work, then tap Start new entry.
             </p>
           )}
           <div>
@@ -767,6 +829,43 @@ export function TimeBug() {
               )}
             </Select>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label htmlFor="timebug-start">
+                Start
+                {clock.startedAt.slice(0, 10) !== todayYmd && (
+                  <span className="ml-1 normal-case tracking-normal">· {fmtDay(clock.startedAt.slice(0, 10))}</span>
+                )}
+              </Label>
+              <Input
+                id="timebug-start"
+                type="time"
+                value={startEdit || clock.startedAt.slice(11, 16)}
+                disabled={busy}
+                onChange={(e) => {
+                  setErr("");
+                  setStartEdit(e.target.value);
+                }}
+              />
+            </div>
+            <div>
+              <Label htmlFor="timebug-end">
+                End
+                <span className="ml-1 normal-case tracking-normal tabular-nums">· {fmtHours(endMs - startBoxMs)}</span>
+              </Label>
+              <Input
+                id="timebug-end"
+                type="time"
+                value={endEdit || shownEnd}
+                disabled={busy}
+                onChange={(e) => {
+                  setErr("");
+                  setEndEdit(e.target.value);
+                  if (switching && e.target.value) setSwitchAt(`${todayYmd}T${e.target.value}:00`);
+                }}
+              />
+            </div>
+          </div>
           <div>
             <Label htmlFor="timebug-note">Notes</Label>
             <Textarea
@@ -791,7 +890,7 @@ export function TimeBug() {
                 </Button>
                 <Button className="flex-1" disabled={busy} onClick={confirmSwitch}>
                   {busy ? <Spinner /> : null}
-                  Start
+                  Start new entry
                 </Button>
               </>
             ) : (

@@ -82,12 +82,14 @@ import { markWorkedDeleted } from "@/lib/timeSync";
  *        GAP between two entries — the same shape JobTread's own "add break"
  *        leaves behind when it splits an entry.
  * POST { op:"switch", entryId, userId, jobId, costItemId, payType, startTime,
- *        breakMinutes?, note? }
+ *        breakMinutes?, note?, startEdited?, entryStart? }
  *      → { ok, previewed, entryId, startedAt }
  *        Changed work without clocking out: closes the running entry at
  *        `startTime` and opens a new one at the same instant on the new cost
  *        code, so the morning's hours stay on the morning's code. The returned
- *        `entryId` is the NEW running entry.
+ *        `entryId` is the NEW running entry. `startEdited` + `entryStart`
+ *        correct the CLOSING entry's start on the way out (the time bug's
+ *        Start box), the same rule as clock-out's `startEdited`.
  * POST { op:"edit", entryId, jobId, costItemId, startTime, endTime, note }
  *      → { ok, previewed, wrote, jtStatus, minutes? }
  *        Edits an existing (closed) entry from the Timesheets tab — re-times it
@@ -190,6 +192,8 @@ interface Body {
   note?: string;
   photos?: Photo[];
   justClosed?: unknown;
+  /** op "switch": the closing entry's corrected start, sent with startEdited. */
+  entryStart?: string;
 }
 
 
@@ -617,6 +621,15 @@ export async function POST(req: NextRequest) {
     if (!costItemId) return NextResponse.json({ ok: false, error: "Pick a cost code." }, { status: 400 });
     if (!jobId) return NextResponse.json({ ok: false, error: "Missing the job." }, { status: 400 });
     if (!at) return NextResponse.json({ ok: false, error: "Missing the switch time." }, { status: 400 });
+    // A corrected start for the entry being closed. Only an edited one is
+    // written; left alone, the entry keeps the instant its clock-in wrote.
+    const entryStart = body.startEdited === true ? orgLocalToJtIso(toLocalStamp(body.entryStart ?? "")) : "";
+    if (body.startEdited === true && (!entryStart || entryStart >= at)) {
+      return NextResponse.json(
+        { ok: false, error: "The start time must be before the switch time." },
+        { status: 400 },
+      );
+    }
 
     if (!writesEnabled()) {
       return NextResponse.json({
@@ -658,6 +671,7 @@ export async function POST(req: NextRequest) {
       await updateTimeEntry(getPaveConfig(), entryId, {
         endedAt: at,
         ...(notes ? { notes } : {}),
+        ...(entryStart ? { startedAt: entryStart } : {}),
       });
     } catch (e) {
       return NextResponse.json(
@@ -704,7 +718,7 @@ export async function POST(req: NextRequest) {
           entity: "time-entry",
           entityId: entryId,
           jobId,
-          after: { endedAt: at, notes },
+          after: { endedAt: at, notes, ...(entryStart ? { startedAt: entryStart } : {}) },
           beforeSource: "none",
           meta: { actingAs: who.identity.name, actingAsJtUserId: userId, op: "switch-close" },
         },
