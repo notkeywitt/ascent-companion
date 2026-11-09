@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T18:23:03Z",
+  "generatedAt": "2026-11-09T18:30:45Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T18:23:03Z",
+      "updated": "2026-11-09T18:30:45Z",
       "goal": "",
-      "next": "Owner ok to push the time bug; then clock in on desktop, switch job, clock out, and check both entries in JobTread.",
+      "next": "Owner: tap Open pop-up, then Already in JobTread -> Absolute Asbestos for INV-7597c80c. Decide on the one-character vendor-ID repair in ascent-appscript resolveExtractedVendorId.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1586,6 +1586,13 @@
           "sha": "96d4a2f",
           "subject": "companion: add the floating time bug on desktop",
           "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/layout.tsx, src/components/TimeBug.tsx, src/lib/help.ts, src/lib/timeClockShared.ts"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "10:30",
+          "sha": "ea4d3e9",
+          "subject": "companion: add open pop-up link to the stuck-vendor notice",
+          "files": "src/components/StuckVendors.tsx"
         }
       ]
     },
