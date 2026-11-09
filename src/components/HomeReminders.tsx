@@ -4,7 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
 import { monthLabel } from "@/lib/billingMonths";
-import { lastAmazonMonth, lastLswddMonth, previousMonth } from "@/lib/homeFacts";
+import {
+  companyToday,
+  lastAmazonMonth,
+  lastLswddMonth,
+  lswddStatementBills,
+  previousMonth,
+} from "@/lib/homeFacts";
+import { lswddDayLabel, lswddPayReminder } from "@/lib/lswddPay";
 
 /**
  * The short list of dated to-dos under "Today" on the home masthead — the jobs
@@ -41,6 +48,22 @@ const REMINDERS: Reminder[] = [
     href: "/lswdd",
     due: async ({ prevYm }) =>
       behind(await lastLswddMonth(), prevYm) ? `Import LSWDD for ${monthLabel(prevYm)}` : null,
+  },
+  {
+    // Same rule as the pop-up (LswddPayReminder): from the day before the last
+    // day LSWDD is open on or before the 10th, until every bill is paid.
+    id: "lswdd-pay",
+    view: "lswdd",
+    href: "/lswdd",
+    due: async () => {
+      const s = await lswddStatementBills();
+      const unpaid = s.bills.filter((b) => b.payState !== "paid").length;
+      const r = lswddPayReminder({ today: companyToday(), dueDate: s.dueDate, unpaid });
+      if (!r) return null;
+      return r.overdue
+        ? `LSWDD statement past due (${lswddDayLabel(r.lastPayDay)})`
+        : `Pay LSWDD by ${lswddDayLabel(r.lastPayDay)}`;
+    },
   },
 ];
 

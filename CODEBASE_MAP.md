@@ -51,7 +51,7 @@ matching row here.
 | **Nav: the workspaces, the ☰ menu, the bottom bar** | `src/lib/workspaces.ts` (`WORKSPACES` — every page by workspace; `BARS` — each role's bar; `OUTSIDE_WORKSPACES` — pages on none, with why), `src/components/AppMenu.tsx` (the ☰ drawer, every role and width), `src/components/TabBar.tsx`, `src/components/WorkspaceTabs.tsx` (the tab strip under the header, carrying `jobId` + `ym`; a close page writes `?ym` when the month is picked, via `src/lib/urlParam.ts`). The retired launchers' saved layouts sit untouched in the `nav_layout` table |
 | **TODAY's queue** ("Needs you" — one row and a count per queue, gated by each page's own view; "Bills to code" opens the draft list in place) | `src/components/TodayQueue.tsx` (`QUEUES` — add a row there), cached per tab by `cached` in `src/lib/homeFacts.ts`. The Requisitions row's "N new" mark: `src/lib/requisitionsSeen.ts` (per device; `/requisitions` clears it) |
 | **Today's to-dos** (your own, admin-only, and the Office job's, under the `office` view) | `src/components/HomeTodos.tsx` → `/api/todos`; `src/components/TodayOfficeTodos.tsx` → GET `/api/office/todos` → `readOfficeTodos` in `src/app/office/readOfficeTodos.ts` (shared with the Office dashboard), drawn by `src/app/office/OfficeTodos.tsx` |
-| **Home REMINDERS** (dated to-dos under "Today" — Import Amazon, Import LSWDD) | `src/components/HomeReminders.tsx` (`REMINDERS` — add one there); the facts both reminders and card counts read, cached per tab: `src/lib/homeFacts.ts`. Sunset's green test: `src/lib/sunsetReconcile.ts` (shared with `/payments`) |
+| **Home REMINDERS** (dated to-dos under "Today" — Import Amazon, Import LSWDD, Pay LSWDD) | `src/components/HomeReminders.tsx` (`REMINDERS` — add one there); the facts both reminders and card counts read, cached per tab: `src/lib/homeFacts.ts`. Sunset's green test: `src/lib/sunsetReconcile.ts` (shared with `/payments`). Pay LSWDD also pops up app-wide: `src/components/LswddPayReminder.tsx` |
 | **The IPAD (tablet) layout** — home console, the rail, the wide shape of anything | the `pad` breakpoint in `tailwind.config.ts` (744px, "an iPad in portrait and up"; declared in sorted position so `lg:`/`xl:` still win over it). Home: `src/app/page.tsx` + `src/components/HomeMasthead.tsx`. From `pad` up the bottom bar is a left RAIL, and from `2xl` a sidebar listing the current workspace's pages (`src/components/TabBar.tsx`, `railFor` in `src/lib/workspaces.ts`); its width is `--rail-w` (`globals.css`), which `#app-shell` and every `fixed inset-x-0` bar (`left: var(--rail-w)`) move right by |
 | **The global search box** | `src/components/GlobalSearch.tsx` (the wide item in `AppHeader`'s one row) — matches pages via `src/lib/workspaces.ts`, help topics via `src/lib/help.ts`, vendors via `/api/vendors`, bills/line items via `/api/bill-search` |
 | **The in-app instructions** (a wrong step, a new "how do I…") | `src/lib/help.ts` — the topics as data, written to ASD-STE100 (its header carries the rules, `help.test.ts` enforces the countable ones). Page: `src/app/help/` |
@@ -533,7 +533,9 @@ Grouped by domain; each folder is `…/route.ts`.
   by age; "today" is resolved in the ORG timezone, because a UTC lambda would
   age a boundary invoice a day early), `stage/*`, `invoice-review` (GET runs a month's
   client-invoice review, or `?format=brief` for the paste-into-Claude version;
-  POST records or lifts one standing ruling), `lswdd`,
+  POST records or lifts one standing ruling), `lswdd` (`bills` GET — the newest
+  statement's bills and pay state, read by `/lswdd` and the pay reminder pop-up
+  `src/components/LswddPayReminder.tsx`; deadline rule in `src/lib/lswddPay.ts`),
   `amazon-import/*`,
   `sunset-statements/*`, `sunset-duplicates`, `sunset-expense`,
   `sunset-statement-bills` (Create Bills: one draft Bill per unpaid statement on the Office job),

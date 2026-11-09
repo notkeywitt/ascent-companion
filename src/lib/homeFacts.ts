@@ -11,6 +11,7 @@
  */
 import { companyDateParts } from "@/lib/billing";
 import { reconcileState, type ReconcileResult } from "@/lib/sunsetReconcile";
+import type { LswddStatementBills } from "@/lib/jobtread";
 
 const MIN = 60_000;
 const held = new Map<string, { at: number; p: Promise<unknown> }>();
@@ -46,6 +47,22 @@ export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): P
   p.catch(() => held.delete(key));
   held.set(key, { at: now, p });
   return p;
+}
+
+/** Drop one fact, so the next read loads it fresh — after a write that changes it. */
+export function forgetFact(key: string): void {
+  held.delete(key);
+  try {
+    sessionStorage.removeItem(`home.fact.${key}`);
+  } catch {
+    /* storage blocked — the in-memory copy is gone already */
+  }
+}
+
+/** "YYYY-MM-DD" today, in the company timezone. */
+export function companyToday(now = new Date()): string {
+  const { year, month, day } = companyDateParts(now);
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 /** "YYYY-MM" of the month before today, in the company timezone. */
@@ -86,6 +103,19 @@ export function lastLswddMonth(): Promise<string> {
         if (l.status && l.status !== "Staged" && (l.chargeDate ?? "") > last)
           last = l.chargeDate ?? "";
     return last.slice(0, 7);
+  });
+}
+
+/**
+ * The newest LSWDD statement's bills and due date (`/api/lswdd/bills`). Read by
+ * the pay reminder pop-up and the Home reminder line. /lswdd forgets it after
+ * Approve All, so the reminder follows.
+ */
+export function lswddStatementBills(): Promise<LswddStatementBills> {
+  return cached("lswdd-bills", 10 * MIN, async () => {
+    const r = await fetch("/api/lswdd/bills");
+    if (!r.ok) throw new Error(String(r.status));
+    return (await r.json()) as LswddStatementBills;
   });
 }
 

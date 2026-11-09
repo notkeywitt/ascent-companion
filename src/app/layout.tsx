@@ -9,6 +9,7 @@ import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
 import { CopyInPlace } from "@/components/CopyInPlace";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
+import { LswddPayReminder } from "@/components/LswddPayReminder";
 import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
 import { UsageBeacon } from "@/components/UsageBeacon";
@@ -206,6 +207,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <TabBar />
               </Suspense>
               <StuckVendorPopup />
+              {/* "Pay LSWDD by <day>" — see LswddPayReminder. */}
+              {session?.user && <LswddPayReminder />}
               </div>
               {/* The help mark, bottom-left of every page, and the overlay it
                   opens. Outside #app-shell on purpose. */}

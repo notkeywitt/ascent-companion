@@ -16,6 +16,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { money } from "@/lib/money";
+import { StatementBills } from "./StatementBills";
 
 interface Line {
   ref: string;
@@ -95,6 +96,8 @@ export default function LswddPage() {
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
   const [result, setResult] = useState<SubmitBill[] | null>(null);
+  // Bumped after a submit, so the bill list below re-reads JobTread.
+  const [billsKey, setBillsKey] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -301,6 +304,7 @@ export default function LswddPage() {
       );
     }
     setBusy(false);
+    setBillsKey((k) => k + 1);
     await load();
   }
 
@@ -336,6 +340,8 @@ export default function LswddPage() {
           </ul>
         </Banner>
       )}
+
+      <StatementBills reloadKey={billsKey} />
 
       {!loading && !error && statements.length === 0 && (
         <EmptyState>
