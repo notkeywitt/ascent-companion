@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildGrid, endAfter, fmtClock, originalEnd, parseHours } from "./weekGrid";
+import { buildCardRows, buildGrid, endAfter, fmtClock, originalEnd, parseHours, stackStart } from "./weekGrid";
 
 const e = (o: Partial<Parameters<typeof buildGrid>[0][number]>) => ({
   id: "x",
@@ -61,5 +61,44 @@ describe("weekGrid", () => {
       ["Kevin Berger › Bunkhouse", false],
       ["Moon Spring Farm LLC › Pole Barn", true],
     ]);
+  });
+});
+
+describe("time card", () => {
+  const ce = (o: Partial<Parameters<typeof buildCardRows>[0][number]>) => ({
+    ...e({}),
+    costItemId: "c1",
+    costCode: "01 00 00",
+    costItemName: "General",
+    ...o,
+  });
+
+  it("gives each job + cost code its own row", () => {
+    const rows = buildCardRows(
+      [ce({ id: "a" }), ce({ id: "b", costItemId: "c2", costCode: "02 00 00" }), ce({ id: "c", date: "2026-09-29" })],
+      ["2026-09-28", "2026-09-29"],
+    );
+    expect(rows.map((r) => r.key)).toEqual(["j1|c1", "j1|c2"]);
+    expect(rows[0].cells.get("2026-09-29")?.map((x) => x.id)).toEqual(["c"]);
+    expect(rows[0].work).toBe("01 00 00 — General");
+  });
+
+  it("starts a new entry after the day's last stop", () => {
+    const existing = [e({ startTime: "07:00", endTime: "11:30" }), e({ date: "2026-09-29", endTime: "18:00" })];
+    expect(stackStart("2026-09-28", 60, existing, [])).toBe("11:30");
+    expect(stackStart("2026-09-30", 60, existing, [])).toBe("07:00");
+  });
+
+  it("stacks two new entries on one day", () => {
+    expect(stackStart("2026-09-30", 60, [], [{ date: "2026-09-30", start: "07:00", minutes: 150 }])).toBe("09:30");
+  });
+
+  it("refuses hours that would run past midnight", () => {
+    expect(stackStart("2026-09-28", 120, [e({ startTime: "20:00", endTime: "23:00" })], [])).toBe("");
+    expect(stackStart("2026-09-28", 18 * 60, [], [])).toBe("");
+  });
+
+  it("does not stack on an open entry", () => {
+    expect(stackStart("2026-09-28", 60, [e({ endTime: "", open: true })], [])).toBe("07:00");
   });
 });

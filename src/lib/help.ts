@@ -256,6 +256,28 @@ export const HELP: HelpSection[] = [
         ],
       },
       {
+        id: "time-card",
+        q: "How do I type my week's hours on a computer?",
+        view: "employee-time",
+        href: "/employee-time",
+        keywords: ["time card", "week", "tsheets", "manual time", "timecard", "hours grid"],
+        steps: [
+          "Open **Time**.",
+          "Tap **Time card** at the top of the Time Clock tab.",
+          "To add a job, select it in **+ Add a job**, then select its **Work** under the grid.",
+          "Type the hours in the cell for the day, for example 2:30 or 2.5.",
+          "Write the **Notes** for that cell under the grid.",
+          "Tap **Save**.",
+        ],
+        notes: [
+          "Each row is one job and one cost code.",
+          "A new entry starts after the last entry of that day, or at 7:00 AM.",
+          "To delete an entry, clear its cell and tap **Save**.",
+          "A cell with two or more entries, a running clock or an approved entry is locked.",
+          "Use the Timesheets tab to change a locked cell.",
+        ],
+      },
+      {
         id: "log-past-time",
         q: "How do I log time I already worked?",
         view: "employee-time",

@@ -71,7 +71,7 @@ interface Side {
   name: string;
 }
 
-interface CostItem {
+export interface CostItem {
   id: string;
   number: string;
   name: string;
@@ -525,7 +525,7 @@ interface NewEntryCtx {
 
 // One cost-code read per job per visit, shared by every cell on that row.
 const costCache = new Map<string, Promise<CostItem[]>>();
-function loadCosts(jobId: string): Promise<CostItem[]> {
+export function loadCosts(jobId: string): Promise<CostItem[]> {
   let p = costCache.get(jobId);
   if (!p) {
     p = fetch(`/api/employee-time?jobId=${encodeURIComponent(jobId)}`)

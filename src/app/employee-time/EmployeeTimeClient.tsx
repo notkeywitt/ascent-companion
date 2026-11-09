@@ -6,6 +6,7 @@ import Link from "next/link";
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
 import { WeekCompare } from "./WeekCompare";
+import { TimeCard } from "./TimeCard";
 import { TimeEntriesEmailButton } from "./TimeEntriesEmailButton";
 import {
   PAY_TYPE_CHANGE_WARNING,
@@ -225,6 +226,7 @@ interface DayGroup {
 const MAX_PHOTOS = 8;
 const LS_JT_USER = "employeeTime.jtUser."; // + email → remembered JobTread user id
 const LS_LAST_PICK = "employeeTime.lastPick."; // + email → last job/cost/pay used
+const LS_CLOCK_VIEW = "employeeTime.clockView"; // "card" = the desktop time card
 
 /** The entry id of this device's clock record, without parsing the rest of it. */
 function readClockEntryId(): string {
@@ -567,6 +569,21 @@ export function EmployeeTimeClient({
   initialCodeDefaults?: CostCodeDefault[];
 }) {
   const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
+  /* The Time Clock tab's two views on a desktop: the clock, or the TSheets-
+     style week time card (./TimeCard.tsx). Remembered per device. The card
+     needs the width, so a phone or tablet always gets the clock. */
+  const [clockView, setClockView] = useState<"clock" | "card">("clock");
+  const [desktop, setDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const on = () => setDesktop(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    try {
+      if (localStorage.getItem(LS_CLOCK_VIEW) === "card") setClockView("card");
+    } catch {}
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -2093,9 +2110,11 @@ export function EmployeeTimeClient({
 
   const needsUserPick = !!me && !me.jtUserId;
   const running = !!activeClock;
+  // The week time card replaces the clock on this tab (desktop, own time, linked).
+  const showCard = tab === "clock" && clockView === "card" && desktop && !acting && !!me?.jtUserId;
 
   return (
-    <main className={`w-full ${tab === "compare" ? "max-w-7xl" : "max-w-2xl"} px-4 pad:px-7 pb-28 pt-4`}>
+    <main className={`w-full ${tab === "compare" || showCard ? "max-w-7xl" : "max-w-2xl"} px-4 pad:px-7 pb-28 pt-4`}>
       {/* A bare <h1>: no peak mark on this page, and a description only
           while an admin is acting as someone else. */}
       <PageHeader
@@ -2217,8 +2236,38 @@ export function EmployeeTimeClient({
           </button>
         ))}
 
+      {/* Desktop: the clock, or the week time card. Your own time only — the
+          card's writes are the own-entry ones, so it hides while acting. */}
+      {tab === "clock" && desktop && !acting && !!me?.jtUserId && (
+        <Segmented
+          label="Time Clock view"
+          value={clockView}
+          onChange={(v) => {
+            setClockView(v);
+            try {
+              localStorage.setItem(LS_CLOCK_VIEW, v);
+            } catch {}
+          }}
+          options={[
+            { value: "clock", label: "Clock" },
+            { value: "card", label: "Time card" },
+          ]}
+          className="mb-3"
+        />
+      )}
+      {showCard && (
+        <TimeCard
+          myId={me?.jtUserId ?? ""}
+          myName={effectiveName}
+          jobs={jobs}
+          payTypes={payTypes.map((p) => p.name)}
+          payRules={initialPayRules}
+          codeDefaults={initialCodeDefaults}
+        />
+      )}
+
       {/* ========================================================= TIME CLOCK */}
-      {tab === "clock" && (
+      {tab === "clock" && !showCard && (
         <>
           {clockNote && (
             <p className="mb-3 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
