@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T19:39:53Z",
+  "generatedAt": "2026-11-09T19:44:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -30,9 +30,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T19:10:11Z",
+      "updated": "2026-11-09T19:18:16Z",
       "goal": "",
-      "next": "Owner ok to push 1a4f3e74 (bug hours) and the time card; then on desktop type a new cell with a note, edit one, clear one, Save, and check JobTread.",
+      "next": "On Split View, put another employee on the left and confirm it reads only; put yourself back and confirm editing returns.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1636,6 +1636,13 @@
           "sha": "714dbdb",
           "subject": "companion: add the desktop week time card to the time clock",
           "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/TimeCard.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts, +1 more"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "11:18",
+          "sha": "0d810ef",
+          "subject": "companion: pick the employee on both sides of split view",
+          "files": "src/app/employee-time/WeekCompare.tsx"
         }
       ]
     },
