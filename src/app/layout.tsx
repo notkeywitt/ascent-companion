@@ -21,6 +21,7 @@ import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
 import { PageGuide } from "@/components/PageGuide";
+import { TimeBug } from "@/components/TimeBug";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { AppScrollKeeper } from "@/components/AppScrollKeeper";
 import { SwipeBack } from "@/components/SwipeBack";
@@ -209,6 +210,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* The help mark, bottom-left of every page, and the overlay it
                   opens. Outside #app-shell on purpose. */}
               <PageGuide />
+              {/* The floating time clock — desktop only, while you are on the
+                  clock. Outside #app-shell like the help mark. */}
+              {(session?.user || devOpen) && <TimeBug />}
               {/* Pull down from the top to reload — installed app only. Outside
                   #app-shell for the same reason as the help mark. */}
               <PullToRefresh />

@@ -231,6 +231,27 @@ export const HELP: HelpSection[] = [
         ],
       },
       {
+        id: "time-bug",
+        q: "How do I switch work or clock out on a computer?",
+        view: "employee-time",
+        href: "/employee-time",
+        keywords: ["time bug", "floating clock", "switch job", "desktop", "change cost code"],
+        steps: [
+          "Clock in on **Time**.",
+          "Write the **Notes** for the work you did.",
+          "To change work, tap **Switch**.",
+          "Select the next job and work, then tap **Start**.",
+          "To stop, tap **Clock out**.",
+        ],
+        notes: [
+          "On a computer, a small clock opens in a bottom corner of every page.",
+          "Switch closes your entry at the moment you tap it. The new entry starts at the same moment.",
+          "The note goes on the entry that closes. The new entry starts with no note.",
+          "The arrows button moves the clock to the other corner.",
+          "To bring back a closed clock, open **Time** and tap **Show time bug**.",
+        ],
+      },
+      {
         id: "log-past-time",
         q: "How do I log time I already worked?",
         view: "employee-time",

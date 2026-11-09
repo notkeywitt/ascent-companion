@@ -18,6 +18,19 @@ import { jtTimeUrl } from "@/lib/jtLinks";
 import { fmtHM } from "@/lib/leaveFormat";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import {
+  LS_CLOCK,
+  NOTE_TTL_MS,
+  announceClock,
+  announceNote,
+  clearSavedNote,
+  onClockChange,
+  onNoteChange,
+  readSavedNote,
+  recentlyClosed,
+  saveNote,
+  showTimeBug,
+} from "@/lib/timeClockShared";
+import {
   Banner,
   Card,
   Chip,
@@ -211,54 +224,7 @@ interface DayGroup {
 
 const MAX_PHOTOS = 8;
 const LS_JT_USER = "employeeTime.jtUser."; // + email → remembered JobTread user id
-const LS_CLOCK = "employeeTime.activeClock";
 const LS_LAST_PICK = "employeeTime.lastPick."; // + email → last job/cost/pay used
-const LS_NOTE = "employeeTime.note"; // the note in progress, kept across visits
-
-// A note typed with no clock running is dropped after this long, so a note
-// abandoned in Log a range never turns up days later on someone else's shift.
-// A note that belongs to a RUNNING clock ignores this — it stands until that
-// clock is closed, however long the crew member stays on it.
-const NOTE_TTL_MS = 12 * 60 * 60 * 1000;
-
-/** The note in progress: what was typed, which clock it was typed on, when. */
-interface SavedNote {
-  note: string;
-  entryId: string; // the running clock it belongs to ("" = typed with no clock)
-  savedAt: number;
-}
-
-// The note survives leaving the page. A crew member writes what they worked on
-// while the clock runs, walks away from the screen, and finds it still there —
-// the same mirror-to-this-device rule the running clock itself uses.
-function readSavedNote(): SavedNote | null {
-  try {
-    const raw = localStorage.getItem(LS_NOTE);
-    if (!raw) return null;
-    const s = JSON.parse(raw) as Partial<SavedNote>;
-    if (!s || typeof s.note !== "string" || !s.note.trim()) return null;
-    return { note: s.note, entryId: s.entryId ?? "", savedAt: Number(s.savedAt) || 0 };
-  } catch {
-    return null;
-  }
-}
-
-function saveNote(note: string, entryId: string) {
-  try {
-    if (!note.trim()) {
-      localStorage.removeItem(LS_NOTE);
-      return;
-    }
-    const rec: SavedNote = { note, entryId, savedAt: Date.now() };
-    localStorage.setItem(LS_NOTE, JSON.stringify(rec));
-  } catch {}
-}
-
-function clearSavedNote() {
-  try {
-    localStorage.removeItem(LS_NOTE);
-  } catch {}
-}
 
 /** The entry id of this device's clock record, without parsing the rest of it. */
 function readClockEntryId(): string {
@@ -814,6 +780,8 @@ export function EmployeeTimeClient({
   //   2. runs the COLD path when the shell could not resolve who you are,
   //   3. loads the leave balances (a separate, slower system — never blocking).
   useEffect(() => {
+    // Clocked out a moment ago on the time bug: JobTread may still show it.
+    for (const id of recentlyClosed()) closedHereRef.current.add(id);
     // The phone's mirror. It is the only record when writes are off or the
     // network is down, and it holds the log's idempotency key.
     let local: ActiveClock | null = null;
@@ -956,7 +924,8 @@ export function EmployeeTimeClient({
     // Never before the restore above, or the empty first value erases the note.
     if (!noteRestoredRef.current) return;
     saveNote(note, clockEntryId);
-  }, [note, clockEntryId]);
+    if (!acting) announceNote("page", note);
+  }, [note, clockEntryId, acting]);
 
   // Remembered JobTread-user pick (only used when the roster link is missing).
   useEffect(() => {
@@ -1249,6 +1218,7 @@ export function EmployeeTimeClient({
       // No entry id while on break — there is no open entry in JobTread to
       // hold one, and that is what stops the reconcile clearing this clock.
       patchClock({ entryId: "", breakStartedAt: at });
+      announceClock({ source: "page" });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not start your break.");
     } finally {
@@ -1298,6 +1268,7 @@ export function EmployeeTimeClient({
         breakMinutes: bankedBreak + minutes,
         resumed: false,
       });
+      announceClock({ source: "page" });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not end your break.");
     } finally {
@@ -1439,6 +1410,9 @@ export function EmployeeTimeClient({
           costCode: selectedCost?.number ?? "",
           payType,
         });
+        // On a desktop the time bug opens with the clock (components/TimeBug).
+        showTimeBug();
+        announceClock({ source: "page" });
       }
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not clock in.");
@@ -1523,6 +1497,7 @@ export function EmployeeTimeClient({
       });
       // The JobTread update lands a few seconds after this answer.
       if (activeClock.entryId) closedHereRef.current.add(activeClock.entryId);
+      announceClock({ source: "page", closed: activeClock.entryId ? [activeClock.entryId] : [] });
       try {
         localStorage.removeItem(LS_CLOCK);
       } catch {}
@@ -1556,6 +1531,7 @@ export function EmployeeTimeClient({
     try {
       localStorage.removeItem(LS_CLOCK);
     } catch {}
+    announceClock({ source: "page", closed: activeClock.entryId ? [activeClock.entryId] : [] });
     setActiveClock(null);
     setSheet(null);
     setClockNote("");
@@ -1622,6 +1598,7 @@ export function EmployeeTimeClient({
       };
       setActiveClock(next);
       if (!acting) saveClock(next);
+      announceClock({ source: "page" });
       setClockNote(
         `Now on ${c.number}${c.name ? ` — ${c.name}` : ""}. The hours before ${fmt12h(at.slice(11, 16))} stay on ${fromCode || "the old code"}.`,
       );
@@ -1783,6 +1760,40 @@ export function EmployeeTimeClient({
       alive = false;
     };
   }, [actingAsId, canActAs]);
+
+  /* The time bug changed the clock (components/TimeBug.tsx floats over this
+     page on a desktop). Take its note, then re-read JobTread: a page still
+     holding the entry the bug switched away from would clock out of the
+     wrong one. */
+  useEffect(() => {
+    if (acting) return;
+    const offNote = onNoteChange((source, text) => {
+      if (source === "bug") setNote(text);
+    });
+    const offClock = onClockChange((c) => {
+      if (c.source !== "bug") return;
+      for (const id of c.closed ?? []) closedHereRef.current.add(id);
+      setNote(readSavedNote()?.note ?? "");
+      fetch("/api/employee-time/clock", { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; linked?: boolean; openEntry?: OpenEntry | null }) => {
+          if (j.ok === false) {
+            setClockUnknown(true);
+            return;
+          }
+          setClockUnknown(false);
+          applyFreshClock(j.openEntry ?? null, !!j.linked);
+          setClockNote(c.message ?? "");
+        })
+        .catch(() => setClockUnknown(true));
+    });
+    return () => {
+      offNote();
+      offClock();
+    };
+    // applyFreshClock reads the clock through refs, so the first one is current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acting]);
 
   /* Back on the page — the phone woke, or the crew member came back from
      another app. Ask JobTread again. A page left open keeps what it last
@@ -2256,6 +2267,16 @@ export function EmployeeTimeClient({
                   <p className="mt-1 text-xs text-warn">
                     JobTread push is OFF — this clock is local-only until writes are enabled.
                   </p>
+                )}
+                {/* Desktop only: brings back the floating clock if it was closed. */}
+                {!acting && !onBreakSince && (
+                  <button
+                    type="button"
+                    onClick={showTimeBug}
+                    className="mt-2 hidden text-xs font-semibold text-accent hover:underline dark:text-accent-soft lg:inline-block"
+                  >
+                    Show time bug
+                  </button>
                 )}
               </>
             )}
