@@ -522,7 +522,10 @@ export function TabBar() {
               ? WORKSPACES.find((w) => w.id === t.workspace)
               : undefined;
           const isHere = (href: string) => pathname === href || pathname.startsWith(href + "/");
-          const pages = ws ? reachableTabs(ws, access.can) : [];
+          // A page the rail already lists as its own item (Payroll) is not
+          // repeated under its workspace; one page left needs no second level.
+          const own = ws ? reachableTabs(ws, access.can).filter((tab) => !rail.some((r) => !r.workspace && r.view === tab.view)) : [];
+          const pages = own.length > 1 ? own : [];
           // From 2xl the fill moves down to the page itself, so one row is lit.
           const childLit = pages.some((tab) => isHere(tab.href));
           return (
@@ -542,7 +545,7 @@ export function TabBar() {
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
               </Link>
               {/* The sidebar's second level: the current workspace's pages. */}
-              {ws && (
+              {pages.length > 0 && (
                 <div className="hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
                   {pages.map((tab) => {
                     const here = isHere(tab.href);

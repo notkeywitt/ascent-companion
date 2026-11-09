@@ -28,6 +28,9 @@ import { NO_STRIP, NO_STRIP_WORKSPACES, locate, reachableTabs } from "@/lib/work
  * holds their few pages, so the strip, the bar and the ☰ menu listed the same
  * five pages three times on one phone screen.
  */
+/** Pages whose strip hides on a phone only. */
+const PHONE_NO_STRIP = new Set(["jobs-hub", "employees"]);
+
 export function WorkspaceTabs() {
   const pathname = usePathname();
   const search = useSearchParams();
@@ -47,10 +50,11 @@ export function WorkspaceTabs() {
     // The Jobs Hub drops it on a phone (owner, 2026-11-07): its job picker and
     // tabs sit right under the header already. Employees drops it on a phone
     // too (owner, 2026-11-07): New Hires is a button under the title, and the
-    // other pages are in the drawer.
+    // other pages are in the drawer. Time drops it on a phone too (owner,
+    // 2026-11-09): Payroll is an icon in the drawer instead.
     <nav
       aria-label={here.workspace.title}
-      className={`px-4 pt-3 print:hidden pad:px-7 2xl:hidden ${here.tab.view === "jobs-hub" || here.tab.view === "employees" ? "max-pad:hidden" : ""}`}
+      className={`px-4 pt-3 print:hidden pad:px-7 2xl:hidden ${PHONE_NO_STRIP.has(here.tab.view) || here.workspace.id === "time" ? "max-pad:hidden" : ""}`}
     >
       <ChipScroller>
         {tabs.map((t) => {

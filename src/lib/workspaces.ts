@@ -393,6 +393,9 @@ const DESK_TOP: BarSlot[] = [
   // Vendors under Jobs at the owner's ask (2026-10-26).
   { kind: "tab", view: "vendors" },
   { kind: "workspace", id: "time" },
+  // Payroll as its own icon under Time (owner, 2026-11-09): the Time page's
+  // strip is gone on a phone, so the rail and the drawer carry it.
+  { kind: "tab", view: "time-sync" },
   // Tools on the rail too (owner, 2026-10-29), as on the phone bar.
   { kind: "tab", view: "tools" },
 ];
