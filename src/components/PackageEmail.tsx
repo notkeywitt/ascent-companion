@@ -62,9 +62,9 @@ export function PackageEmailButton({
       variant="secondary"
       onClick={onOpen}
       disabled={email.running || !ym}
-      title="Add a note to each job, then save the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs. Pressed again, it replaces this month's draft with the latest."
+      title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs. A new draft replaces this month's draft."
     >
-      {email.running ? "Drafting email…" : email.done ? "Update invoicing email" : "Draft invoicing email"}
+      {email.running ? "Drafting email…" : "Invoicing email"}
     </Button>
   );
 }
@@ -117,12 +117,13 @@ function invoiceLabel(j: NoteJob): string {
 }
 
 /**
- * The card that opens before the email is drafted: one text box per job in the
- * email. A note is the line under that job in the email, and it is the same
- * note the job's "Edit for the email" panel holds — saved to the month's sheet,
- * so it stays for the next edit and the next draft. Each box saves on blur;
- * "Draft email" waits for every save to land first, because Apps Script reads
- * the notes when it builds the draft.
+ * The notes card: one text box per job in the email. A note is the line under
+ * that job in the email, and it is the same note the job's "Edit for the email"
+ * panel holds — saved to the month's sheet, so it stays for the next edit and
+ * the next draft. Each box saves on blur. "Save" waits for every save to land,
+ * then closes. "Draft email" waits the same way first, because Apps Script
+ * reads the notes when it builds the draft. `jobs` is null while the caller
+ * still reads the month, so the card opens at once.
  */
 export function PackageEmailNotes({
   jobs,
@@ -131,9 +132,12 @@ export function PackageEmailNotes({
   onSave,
   onDraft,
   onClose,
+  loadError,
 }: {
-  jobs: NoteJob[];
+  jobs: NoteJob[] | null;
   running: boolean;
+  /** Set when the caller could not read the month's jobs. */
+  loadError?: string;
   onPatch: (jobId: string, note: string) => void;
   /** Saves one job's note; resolves false when the save failed. */
   onSave: (jobId: string, note: string) => Promise<boolean>;
@@ -142,7 +146,7 @@ export function PackageEmailNotes({
 }) {
   const pending = useRef(new Set<Promise<boolean>>());
   const [failed, setFailed] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<"" | "save" | "draft">("");
 
   const saveNote = (jobId: string, note: string) => {
     const p = onSave(jobId, note);
@@ -150,46 +154,72 @@ export function PackageEmailNotes({
     void p.finally(() => pending.current.delete(p));
   };
 
-  const draft = async () => {
-    setBusy(true);
+  /** Waits for every note save in flight; false when one failed. */
+  const settle = async (kind: "save" | "draft") => {
+    setBusy(kind);
     setFailed(false);
     const results = await Promise.all([...pending.current]);
     if (results.includes(false)) {
       setFailed(true);
-      setBusy(false);
-      return;
+      setBusy("");
+      return false;
     }
-    await onDraft();
-    setBusy(false);
+    return true;
   };
 
+  const save = async () => {
+    if (!(await settle("save"))) return;
+    setBusy("");
+    onClose();
+  };
+
+  const draft = async () => {
+    if (!(await settle("draft"))) return;
+    await onDraft();
+    setBusy("");
+  };
+
+  const locked = !!busy || running;
+  const ready = jobs !== null;
+
   // Invoiced jobs first, the order the email lists them in.
-  const ordered = [...jobs.filter((j) => invoiceLabel(j)), ...jobs.filter((j) => !invoiceLabel(j))];
+  const ordered = jobs ? [...jobs.filter((j) => invoiceLabel(j)), ...jobs.filter((j) => !invoiceLabel(j))] : [];
 
   return (
     <Dialog
       onClose={onClose}
-      busy={busy || running}
+      busy={locked}
       size="lg"
       title="Notes for the invoicing email"
-      description="A note prints as the last line under its job. Leave a box empty for no note. Notes stay saved."
+      description="A note prints as the last line under its job. Leave a box empty for no note. Save keeps the notes without drafting."
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={busy || running}>
+          <Button variant="ghost" onClick={onClose} disabled={locked}>
             Cancel
           </Button>
-          <Button onClick={draft} disabled={busy || running}>
-            {busy || running ? "Drafting email…" : "Draft email"}
+          <Button variant="secondary" onClick={save} disabled={locked || !ready}>
+            {busy === "save" ? "Saving…" : "Save"}
+          </Button>
+          <Button onClick={draft} disabled={locked || !ready}>
+            {busy === "draft" || running ? "Drafting email…" : "Draft email"}
           </Button>
         </>
       }
     >
       {failed && (
         <Banner tone="error" className="mb-3">
-          A note did not save. Fix it and press Draft email again.
+          A note did not save. Fix it and press Save or Draft email again.
         </Banner>
       )}
-      {ordered.length === 0 && <p className="text-[13px] text-neutral-500">No jobs are included this month.</p>}
+      {loadError && (
+        <Banner tone="error" className="mb-3">
+          {loadError}
+        </Banner>
+      )}
+      {!ready && !loadError && <p className="text-[13px] text-neutral-500">Loading the month's jobs…</p>}
+      {ready && ordered.length === 0 && (
+        <p className="text-[13px] text-neutral-500">No jobs are included this month.</p>
+      )}
       <div className="space-y-3">
         {ordered.map((j) => (
           <label key={j.jtJobId} className="block">
@@ -203,6 +233,7 @@ export function PackageEmailNotes({
               placeholder="Note"
               onChange={(e) => onPatch(j.jtJobId, e.target.value)}
               onBlur={(e) => saveNote(j.jtJobId, e.target.value)}
+              disabled={locked}
             />
           </label>
         ))}
@@ -212,22 +243,28 @@ export function PackageEmailNotes({
 }
 
 /**
- * "Draft Email" on its own — the same action as Invoice Status's button, for a
- * page that does not hold the month's job list. It reads the month, opens the
- * notes card, saves each note, then drafts. Renders nothing without the
+ * "Invoicing email" on its own — the same action as Invoice Status's button,
+ * for a page that does not hold the month's job list. It opens the notes card
+ * at once and reads the month inside it. Renders nothing without the
  * "invoicing-summary" view.
  */
 export function DraftInvoicingEmail({ ym, className }: { ym: string; className?: string }) {
   const { can } = useAccess();
   const email = usePackageEmail(ym);
+  const [open, setOpen] = useState(false);
   const [jobs, setJobs] = useState<NoteJob[] | null>(null);
-  const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
 
   if (!can("invoicing-summary")) return null;
 
-  const open = async () => {
-    setLoading(true);
+  const close = () => {
+    setOpen(false);
+    setJobs(null);
+  };
+
+  const show = async () => {
+    setOpen(true);
+    setJobs(null);
     setLoadError("");
     try {
       const res = await fetch(`/api/invoicing-summary?ym=${encodeURIComponent(ym)}`, { cache: "no-store" });
@@ -236,8 +273,6 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
       setJobs(((body.jobs ?? []) as (NoteJob & { include: boolean })[]).filter((j) => j.include));
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Could not read the month.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -246,21 +281,17 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
       <Button
         variant="secondary"
         className="min-h-11"
-        onClick={open}
-        disabled={email.running || loading || !ym}
-        title="Add a note to each job, then save the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs."
+        onClick={() => void show()}
+        disabled={email.running || !ym}
+        title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs."
       >
-        {email.running || loading ? "Drafting email…" : email.done ? "Update Email" : "Draft Email"}
+        {email.running ? "Drafting email…" : "Invoicing Email"}
       </Button>
-      {loadError && (
-        <p role="alert" className="mt-1 text-xs text-danger">
-          {loadError}
-        </p>
-      )}
       <PackageEmailResult email={email} />
-      {jobs && (
+      {open && (
         <PackageEmailNotes
           jobs={jobs}
+          loadError={loadError}
           running={email.running}
           onPatch={(id, note) => setJobs((js) => js && js.map((j) => (j.jtJobId === id ? { ...j, note } : j)))}
           onSave={async (id, note) => {
@@ -277,9 +308,9 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
           }}
           onDraft={async () => {
             await email.run();
-            setJobs(null);
+            close();
           }}
-          onClose={() => setJobs(null)}
+          onClose={close}
         />
       )}
     </div>
