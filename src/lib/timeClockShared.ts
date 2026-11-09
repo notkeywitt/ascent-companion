@@ -155,6 +155,26 @@ const BUG_OPEN_EVENT = "ascent:timebug-open";
 
 export type BugSide = "left" | "right";
 
+/* Popped out: the bug lives in its own always-on-top window (Chrome and Edge
+   only — components/TimeBug.tsx). Remembered so the next clock-in on the Time
+   page pops it out again; closing that window puts it back in the page. */
+const LS_BUG_POPPED = "timeBug.popped";
+
+export function readBugPopped(): boolean {
+  try {
+    return localStorage.getItem(LS_BUG_POPPED) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveBugPopped(on: boolean) {
+  try {
+    if (on) localStorage.setItem(LS_BUG_POPPED, "1");
+    else localStorage.removeItem(LS_BUG_POPPED);
+  } catch {}
+}
+
 export function readBugSide(): BugSide {
   try {
     return localStorage.getItem(LS_BUG_SIDE) === "left" ? "left" : "right";

@@ -248,6 +248,8 @@ export const HELP: HelpSection[] = [
           "Switch closes your entry at the moment you tap it. The new entry starts at the same moment.",
           "The note goes on the entry that closes. The new entry starts with no note.",
           "The arrows button moves the clock to the other corner.",
+          "In Chrome or Edge, the pop-out button puts the clock in its own window above every app.",
+          "That window closes when you close the app's tab.",
           "To bring back a closed clock, open **Time** and tap **Show time bug**.",
         ],
       },

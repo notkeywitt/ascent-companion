@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { useAccess } from "@/components/AccessProvider";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
@@ -16,7 +17,9 @@ import {
   onClockChange,
   onNoteChange,
   onShowTimeBug,
+  readBugPopped,
   readBugSide,
+  saveBugPopped,
   recentlyClosed,
   saveBugSide,
   saveNote,
@@ -43,6 +46,15 @@ import {
  * It opens when the person clocks in on the Time page, and the × hides it for
  * the rest of the day; "Show time bug" on the Time page brings it back. The ⇆
  * moves it to the other corner. Both are per device (lib/timeClockShared).
+ *
+ * POP OUT (Chrome and Edge only — Document Picture-in-Picture): the ⧉ button
+ * moves the bug into its own small window that stays on top of every app, so
+ * it floats on the computer's desktop, not only inside the browser. It is the
+ * same component, drawn into that window through a portal, so it uses the same
+ * sign-in and the same routes. The browser opens such a window only on a
+ * click, and closes it when the app's tab closes or reloads. Closing it puts
+ * the bug back in the page; the next clock-in on the Time page pops it out
+ * again, because that tap is a click.
  *
  * The running clock is JobTread's (GET /api/employee-time/clock), read on load,
  * when the window comes back to the front, every few minutes, and whenever the
@@ -140,6 +152,53 @@ function clearLocalClock() {
   } catch {}
 }
 
+/* Document Picture-in-Picture is not in TypeScript's DOM types yet. */
+interface DocumentPip {
+  requestWindow(opts?: { width?: number; height?: number }): Promise<Window>;
+  window: Window | null;
+}
+function documentPip(): DocumentPip | null {
+  if (typeof window === "undefined") return null;
+  return (window as unknown as { documentPictureInPicture?: DocumentPip }).documentPictureInPicture ?? null;
+}
+
+/** Give the pop-out window the app's stylesheets, theme and palette. */
+function dressPipWindow(win: Window) {
+  const d = win.document;
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      if (sheet.href) {
+        const link = d.createElement("link");
+        link.rel = "stylesheet";
+        link.href = sheet.href;
+        d.head.appendChild(link);
+      } else {
+        const style = d.createElement("style");
+        style.textContent = Array.from(sheet.cssRules)
+          .map((r) => r.cssText)
+          .join("\n");
+        d.head.appendChild(style);
+      }
+    } catch {
+      /* a sheet the browser will not let us read — skip it */
+    }
+  }
+  syncPipTheme(win);
+  d.title = "Time";
+  d.body.className = "font-sans antialiased bg-white dark:bg-ink-raised";
+  d.body.style.margin = "0";
+}
+
+/** The theme can change while the window is open; copy <html>'s state again. */
+function syncPipTheme(win: Window) {
+  const src = document.documentElement;
+  const dst = win.document.documentElement;
+  dst.className = src.className;
+  const palette = src.getAttribute("data-palette");
+  if (palette) dst.setAttribute("data-palette", palette);
+  dst.setAttribute("style", src.getAttribute("style") ?? "");
+}
+
 export function TimeBug() {
   const { can } = useAccess();
   const desktop = useIsDesktop();
@@ -147,6 +206,21 @@ export function TimeBug() {
 
   const [clock, setClock] = useState<OpenEntry | null>(null);
   const [dismissed, setDismissed] = useState(true);
+  // The pop-out window, while the bug lives in it.
+  const [pipWin, setPipWin] = useState<Window | null>(null);
+  const pipRef = useRef<Window | null>(null);
+  pipRef.current = pipWin;
+  // True while WE close the pop-out (× or nothing to show). Only a close the
+  // person makes — the window's own close button — puts the bug back for good.
+  const closingRef = useRef(false);
+  function closePip(keepPopped: boolean) {
+    const win = pipRef.current;
+    if (!win) return;
+    closingRef.current = keepPopped;
+    setPipWin(null);
+    win.close();
+  }
+  const [canPop, setCanPop] = useState(false);
   const [side, setSide] = useState<BugSide>("right");
   const [note, setNote] = useState("");
   const [nowMs, setNowMs] = useState(0);
@@ -174,7 +248,36 @@ export function TimeBug() {
   useEffect(() => {
     setSide(readBugSide());
     setDismissed(isBugDismissed());
+    setCanPop(!!documentPip());
   }, []);
+
+  /** Open the pop-out window. Must run inside a click. */
+  const popOut = useCallback(async () => {
+    const api = documentPip();
+    if (!api || pipRef.current) return;
+    try {
+      const win = await api.requestWindow({ width: 340, height: 430 });
+      dressPipWindow(win);
+      // Closed from its own title bar, or the tab went away: back in the page.
+      win.addEventListener("pagehide", () => {
+        if (!closingRef.current) saveBugPopped(false);
+        closingRef.current = false;
+        setPipWin(null);
+      });
+      saveBugPopped(true);
+      setPipWin(win);
+    } catch {
+      /* no click behind it, or the browser said no — stay in the page */
+    }
+  }, []);
+
+  // Keep the pop-out's theme in step with the app's.
+  useEffect(() => {
+    if (!pipWin) return;
+    const obs = new MutationObserver(() => syncPipTheme(pipWin));
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-palette", "style"] });
+    return () => obs.disconnect();
+  }, [pipWin]);
 
   // A new entry on screen: start from its note (typed here or on the Time
   // page), else the description JobTread holds.
@@ -218,7 +321,7 @@ export function TimeBug() {
     };
     document.addEventListener("visibilitychange", onVis);
     const t = window.setInterval(() => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible" || pipRef.current) refresh();
     }, POLL_MS);
     const offClock = onClockChange((c) => {
       if (c.source === "page") {
@@ -230,6 +333,9 @@ export function TimeBug() {
       setDismissed(false);
       setDone("");
       refresh();
+      // Popped out last time: pop out again. This runs inside the Time page's
+      // click, so the browser allows it; if not, the bug shows in the page.
+      if (readBugPopped()) void popOut();
     });
     const offNote = onNoteChange((source, text) => {
       if (source === "page") setNote(text);
@@ -241,9 +347,15 @@ export function TimeBug() {
       offShow();
       offNote();
     };
-  }, [enabled, refresh]);
+  }, [enabled, refresh, popOut]);
 
   const visible = enabled && !dismissed && (!!clock || !!done);
+
+  // Nothing to show: close the pop-out too. It still counts as popped out.
+  useEffect(() => {
+    if (!visible && pipWin) closePip(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visible, pipWin]);
 
   // The clock-out confirmation stays a few seconds, then the bug goes.
   useEffect(() => {
@@ -508,6 +620,7 @@ export function TimeBug() {
   }
 
   function close() {
+    closePip(true); // × hides the bug; it stays popped out for next time
     dismissBug();
     setDismissed(true);
     setDone("");
@@ -521,11 +634,15 @@ export function TimeBug() {
   }
 
   // Above any docked commit bar. On the left it also clears the help mark,
-  // which sits in that corner beside the rail.
-  const place: React.CSSProperties = {
-    bottom: "calc(var(--actionbar-bottom) + var(--actionbar-h) + 0.5rem)",
-    ...(side === "left" ? { left: "calc(var(--rail-w) + 2.75rem)" } : { right: "1rem" }),
-  };
+  // which sits in that corner beside the rail. In the pop-out it fills the window.
+  const place: React.CSSProperties | undefined = pipWin
+    ? undefined
+    : {
+        bottom: "calc(var(--actionbar-bottom) + var(--actionbar-h) + 0.5rem)",
+        ...(side === "left" ? { left: "calc(var(--rail-w) + 2.75rem)" } : { right: "1rem" }),
+      };
+  const iconBtn =
+    "inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400";
 
   // The Job box always offers the running job, even one the list leaves out.
   const jobOptions = clock && !jobs.some((j) => j.id === clock.jobId)
@@ -540,11 +657,15 @@ export function TimeBug() {
 
   const startMs = clock ? new Date(clock.startedAt).getTime() : 0;
 
-  return (
+  const bug = (
     <aside
       aria-label="Time clock"
       style={place}
-      className="fixed z-40 w-80 rounded-xl border border-line bg-white shadow-lg dark:bg-ink-raised"
+      className={
+        pipWin
+          ? "min-h-screen w-full bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
+          : "fixed z-40 w-80 rounded-xl border border-line bg-white shadow-lg dark:bg-ink-raised"
+      }
     >
       <div className="flex items-center gap-2 border-b border-line-soft py-1 pl-3 pr-1">
         {clock ? (
@@ -557,6 +678,24 @@ export function TimeBug() {
           <span className="text-sm font-semibold">Time</span>
         )}
         <span className="flex-1" />
+        {canPop && (
+          <button
+            type="button"
+            onClick={() => (pipWin ? closePip(false) : void popOut())}
+            aria-label={pipWin ? "Put back in the page" : "Pop out — float above every window"}
+            title={pipWin ? "Put back in the page" : "Pop out — float above every window"}
+            className={iconBtn}
+          >
+            <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
+              {pipWin ? (
+                <path d="M2 3h12v10H2zM6 6v4h4" strokeLinejoin="round" />
+              ) : (
+                <path d="M9 2h5v5M14 2L8 8M12 10v4H2V4h4" strokeLinecap="round" strokeLinejoin="round" />
+              )}
+            </svg>
+          </button>
+        )}
+        {!pipWin && (
         <button
           type="button"
           onClick={flip}
@@ -568,6 +707,7 @@ export function TimeBug() {
             <path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
+        )}
         <button
           type="button"
           onClick={close}
@@ -681,4 +821,6 @@ export function TimeBug() {
       )}
     </aside>
   );
+
+  return pipWin ? createPortal(bug, pipWin.document.body) : bug;
 }
