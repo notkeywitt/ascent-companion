@@ -26,6 +26,14 @@ import {
   savedNoteFor,
   type BugSide,
 } from "@/lib/timeClockShared";
+import {
+  dropNoteSave,
+  flushNoteSave,
+  markNoteSynced,
+  mergeRemoteNote,
+  queueNoteSave,
+  syncedNoteFor,
+} from "@/lib/clockNoteSync";
 
 /**
  * The time bug — a small clock that floats in a bottom corner of every page on
@@ -260,6 +268,8 @@ export function TimeBug() {
 
   const clockRef = useRef(clock);
   clockRef.current = clock;
+  const noteRef = useRef(note);
+  noteRef.current = note;
   const busyRef = useRef(busy);
   busyRef.current = busy;
 
@@ -297,12 +307,29 @@ export function TimeBug() {
     return () => obs.disconnect();
   }, [pipWin]);
 
+  /* JobTread's note for the entry on screen, merged into the box: a note typed
+     on another device comes in, and nothing typed here is lost
+     (lib/clockNoteSync). A merge that differs from JobTread is saved back. */
+  function takeRemoteNote(entryId: string, local: string, remote: string) {
+    const merged = mergeRemoteNote(local, syncedNoteFor(entryId), remote);
+    markNoteSynced(entryId, remote);
+    if (merged !== local) {
+      setNote(merged);
+      saveNote(merged, entryId);
+      announceNote("bug", merged);
+    }
+    queueNoteSave(entryId, merged);
+  }
+
   // A new entry on screen: start from its note (typed here or on the Time
-  // page), else the description JobTread holds.
+  // page) merged with the note JobTread holds.
   const shownId = clock?.entryId ?? null;
   useEffect(() => {
     if (shownId === null) return;
-    setNote(savedNoteFor(shownId) || clockRef.current?.notes || "");
+    const local = savedNoteFor(shownId);
+    setNote(local);
+    if (shownId) takeRemoteNote(shownId, local, clockRef.current?.notes ?? "");
+    else setNote(local || clockRef.current?.notes || "");
     setStartEdit("");
     setEndEdit("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -316,7 +343,11 @@ export function TimeBug() {
         if (j.ok === false || busyRef.current) return; // can't tell — leave the screen alone
         // Clocked out a moment ago: JobTread can still show it running.
         if (j.openEntry && !recentlyClosed().includes(j.openEntry.entryId)) {
-          setClock(j.openEntry);
+          // Same entry still on screen: bring in a note typed elsewhere. A new
+          // entry is merged by the effect that runs when it is shown.
+          const e = j.openEntry;
+          if (clockRef.current?.entryId === e.entryId) takeRemoteNote(e.entryId, noteRef.current, e.notes ?? "");
+          setClock(e);
           return;
         }
         // Writes off: the Time page's preview clock exists on this device only.
@@ -477,6 +508,7 @@ export function TimeBug() {
     setNote(text);
     saveNote(text, clock?.entryId ?? "");
     announceNote("bug", text);
+    queueNoteSave(clock?.entryId ?? "", text);
   }
 
   // The entry's start and end as the boxes say, "YYYY-MM-DDTHH:MM:SS". An
@@ -556,6 +588,7 @@ export function TimeBug() {
     }
     setErr("");
     setBusy(true);
+    dropNoteSave(clock.entryId); // the switch carries the note itself
     try {
       const res = await fetch("/api/employee-time/clock", {
         method: "POST",
@@ -633,6 +666,7 @@ export function TimeBug() {
     const logKey = local?.entryId === clock.entryId && local.logKey ? local.logKey : `te-jt-${clock.entryId}`;
     setErr("");
     setBusy(true);
+    dropNoteSave(clock.entryId); // the clock-out carries the note itself
     try {
       const res = await fetch("/api/employee-time/clock", {
         method: "POST",
@@ -875,6 +909,7 @@ export function TimeBug() {
               disabled={busy}
               placeholder="What did you work on? Required."
               onChange={(e) => typeNote(e.target.value)}
+              onBlur={flushNoteSave}
             />
           </div>
           {err && (
