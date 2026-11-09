@@ -5,7 +5,6 @@ import { useAccess } from "@/components/AccessProvider";
 import { CopyButton } from "@/components/CopyButton";
 import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
-import { SunsetExpenseSwitch } from "@/components/SunsetExpenseSwitch";
 import { SunsetLinkPicker, type LinkTarget } from "@/components/SunsetLinkPicker";
 import { SunsetStatementBills } from "@/components/SunsetStatementBills";
 import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
@@ -666,16 +665,12 @@ export default function PaymentsPage() {
       <div className="min-w-0">
       <PageHeader
         title="Sunset Statements"
-        description="Pay each statement at TSYS — copy the fields, pay, mark it done. Each card reconciles the statement against every Sunset bill in JobTread that month, on any job. Link a line to its bill when the match cannot find it."
         className="!mb-4"
       />
 
       <BankRow />
 
       <SunsetDuplicateScan />
-
-      {/* A bill write — office/admin only (its route rides the "recode" gate). */}
-      {canOpenBill && <SunsetExpenseSwitch />}
 
       {/* "Create Bills" — a bill write on the same gate. */}
       {canOpenBill && <SunsetStatementBills />}
