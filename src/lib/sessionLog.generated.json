@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T18:30:45Z",
+  "generatedAt": "2026-11-09T18:46:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T18:30:45Z",
+      "updated": "2026-11-09T18:46:04Z",
       "goal": "",
-      "next": "Owner: tap Open pop-up, then Already in JobTread -> Absolute Asbestos for INV-7597c80c. Decide on the one-character vendor-ID repair in ascent-appscript resolveExtractedVendorId.",
+      "next": "In Chrome: clock in, pop the time bug out, switch work from the pop-out, clock out; confirm both entries in JobTread and that the window follows dark mode.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1593,6 +1593,13 @@
           "sha": "ea4d3e9",
           "subject": "companion: add open pop-up link to the stuck-vendor notice",
           "files": "src/components/StuckVendors.tsx"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "10:46",
+          "sha": "305b82b",
+          "subject": "companion: pop the time bug out into an always-on-top window",
+          "files": "CODEBASE_MAP.md, src/components/TimeBug.tsx, src/lib/help.ts, src/lib/timeClockShared.ts"
         }
       ]
     },
