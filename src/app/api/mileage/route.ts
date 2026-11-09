@@ -136,6 +136,46 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(result.data, { status: 200 });
 }
 
+// PATCH { tripId, clientKey?, fields:{ date?, jobId?, jobLabel?, purpose?,
+//         miles?, startAddress?, endAddress? } } → { ok, trip }
+// Edits one logged trip from the history list. Apps Script decides who may
+// edit it (an admin: any trip; anyone else: their own), from the session email.
+const EDIT_KEYS = ["date", "jobId", "jobLabel", "purpose", "miles", "startAddress", "endAddress"] as const;
+
+export async function PATCH(req: NextRequest) {
+  let body: Record<string, unknown> = {};
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+  const session = await auth();
+  const requesterEmail = session?.user?.email ?? "";
+  if (!requesterEmail) return NextResponse.json({ error: "Sign in to edit a trip." }, { status: 401 });
+
+  const tripId = String(body.tripId ?? "").trim();
+  if (!tripId) return NextResponse.json({ error: "tripId is required." }, { status: 400 });
+  const raw = (body.fields ?? {}) as Record<string, unknown>;
+  const fields: Record<string, string | number> = {};
+  for (const k of EDIT_KEYS) {
+    if (raw[k] === undefined) continue;
+    fields[k] = k === "miles" ? Number(raw[k]) : String(raw[k] ?? "");
+  }
+  if ("miles" in fields && !(Number.isFinite(fields.miles) && (fields.miles as number) > 0)) {
+    return NextResponse.json({ error: "Enter the miles driven (greater than 0)." }, { status: 400 });
+  }
+
+  const result = await callAppsScript({
+    action: "updateMileage",
+    requesterEmail,
+    tripId,
+    clientKey: String(body.clientKey ?? ""),
+    fields,
+  });
+  if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  return NextResponse.json(result.data, { status: 200 });
+}
+
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
   try {

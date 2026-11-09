@@ -29,6 +29,7 @@ import {
   Label,
   Loading,
   PageHeader,
+  Segmented,
   Select,
   Textarea,
   Toggle,
@@ -69,6 +70,8 @@ interface Project {
   lat: number | null;
   lng: number | null;
 }
+
+type MileageTab = "record" | "manual" | "history";
 
 interface StartFix {
   startLat: number;
@@ -339,7 +342,11 @@ export function MileageClient({
   initialDriver: string;
   initialJobs: JobRef[];
 }) {
-  const [phase, setPhase] = useState<"idle" | "active" | "done" | "manual" | "history">("idle");
+  // The page's three tabs, as on the time page: record a trip, log one by
+  // hand, or see (and edit) the logged trips. `phase` is the Record tab's own
+  // state, so a trip under way keeps tracking while another tab is open.
+  const [tab, setTab] = useState<MileageTab>("record");
+  const [phase, setPhase] = useState<"idle" | "active" | "done">("idle");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -377,6 +384,8 @@ export function MileageClient({
 
   // Manual entry (no GPS — a forgotten or after-the-fact trip).
   const [miles, setMiles] = useState("");
+  // The hand-entered trip just saved; the By hand tab shows it until "Add more".
+  const [manualSummary, setManualSummary] = useState<Summary | null>(null);
   const [manualDate, setManualDate] = useState(today());
   const [manualKey, setManualKey] = useState(""); // idempotency key for a manual save
   // Optional From/To: Google figures the miles from them (/api/mileage/route-miles).
@@ -406,6 +415,8 @@ export function MileageClient({
   const [filterMonth, setFilterMonth] = useState(thisMonth());
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [historyErr, setHistoryErr] = useState("");
+  // The logged trip open in the edit dialog.
+  const [editing, setEditing] = useState<Record<string, string> | null>(null);
 
   // Admin-only monthly PDF report.
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -424,6 +435,7 @@ export function MileageClient({
     setTrail(t.trail);
     setTripKey(t.tripKey || genKey());
     setPhase("active");
+    setTab("record");
   }, []);
 
   // --- Load reference data + restore an in-progress trip on mount. ----------
@@ -862,7 +874,25 @@ export function MileageClient({
       setToPlace(addr);
       autoToRef.current = addr;
     }
-    setPhase("manual");
+    setTab("manual");
+  }
+
+  // "Add more miles" after a hand-entered save: a clean form, From back on the
+  // last start. Purpose stays when a trip is under way — it is that trip's too.
+  function resetManual() {
+    setManualSummary(null);
+    setMiles("");
+    setManualDate(today());
+    setFromPlace(readLastFrom());
+    const addr = jobAddr(jobs.find((j) => j.id === jobId));
+    setToPlace(addr);
+    autoToRef.current = addr;
+    setRoundTrip(false);
+    setOneWay(null);
+    setRouteErr("");
+    if (!start) setPurpose("");
+    setManualKey(genKey());
+    setErr("");
   }
 
   function onPickManualJob(job: JobRef | null) {
@@ -983,7 +1013,7 @@ export function MileageClient({
       const from = savedPlace(fromPlace, fromMatch);
       const to = savedPlace(toPlace, toMatch);
       const loop = roundTrip && !!from && !!to;
-      setSummary({
+      setManualSummary({
         miles: json.miles ?? m,
         startAddress: from,
         endAddress: loop ? from : to,
@@ -996,7 +1026,6 @@ export function MileageClient({
         endLatLng: "",
         polyline: "",
       });
-      setPhase("done");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not save the trip.");
     } finally {
@@ -1064,8 +1093,8 @@ export function MileageClient({
   }, [filterMonth, filterUser]);
 
   useEffect(() => {
-    if (phase === "history") loadHistory();
-  }, [phase, loadHistory]);
+    if (tab === "history") loadHistory();
+  }, [tab, loadHistory]);
 
   const totalMiles = useMemo(() => {
     const sum = trips.reduce((s, t) => s + (Number(t["Miles"]) || 0), 0);
@@ -1111,6 +1140,25 @@ export function MileageClient({
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader title="Miles" />
 
+      {/* Record | By hand | Logged miles — one tap apart, as on the time page. */}
+      <Segmented
+        label="Miles view"
+        size="md"
+        fill
+        className="mb-4"
+        value={tab}
+        onChange={(t) => {
+          setErr("");
+          if (t === "manual") openManual();
+          else setTab(t);
+        }}
+        options={[
+          { value: "record" as const, label: phase === "active" ? "Trip ●" : "Record" },
+          { value: "manual" as const, label: "By hand" },
+          { value: "history" as const, label: "Logged miles" },
+        ]}
+      />
+
       {err && (
         <Banner tone="error" className="mb-4">
           {err}
@@ -1118,7 +1166,7 @@ export function MileageClient({
       )}
 
       {/* --------------------------------------------------------------- IDLE */}
-      {phase === "idle" && (
+      {tab === "record" && phase === "idle" && (
         <div className="space-y-4">
           <Card className="space-y-3">
             {driver && (
@@ -1161,33 +1209,24 @@ export function MileageClient({
           >
             {busy ? "Getting your location…" : "Start trip"}
           </button>
-
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              onClick={openManual}
-            >
-              Add miles by hand
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              onClick={() => {
-                setErr("");
-                setPhase("history");
-              }}
-            >
-              View logged miles
-            </Button>
-          </div>
         </div>
       )}
 
       {/* --------------------------------------------------------------- MANUAL */}
-      {phase === "manual" && (
+      {tab === "manual" && manualSummary && (
+        <div className="space-y-4">
+          <TripSummary summary={manualSummary} />
+          <button
+            type="button"
+            onClick={resetManual}
+            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
+          >
+            Add more miles
+          </button>
+        </div>
+      )}
+
+      {tab === "manual" && !manualSummary && (
         <div className="space-y-4">
           <Card className="space-y-3">
             <div>
@@ -1313,23 +1352,11 @@ export function MileageClient({
           >
             {busy ? "Saving…" : "Save miles"}
           </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setErr("");
-              setPhase("idle");
-            }}
-            disabled={busy}
-            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline disabled:opacity-40 dark:hover:text-accent-soft"
-          >
-            Back
-          </button>
         </div>
       )}
 
       {/* ------------------------------------------------------------- ACTIVE */}
-      {phase === "active" && start && (
+      {tab === "record" && phase === "active" && start && (
         <div className="space-y-4">
           {restoredElsewhere && (
             <Banner tone="info">
@@ -1352,6 +1379,7 @@ export function MileageClient({
                 onClick={() => {
                   const day = today(new Date(start.startTime));
                   cancelTrip();
+                  setManualSummary(null);
                   openManual();
                   setManualDate(day);
                 }}
@@ -1472,43 +1500,9 @@ export function MileageClient({
       )}
 
       {/* --------------------------------------------------------------- DONE */}
-      {phase === "done" && summary && (
+      {tab === "record" && phase === "done" && summary && (
         <div className="space-y-4">
-          <Card className="text-center">
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Trip logged</p>
-            <div className="mt-1 text-4xl font-bold tabular-nums">
-              {summary.miles == null ? "—" : summary.miles} <span className="text-lg font-semibold">mi</span>
-            </div>
-            {summary.durationMin > 0 && (
-              <p className="mt-1 text-sm text-neutral-500">
-                {fmtDuration(summary.durationMin)} driving
-                {summary.stops > 0 ? ` · ${summary.stops} stop${summary.stops === 1 ? "" : "s"}` : ""}
-              </p>
-            )}
-          </Card>
-
-          {summary.warning && (
-            <Banner tone="warning">{summary.warning}</Banner>
-          )}
-
-          {isLatLng(summary.startLatLng) && isLatLng(summary.endLatLng) && (
-            <TripMap
-              start={summary.startLatLng}
-              end={summary.endLatLng}
-              polyline={summary.polyline}
-              className="w-full rounded-xl border border-line"
-            />
-          )}
-
-          <Card className="space-y-2 text-sm">
-            {summary.startAddress && (
-              <Row label="From" value={summary.startAddress} />
-            )}
-            {summary.via && <Row label="Via" value={summary.via} />}
-            {summary.endAddress && <Row label="To" value={summary.endAddress} />}
-            {summary.jobLabel && <Row label="Job" value={summary.jobLabel} />}
-            {summary.purpose && <Row label="Purpose" value={summary.purpose} />}
-          </Card>
+          <TripSummary summary={summary} />
 
           <button
             type="button"
@@ -1517,22 +1511,11 @@ export function MileageClient({
           >
             Log another trip
           </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setErr("");
-              setPhase("history");
-            }}
-            className="mx-auto block text-sm font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
-          >
-            View logged miles
-          </button>
         </div>
       )}
 
       {/* ------------------------------------------------------------ HISTORY */}
-      {phase === "history" && (
+      {tab === "history" && (
         <div className="space-y-4">
           <Card className="space-y-3">
             {isAdmin && (
@@ -1637,25 +1620,38 @@ export function MileageClient({
           ) : (
             <ul className="space-y-2">
               {trips.map((t, i) => (
-                <TripRow key={t["TripID"] || i} t={t} showDriver={isAdmin} />
+                <TripRow
+                  key={`${t["TripID"] || i}-${t["Client Key"] || ""}`}
+                  t={t}
+                  showDriver={isAdmin}
+                  onEdit={() => setEditing(t)}
+                />
               ))}
             </ul>
           )}
 
-          <button
-            type="button"
-            onClick={() => {
-              setErr("");
-              setPhase("idle");
-            }}
-            className="mx-auto block text-xs text-neutral-500 underline-offset-2 hover:text-accent hover:underline dark:hover:text-accent-soft"
-          >
-            Back
-          </button>
+          {editing && (
+            <TripEditDialog
+              trip={editing}
+              jobs={jobs}
+              onClose={() => setEditing(null)}
+              onSaved={(updated) => {
+                // Swap the row in place; it leaves the list if its new date
+                // falls outside the month on screen.
+                const month = monthOf(updated["Date"] ?? "");
+                setTrips((ts) =>
+                  ts
+                    .map((x) => (x === editing ? updated : x))
+                    .filter((x) => x !== updated || !filterMonth || !month || month === filterMonth),
+                );
+                setEditing(null);
+              }}
+            />
+          )}
         </div>
       )}
 
-      {phase === "idle" && !driver && !err && (
+      {tab === "record" && phase === "idle" && !driver && !err && (
         <div className="mt-4">
           {employeesLoaded && !sessionUser.email && !sessionUser.name ? (
             <Banner tone="error">Sign in with Google to record miles — a trip is recorded under your name.</Banner>
@@ -1665,6 +1661,215 @@ export function MileageClient({
         </div>
       )}
     </main>
+  );
+}
+
+// The sheet's Date cell as YYYY-MM-DD. Sheets often re-reads the written
+// "2026-07-22" as a date and shows it as "7/22/2026"; both come back here.
+// Same rule as _mlgMonthKey in the Apps Script Mileage.js.
+function isoDate(display: string): string {
+  const s = display.trim();
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}`;
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+  return "";
+}
+
+const monthOf = (display: string) => isoDate(display).slice(0, 7);
+
+// What a logged trip shows after it is saved: the miles, the map for a GPS
+// trip, and the From / Via / To / Job / Purpose lines.
+function TripSummary({ summary }: { summary: Summary }) {
+  return (
+    <>
+      <Card className="text-center">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Trip logged</p>
+        <div className="mt-1 text-4xl font-bold tabular-nums">
+          {summary.miles == null ? "—" : summary.miles} <span className="text-lg font-semibold">mi</span>
+        </div>
+        {summary.durationMin > 0 && (
+          <p className="mt-1 text-sm text-neutral-500">
+            {fmtDuration(summary.durationMin)} driving
+            {summary.stops > 0 ? ` · ${summary.stops} stop${summary.stops === 1 ? "" : "s"}` : ""}
+          </p>
+        )}
+      </Card>
+
+      {summary.warning && <Banner tone="warning">{summary.warning}</Banner>}
+
+      {isLatLng(summary.startLatLng) && isLatLng(summary.endLatLng) && (
+        <TripMap
+          start={summary.startLatLng}
+          end={summary.endLatLng}
+          polyline={summary.polyline}
+          className="w-full rounded-xl border border-line"
+        />
+      )}
+
+      <Card className="space-y-2 text-sm">
+        {summary.startAddress && <Row label="From" value={summary.startAddress} />}
+        {summary.via && <Row label="Via" value={summary.via} />}
+        {summary.endAddress && <Row label="To" value={summary.endAddress} />}
+        {summary.jobLabel && <Row label="Job" value={summary.jobLabel} />}
+        {summary.purpose && <Row label="Purpose" value={summary.purpose} />}
+      </Card>
+    </>
+  );
+}
+
+// Edit one logged trip: date, job, purpose, miles, From and To. Only the
+// fields that changed are sent; Apps Script stamps Edited By / Edited At.
+function TripEditDialog({
+  trip,
+  jobs,
+  onClose,
+  onSaved,
+}: {
+  trip: Record<string, string>;
+  jobs: JobRef[];
+  onClose: () => void;
+  onSaved: (trip: Record<string, string>) => void;
+}) {
+  const orig = {
+    date: isoDate(trip["Date"] ?? ""),
+    jobId: trip["Job ID"] ?? "",
+    jobLabel: trip["Job"] ?? "",
+    purpose: trip["Purpose"] ?? "",
+    miles: trip["Miles"] ?? "",
+    startAddress: trip["Start Address"] ?? "",
+    endAddress: trip["End Address"] ?? "",
+  };
+  const [date, setDate] = useState(orig.date);
+  const [jobId, setJobId] = useState(orig.jobId);
+  const [jobLabel, setJobLabel] = useState(orig.jobLabel);
+  const [purpose, setPurpose] = useState(orig.purpose);
+  const [miles, setMiles] = useState(orig.miles);
+  const [from, setFrom] = useState(orig.startAddress);
+  const [to, setTo] = useState(orig.endAddress);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  // A GPS trip's miles came from Google's route; say so before they change.
+  const gps = isLatLng(`${trip["Start Lat"]},${trip["Start Lng"]}`);
+  // A round trip's To is in the Via column; its End Address is the start again.
+  const roundTrip = !!trip["Via"] && !gps && orig.startAddress === orig.endAddress;
+
+  function pickJob(id: string) {
+    setJobId(id);
+    const j = jobs.find((x) => x.id === id);
+    setJobLabel(j ? jobRefLabel(j) : "");
+  }
+
+  async function save() {
+    setError("");
+    const fields: Record<string, string | number> = {};
+    if (date !== orig.date) {
+      if (!date) return setError("Pick a date.");
+      fields.date = date;
+    }
+    if (jobId !== orig.jobId || jobLabel !== orig.jobLabel) {
+      fields.jobId = jobId;
+      fields.jobLabel = jobLabel;
+    }
+    if (purpose.trim() !== orig.purpose) fields.purpose = purpose.trim();
+    if (miles.trim() !== orig.miles) {
+      const m = Number(miles);
+      if (!Number.isFinite(m) || m <= 0) return setError("Enter the miles driven (a number greater than 0).");
+      fields.miles = m;
+    }
+    if (from.trim() !== orig.startAddress) fields.startAddress = from.trim();
+    if (!roundTrip && to.trim() !== orig.endAddress) fields.endAddress = to.trim();
+    if (!Object.keys(fields).length) return onClose();
+
+    setBusy(true);
+    try {
+      const res = await fetch("/api/mileage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tripId: trip["TripID"], clientKey: trip["Client Key"] ?? "", fields }),
+      });
+      const json = (await res.json()) as { ok?: boolean; trip?: Record<string, string>; error?: string };
+      if (!res.ok || json.ok === false || !json.trip) {
+        setError(json.error || "Could not save the change.");
+        return;
+      }
+      onSaved(json.trip);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save the change.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog
+      onClose={onClose}
+      busy={busy}
+      title="Edit trip"
+      description={trip["Driver"] ? `Logged by ${trip["Driver"]}` : undefined}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={save} disabled={busy}>
+            {busy ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <Label htmlFor="mlg-edit-date">Date</Label>
+          <Input id="mlg-edit-date" type="date" value={date} max={today()} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <div>
+          <Label>Job</Label>
+          <div className="flex">
+            <JobPicker
+              value={jobId}
+              jobs={jobs.length ? jobs : undefined}
+              onChange={pickJob}
+              fallbackLabel={jobLabel}
+              allLabel={!jobId && jobLabel ? jobLabel : "No job"}
+              allDescription="Leave this trip unassigned"
+            />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="mlg-edit-miles">Miles</Label>
+          <Input
+            id="mlg-edit-miles"
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.1"
+            value={miles}
+            onChange={(e) => setMiles(e.target.value)}
+          />
+          {gps && (
+            <p className="mt-1 text-xs text-neutral-500">Google figured these miles from the GPS route.</p>
+          )}
+        </div>
+        <div>
+          <Label htmlFor="mlg-edit-from">From</Label>
+          <Input id="mlg-edit-from" value={from} onChange={(e) => setFrom(e.target.value)} />
+        </div>
+        {roundTrip ? (
+          <p className="text-xs text-neutral-500">Round trip via {trip["Via"]}.</p>
+        ) : (
+          <div>
+            <Label htmlFor="mlg-edit-to">To</Label>
+            <Input id="mlg-edit-to" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+        )}
+        <div>
+          <Label htmlFor="mlg-edit-purpose">Purpose</Label>
+          <Textarea id="mlg-edit-purpose" rows={2} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
+        </div>
+        {error && <Banner tone="error">{error}</Banner>}
+      </div>
+    </Dialog>
   );
 }
 
@@ -1678,7 +1883,15 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 // One row in the logged-miles list.
-function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boolean }) {
+function TripRow({
+  t,
+  showDriver,
+  onEdit,
+}: {
+  t: Record<string, string>;
+  showDriver: boolean;
+  onEdit: () => void;
+}) {
   const [showMap, setShowMap] = useState(false);
   const manual = (t["Distance Source"] || "").toLowerCase() === "manual";
   const stops = Number(t["Stops"]) || 0;
@@ -1698,15 +1911,24 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
           {t["Job"] && <div className="truncate text-xs text-neutral-500">{t["Job"]}</div>}
           {t["Purpose"] && <div className="truncate text-xs text-neutral-500">{t["Purpose"]}</div>}
           {fromTo && <div className="mt-0.5 truncate text-xs text-neutral-400">{fromTo}</div>}
-          {hasRoute && (
+          <div className="mt-1 flex gap-4">
             <button
               type="button"
-              onClick={() => setShowMap((v) => !v)}
-              className="mt-1 text-xs font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+              onClick={onEdit}
+              className="min-h-8 text-xs font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
             >
-              {showMap ? "Hide map" : "View map"}
+              Edit
             </button>
-          )}
+            {hasRoute && (
+              <button
+                type="button"
+                onClick={() => setShowMap((v) => !v)}
+                className="min-h-8 text-xs font-semibold text-accent underline-offset-2 hover:underline dark:text-accent-soft"
+              >
+                {showMap ? "Hide map" : "View map"}
+              </button>
+            )}
+          </div>
         </div>
         <div className="shrink-0 text-right">
           <div className="text-sm font-bold tabular-nums">{t["Miles"] || "—"} mi</div>
@@ -1717,6 +1939,9 @@ function TripRow({ t, showDriver }: { t: Record<string, string>; showDriver: boo
           )}
           {manual && (
             <div className="text-[10px] uppercase tracking-wide text-neutral-400">manual</div>
+          )}
+          {t["Edited At"] && (
+            <div className="text-[10px] uppercase tracking-wide text-neutral-400">edited</div>
           )}
         </div>
       </div>
