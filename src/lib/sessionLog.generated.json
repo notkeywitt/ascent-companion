@@ -3,34 +3,12 @@
   "repo": "ascent-companion",
   "sessions": [
     {
-      "slug": "fervent-goodall",
-      "file": "2026-11-09-fervent-goodall.md",
-      "branch": "claude/fervent-goodall-2wgfmn",
-      "status": "shipped",
-      "started": "2026-11-09T19:36:56Z",
-      "updated": "2026-11-09T19:39:53Z",
-      "goal": "",
-      "next": "Owner checks QBO invoice 017-45 (id 46096): customer + balance. Then pick A (disable deposit-tracker Record) or B (pay under the job's QBO sub-customer).",
-      "commits": []
-    },
-    {
-      "slug": "magical-ride",
-      "file": "2026-11-09-magical-ride.md",
-      "branch": "claude/magical-ride-5b0ymy",
-      "status": "shipped",
-      "started": "2026-11-09T19:24:18Z",
-      "updated": "2026-11-09T19:29:11Z",
-      "goal": "",
-      "next": "Owner to choose: save the in-progress time-entry note to JobTread (new op 'note' on /api/employee-time/clock) or to the companion DB, so notes survive a device switch.",
-      "commits": []
-    },
-    {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T19:18:16Z",
+      "updated": "2026-11-09T19:44:04Z",
       "goal": "",
       "next": "On Split View, put another employee on the left and confirm it reads only; put yourself back and confirm editing returns.",
       "commits": [
@@ -1645,6 +1623,28 @@
           "files": "src/app/employee-time/WeekCompare.tsx"
         }
       ]
+    },
+    {
+      "slug": "fervent-goodall",
+      "file": "2026-11-09-fervent-goodall.md",
+      "branch": "claude/fervent-goodall-2wgfmn",
+      "status": "shipped",
+      "started": "2026-11-09T19:36:56Z",
+      "updated": "2026-11-09T19:39:53Z",
+      "goal": "",
+      "next": "Owner checks QBO invoice 017-45 (id 46096): customer + balance. Then pick A (disable deposit-tracker Record) or B (pay under the job's QBO sub-customer).",
+      "commits": []
+    },
+    {
+      "slug": "magical-ride",
+      "file": "2026-11-09-magical-ride.md",
+      "branch": "claude/magical-ride-5b0ymy",
+      "status": "shipped",
+      "started": "2026-11-09T19:24:18Z",
+      "updated": "2026-11-09T19:29:11Z",
+      "goal": "",
+      "next": "Owner to choose: save the in-progress time-entry note to JobTread (new op 'note' on /api/employee-time/clock) or to the companion DB, so notes survive a device switch.",
+      "commits": []
     },
     {
       "slug": "sleepy-ptolemy",
