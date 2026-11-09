@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
   Banner,
+  Checkbox,
   Chip,
   Dialog,
   EmptyState,
@@ -22,7 +23,7 @@ import {
   btn,
 } from "@/components/ui";
 import { money } from "@/lib/money";
-import { coiKey } from "@/lib/vendorCoi";
+import { coiKey, gmailComposeUrl, type VendorCoiRow } from "@/lib/vendorCoi";
 import { CoiDot } from "@/components/CoiDot";
 
 /**
@@ -78,6 +79,8 @@ interface VendorDetail {
   email: string;
   phone: string;
   billType: "Bill" | "Expense";
+  coiExpires: string;
+  vendorType: string;
   addresses: string[];
   contacts: VendorContact[];
 }
@@ -112,7 +115,15 @@ const FIELD_DEFS = [
   { key: "email", label: "Email", type: "email", placeholder: "name@vendor.com" },
   { key: "phone", label: "Phone", type: "tel", placeholder: "(360) 555-0134" },
   { key: "address", label: "Address", type: "text", placeholder: "Street, city, state ZIP" },
+  { key: "coiExpires", label: "COI expires", type: "date", placeholder: "" },
 ] as const;
+
+/** The COI status read for every vendor (/api/vendor-coi/status). */
+interface CoiStatus {
+  today: string;
+  byId: Record<string, VendorCoiRow>;
+  request: string[];
+}
 
 const rowCls =
   "flex min-h-[56px] items-center gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0";
@@ -122,9 +133,13 @@ const rowLabelCls =
 function VendorDetailCard({
   detail,
   onSaved,
+  coi,
+  onCoiChanged,
 }: {
   detail: VendorDetail;
   onSaved: (d: VendorDetail) => void;
+  coi: VendorCoiRow | undefined;
+  onCoiChanged: () => void;
 }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -142,6 +157,7 @@ function VendorDetailCard({
     email: detail.email,
     phone: detail.phone,
     address: detail.addresses[0] ?? "",
+    coiExpires: detail.coiExpires,
   };
   const valueOf = (k: string) => draft[k] ?? stored[k];
   const changed = Object.fromEntries(
@@ -172,6 +188,7 @@ function VendorDetailCard({
         }
         setDraft({});
         if (j.detail) onSaved(j.detail as VendorDetail);
+        if ("coiExpires" in fields) onCoiChanged();
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Network error"))
       .finally(() => setSaving(false));
@@ -239,6 +256,7 @@ function VendorDetailCard({
         </div>
 
         <VendorCoiRow vendor={detail.name} />
+        <CoiRequestRow accountId={detail.id} coi={coi} onChanged={onCoiChanged} />
 
         {contacts.map((c) => (
           <ListRow
@@ -275,6 +293,268 @@ function VendorDetailCard({
         </div>
       )}
     </div>
+  );
+}
+
+/** "2026-10-23" → "Oct 23, 2026". */
+const isoLabel = (d: string) => (d ? dateLabel(d) : "");
+
+/**
+ * The vendor's COI request state: when a COI was last requested, and whether
+ * this vendor needs one at all. Saved in the companion table, not JobTread
+ * (/api/vendor-coi/status). The expiry date is the "COI expires" field above.
+ */
+function CoiRequestRow({
+  accountId,
+  coi,
+  onChanged,
+}: {
+  accountId: string;
+  coi: VendorCoiRow | undefined;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  function post(body: Record<string, unknown>) {
+    setBusy(true);
+    setError("");
+    fetch("/api/vendor-coi/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+      .then((r) => r.json())
+      .then((j) => (j.error ? setError(String(j.error)) : onChanged()))
+      .catch((e) => setError(e instanceof Error ? e.message : "Network error"))
+      .finally(() => setBusy(false));
+  }
+
+  const today = new Date().toLocaleDateString("en-CA");
+  const override = coi?.override ?? null;
+  const choices: { label: string; value: boolean | null; title: string }[] = [
+    { label: "Auto", value: null, title: "Decided from JobTread's Type field and the store list" },
+    { label: "Yes", value: true, title: "Always include in COI requests" },
+    { label: "No", value: false, title: "Never include in COI requests" },
+  ];
+
+  return (
+    <>
+      <div className={`${rowCls} flex-wrap`}>
+        <label htmlFor={`coi-asked-${accountId}`} className={rowLabelCls}>
+          COI asked
+        </label>
+        <QuietInput
+          id={`coi-asked-${accountId}`}
+          type="date"
+          value={coi?.lastRequestedOn ?? ""}
+          onChange={(e) => post({ accountIds: [accountId], requestedOn: e.target.value })}
+          disabled={busy}
+        />
+        <button
+          type="button"
+          className="shrink-0 text-xs font-semibold text-accent hover:underline disabled:opacity-40"
+          onClick={() => post({ accountIds: [accountId], requestedOn: today })}
+          disabled={busy || coi?.lastRequestedOn === today}
+        >
+          Today
+        </button>
+      </div>
+      <div className={`${rowCls} flex-wrap`}>
+        <span className={rowLabelCls}>COI needed</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {choices.map((c) => (
+            <FilterChip
+              key={c.label}
+              on={override === c.value}
+              onClick={() => !busy && override !== c.value && post({ accountId, coiNeeded: c.value })}
+              title={c.title}
+            >
+              {c.label}
+            </FilterChip>
+          ))}
+          {coi && override === null && (
+            <span className="text-xs text-neutral-500">{coi.needed ? "Needs one" : "Not needed"}</span>
+          )}
+        </div>
+        {error && <p className="w-full text-xs text-danger">{error}</p>}
+      </div>
+    </>
+  );
+}
+
+/**
+ * "Request COIs" — every vendor billed in the past year whose COI has expired
+ * or has no expiry recorded, minus vendors that need none (lib/vendorCoi.ts).
+ * Opens one Gmail compose window in the office account, every vendor in BCC.
+ * Gmail keeps it as a draft until it is sent. A second button then records
+ * today as each vendor's last request.
+ */
+function RequestCoisDialog({
+  status,
+  onClose,
+  onMarked,
+}: {
+  status: CoiStatus;
+  onClose: () => void;
+  onMarked: () => void;
+}) {
+  const rows = status.request.map((id) => status.byId[id]).filter(Boolean);
+  const withEmail = rows.filter((r) => r.emails.length > 0);
+  const noEmail = rows.filter((r) => r.emails.length === 0);
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(withEmail.map((r) => r.id)));
+  const [opened, setOpened] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [marked, setMarked] = useState(0);
+
+  const chosen = withEmail.filter((r) => picked.has(r.id));
+  const href = gmailComposeUrl(chosen.flatMap((r) => r.emails));
+
+  function toggle(id: string) {
+    setPicked((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  function markRequested() {
+    setBusy(true);
+    setError("");
+    fetch("/api/vendor-coi/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ accountIds: chosen.map((r) => r.id), requestedOn: status.today }),
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) setError(String(j.error));
+        else {
+          setMarked(chosen.length);
+          onMarked();
+        }
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Network error"))
+      .finally(() => setBusy(false));
+  }
+
+  const why = (r: VendorCoiRow) =>
+    [
+      r.coiExpires ? `Expired ${isoLabel(r.coiExpires)}` : "No expiry on record",
+      r.lastRequestedOn ? `asked ${isoLabel(r.lastRequestedOn)}` : "never asked",
+      `last bill ${isoLabel(r.lastBillOn)}`,
+    ].join(" · ");
+
+  return (
+    <Dialog
+      onClose={onClose}
+      busy={busy}
+      size="lg"
+      title="Request COIs"
+      description="Vendors billed in the past year whose COI has expired or has no expiry date. Stores, software and utilities are left out."
+      footer={
+        <>
+          <button type="button" className={btn("secondary", "md")} onClick={onClose} disabled={busy}>
+            {marked ? "Done" : "Close"}
+          </button>
+          {opened && !marked ? (
+            <button
+              type="button"
+              className={btn("primary", "md")}
+              onClick={markRequested}
+              disabled={busy || chosen.length === 0}
+              title="Set today as the last COI request for each vendor in the email"
+            >
+              {busy ? "Saving…" : `Mark ${chosen.length} as asked today`}
+            </button>
+          ) : (
+            !marked && (
+              <a
+                href={chosen.length ? href : undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => chosen.length && setOpened(true)}
+                aria-disabled={chosen.length === 0}
+                className={`${btn("primary", "md")} ${chosen.length ? "" : "pointer-events-none opacity-40"}`}
+              >
+                Open Gmail draft ({chosen.length})
+              </a>
+            )
+          )}
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {rows.length === 0 && <EmptyState>Every vendor billed this year has a current COI.</EmptyState>}
+        {opened && !marked && (
+          <Banner tone="info">
+            Gmail opened in a new tab. Send it from there, then mark these vendors as asked.
+          </Banner>
+        )}
+        {marked > 0 && <Banner tone="success">Recorded {marked} requests for today.</Banner>}
+        {error && <Banner tone="error">{error}</Banner>}
+
+        {withEmail.length > 0 && (
+          <div className="space-y-2">
+            <SectionHeading
+              trailing={
+                <button
+                  type="button"
+                  className="text-xs font-semibold text-accent hover:underline"
+                  onClick={() =>
+                    setPicked(
+                      picked.size === withEmail.length
+                        ? new Set()
+                        : new Set(withEmail.map((r) => r.id)),
+                    )
+                  }
+                >
+                  {picked.size === withEmail.length ? "Clear all" : "Select all"}
+                </button>
+              }
+            >
+              {`In the email · ${chosen.length} of ${withEmail.length}`}
+            </SectionHeading>
+            <ListCard>
+              {withEmail.map((r) => (
+                <label
+                  key={r.id}
+                  className="flex min-h-[56px] cursor-pointer items-start gap-3 border-b border-line-soft px-3 py-2.5 last:border-b-0"
+                >
+                  <Checkbox
+                    checked={picked.has(r.id)}
+                    onChange={() => toggle(r.id)}
+                    disabled={opened}
+                    className="mt-0.5"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold">{r.name}</span>
+                    <span className="block truncate text-xs text-neutral-500">{r.emails.join(", ")}</span>
+                    <span className="block text-xs text-neutral-500">{why(r)}</span>
+                  </span>
+                </label>
+              ))}
+            </ListCard>
+          </div>
+        )}
+
+        {noEmail.length > 0 && (
+          <div className="space-y-2">
+            <SectionHeading>{`No email on file · ${noEmail.length}`}</SectionHeading>
+            <p className="text-xs text-neutral-500">
+              Add an email on the vendor&apos;s card to include them, or set COI needed to No.
+            </p>
+            <ListCard>
+              {noEmail.map((r) => (
+                <ListRow key={r.id} label={r.name} desc={why(r)} />
+              ))}
+            </ListCard>
+          </div>
+        )}
+      </div>
+    </Dialog>
   );
 }
 
@@ -545,6 +825,10 @@ function Vendors() {
   const [adding, setAdding] = useState(false);
   /** Each vendor's newest COI year (coiKey → year); null until read. */
   const [coiYears, setCoiYears] = useState<Record<string, number> | null>(null);
+  /** COI expiry, last request and the request list; null until read. */
+  const [coiStatus, setCoiStatus] = useState<CoiStatus | null>(null);
+  const [coiStatusError, setCoiStatusError] = useState("");
+  const [requesting, setRequesting] = useState(false);
 
   const [numberQuery, setNumberQuery] = useState(initialNumber);
   const [numberMatches, setNumberMatches] = useState<VendorBillMatch[] | null>(null);
@@ -577,8 +861,41 @@ function Vendors() {
       alive = false;
     };
   }, []);
+
+  function loadCoiStatus() {
+    fetch("/api/vendor-coi/status")
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) {
+          setCoiStatusError(String(j.error));
+          return;
+        }
+        setCoiStatusError("");
+        setCoiStatus({
+          today: String(j.today),
+          request: Array.isArray(j.request) ? j.request : [],
+          byId: Object.fromEntries(((j.vendors ?? []) as VendorCoiRow[]).map((v) => [v.id, v])),
+        });
+      })
+      .catch((e) => setCoiStatusError(e instanceof Error ? e.message : "Network error"));
+  }
+  useEffect(loadCoiStatus, []);
+
   const thisYear = new Date().getFullYear();
-  const coiMark = (name: string) => {
+  const coiMark = (v: VendorRef) => {
+    // A recorded expiry date wins over the Drive file's year.
+    const st = coiStatus?.byId[v.id];
+    if (st?.coiExpires) {
+      const tone =
+        st.state === "expired" ? "danger" : st.state === "expiring" ? "warning" : "success";
+      const label = st.state === "expired" ? "COI expired" : "COI to";
+      return (
+        <Chip tone={tone} title={`COI expires ${isoLabel(st.coiExpires)}`}>
+          {label} {new Date(st.coiExpires + "T00:00:00").toLocaleDateString("en-US", { month: "numeric", day: "numeric", year: "2-digit" })}
+        </Chip>
+      );
+    }
+    const name = v.name;
     if (!coiYears) return undefined;
     const year = coiYears[coiKey(name)];
     if (!year) return <Chip title="No certificate of insurance on file">No COI</Chip>;
@@ -678,11 +995,34 @@ function Vendors() {
         title="Vendors"
         description="Pick a vendor to see every bill — job, date, amount, status."
         actions={
-          <button type="button" className={btn("secondary", "md")} onClick={() => setAdding(true)}>
-            Add vendor
-          </button>
+          <>
+            <button
+              type="button"
+              className={btn("secondary", "md")}
+              onClick={() => setRequesting(true)}
+              disabled={!coiStatus}
+              title="Draft one email asking every vendor with an expired COI for a new one"
+            >
+              {coiStatus ? `Request COIs (${coiStatus.request.length})` : "Request COIs"}
+            </button>
+            <button type="button" className={btn("secondary", "md")} onClick={() => setAdding(true)}>
+              Add vendor
+            </button>
+          </>
         }
       />
+      {coiStatusError && (
+        <Banner tone="warning" className="mb-3">
+          COI status: {coiStatusError}
+        </Banner>
+      )}
+      {requesting && coiStatus && (
+        <RequestCoisDialog
+          status={coiStatus}
+          onClose={() => setRequesting(false)}
+          onMarked={loadCoiStatus}
+        />
+      )}
 
       {adding && <AddVendorDialog onClose={() => setAdding(false)} onCreated={vendorCreated} />}
 
@@ -705,7 +1045,14 @@ function Vendors() {
                 {selected.name}
               </SectionHeading>
 
-              {detail && <VendorDetailCard detail={detail} onSaved={setDetail} />}
+              {detail && (
+                <VendorDetailCard
+                  detail={detail}
+                  onSaved={setDetail}
+                  coi={coiStatus?.byId[detail.id]}
+                  onCoiChanged={loadCoiStatus}
+                />
+              )}
 
               {billsError && <p className="text-sm text-danger">{billsError}</p>}
               {billsLoading && <Loading label="Loading bills…" />}
@@ -853,7 +1200,7 @@ function Vendors() {
                           key={v.id}
                           onClick={() => loadVendorBills(v)}
                           label={v.name}
-                          trailing={coiMark(v.name)}
+                          trailing={coiMark(v)}
                           selected={selected?.id === v.id}
                         />
                       ))}

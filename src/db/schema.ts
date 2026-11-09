@@ -1826,3 +1826,21 @@ export const botUsers = sqliteTable("bot_users", {
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
+
+/**
+ * Per-vendor COI request state (src/lib/vendorCoi.ts, /api/vendor-coi/status).
+ * The expiry date lives in JobTread's "COI Expires" field, not here.
+ *
+ * last_requested_on  "YYYY-MM-DD" of the last COI request, or "".
+ * coi_needed         1 = needs a COI, 0 = never asked, NULL = decide from the
+ *                    vendor's JobTread Type and COI_EXEMPT_NAMES.
+ *
+ * Seeded once with the Oct 23, 2026 request (COI_REQUEST_SEED).
+ */
+export const vendorCoi = sqliteTable("vendor_coi", {
+  accountId: text("account_id").primaryKey(),
+  lastRequestedOn: text("last_requested_on").notNull().default(""),
+  coiNeeded: integer("coi_needed"),
+  updatedBy: text("updated_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});

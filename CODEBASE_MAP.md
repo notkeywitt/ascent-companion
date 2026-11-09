@@ -261,7 +261,7 @@ including edge middleware.
 | `monthCostByJob.ts` | One billing month's cost per job and cost code (`getMonthCostByJob`), in the shape the cost rings take. Feeds `/api/trackingsheet/month-donuts`. |
 | `warranty.ts` ⟂ | Warranty work (88 90 00) is Ascent's own cost: OUT of every per-job figure, IN the all-jobs month totals as its own slice. Keep in sync with `TRACKING_WARRANTY_CSI` in appscript `TrackingSheets.js`. **A warranty record** (`isWarrantyInvoice`): a client invoice priced $0 with every live line on 88 90 00, beside the month's normal invoice — so a job can have two invoices in one month (Seely #134 + #130, Oct 2026). `warrantyPart` takes 88 90 00 lines out of the review's markup figures. Mirror: `_misIsWarrantyInvoice` in appscript `MonthlyInvoicingSummary.js`. |
 | `lopezMap.ts` ⟂ | The Lopez Island map's geometry: the OpenStreetMap coastline as one SVG path, and the flat projection that puts a job's latitude/longitude on it. |
-| `vendorCoi.ts` ⟂ | Vendor COI file names ("<Vendor> COI - <year>"), matching appscript `VendorCoi.js`. |
+| `vendorCoi.ts` ⟂ | Vendor COI file names ("<Vendor> COI - <year>"), matching appscript `VendorCoi.js`. Also the COI REQUEST rules behind the Vendors page's "Request COIs" button: who needs a COI (`coiNeeded` — the office's Yes/No/Auto, JobTread's vendor Type, `COI_EXEMPT_NAMES`), `coiState` from JobTread's "COI Expires" field, `coiRequestList` (billed in the past 365 days, expired or undated), and the Gmail compose link. The last-request date and the override live in companion table `vendor_coi`, seeded with the Oct 23, 2026 request. Unit-tested. |
 | `vendorMail.ts` | **Did every vendor invoice get captured?** Mail from the vendor addresses on file in JobTread, joined to the bills. Read-only; the vendor address index is both its guarantee and its blind spot. |
 | `payRates.ts` | Pay rates are office information: the rate is stripped on the server before the roster leaves it, so a field phone never holds it. |
 | `leaveImport.ts` ⟂ | The TSheets/QuickBooks PTO and Sick balance CSV → a plan of signed adjustments per roster employee. Pure; `leaveService.ts` does the writes. |
@@ -513,7 +513,9 @@ Grouped by domain; each folder is `…/route.ts`.
   `shop-job` (GET — the "Ascent - Shop" job id for the buyback dialog),
   `document-access` (GET/POST — a month's or one bill's client Document
   Access list), `month-actions` (GET — when each month-closing action last ran),
-  `vendor-coi` (a vendor's COI in Drive, via appscript `VendorCoi.js`),
+  `vendor-coi` (a vendor's COI in Drive, via appscript `VendorCoi.js`;
+  `vendor-coi/status` is the COI expiry + last-request read and the
+  companion-only request/override writes),
   `vendor-create` (create a JobTread vendor with its sender address, refusing a
   name that already exists), `vendor-details` (save a vendor's email, phone,
   address and Bill Type), `vendor-mail` (+ `vendor-mail/seed` — the vendor-mail

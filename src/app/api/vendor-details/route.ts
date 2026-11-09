@@ -5,7 +5,9 @@ import { getCustomFields } from "@/lib/clientDirectory";
 import { diffFields, openJournal } from "@/lib/financialJournal";
 
 /**
- * POST — save a vendor's contact details: `{ accountId, email?, phone?, address?, billType? }`.
+ * POST — save a vendor's contact details: `{ accountId, email?, phone?, address?, billType?, coiExpires? }`.
+ * `coiExpires` ("YYYY-MM-DD") is the vendor's "COI Expires" date custom field —
+ * what the Vendors page's COI request reads (owner, 2026-11-09).
  * `billType` ("Bill" | "Expense") is the vendor's "Bill Type" custom field — the
  * default /add-bill files that vendor's bills as.
  * Only the keys present are touched; "" clears a field.
@@ -30,7 +32,7 @@ import { diffFields, openJournal } from "@/lib/financialJournal";
 export const dynamic = "force-dynamic";
 
 /** The only fields this route will write. Anything else in the body is ignored. */
-const FIELDS = ["email", "phone", "address", "billType"] as const;
+const FIELDS = ["email", "phone", "address", "billType", "coiExpires"] as const;
 type Field = (typeof FIELDS)[number];
 
 export async function POST(req: NextRequest) {
@@ -63,6 +65,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "billType must be Bill or Expense." }, { status: 400 });
   }
 
+  if (patch.coiExpires && !/^\d{4}-\d{2}-\d{2}$/.test(patch.coiExpires)) {
+    return NextResponse.json({ error: "coiExpires must be a date, YYYY-MM-DD." }, { status: 400 });
+  }
+
   const cfg = getPaveConfig();
 
   if (!writesEnabled()) {
@@ -91,6 +97,15 @@ export async function POST(req: NextRequest) {
         );
       }
       cfv[idOf("Bill Type")] = patch.billType || null;
+    }
+    if (patch.coiExpires !== undefined) {
+      if (!idOf("COI Expires")) {
+        return NextResponse.json(
+          { error: 'JobTread has no vendor custom field "COI Expires" (a date). Add it in JobTread settings first.' },
+          { status: 409 },
+        );
+      }
+      cfv[idOf("COI Expires")] = patch.coiExpires || null;
     }
     if (Object.keys(cfv).length > 0) {
       // `notify` defaults to TRUE on updateAccount — filing a vendor's phone
@@ -155,8 +170,20 @@ export async function POST(req: NextRequest) {
 }
 
 /** The journal's view of a vendor: the fields this route writes. */
-function flat(d: { email: string; phone: string; billType: string; addresses: string[] }) {
-  return { Email: d.email, Phone: d.phone, "Bill Type": d.billType, Address: d.addresses.join(" | ") };
+function flat(d: {
+  email: string;
+  phone: string;
+  billType: string;
+  coiExpires: string;
+  addresses: string[];
+}) {
+  return {
+    Email: d.email,
+    Phone: d.phone,
+    "Bill Type": d.billType,
+    "COI Expires": d.coiExpires,
+    Address: d.addresses.join(" | "),
+  };
 }
 
 /** The vendor's first location, or "" when it has none. */

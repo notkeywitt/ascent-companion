@@ -100,6 +100,7 @@ export {
   getVendors,
   getVendorAddresses,
   getVendorEmails,
+  getVendorCoiFields,
   getVendorBills,
   getVendorDetail,
   findContacts,
@@ -120,6 +121,7 @@ export {
 export type {
   VendorRef,
   VendorEmailRow,
+  VendorCoiFields,
   VendorBillRow,
   VendorContact,
   VendorDetail,

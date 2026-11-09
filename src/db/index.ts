@@ -2,6 +2,7 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 import { BOT_SEED_ROLES, BOT_SEED_USERS } from "@/lib/botAccess";
+import { COI_REQUEST_SEED } from "@/lib/vendorCoi";
 
 // The libSQL client and its Drizzle wrapper are built LAZILY — on first use, not
 // at module import.
@@ -119,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "127y-1a7a5oh";
+export const SCHEMA_FINGERPRINT = "12tx-16qlq29";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1402,6 +1403,26 @@ async function applySchema() {
       "write",
     );
   }
+  // Each vendor's last COI request and "COI needed" choice (lib/vendorCoi.ts).
+  // INSERT OR IGNORE: the Oct 23, 2026 request seeds a vendor only once, and
+  // never overwrites a newer date the office recorded.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS vendor_coi (
+      account_id TEXT PRIMARY KEY,
+      last_requested_on TEXT NOT NULL DEFAULT '',
+      coi_needed INTEGER,
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )
+  `);
+  await getClient().batch(
+    COI_REQUEST_SEED.accountIds.map((id) => ({
+      sql: `INSERT OR IGNORE INTO vendor_coi (account_id, last_requested_on, updated_by, updated_at)
+            VALUES (?, ?, 'seed', ?)`,
+      args: [id, COI_REQUEST_SEED.on, new Date().toISOString()],
+    })),
+    "write",
+  );
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

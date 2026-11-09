@@ -433,6 +433,72 @@ export async function _getVendorEmailsUncached(cfg: PaveConfig): Promise<VendorE
   return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** One vendor's COI fields, as `getVendorCoiFields` returns them. */
+export interface VendorCoiFields {
+  /** "YYYY-MM-DD", or "" when unset. */
+  coiExpires: string;
+  /** Subcontractor, Supplier, Rentals, Other, or "". */
+  vendorType: string;
+}
+
+/**
+ * Every vendor's "COI Expires" date and "Type" option, keyed by account id.
+ * A vendor with neither is absent.
+ *
+ * Same inversion as `getVendorEmails`: the field is looked up by name and its
+ * VALUES are paged, each carrying its account. Nesting `customFieldValues` in
+ * the paged `organization.accounts` connection returns HTTP 413.
+ */
+export function getVendorCoiFields(cfg: PaveConfig): Promise<Record<string, VendorCoiFields>> {
+  return cachedRef(`vendorcoi:${cfg.orgId}`, 10 * 60_000, () => _getVendorCoiFieldsUncached(cfg));
+}
+export async function _getVendorCoiFieldsUncached(
+  cfg: PaveConfig,
+): Promise<Record<string, VendorCoiFields>> {
+  const cf = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      customFields: { $: { size: 100 }, nodes: { id: {}, name: {}, targetType: {} } },
+    },
+  });
+  const fields: any[] = cf?.organization?.customFields?.nodes ?? [];
+  const fieldId = (name: string) =>
+    String(fields.find((f) => f?.name === name && f?.targetType === "vendor")?.id ?? "");
+  const out: Record<string, VendorCoiFields> = {};
+  const slot = (id: string) => (out[id] ??= { coiExpires: "", vendorType: "" });
+  for (const [name, key] of [
+    ["COI Expires", "coiExpires"],
+    ["Type", "vendorType"],
+  ] as const) {
+    const id = fieldId(name);
+    if (!id) continue;
+    await pageEach<any>(
+      cfg,
+      {
+        label: `customField.customFieldValues (vendor ${name})`,
+        query: (args) => ({
+          customField: {
+            $: { id },
+            id: {},
+            customFieldValues: { $: args, nextPage: {}, nodes: { value: {}, account: { id: {} } } },
+          },
+        }),
+        pick: (r) => r?.customField?.customFieldValues,
+      },
+      (rows) => {
+        for (const n of rows) {
+          const acct = n?.account?.id;
+          const v = n?.value == null ? "" : String(n.value).trim();
+          if (!acct || !v) continue;
+          slot(String(acct))[key] = key === "coiExpires" ? v.slice(0, 10) : v;
+        }
+      },
+    );
+  }
+  return out;
+}
+
 export interface VendorBillRow {
   id: string;
   number: number | null;
@@ -508,6 +574,10 @@ export interface VendorDetail {
   /** The vendor's "Bill Type" custom field — what /add-bill files its bills as
    *  unless the upload picks otherwise. Unset, or no such field, reads "Bill". */
   billType: BillType;
+  /** The "COI Expires" date custom field, "YYYY-MM-DD", or "" when unset. */
+  coiExpires: string;
+  /** The "Type" option field: Subcontractor, Supplier, Rentals, Other, or "". */
+  vendorType: string;
   /** One line per location, JobTread's own `address` string — `formattedAddress`
    *  is null on a vendor address typed by hand, which most of these are. */
   addresses: string[];
@@ -563,6 +633,8 @@ export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promi
     email: own.get("Email") ?? "",
     phone: own.get("Phone") ?? "",
     billType: own.get("Bill Type") === "Expense" ? "Expense" : "Bill",
+    coiExpires: (own.get("COI Expires") ?? "").slice(0, 10),
+    vendorType: own.get("Type") ?? "",
     addresses: ((a.locations?.nodes ?? []) as any[])
       .map((l) => String(l?.formattedAddress ?? l?.address ?? "").trim())
       .filter(Boolean),
