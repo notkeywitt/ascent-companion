@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-09T21:24:04Z",
+  "generatedAt": "2026-11-09T23:43:03Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "magical-tesla",
+      "file": "2026-11-09-magical-tesla.md",
+      "branch": "claude/magical-tesla-ixutgx",
+      "status": "shipped",
+      "started": "2026-11-09T23:21:57Z",
+      "updated": "2026-11-09T23:43:03Z",
+      "goal": "",
+      "next": "Check on a phone that /employee-time shows no Time/Payroll pills and the bar drawer opens Payroll; check the desktop rail shows Payroll under Time.",
+      "commits": [
+        {
+          "date": "2026-11-09",
+          "time": "23:43",
+          "sha": "fd674b0",
+          "subject": "companion: drop time strip on phone, add payroll icon to rail and drawer",
+          "files": "src/components/TabBar.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
