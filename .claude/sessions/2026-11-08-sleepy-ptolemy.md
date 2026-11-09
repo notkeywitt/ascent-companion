@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/sleepy-ptolemy-ocio2n
 status: shipped
 started: 2026-11-08T18:48:05Z
-updated: 2026-11-08T21:48:38Z
+updated: 2026-11-09T15:57:51Z
 goal: weekly office summary skill (/weekly-summary) + first draft
 next: After Keillor edits or sends the Nov 2–7 summary, run /weekly-summary learn; next Monday run /weekly-summary for Nov 9–14
 ---
@@ -26,5 +26,7 @@ next: After Keillor edits or sends the Nov 2–7 summary, run /weekly-summary le
   .claude/skills/weekly-summary/SKILL.md
 - 2026-11-08 21:25 · `c80993a` companion: weekly summary pdf rides the expenditure summary trigger
   .claude/skills/weekly-summary/SKILL.md
+- 2026-11-09 15:57 · `4f242bf` companion: weekly summary email back to plain bullets
+  .claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/preferences.md, .claude/skills/weekly-summary/render.mjs
 
 ## Notes
