@@ -91,6 +91,9 @@ interface StuckVendorsValue {
   loading: boolean;
   error: string;
   refresh: () => void;
+  /** Bumped by the banner's "Open pop-up" link; the popup reopens on each bump. */
+  reopenTick: number;
+  reopen: () => void;
 }
 
 const EMPTY: StuckVendorsValue = {
@@ -99,6 +102,8 @@ const EMPTY: StuckVendorsValue = {
   loading: false,
   error: "",
   refresh: () => {},
+  reopenTick: 0,
+  reopen: () => {},
 };
 
 const StuckVendorsContext = createContext<StuckVendorsValue>(EMPTY);
@@ -128,6 +133,9 @@ export function StuckVendorsProvider({ children }: { children: ReactNode }) {
   const [nonce, setNonce] = useState(0);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
+  // The popup's dismissal lives in the popup; the banner reaches it through this tick.
+  const [reopenTick, setReopenTick] = useState(0);
+  const reopen = useCallback(() => setReopenTick((n) => n + 1), []);
 
   useEffect(() => {
     if (!canSee) return;
@@ -161,8 +169,8 @@ export function StuckVendorsProvider({ children }: { children: ReactNode }) {
   }, [canSee, nonce]);
 
   const value = useMemo<StuckVendorsValue>(
-    () => ({ vendors, billCount, loading, error, refresh }),
-    [vendors, billCount, loading, error, refresh],
+    () => ({ vendors, billCount, loading, error, refresh, reopenTick, reopen }),
+    [vendors, billCount, loading, error, refresh, reopenTick, reopen],
   );
 
   return <StuckVendorsContext.Provider value={value}>{children}</StuckVendorsContext.Provider>;
@@ -374,9 +382,20 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
 /* ------------------------------------------------------------------- popup */
 
 export function StuckVendorPopup() {
-  const { vendors, billCount, refresh } = useStuckVendors();
+  const { vendors, billCount, refresh, reopenTick } = useStuckVendors();
   const [dismissedSig, setDismissedSig] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+
+  // "Open pop-up" on the banner: drop the session dismissal and show it again.
+  useEffect(() => {
+    if (reopenTick === 0) return;
+    try {
+      sessionStorage.removeItem(DISMISS_KEY);
+    } catch {
+      /* storage blocked — the in-memory reset below still reopens it */
+    }
+    setDismissedSig(null);
+  }, [reopenTick]);
 
   // Read the session dismissal after mount — sessionStorage doesn't exist during
   // SSR, and reading it in render would hydrate-mismatch.
@@ -471,7 +490,7 @@ export function StuckVendorPopup() {
  */
 /** `compact`: one line, for Home's masthead (owner, 2026-11-02). */
 export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {}) {
-  const { vendors, billCount, loading, error, refresh } = useStuckVendors();
+  const { vendors, billCount, loading, error, refresh, reopen } = useStuckVendors();
   const access = useAccess();
 
   if (!access.can("email")) return null;
@@ -497,6 +516,9 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
             {x.vendor} · <ForgetVendorButton v={x} onDone={refresh} />
           </span>
         ))}
+        <button type="button" onClick={reopen} className="font-semibold underline">
+          Open pop-up
+        </button>
         <JtLink href={JT_VENDORS_URL} className="font-semibold underline">
           JobTread Vendors ↗
         </JtLink>
@@ -561,12 +583,14 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
           {loading ? "Checking…" : "Refresh"}
         </button>
       </div>
-      <JtLink
-        href={JT_VENDORS_URL}
-        className="mt-2 inline-block text-sm font-semibold underline"
-      >
-        Open JobTread Vendors ↗
-      </JtLink>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
+        <button type="button" onClick={reopen} className="underline">
+          Open pop-up
+        </button>
+        <JtLink href={JT_VENDORS_URL} className="underline">
+          Open JobTread Vendors ↗
+        </JtLink>
+      </div>
     </div>
   );
 }
