@@ -81,6 +81,10 @@ import { markWorkedDeleted } from "@/lib/timeSync";
  *        is an ordinary op:"in" at the moment work resumes, so the break is the
  *        GAP between two entries — the same shape JobTread's own "add break"
  *        leaves behind when it splits an entry.
+ * POST { op:"note", entryId, note, userId? } → { ok, previewed }
+ *        Saves the note in progress to the caller's own RUNNING entry, so it
+ *        follows them to another device. Only `notes` changes. A closed entry
+ *        is refused (409). See lib/clockNoteSync.ts.
  * POST { op:"switch", entryId, userId, jobId, costItemId, payType, startTime,
  *        breakMinutes?, note?, startEdited?, entryStart? }
  *      → { ok, previewed, entryId, startedAt }
@@ -583,6 +587,44 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true, previewed: false, endedAt: atLocal });
+  }
+
+  // -------------------------------------------------------------- note ------
+  // The note in progress, saved to the RUNNING entry as it is typed, so it
+  // follows the crew member to another device (lib/clockNoteSync.ts). Changes
+  // only `notes`. Clock-out still writes the final note itself.
+  if (op === "note") {
+    const who = await resolveTimeIdentity((body.userId ?? "").trim());
+    if (!who.ok) return NextResponse.json({ ok: false, error: who.error }, { status: who.status });
+    const entryId = (body.entryId ?? "").trim();
+    if (!entryId) return NextResponse.json({ ok: false, error: "Missing the entry." }, { status: 400 });
+    // Not trimmed: the box is saved as typed, so a trailing space or new line
+    // does not make the next read look like an edit from another device.
+    const note = typeof body.note === "string" ? body.note.slice(0, 5000) : "";
+    if (!writesEnabled()) return NextResponse.json({ ok: true, previewed: true });
+
+    // Your own RUNNING entry only — the id comes from the client, and a closed
+    // entry's note is the one its clock-out wrote.
+    try {
+      const cfg = getPaveConfig();
+      const [owner, span] = await Promise.all([getTimeEntryOwner(cfg, entryId), getTimeEntrySpan(cfg, entryId)]);
+      if (!owner || !span) {
+        return NextResponse.json({ ok: false, error: "That time entry no longer exists." }, { status: 404 });
+      }
+      if (owner !== who.identity.jtUserId) {
+        return NextResponse.json({ ok: false, error: "You can only change your own note." }, { status: 403 });
+      }
+      if (span.endedAt) {
+        return NextResponse.json({ ok: false, closed: true, error: "That entry is already clocked out." }, { status: 409 });
+      }
+      await updateTimeEntry(cfg, entryId, { notes: note });
+    } catch (e) {
+      return NextResponse.json(
+        { ok: false, error: e instanceof Error ? e.message : "Could not save the note." },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ ok: true, previewed: false });
   }
 
   // ------------------------------------------------------------ switch ------

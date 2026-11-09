@@ -32,6 +32,14 @@ import {
   showTimeBug,
 } from "@/lib/timeClockShared";
 import {
+  dropNoteSave,
+  flushNoteSave,
+  markNoteSynced,
+  mergeRemoteNote,
+  queueNoteSave,
+  syncedNoteFor,
+} from "@/lib/clockNoteSync";
+import {
   Banner,
   Card,
   Chip,
@@ -731,14 +739,31 @@ export function EmployeeTimeClient({
   busyRef.current = busy || resolving || checkingClock;
   const actingRef = useRef(acting);
   actingRef.current = acting;
-  /* A description typed at clock-in on JobTread fills an EMPTY note box. The
-     clock-out writes the box over the entry's notes, so an empty box would make
-     the crew member retype it, and whatever they typed would replace it. A note
-     already in the box (typed here) wins. */
+  /* A note JobTread holds (typed on another device, or on JobTread itself)
+     fills an EMPTY note box. The clock-out writes the box over the entry's
+     notes, so an empty box would make the crew member retype it. Used for the
+     server shell's answer, which can be hours old, and for someone else's
+     clock while acting — neither is merged or saved back. */
   function seedNoteFromJobTread(e: OpenEntry | null) {
     const jt = e?.notes ?? "";
     if (!jt.trim()) return;
     setNote((prev) => (prev.trim() ? prev : jt));
+  }
+
+  /* JobTread's note for YOUR running clock, read just now, merged into the box
+     (lib/clockNoteSync): a note typed on another device comes in, and nothing
+     typed here is lost. A merge that differs from JobTread is saved back. */
+  const noteRef = useRef(note);
+  noteRef.current = note;
+  function takeRemoteNote(e: OpenEntry) {
+    const remote = e.notes ?? "";
+    const merged = mergeRemoteNote(noteRef.current, syncedNoteFor(e.entryId), remote);
+    markNoteSynced(e.entryId, remote);
+    if (merged !== noteRef.current) {
+      noteRef.current = merged;
+      setNote(merged);
+    }
+    queueNoteSave(e.entryId, merged);
   }
 
   function applyFreshClock(fresh: OpenEntry | null, linked: boolean) {
@@ -763,13 +788,13 @@ export function EmployeeTimeClient({
         };
         setActiveClock(merged);
         saveClock(merged);
-        seedNoteFromJobTread(remote);
+        takeRemoteNote(remote);
         return;
       }
       const resumed = clockFromOpenEntry(remote, true);
       setActiveClock(resumed);
       saveClock(resumed);
-      seedNoteFromJobTread(remote);
+      takeRemoteNote(remote);
       setClockNote("Picked up from JobTread — you were already clocked in.");
       return;
     }
@@ -941,7 +966,12 @@ export function EmployeeTimeClient({
     // Never before the restore above, or the empty first value erases the note.
     if (!noteRestoredRef.current) return;
     saveNote(note, clockEntryId);
-    if (!acting) announceNote("page", note);
+    if (!acting) {
+      announceNote("page", note);
+      // To JobTread 2 s after typing stops, so the note follows you to another
+      // device. Never while acting: that box is someone else's clock.
+      queueNoteSave(clockEntryId, note);
+    }
   }, [note, clockEntryId, acting]);
 
   // Remembered JobTread-user pick (only used when the roster link is missing).
@@ -1214,6 +1244,7 @@ export function EmployeeTimeClient({
     const at = nowLocalSeconds();
     setErr("");
     setBusy(true);
+    dropNoteSave(activeClock.entryId); // this call carries the note itself
     try {
       const res = await fetch("/api/employee-time/clock", {
         method: "POST",
@@ -1274,6 +1305,7 @@ export function EmployeeTimeClient({
         setErr(json.error || "Could not end your break.");
         return;
       }
+      if (json.entryId) markNoteSynced(json.entryId, ""); // a new entry starts with no note
       patchClock({
         entryId: json.entryId || "",
         // A new entry is a new clock-out, so a new idempotency key.
@@ -1398,6 +1430,7 @@ export function EmployeeTimeClient({
         setErr(json.error || "Could not clock in.");
         return;
       }
+      if (json.entryId) markNoteSynced(json.entryId, ""); // a new entry starts with no note
       const clock: ActiveClock = {
         entryId: json.entryId || "",
         logKey: newLogKey(), // reused on every clock-out retry for idempotency
@@ -1472,6 +1505,7 @@ export function EmployeeTimeClient({
     }
     setErr("");
     setBusy(true);
+    dropNoteSave(activeClock.entryId); // this call carries the note itself
     try {
       const res = await fetch("/api/employee-time/clock", {
         method: "POST",
@@ -1538,6 +1572,7 @@ export function EmployeeTimeClient({
   async function cancelClockIn() {
     if (!activeClock) return;
     setBusy(true);
+    dropNoteSave(activeClock.entryId); // the entry is going away
     try {
       await fetch("/api/employee-time/clock", {
         method: "POST",
@@ -1570,6 +1605,7 @@ export function EmployeeTimeClient({
     const fromCode = activeClock.costCode;
     setErr("");
     setBusy(true);
+    dropNoteSave(activeClock.entryId); // this call carries the note itself
     try {
       const res = await fetch("/api/employee-time/clock", {
         method: "POST",
@@ -1599,6 +1635,7 @@ export function EmployeeTimeClient({
         }
         return;
       }
+      if (json.entryId) markNoteSynced(json.entryId, ""); // a new entry starts with no note
       const next: ActiveClock = {
         ...activeClock,
         entryId: json.entryId || "",
@@ -2740,6 +2777,7 @@ export function EmployeeTimeClient({
           rows={4}
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          onBlur={flushNoteSave}
           placeholder="What did you work on?"
         />
         <p className="mt-2 text-xs text-neutral-500">JobTread requires a note on every time entry.</p>
@@ -2851,6 +2889,7 @@ export function EmployeeTimeClient({
           rows={3}
           value={note}
           onChange={(e) => setNote(e.target.value)}
+          onBlur={flushNoteSave}
           placeholder="What did you work on?"
         />
         <div className="mt-4">
@@ -2970,6 +3009,7 @@ export function EmployeeTimeClient({
             rows={3}
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            onBlur={flushNoteSave}
             placeholder="What did you work on?"
           />
         </div>
