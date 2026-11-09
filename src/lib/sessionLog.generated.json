@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T21:14:12Z",
+  "generatedAt": "2026-11-09T21:16:00Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T21:14:12Z",
+      "updated": "2026-11-09T21:16:00Z",
       "goal": "",
-      "next": "Deploy ascent-appscript (updateMileage action) so the Edit button on Logged miles works",
+      "next": "none — invoicing email notes card shipped",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1649,6 +1649,13 @@
           "sha": "262db27",
           "subject": "companion: mileage tabs (record / by hand / logged miles) and edit a logged trip",
           "files": "src/app/api/mileage/route.ts, src/app/mileage-tracker/MileageClient.tsx"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "13:15",
+          "sha": "fc35d8e",
+          "subject": "companion: invoicing email button opens notes at once, with save and draft",
+          "files": "src/components/PackageEmail.tsx"
         }
       ]
     },
