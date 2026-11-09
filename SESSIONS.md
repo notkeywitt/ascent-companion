@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-09 | 224 | — |
 | [sleepy-ptolemy](.claude/sessions/2026-11-08-sleepy-ptolemy.md) | 2026-11-09 | 8 | weekly office summary skill (/weekly-summary) + first draft |
 | [keen-ramanujan](.claude/sessions/2026-11-08-keen-ramanujan.md) | 2026-11-08 | 0 | — |
 | [gifted-mayer](.claude/sessions/2026-11-08-gifted-mayer.md) | 2026-11-08 | 5 | Answer: how Claude feels about this project (no code change) |
@@ -40,7 +41,6 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [hopeful-davinci](.claude/sessions/2026-11-07-hopeful-davinci.md) | 2026-11-07 | 1 | — |
 | [dreamy-cori](.claude/sessions/2026-11-07-dreamy-cori.md) | 2026-11-07 | 1 | — |
 | [blissful-planck](.claude/sessions/2026-11-07-blissful-planck.md) | 2026-11-07 | 1 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-06 | 223 | — |
 | [zen-albattani](.claude/sessions/2026-11-06-zen-albattani.md) | 2026-11-06 | 1 | — |
 | [practical-newton](.claude/sessions/2026-11-06-practical-newton.md) | 2026-11-06 | 1 | — |
 | [busy-galileo](.claude/sessions/2026-11-05-busy-galileo.md) | 2026-11-06 | 2 | — |
