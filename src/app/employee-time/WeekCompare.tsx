@@ -37,13 +37,16 @@ import {
 
 /**
  * SPLIT VIEW — the office's two-windows-side-by-side habit, in one screen.
- * Left: the signed-in person's week. Right: the employee picked above it. Rows
+ * Each side has its own employee picker. Left starts on the signed-in person,
+ * right on the default comparison; either can be anyone who uses the app. Rows
  * are customer › job, columns the seven days, the same shape as the sheet the
  * office used to open twice.
  *
  * Each side keeps its OWN selected cell, so your Wednesday and their Thursday
- * can be open at once. Your side edits: hours and note on an entry, or a new
- * entry in any cell. Their side only reads. Rows they have and you don't show
+ * can be open at once. The left side edits while it shows YOUR week: hours and
+ * note on an entry, or a new entry in any cell. Any other week only reads —
+ * the delete is own-entry only on the server, so editing someone else here
+ * would be half a tool. Rows they have and you don't show
  * on your side as ghost rows, ready to log into; "+ Add customer" adds one for
  * any other job.
  *
@@ -104,13 +107,21 @@ export function WeekCompare({
   /** Your own default cost code per job (/labor-rates). */
   codeDefaults: CostCodeDefault[];
 }) {
-  const others = useMemo(() => {
+  // Everyone who signs into the app, you first.
+  const people = useMemo(() => {
     const app = new Set(appUserIds);
-    return users.filter((u) => app.has(u.id) && u.id !== myId).sort((a, b) => a.name.localeCompare(b.name));
+    const rest = users.filter((u) => app.has(u.id) && u.id !== myId).sort((a, b) => a.name.localeCompare(b.name));
+    const me = users.find((u) => u.id === myId);
+    return me ? [me, ...rest] : rest;
   }, [users, appUserIds, myId]);
 
   const [week, setWeek] = useState(() => weekStart(orgToday()));
-  const [otherId, setOtherId] = useState(() => others.find((u) => DEFAULT_OTHER.test(u.name))?.id ?? "");
+  // The left side starts on you; the right on the default comparison.
+  const [leftId, setLeftId] = useState(myId);
+  const [otherId, setOtherId] = useState(
+    () => people.find((u) => u.id !== myId && DEFAULT_OTHER.test(u.name))?.id ?? "",
+  );
+  const leftIsMe = !leftId || leftId === myId;
   const [mine, setMine] = useState<Side>(EMPTY);
   const [theirs, setTheirs] = useState<Side>(EMPTY);
   const [pending, setPending] = useState<Entry[]>([]);
@@ -134,10 +145,18 @@ export function WeekCompare({
     [days],
   );
 
-  const loadMine = useCallback((quiet = false) => load("", setMine, quiet), [load]);
+  const loadMine = useCallback(
+    (quiet = false) => load(leftIsMe ? "" : leftId, setMine, quiet),
+    [load, leftIsMe, leftId],
+  );
   useEffect(() => {
     loadMine();
   }, [loadMine]);
+  // A different person on the left: what was added for the last one goes.
+  useEffect(() => {
+    setPending([]);
+    setAdded([]);
+  }, [leftId]);
   useEffect(() => {
     if (otherId) load(otherId, setTheirs);
     else setTheirs(EMPTY);
@@ -159,8 +178,11 @@ export function WeekCompare({
   // any you added by hand. buildGrid drops the ones you already have.
   const theirRows = useMemo(() => buildGrid(theirs.entries, days).rows, [theirs.entries, days]);
   const extra = useMemo(
-    () => [...added, ...theirRows.filter((r) => r.key !== "(no job)").map((r) => ({ key: r.key, label: r.label }))],
-    [added, theirRows],
+    () =>
+      leftIsMe
+        ? [...added, ...theirRows.filter((r) => r.key !== "(no job)").map((r) => ({ key: r.key, label: r.label }))]
+        : [],
+    [added, theirRows, leftIsMe],
   );
 
   const myTypes = users.find((u) => u.id === myId)?.types?.map((t) => t.name) ?? orgTypes;
@@ -205,30 +227,31 @@ export function WeekCompare({
         <Button variant="secondary" size="sm" onClick={() => setWeek(weekStart(orgToday()))}>
           This week
         </Button>
-        <Select
-          aria-label="Employee to compare"
-          value={otherId}
-          onChange={(e) => setOtherId(e.target.value)}
-          className="min-h-11 sm:ml-auto sm:w-64"
-        >
-          <option value="">Compare with…</option>
-          {others.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </Select>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="min-w-0 space-y-2">
+          <PersonPicker
+            label="Left employee"
+            value={leftIsMe ? myId : leftId}
+            people={people.filter((u) => u.id !== otherId)}
+            myId={myId}
+            onChange={(id) => setLeftId(id)}
+          />
           <WeekSheet
-            key={`mine-${week}`}
-            title={mine.name || "My time"}
+            key={`left-${leftId}-${week}`}
+            title={mine.name || (leftIsMe ? "My time" : "Employee")}
             side={{ ...mine, entries: myEntries }}
             days={days}
             extra={extra}
-            panel={(row, day, list) => (
+            panel={(row, day, list) =>
+              !leftIsMe ? (
+                list.length ? (
+                  list.map((e) => <ReadEntry key={e.id} e={e} />)
+                ) : (
+                  <p className="text-sm text-neutral-500">No time here.</p>
+                )
+              ) : (
               <>
                 {list.map((e) =>
                   e.pending || e.open ? (
@@ -241,8 +264,10 @@ export function WeekCompare({
                   <NewEntry key={`${row.key}-${day}`} jobId={row.key} label={row.label} day={day} open={!list.length} ctx={ctx} />
                 )}
               </>
-            )}
+              )
+            }
           />
+          {leftIsMe && (
           <div className="max-w-xs">
             <JobPicker
               value=""
@@ -256,7 +281,17 @@ export function WeekCompare({
               placeholder="+ Add customer"
             />
           </div>
+          )}
         </div>
+        <div className="min-w-0 space-y-2">
+          <PersonPicker
+            label="Right employee"
+            value={otherId}
+            people={people.filter((u) => u.id !== (leftIsMe ? myId : leftId))}
+            myId={myId}
+            placeholder="Compare with…"
+            onChange={(id) => setOtherId(id)}
+          />
         {otherId ? (
           <WeekSheet
             key={`theirs-${otherId}-${week}`}
@@ -268,12 +303,42 @@ export function WeekCompare({
             }
           />
         ) : (
-          <Card className="flex items-center justify-center text-sm text-neutral-500">
-            Pick an employee to see their week beside yours.
+          <Card className="flex min-h-40 items-center justify-center text-sm text-neutral-500">
+            Pick an employee to see their week beside this one.
           </Card>
         )}
+        </div>
       </div>
     </div>
+  );
+}
+
+/** One side's employee. You are listed first, marked "(you)". */
+function PersonPicker({
+  label,
+  value,
+  people,
+  myId,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  people: User[];
+  myId: string;
+  placeholder?: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <Select aria-label={label} value={value} onChange={(e) => onChange(e.target.value)} className="min-h-11 sm:w-64">
+      {placeholder && <option value="">{placeholder}</option>}
+      {people.map((u) => (
+        <option key={u.id} value={u.id}>
+          {u.name}
+          {u.id === myId ? " (you)" : ""}
+        </option>
+      ))}
+    </Select>
   );
 }
 
