@@ -251,6 +251,40 @@ export function JobsHub() {
     setFocusBill({ docId: bill.docId, label: bill.label, nonce: Date.now() });
     return true;
   };
+  // A bill link (/bill/<id> sends here as ?bill=<id>&jobId=…): read the bill
+  // for its job and billing month, then open it like a note's bill. A bill
+  // this page cannot show (no job, no Tracking sheet) goes to its own page.
+  const [linkedBill, setLinkedBill] = useState<{ docId: string; jobId: string; ym: string; label: string } | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const docId = q.get("bill");
+    if (!docId) return;
+    window.history.replaceState(null, "", window.location.pathname);
+    const fallback = () =>
+      window.location.replace(
+        `/bill/${encodeURIComponent(docId)}?page=1${q.get("jobId") ? `&jobId=${encodeURIComponent(q.get("jobId")!)}` : ""}`,
+      );
+    fetch(`/api/bill?docId=${encodeURIComponent(docId)}`)
+      .then((r) => r.json())
+      .then((d: { error?: string; jobId?: string; header?: { issueDate?: string; vendorName?: string; number?: string } }) => {
+        if (d.error || !d.jobId) return fallback();
+        const label = [d.header?.vendorName, d.header?.number && `#${d.header.number}`].filter(Boolean).join(" ") || "Bill";
+        setLinkedBill({ docId, jobId: d.jobId, ym: (d.header?.issueDate ?? "").slice(0, 7), label });
+      })
+      .catch(fallback);
+  }, []);
+  useEffect(() => {
+    if (!linkedBill || !jobs) return;
+    setLinkedBill(null);
+    if (!canTrackingSheet || !jobs.some((j) => j.id === linkedBill.jobId)) {
+      window.location.replace(`/bill/${encodeURIComponent(linkedBill.docId)}?page=1`);
+      return;
+    }
+    if (/^\d{4}-\d{2}$/.test(linkedBill.ym)) setPickedYm(linkedBill.ym);
+    setSelectedId(linkedBill.jobId);
+    setTab("sheet");
+    setFocusBill({ docId: linkedBill.docId, label: linkedBill.label, nonce: Date.now() });
+  }, [linkedBill, jobs, canTrackingSheet]);
   // A new job or tab unmounts the view under the header, so an embedded page's
   // unsaved edits (the House Manual) would go without a word. Ask first.
   const pick = (id: string) => {
