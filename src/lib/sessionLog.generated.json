@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-08T21:48:38Z",
+  "generatedAt": "2026-11-09T15:57:53Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/sleepy-ptolemy-ocio2n",
       "status": "shipped",
       "started": "2026-11-08T18:48:05Z",
-      "updated": "2026-11-08T21:48:38Z",
+      "updated": "2026-11-09T15:57:53Z",
       "goal": "weekly office summary skill (/weekly-summary) + first draft",
       "next": "After Keillor edits or sends the Nov 2–7 summary, run /weekly-summary learn; next Monday run /weekly-summary for Nov 9–14",
       "commits": [
@@ -60,6 +60,13 @@
           "sha": "c80993a",
           "subject": "companion: weekly summary pdf rides the expenditure summary trigger",
           "files": ".claude/skills/weekly-summary/SKILL.md"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "15:57",
+          "sha": "4f242bf",
+          "subject": "companion: weekly summary email back to plain bullets",
+          "files": ".claude/skills/weekly-summary/SKILL.md, .claude/skills/weekly-summary/preferences.md, .claude/skills/weekly-summary/render.mjs"
         }
       ]
     },
