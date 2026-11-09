@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T21:16:00Z",
+  "generatedAt": "2026-11-09T21:24:04Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T21:16:00Z",
+      "updated": "2026-11-09T21:24:04Z",
       "goal": "",
-      "next": "none — invoicing email notes card shipped",
+      "next": "none — bill print button shipped",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1656,6 +1656,13 @@
           "sha": "fc35d8e",
           "subject": "companion: invoicing email button opens notes at once, with save and draft",
           "files": "src/components/PackageEmail.tsx"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "13:24",
+          "sha": "1c047a1",
+          "subject": "companion: print button on the bill scan lightbox",
+          "files": "src/components/InvoiceViewer.tsx"
         }
       ]
     },
