@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T18:46:04Z",
+  "generatedAt": "2026-11-09T19:10:11Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T18:46:04Z",
+      "updated": "2026-11-09T19:10:11Z",
       "goal": "",
-      "next": "In Chrome: clock in, pop the time bug out, switch work from the pop-out, clock out; confirm both entries in JobTread and that the window follows dark mode.",
+      "next": "Owner ok to push 1a4f3e74 (bug hours) and the time card; then on desktop type a new cell with a note, edit one, clear one, Save, and check JobTread.",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1600,6 +1600,20 @@
           "sha": "305b82b",
           "subject": "companion: pop the time bug out into an always-on-top window",
           "files": "CODEBASE_MAP.md, src/components/TimeBug.tsx, src/lib/help.ts, src/lib/timeClockShared.ts"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "10:58",
+          "sha": "1a4f3e7",
+          "subject": "companion: add start and end hours to the time bug",
+          "files": "src/app/api/employee-time/clock/route.ts, src/components/TimeBug.tsx, src/lib/help.ts"
+        },
+        {
+          "date": "2026-11-09",
+          "time": "11:08",
+          "sha": "714dbdb",
+          "subject": "companion: add the desktop week time card to the time clock",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/TimeCard.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts, +1 more"
         }
       ]
     },
