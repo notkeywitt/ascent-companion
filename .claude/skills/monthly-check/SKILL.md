@@ -61,6 +61,21 @@ A finding's own `sourceLink` (relative, e.g. `/bill/…`) is already the right
 page: prefix it with `https://ascent-companion.vercel.app`. Never invent an
 id; when you do not have one, link the job's Tracking Sheets page.
 
+**A Tracking Sheet discrepancy gets both sides.** The fix is sometimes on the
+sheet (a rate, a missing row, a formula) and sometimes in the app or JobTread (a
+bill, a time entry, a pay type, a re-sync). Link the sheet AND the page for the
+other side on every such line:
+
+- bills: the bill(s) behind it (`/bill/<billId>?jobId=…` and the JobTread
+  document), plus the job's Tracking Sheet sync page;
+- labor: the job's Tracking Sheets board (`/trackingsheet?jobId=…&ym=…`, where
+  time entries are approved, recoded and given a pay type) and the JobTread job;
+- sheet-only problems (`#N/A`, a mislinked sheet): the sheet, plus the job's
+  Tracking Sheet sync page where the sheet's link is set.
+
+**Ascent's own items go last.** Office and Shop are never billed to anyone, so
+list their items after every client's, under their own heading.
+
 ## Step 1 — pick the month
 
 - `$ARGUMENTS` holds a `YYYY-MM` → use it.

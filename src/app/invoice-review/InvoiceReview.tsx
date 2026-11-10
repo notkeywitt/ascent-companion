@@ -28,6 +28,11 @@ import { buildBrief } from "@/lib/invoiceReview/brief";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
+/** Ascent's own findings: the Office/Shop jobs, and mail from the office's own address. */
+function isOfficeGroup(name: string): boolean {
+  return name.trim().toLowerCase() === "ascent" || /@ascentbuildingco\.com$/i.test(name.trim());
+}
+
 /** One stored verdict, as GET /api/invoice-review/investigate hands it back. */
 interface DispositionRow {
   key: string;
@@ -495,14 +500,29 @@ export function InvoiceReview() {
   );
 
   // Findings read best grouped the way the office works: one customer at a time.
+  // Ascent's own groups (Office/Shop, and mail from the office's own address)
+  // go last and start folded — they are never billed to anyone (owner,
+  // 2026-11-10).
   const groups = useMemo(() => {
     const by = new Map<string, Finding[]>();
     for (const f of shown) {
       const k = f.customerName || f.jobName || "Unassigned";
       by.set(k, [...(by.get(k) ?? []), f]);
     }
-    return Array.from(by.entries());
+    const all = Array.from(by.entries());
+    return [...all.filter(([k]) => !isOfficeGroup(k)), ...all.filter(([k]) => isOfficeGroup(k))];
   }, [shown]);
+
+  // Groups whose fold the viewer has flipped from its default.
+  const [flipped, setFlipped] = useState<Set<string>>(new Set());
+  const isFolded = (name: string) => isOfficeGroup(name) !== flipped.has(name);
+  const flipGroup = (name: string) =>
+    setFlipped((s) => {
+      const next = new Set(s);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
 
   const toggle = (key: string) =>
     setOpen((s) => {
@@ -703,9 +723,14 @@ export function InvoiceReview() {
 
           {groups.map(([customer, findings]) => (
             <section key={customer} className="mt-6">
-              <SectionHeading trailing={<CountBadge n={findings.length} />}>
+              <SectionHeading
+                trailing={<CountBadge n={findings.length} />}
+                onToggle={() => flipGroup(customer)}
+                open={!isFolded(customer)}
+              >
                 {customer}
               </SectionHeading>
+              {isFolded(customer) ? null : (
               <div className="mt-2 overflow-hidden rounded-xl border border-line">
                 {findings.map((f, i) => {
                   const isOpen = open.has(f.key);
@@ -902,6 +927,7 @@ export function InvoiceReview() {
                   );
                 })}
               </div>
+              )}
             </section>
           ))}
 
