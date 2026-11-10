@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { jobAddress, jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
 import { JtLink } from "@/components/JtLink";
+import { WeekCalendar } from "./WeekCalendar";
 import { WeekCompare } from "./WeekCompare";
 import { TimeCard } from "./TimeCard";
 import { TimeEntriesEmailButton } from "./TimeEntriesEmailButton";
@@ -41,6 +42,7 @@ import {
 } from "@/lib/clockNoteSync";
 import {
   Banner,
+  Button,
   Card,
   Chip,
   EmptyState,
@@ -577,6 +579,8 @@ export function EmployeeTimeClient({
   initialCodeDefaults?: CostCodeDefault[];
 }) {
   const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
+  // Split View's calendar mode (beta) — several people on one week calendar.
+  const [calendarBeta, setCalendarBeta] = useState(false);
   /* The Time Clock tab's two views on a desktop: the clock, or the TSheets-
      style week time card (./TimeCard.tsx). Remembered per device. The card
      needs the width, so a phone or tablet always gets the clock. */
@@ -2573,16 +2577,31 @@ export function EmployeeTimeClient({
       )}
 
       {/* ========================================================= TIMESHEETS */}
-      {tab === "compare" && canCompare && (
-        <WeekCompare
+      {tab === "compare" && canCompare && calendarBeta && (
+        <WeekCalendar
           users={jtUsers}
           appUserIds={appUserIds}
           myId={me?.jtUserId ?? ""}
-          jobs={compareJobs}
-          orgTypes={orgTypes}
-          payRules={initialPayRules}
-          codeDefaults={initialCodeDefaults}
+          onExit={() => setCalendarBeta(false)}
         />
+      )}
+      {tab === "compare" && canCompare && !calendarBeta && (
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button variant="secondary" size="xs" onClick={() => setCalendarBeta(true)}>
+              Try Beta calendar mode
+            </Button>
+          </div>
+          <WeekCompare
+            users={jtUsers}
+            appUserIds={appUserIds}
+            myId={me?.jtUserId ?? ""}
+            jobs={compareJobs}
+            orgTypes={orgTypes}
+            payRules={initialPayRules}
+            codeDefaults={initialCodeDefaults}
+          />
+        </div>
       )}
 
       {tab === "sheets" && (

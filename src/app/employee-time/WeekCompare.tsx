@@ -57,7 +57,7 @@ import {
  * allows for admin and office only.
  */
 
-interface Entry extends GridEntry {
+export interface Entry extends GridEntry {
   costItemId: string;
   costCode: string;
   payType: string;
@@ -81,11 +81,11 @@ export interface CostItem {
   detail?: string;
 }
 
-type User = { id: string; name: string; types?: { name: string }[] };
+export type User = { id: string; name: string; types?: { name: string }[] };
 
 const EMPTY: Side = { entries: [], loading: false, err: "", name: "" };
 // The office compares against Ty by default (owner's ask, 2026-10-01).
-const DEFAULT_OTHER = /^ty(ler)?\b/i;
+export const DEFAULT_OTHER = /^ty(ler)?\b/i;
 const orgToday = () => orgDay(new Date().toISOString());
 
 export function WeekCompare({
@@ -450,7 +450,7 @@ function WeekSheet({
   );
 }
 
-function ReadEntry({ e }: { e: Entry }) {
+export function ReadEntry({ e }: { e: Entry }) {
   return (
     <div className="space-y-1 text-sm">
       <p className="text-xs text-neutral-500">
@@ -463,7 +463,7 @@ function ReadEntry({ e }: { e: Entry }) {
 }
 
 /** Hours and note for one of your own entries. The start stays; the stop moves. */
-function EntryEditor({ e, label, onSaved }: { e: Entry; label: string; onSaved?: () => void }) {
+export function EntryEditor({ e, label, onSaved }: { e: Entry; label: string; onSaved?: () => void }) {
   const [hours, setHours] = useState(fmtClock(e.minutes));
   const [note, setNote] = useState(e.notes);
   const [busy, setBusy] = useState(false);

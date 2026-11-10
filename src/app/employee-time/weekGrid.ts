@@ -180,3 +180,69 @@ export function stackStart(
   const start = last || fallback;
   return endAfter(day, start, minutes).slice(0, 10) === day ? start : "";
 }
+
+/* ── THE CALENDAR (WeekCalendar.tsx, beta) ─────────────────────────────────
+   Several people's weeks on one time-of-day calendar. Each day column splits
+   into one lane per person; entries of one person that overlap share that
+   lane side by side. */
+
+const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+
+/** Start and stop as minutes after the day's midnight. A stop past midnight clamps to 24:00. */
+export function entrySpan(e: Pick<GridEntry, "startTime" | "endTime" | "minutes">): { start: number; end: number } {
+  const start = toMin(e.startTime);
+  let end = e.endTime ? toMin(e.endTime) : start + Math.max(e.minutes, 30);
+  if (end <= start) end = 24 * 60; // crosses midnight, or a zero-length stop
+  return { start, end: Math.min(end, 24 * 60) };
+}
+
+export interface CalBlock<E extends GridEntry> {
+  e: E;
+  start: number;
+  end: number;
+  /** Which side-by-side slot inside the person's lane, of `cols`. */
+  col: number;
+  cols: number;
+}
+
+/**
+ * One person's entries on one day, placed into side-by-side slots so two
+ * that overlap never draw on top of each other.
+ */
+export function placeBlocks<E extends GridEntry>(entries: E[]): CalBlock<E>[] {
+  const spans = entries
+    .map((e) => ({ e, ...entrySpan(e) }))
+    .sort((a, b) => a.start - b.start || b.end - a.end);
+  const out: CalBlock<E>[] = [];
+  // A cluster is a run of entries joined by overlap; its slot count is shared.
+  let cluster: CalBlock<E>[] = [];
+  let colEnds: number[] = [];
+  let clusterEnd = -1;
+  const close = () => {
+    for (const b of cluster) b.cols = colEnds.length;
+    out.push(...cluster);
+    cluster = [];
+    colEnds = [];
+  };
+  for (const s of spans) {
+    if (s.start >= clusterEnd) close();
+    let col = colEnds.findIndex((end) => end <= s.start);
+    if (col < 0) col = colEnds.push(0) - 1;
+    colEnds[col] = s.end;
+    cluster.push({ ...s, col, cols: 1 });
+    clusterEnd = Math.max(clusterEnd, s.end);
+  }
+  close();
+  return out;
+}
+
+/** The hours the calendar shows: 6 AM – 6 PM, widened to fit every entry. */
+export function hourRange(spans: { start: number; end: number }[]): { from: number; to: number } {
+  let from = 6;
+  let to = 18;
+  for (const s of spans) {
+    from = Math.min(from, Math.floor(s.start / 60));
+    to = Math.max(to, Math.ceil(s.end / 60));
+  }
+  return { from, to };
+}

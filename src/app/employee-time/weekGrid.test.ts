@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { buildCardRows, buildGrid, endAfter, fmtClock, originalEnd, parseHours, stackStart } from "./weekGrid";
+import {
+  buildCardRows,
+  buildGrid,
+  endAfter,
+  entrySpan,
+  fmtClock,
+  hourRange,
+  originalEnd,
+  parseHours,
+  placeBlocks,
+  stackStart,
+} from "./weekGrid";
 
 const e = (o: Partial<Parameters<typeof buildGrid>[0][number]>) => ({
   id: "x",
@@ -100,5 +111,30 @@ describe("time card", () => {
 
   it("does not stack on an open entry", () => {
     expect(stackStart("2026-09-28", 60, [e({ endTime: "", open: true })], [])).toBe("07:00");
+  });
+});
+
+describe("calendar layout", () => {
+  it("reads a span in minutes and clamps a stop past midnight", () => {
+    expect(entrySpan({ startTime: "08:00", endTime: "10:30", minutes: 150 })).toEqual({ start: 480, end: 630 });
+    expect(entrySpan({ startTime: "22:00", endTime: "01:00", minutes: 180 })).toEqual({ start: 1320, end: 1440 });
+    expect(entrySpan({ startTime: "09:00", endTime: "", minutes: 10 })).toEqual({ start: 540, end: 570 });
+  });
+
+  it("puts overlapping entries side by side and lone ones full width", () => {
+    const b = placeBlocks([
+      e({ id: "a", startTime: "08:00", endTime: "10:00" }),
+      e({ id: "b", startTime: "09:00", endTime: "11:00" }),
+      e({ id: "c", startTime: "12:00", endTime: "13:00" }),
+    ]);
+    const by = Object.fromEntries(b.map((x) => [x.e.id, x]));
+    expect([by.a.col, by.a.cols]).toEqual([0, 2]);
+    expect([by.b.col, by.b.cols]).toEqual([1, 2]);
+    expect([by.c.col, by.c.cols]).toEqual([0, 1]);
+  });
+
+  it("widens the hour range to fit early and late entries", () => {
+    expect(hourRange([])).toEqual({ from: 6, to: 18 });
+    expect(hourRange([{ start: 330, end: 1170 }])).toEqual({ from: 5, to: 20 });
   });
 });
