@@ -399,22 +399,77 @@ function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: strin
 
 /* ------------------------------------------------------------------- Gantt */
 
-/** A Gantt row: a JobTread task, or a booking, under its job. */
+/** A Gantt row: a job, a phase, a JobTread task, or a booking. */
 type GanttItem =
-  | { kind: "task"; id: string; task: GanttTask }
-  | { kind: "hold"; id: string; hold: GanttBooking };
+  | { kind: "job"; id: string; name: string; jobId: string; start: string; end: string; count: number; short: number }
+  | { kind: "phase"; id: string; name: string; jobId: string; start: string; end: string; count: number; short: number }
+  | { kind: "task"; id: string; jobId: string; depth: 1 | 2; task: GanttTask }
+  | { kind: "hold"; id: string; jobId: string; hold: GanttBooking };
 
-/** The jobs on view, each with its tasks (start order) and then its bookings. */
-function ganttGroups(data: ToolSchedulePayload, toolsOnly: boolean): { id: string; name: string; items: GanttItem[] }[] {
-  const groups = new Map<string, { id: string; name: string; items: GanttItem[] }>();
-  const take = (id: string, name: string) => groups.get(id) ?? groups.set(id, { id, name, items: [] }).get(id)!;
-  for (const j of data.jobs) take(j.id, j.name);
-  for (const t of data.tasks) if (!toolsOnly || t.needs.length) take(t.jobId, t.jobName).items.push({ kind: "task", id: `task:${t.id}`, task: t });
-  for (const h of data.bookings) take(h.rowJobId, h.jobName || "Not a job").items.push({ kind: "hold", id: `hold:${h.id}`, hold: h });
-  return [...groups.values()].filter((g) => g.items.length);
+/** JobTread's sort keys are fractional indexes: compare them as plain strings, not by locale. */
+const byKey = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
+/**
+ * The Gantt's rows, grouped as JobTread groups them: each job, then its phases
+ * and loose tasks in JobTread's order, each phase's tasks in JobTread's order,
+ * then the job's bookings. A collapsed job or phase keeps its own row and hides
+ * the rows under it.
+ */
+function ganttRows(data: ToolSchedulePayload, toolsOnly: boolean, collapsed: Set<string>, conflicts: Map<string, Set<string>>): GanttItem[] {
+  type Phase = { id: string; name: string; position: string; tasks: GanttTask[] };
+  type Job = { id: string; name: string; phases: Map<string, Phase>; loose: GanttTask[]; holds: GanttBooking[] };
+  const jobs = new Map<string, Job>();
+  const job = (id: string, name: string) => jobs.get(id) ?? jobs.set(id, { id, name, phases: new Map(), loose: [], holds: [] }).get(id)!;
+  for (const j of data.jobs) job(j.id, j.name);
+  for (const t of data.tasks) {
+    if (toolsOnly && !t.needs.length) continue;
+    const j = job(t.jobId, t.jobName);
+    if (!t.phaseId) j.loose.push(t);
+    else {
+      const ph = j.phases.get(t.phaseId) ?? j.phases.set(t.phaseId, { id: t.phaseId, name: t.phase, position: t.phasePosition, tasks: [] }).get(t.phaseId)!;
+      ph.tasks.push(t);
+    }
+  }
+  for (const h of data.bookings) job(h.rowJobId, h.jobName || "Not a job").holds.push(h);
+
+  const spanOf = (list: { startDate: string; endDate: string }[]) => ({
+    start: list.reduce((m, x) => (x.startDate < m ? x.startDate : m), list[0].startDate),
+    end: list.reduce((m, x) => (x.endDate > m ? x.endDate : m), list[0].endDate),
+  });
+  const shortIn = (ids: string[]) => ids.filter((id) => conflicts.has(id)).length;
+  const taskOrder = (a: GanttTask, b: GanttTask) => byKey(a.position, b.position) || a.startDate.localeCompare(b.startDate);
+
+  const out: GanttItem[] = [];
+  for (const j of jobs.values()) {
+    const all = [...j.loose, ...[...j.phases.values()].flatMap((p) => p.tasks)];
+    if (!all.length && !j.holds.length) continue;
+    const ids = [...all.map((t) => `task:${t.id}`), ...j.holds.map((h) => `hold:${h.id}`)];
+    const jobKey = `job:${j.id}`;
+    out.push({ kind: "job", id: jobKey, name: j.name, jobId: j.id, ...spanOf([...all, ...j.holds]), count: ids.length, short: shortIn(ids) });
+    if (collapsed.has(jobKey)) continue;
+    // Phases and loose tasks are siblings under the job in JobTread, sharing one order.
+    const top: ({ p: Phase; pos: string } | { t: GanttTask; pos: string })[] = [
+      ...[...j.phases.values()].map((p) => ({ p, pos: p.position })),
+      ...j.loose.map((t) => ({ t, pos: t.position })),
+    ].sort((x, y) => byKey(x.pos, y.pos) || ("p" in x ? x.p.name : x.t.name).localeCompare("p" in y ? y.p.name : y.t.name));
+    for (const x of top) {
+      if ("t" in x) {
+        out.push({ kind: "task", id: `task:${x.t.id}`, jobId: j.id, depth: 1, task: x.t });
+        continue;
+      }
+      const phKey = `phase:${j.id}:${x.p.id}`;
+      const tasks = [...x.p.tasks].sort(taskOrder);
+      out.push({ kind: "phase", id: phKey, name: x.p.name, jobId: j.id, ...spanOf(tasks), count: tasks.length, short: shortIn(tasks.map((t) => `task:${t.id}`)) });
+      if (collapsed.has(phKey)) continue;
+      for (const t of tasks) out.push({ kind: "task", id: `task:${t.id}`, jobId: j.id, depth: 2, task: t });
+    }
+    for (const h of j.holds) out.push({ kind: "hold", id: `hold:${h.id}`, jobId: j.id, hold: h });
+  }
+  return out;
 }
 
 const ROW_H = 30;
+const COLLAPSED_KEY = "toolSchedule.collapsed";
 
 function Gantt({
   data,
@@ -428,6 +483,27 @@ function Gantt({
   onOpen: (id: string) => void;
 }) {
   const [toolsOnly, setToolsOnly] = useState(false);
+  // Collapsed jobs and phases ("job:<id>", "phase:<jobId>:<phaseId>"), remembered on this device.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
+      if (Array.isArray(saved)) setCollapsed(new Set(saved.map(String)));
+    } catch {
+      /* nothing saved, or storage is blocked */
+    }
+  }, []);
+  const changeCollapsed = (next: Set<string>) => {
+    setCollapsed(next);
+    writePref(COLLAPSED_KEY, JSON.stringify([...next]));
+  };
+  const toggle = (id: string) => {
+    const next = new Set(collapsed);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    changeCollapsed(next);
+  };
+
   const f = dayNum(data.from);
   const days = dayNum(data.to) - f + 1;
   const ppd = months <= 1 ? 28 : months <= 3 ? 11 : 6.5; // pixels per day
@@ -435,7 +511,12 @@ function Gantt({
   const x = (iso: string) => Math.round((dayNum(iso) - f) * ppd);
   const clampX = (iso: string) => Math.min(width, Math.max(0, x(iso)));
   const conflicts = useMemo(() => conflictsBySource(data.rows), [data.rows]);
-  const groups = ganttGroups(data, toolsOnly);
+  const rows = ganttRows(data, toolsOnly, collapsed, conflicts);
+  // Every phase on view, so "Collapse phases" can close them all.
+  const allPhases = useMemo(
+    () => ganttRows(data, toolsOnly, new Set(), conflicts).filter((r) => r.kind === "phase").map((r) => r.id),
+    [data, toolsOnly, conflicts],
+  );
 
   const monthTicks: { left: number; label: string }[] = [];
   const weekTicks: { left: number; label: string }[] = [];
@@ -459,20 +540,28 @@ function Gantt({
 
   return (
     <div className="grid gap-2">
-      <Segmented
-        label="Which tasks"
-        value={toolsOnly ? "tools" : "all"}
-        onChange={(v) => setToolsOnly(v === "tools")}
-        options={[
-          { value: "all", label: "Every task" },
-          { value: "tools", label: "Tasks with tools" },
-        ]}
-      />
-      {groups.length === 0 ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <Segmented
+          label="Which tasks"
+          value={toolsOnly ? "tools" : "all"}
+          onChange={(v) => setToolsOnly(v === "tools")}
+          options={[
+            { value: "all", label: "Every task" },
+            { value: "tools", label: "Tasks with tools" },
+          ]}
+        />
+        <Button variant="ghost" size="xs" disabled={collapsed.size === 0} onClick={() => changeCollapsed(new Set())}>
+          Expand all
+        </Button>
+        <Button variant="ghost" size="xs" disabled={allPhases.length === 0} onClick={() => changeCollapsed(new Set([...collapsed, ...allPhases]))}>
+          Collapse phases
+        </Button>
+      </div>
+      {rows.length === 0 ? (
         <EmptyState>{toolsOnly ? "No task in this range has tools yet. Tap a bar under Every task to add some." : "No schedule tasks in this range."}</EmptyState>
       ) : (
         <Card pad={false} className="overflow-x-auto">
-          <div className="grid min-w-max grid-cols-[10rem_auto] sm:grid-cols-[14rem_auto]">
+          <div className="grid min-w-max grid-cols-[11rem_auto] sm:grid-cols-[16rem_auto]">
             <div className="sticky left-0 z-20 flex h-11 items-end border-b border-r border-line bg-white px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink-raised dark:text-neutral-400">
               Task
             </div>
@@ -489,80 +578,110 @@ function Gantt({
               ))}
             </div>
 
-            {groups.map((g) => (
-              <Fragment key={g.id}>
-                <div className="sticky left-0 z-10 flex h-8 items-center gap-1.5 border-b border-r border-line bg-neutral-50 px-3 text-[13px] font-bold dark:bg-ink-overlay">
-                  <i aria-hidden className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: jobColour(colours.get(g.id)) }} />
-                  <span className="truncate">{g.name}</span>
-                </div>
-                <div className="relative h-8 border-b border-line bg-neutral-50 dark:bg-ink-overlay" style={{ width }}>
-                  {grid}
-                </div>
-                {g.items.map((it) => {
-                  const a = it.kind === "task" ? it.task.startDate : it.hold.startDate;
-                  const z = it.kind === "task" ? it.task.endDate : it.hold.endDate;
-                  const short = conflicts.has(it.id);
-                  const title = it.kind === "task" ? it.task.name : `Booked: ${it.hold.label}`;
-                  const sub = it.kind === "task" ? it.task.phase : it.hold.note;
-                  const tools =
-                    it.kind === "task"
-                      ? it.task.needs.length
-                        ? it.task.needs.map((n) => n.label).join(" · ")
-                        : it.task.covered
-                          ? "Needs no tools"
-                          : "No tools yet"
-                      : `${it.hold.label}${it.hold.qty > 1 ? ` ×${it.hold.qty}` : ""}`;
-                  const empty = it.kind === "task" && it.task.needs.length === 0;
-                  const l = clampX(a);
-                  const w = Math.max(6, clampX(addDays(z, 1)) - l - 1);
-                  return (
-                    <Fragment key={it.id}>
+            {rows.map((it) => {
+              const colour = jobColour(colours.get(it.jobId));
+              if (it.kind === "job" || it.kind === "phase") {
+                const open = !collapsed.has(it.id);
+                const isJob = it.kind === "job";
+                const l = clampX(it.start);
+                const w = Math.max(6, clampX(addDays(it.end, 1)) - l - 1);
+                return (
+                  <Fragment key={it.id}>
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      onClick={() => toggle(it.id)}
+                      className={`sticky left-0 z-10 flex min-w-0 items-center gap-1.5 border-b border-r text-left ${
+                        isJob ? "border-line bg-neutral-50 pl-2 pr-3 text-[13px] font-bold dark:bg-ink-overlay" : "border-line-soft bg-white pl-4 pr-3 text-[12px] font-bold dark:bg-ink-raised"
+                      }`}
+                      style={{ height: isJob ? 34 : ROW_H }}
+                    >
+                      <span aria-hidden className={`inline-block w-3 shrink-0 text-[10px] text-neutral-500 transition-transform ${open ? "rotate-90" : ""}`}>
+                        ▶
+                      </span>
+                      {isJob && <i aria-hidden className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: colour }} />}
+                      <span className="min-w-0 flex-1 truncate">{it.name}</span>
+                      {it.short > 0 && <span className="shrink-0 text-[11px] font-semibold text-danger">⚠ {it.short}</span>}
+                      {!open && <span className="shrink-0 text-[11px] font-normal text-neutral-500">{it.count}</span>}
+                    </button>
+                    <div
+                      className={`relative border-b ${isJob ? "border-line bg-neutral-50 dark:bg-ink-overlay" : "border-line-soft"}`}
+                      style={{ width, height: isJob ? 34 : ROW_H }}
+                    >
+                      {grid}
                       <button
                         type="button"
-                        onClick={() => onOpen(it.id)}
-                        className="sticky left-0 z-10 flex min-w-0 flex-col justify-center border-b border-r border-line-soft bg-white px-3 text-left dark:bg-ink-raised"
-                        style={{ height: ROW_H }}
+                        onClick={() => toggle(it.id)}
+                        aria-label={`${open ? "Collapse" : "Expand"} ${it.name}, ${span(it.start, it.end)}`}
+                        title={`${it.name} · ${span(it.start, it.end)}`}
+                        className={`absolute top-1/2 -translate-y-1/2 rounded-sm ${isJob ? "h-2" : "h-1.5"} ${it.short ? "ring-2 ring-danger" : ""}`}
+                        style={{ left: l, width: w, backgroundColor: colour, opacity: isJob ? 0.55 : 0.4 }}
+                      />
+                    </div>
+                  </Fragment>
+                );
+              }
+              const a = it.kind === "task" ? it.task.startDate : it.hold.startDate;
+              const z = it.kind === "task" ? it.task.endDate : it.hold.endDate;
+              const short = conflicts.has(it.id);
+              const title = it.kind === "task" ? it.task.name : `Booked: ${it.hold.label}`;
+              const sub = it.kind === "hold" ? it.hold.note : it.depth === 1 && it.task.phase ? it.task.phase : "";
+              const tools =
+                it.kind === "task"
+                  ? it.task.needs.length
+                    ? it.task.needs.map((n) => n.label).join(" · ")
+                    : it.task.covered
+                      ? "Needs no tools"
+                      : "No tools yet"
+                  : `${it.hold.label}${it.hold.qty > 1 ? ` ×${it.hold.qty}` : ""}`;
+              const empty = it.kind === "task" && it.task.needs.length === 0;
+              const l = clampX(a);
+              const w = Math.max(6, clampX(addDays(z, 1)) - l - 1);
+              const indent = it.kind === "task" && it.depth === 2 ? "pl-10" : "pl-7";
+              return (
+                <Fragment key={it.id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpen(it.id)}
+                    className={`sticky left-0 z-10 flex min-w-0 flex-col justify-center border-b border-r border-line-soft bg-white pr-3 text-left dark:bg-ink-raised ${indent}`}
+                    style={{ height: ROW_H }}
+                  >
+                    <span className={`truncate text-[12px] leading-tight ${short ? "font-semibold text-danger" : ""}`}>{title}</span>
+                    {sub && <span className="truncate text-[10px] leading-tight text-neutral-500 dark:text-neutral-400">{sub}</span>}
+                  </button>
+                  <div className="relative border-b border-line-soft" style={{ width, height: ROW_H }}>
+                    {grid}
+                    <button
+                      type="button"
+                      onClick={() => onOpen(it.id)}
+                      title={`${title} · ${span(a, z)} · ${tools}${short ? " · short" : ""}`}
+                      aria-label={`${title}, ${span(a, z)}: ${tools}${short ? ", short" : ""}. Open to assign tools`}
+                      className={`absolute top-1 flex h-[22px] items-center overflow-hidden whitespace-nowrap rounded px-1.5 text-[11px] font-medium ${
+                        empty ? "border border-dashed text-neutral-600 dark:text-neutral-300" : "text-white"
+                      } ${it.kind === "hold" ? "bg-[repeating-linear-gradient(135deg,rgb(255_255_255/0.28)_0_4px,transparent_4px_8px)]" : ""} ${
+                        short ? "ring-2 ring-danger ring-offset-1 ring-offset-white dark:ring-offset-ink-raised" : ""
+                      }`}
+                      style={{
+                        left: l,
+                        width: w,
+                        ...(empty ? { borderColor: colour, background: "transparent" } : { backgroundColor: colour }),
+                      }}
+                    >
+                      {w >= 120 && (short ? `⚠ ${tools}` : tools)}
+                    </button>
+                    {w < 120 && (
+                      <span
+                        aria-hidden
+                        className={`pointer-events-none absolute top-1 flex h-[22px] items-center whitespace-nowrap pl-1.5 text-[11px] ${empty ? "text-neutral-400" : "text-neutral-600 dark:text-neutral-300"}`}
+                        style={{ left: l + w }}
                       >
-                        <span className={`truncate text-[12px] font-semibold leading-tight ${short ? "text-danger" : ""}`}>{title}</span>
-                        {sub && <span className="truncate text-[10px] leading-tight text-neutral-500 dark:text-neutral-400">{sub}</span>}
-                      </button>
-                      <div className="relative border-b border-line-soft" style={{ width, height: ROW_H }}>
-                        {grid}
-                        <button
-                          type="button"
-                          onClick={() => onOpen(it.id)}
-                          title={`${title} · ${span(a, z)} · ${tools}${short ? " · short" : ""}`}
-                          aria-label={`${title}, ${span(a, z)}: ${tools}${short ? ", short" : ""}. Open to assign tools`}
-                          className={`absolute top-1 flex h-[22px] items-center overflow-hidden whitespace-nowrap rounded px-1.5 text-[11px] font-medium ${
-                            empty ? "border border-dashed text-neutral-600 dark:text-neutral-300" : "text-white"
-                          } ${it.kind === "hold" ? "bg-[repeating-linear-gradient(135deg,rgb(255_255_255/0.28)_0_4px,transparent_4px_8px)]" : ""} ${
-                            short ? "ring-2 ring-danger ring-offset-1 ring-offset-white dark:ring-offset-ink-raised" : ""
-                          }`}
-                          style={{
-                            left: l,
-                            width: w,
-                            ...(empty
-                              ? { borderColor: jobColour(colours.get(g.id)), background: "transparent" }
-                              : { backgroundColor: jobColour(colours.get(g.id)) }),
-                          }}
-                        >
-                          {w >= 120 && (short ? `⚠ ${tools}` : tools)}
-                        </button>
-                        {w < 120 && (
-                          <span
-                            aria-hidden
-                            className={`pointer-events-none absolute top-1 flex h-[22px] items-center whitespace-nowrap pl-1.5 text-[11px] ${empty ? "text-neutral-400" : "text-neutral-600 dark:text-neutral-300"}`}
-                            style={{ left: l + w }}
-                          >
-                            {short ? `⚠ ${tools}` : tools}
-                          </span>
-                        )}
-                      </div>
-                    </Fragment>
-                  );
-                })}
-              </Fragment>
-            ))}
+                        {short ? `⚠ ${tools}` : tools}
+                      </span>
+                    )}
+                  </div>
+                </Fragment>
+              );
+            })}
           </div>
         </Card>
       )}

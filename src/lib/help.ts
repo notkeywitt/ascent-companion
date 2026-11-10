@@ -406,7 +406,8 @@ export const HELP: HelpSection[] = [
           "On the Calendar or List, tap a tool to see who needs it and where each one is now.",
         ],
         notes: [
-          "Each Gantt row is a JobTread task, under its job.",
+          "The Gantt groups tasks as JobTread does: each job, then its phases, in JobTread's order.",
+          "Tap a job or a phase to collapse it or open it again. The app remembers this on your device.",
           "A bar with a red ring and ⚠ needs a tool that is short on some of its days.",
           "A dashed bar has no tools set yet.",
           "**None owned** means the schedule needs a tool the Tools list does not have.",

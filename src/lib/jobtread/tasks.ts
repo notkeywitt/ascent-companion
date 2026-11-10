@@ -791,6 +791,11 @@ export interface ScheduleTask {
   name: string;
   /** The phase (parent group row) it sits under, "" when it has none. */
   phase: string;
+  /** That phase's id and JobTread sort key, for grouping and ordering like JobTread's Gantt. */
+  phaseId?: string;
+  phasePosition?: string;
+  /** Its own JobTread sort key (fractional index) within its phase. */
+  position?: string;
   taskTypeId: string | null;
   taskTypeName: string | null;
   startDate: string; // YYYY-MM-DD
@@ -846,8 +851,9 @@ export async function _getUpcomingScheduleTasksUncached(
             startDate: {},
             endDate: {},
             progress: {},
+            position: {},
             taskType: { id: {}, name: {} },
-            parentTask: { name: {} },
+            parentTask: { id: {}, name: {}, position: {} },
             job: { id: {}, name: {} },
           },
         },
@@ -864,6 +870,9 @@ export async function _getUpcomingScheduleTasksUncached(
       id: n.id,
       name: n.name || "(untitled)",
       phase: n.parentTask?.name ?? "",
+      phaseId: n.parentTask?.id ?? "",
+      phasePosition: n.parentTask?.position ?? "",
+      position: n.position ?? "",
       taskTypeId: n.taskType?.id ?? null,
       taskTypeName: n.taskType?.name ?? null,
       startDate: n.startDate,

@@ -57,6 +57,10 @@ export interface GanttTask {
   jobName: string;
   name: string;
   phase: string;
+  /** The phase's id and both JobTread sort keys: the Gantt groups and orders by them, as JobTread does. */
+  phaseId: string;
+  phasePosition: string;
+  position: string;
   taskTypeId: string | null;
   startDate: string;
   endDate: string;
@@ -247,6 +251,9 @@ export async function buildToolSchedule(from: string, to: string): Promise<ToolS
         jobName: t.jobName,
         name: t.name,
         phase: t.phase,
+        phaseId: t.phaseId ?? "",
+        phasePosition: t.phasePosition ?? "",
+        position: t.position ?? "",
         taskTypeId: t.taskTypeId,
         startDate: t.startDate,
         endDate: t.endDate,

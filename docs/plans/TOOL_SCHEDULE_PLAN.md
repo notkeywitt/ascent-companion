@@ -36,6 +36,9 @@ The owner approved a clickable sample of the layouts the same day.
   same Location to its load (`moveLoadWith`, after the reply). Each tool's tasks, group
   and trailer are set in the Tools page's edit dialog; the editor's Tools tab became
   "Types & groups".
+- Round 6 done 2026-11-10 — the Gantt groups like JobTread's: job → phase → task, in
+  JobTread's order (`task.position`, `parentTask.position`, probed live), each job and
+  phase collapsible (remembered per device), with a summary bar and a short count.
 - Next: the office fills the catalogue and maps task names; then watch whether
   the move list is useful (it depends on Tools-sheet labels matching job names).
 
