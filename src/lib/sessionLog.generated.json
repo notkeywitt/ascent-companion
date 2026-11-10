@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-11-10T06:31:55Z",
+  "generatedAt": "2026-11-10T06:36:54Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "tool-tracker-gantt",
+      "file": "2026-11-10-tool-tracker-gantt.md",
+      "branch": "claude/tool-tracker-gantt-x7gelq",
+      "status": "shipped",
+      "started": "2026-11-10T06:16:53Z",
+      "updated": "2026-11-10T06:36:54Z",
+      "goal": "",
+      "next": "Stage 2 of docs/plans/TOOL_SCHEDULE_PLAN.md: DB tables, /api/tool-schedule/catalog|rules|holds, /tool-schedule/edit page.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:30",
+          "sha": "96b2b15",
+          "subject": "companion: start tool schedule session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:36",
+          "sha": "5183823",
+          "subject": "companion: add tool schedule reads and rules (stage 1)",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/jobtread.ts, src/lib/jobtread/costCodes.ts, src/lib/jobtread/tasks.ts, src/lib/toolSchedule.test.ts, +1 more"
+        }
+      ]
+    },
     {
       "slug": "festive-faraday",
       "file": "2026-11-10-festive-faraday.md",

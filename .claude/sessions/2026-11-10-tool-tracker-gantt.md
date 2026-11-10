@@ -2,9 +2,9 @@
 slug: tool-tracker-gantt
 repo: ascent-companion
 branch: claude/tool-tracker-gantt-x7gelq
-status: in-progress
+status: shipped
 started: 2026-11-10T06:16:53Z
-updated: 2026-11-10T06:36:41Z
+updated: 2026-11-10T06:36:54Z
 goal: 
 next: Stage 2 of docs/plans/TOOL_SCHEDULE_PLAN.md: DB tables, /api/tool-schedule/catalog|rules|holds, /tool-schedule/edit page.
 ---
