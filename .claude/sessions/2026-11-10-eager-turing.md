@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/eager-turing-84swsi
 status: shipped
 started: 2026-11-10T15:40:53Z
-updated: 2026-11-10T15:43:15Z
+updated: 2026-11-10T15:49:16Z
 goal: 
 next: Check the Tools title menu on a phone after deploy
 ---
@@ -14,5 +14,7 @@ next: Check the Tools title menu on a phone after deploy
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
 - 2026-11-10 15:43 · `2fd9ca6` companion: tools title menu on phone, drop pill row
   src/app/tools/page.tsx, src/components/WorkspaceTabs.tsx
+- 2026-11-10 15:49 · `b4d9401` companion: drop pill row on phone for tool schedule and requisitions
+  src/components/WorkspaceTabs.tsx
 
 ## Notes
