@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
 import { reverseGeocode } from "@/lib/mileageRoute";
+import { readJtUserLink } from "@/lib/jtUserLink";
+import { scopeMileageList, seesAllMileage, type MileageList } from "@/lib/mileageScope";
 
 // Proxy to the Apps Script web app's mileage actions. The one-tap flow captures
 // two GPS points + timestamps on the phone; this route turns them into an
@@ -123,17 +125,28 @@ function manualRoute(body: Record<string, unknown>) {
 }
 
 export async function GET(req: NextRequest) {
-  // The requester's identity is taken from the session server-side; Apps Script
-  // uses it to decide admin (all trips) vs. own-trips-only. The client cannot
-  // spoof it. Filters are honored for admins (and month for everyone).
+  // The requester's identity is taken from the session server-side; the client
+  // cannot spoof it. Apps Script scopes by its own admin email list; the
+  // companion role then narrows it again (lib/mileageScope): only admin and
+  // office see every driver. The user filter is honored only for them.
   const session = await auth();
   const requesterEmail = session?.user?.email ?? "";
+  const role = session?.user?.role;
+  const all = seesAllMileage(role);
   const month = req.nextUrl.searchParams.get("month") ?? "";
-  const user = req.nextUrl.searchParams.get("user") ?? "";
+  const user = all ? (req.nextUrl.searchParams.get("user") ?? "") : "";
 
-  const result = await callAppsScript({ action: "listMileage", requesterEmail, month, user });
+  const [result, link] = await Promise.all([
+    callAppsScript({ action: "listMileage", requesterEmail, month, user }),
+    all ? Promise.resolve(null) : readJtUserLink(requesterEmail),
+  ]);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
-  return NextResponse.json(result.data, { status: 200 });
+  const scoped = scopeMileageList((result.data ?? {}) as MileageList, {
+    role,
+    email: requesterEmail,
+    myName: link?.name ?? "",
+  });
+  return NextResponse.json(scoped, { status: 200 });
 }
 
 // PATCH { tripId, clientKey?, fields:{ date?, jobId?, jobLabel?, purpose?,

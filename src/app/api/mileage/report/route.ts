@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callAppsScriptResponse } from "@/lib/appsScript";
 
 import { auth } from "@/auth";
+import { seesAllMileage } from "@/lib/mileageScope";
 
 // Admin-only: render the whole month's mileage (every driver) to a PDF. Apps
 // Script builds the Doc → PDF and saves it in a "Mileage Reports" Drive folder;
@@ -24,6 +25,11 @@ export async function POST(req: NextRequest) {
 
   const session = await auth();
   const requesterEmail = session?.user?.email ?? "";
+  // The report lists every driver, so only a role that sees every driver may
+  // run it — whatever Apps Script's own admin list says.
+  if (!seesAllMileage(session?.user?.role)) {
+    return NextResponse.json({ ok: false, error: "Only the office can run the mileage report." }, { status: 403 });
+  }
 
   // Renders a Doc and exports it to a PDF in Drive — a write (it creates the
   // file), so never retried. Stay just under this route's maxDuration (60s).
