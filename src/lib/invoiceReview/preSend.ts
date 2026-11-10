@@ -49,6 +49,7 @@
  */
 import { loadMonthEvidence } from "./evidence";
 import { runChecks } from "./registry";
+import { DEFAULT_SETTINGS } from "./settings";
 import { applyRulings, listRulings } from "./rulings";
 import type { Finding } from "./types";
 import type { PaveConfig } from "@/lib/jobtread";
@@ -87,7 +88,19 @@ export async function preSendCheck(
 
   const job = evidence.jobs[0];
   // Only the scopes that are meaningful against one job — see the module note.
-  const raw = runChecks(evidence, undefined, { scopes: ["job", "invoice"] });
+  // The gate runs while the invoice is being built, so a JobTread draft IS the
+  // invoice in hand (see checks/uninvoiced.ts).
+  const settings = {
+    ...DEFAULT_SETTINGS,
+    checks: {
+      ...DEFAULT_SETTINGS.checks,
+      uninvoiced: {
+        ...DEFAULT_SETTINGS.checks.uninvoiced,
+        config: { ...DEFAULT_SETTINGS.checks.uninvoiced.config, countDraftInvoices: true },
+      },
+    },
+  };
+  const raw = runChecks(evidence, settings, { scopes: ["job", "invoice"] });
 
   let findings = raw;
   try {

@@ -131,13 +131,18 @@ Take them in the order they come. For each one that is `severity: "error"`:
   not), then check whether the bill exists under a different vendor spelling
   before reporting it. If the email carries a "Processed" or "Added to JT" label
   and the bill still isn't there, say so — something believed it was filed.
-- **`bill-uninvoiced`** — a captured bill on a job that WAS invoiced, left off
-  the invoice. Name the vendor and the amount; it is usually a one-minute fix.
-- **`job-not-invoiced`** — a job's whole month was captured and never billed.
-  Confirm against the tracking sheet whether that was deliberate before alarming
-  anyone; if it is a standing arrangement, record a `job-kind` ruling.
-- **`scope-uninvoiced`** — uninvoiced LABOR (bills have their own per-bill
-  finding above). Confirm against the tracking sheet whether it was held back.
+- **Staging is not a miss.** The office stages each invoice in the app and
+  creates it in JobTread last (JobTread does not carry later bill edits into an
+  existing invoice). In the monthly review a missing or DRAFT JobTread invoice
+  is normal, so `job-not-invoiced` no longer fires there, and the two below fire
+  only once the job has a built (non-draft) invoice. The pre-send gate still
+  counts drafts, because it runs while the invoice is being built.
+- **`bill-uninvoiced`** — a captured bill left off the job's BUILT invoice. Name
+  the vendor and the amount; it is usually a one-minute fix.
+- **`job-not-invoiced`** — pre-send gate only: the job has no invoice at all.
+- **`scope-uninvoiced`** — LABOR left off the built invoice (bills have their
+  own per-bill finding above). Confirm against the tracking sheet whether it
+  was held back.
 - **`math-*`** — the invoice does not foot. Quote the arithmetic from `detail`
   verbatim; it already shows both figures and the difference.
 - **`markup-missing` / `billed-below-cost`** — a line reached the invoice at

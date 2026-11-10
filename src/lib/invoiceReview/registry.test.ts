@@ -66,6 +66,9 @@ const neverBilled = month([
   job({ invoices: [], bills: [bill({ id: "b1", cost: 900, invoiced: false })] }),
 ]);
 
+/** The pre-send gate's view: a missing or draft JobTread invoice counts. */
+const preSend = withCheck("uninvoiced", { config: { remainderFloor: 0.5, countDraftInvoices: true } });
+
 const kinds = (m: MonthEvidence, s?: InvoiceReviewSettings) =>
   runChecks(structuredClone(m), s).map((f) => f.kind);
 
@@ -95,7 +98,7 @@ describe("the registry itself", () => {
 
 describe("policy comes from settings", () => {
   it("runs a check that is enabled", () => {
-    expect(kinds(neverBilled)).toContain("job-not-invoiced");
+    expect(kinds(neverBilled, preSend)).toContain("job-not-invoiced");
   });
 
   it("does not run a check that is disabled", () => {
@@ -182,6 +185,6 @@ describe("a check that throws", () => {
       job({ jobId: "J1", bills: null as unknown as BillRef[] }),
       job({ jobId: "J2", invoices: [], bills: [bill({ id: "b1", cost: 900, invoiced: false })] }),
     ]);
-    expect(runChecks(m).map((f) => f.kind)).toContain("job-not-invoiced");
+    expect(runChecks(m, preSend).map((f) => f.kind)).toContain("job-not-invoiced");
   });
 });

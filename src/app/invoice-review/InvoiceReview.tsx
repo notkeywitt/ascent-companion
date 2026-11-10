@@ -22,7 +22,6 @@ import {
   SectionHeading,
   SectionLabel,
   Select,
-  StatementBlock,
   Textarea, Tabs } from "@/components/ui";
 import { ReportText } from "@/components/ReportText";
 import { buildBrief } from "@/lib/invoiceReview/brief";
@@ -223,7 +222,6 @@ export function InvoiceReview() {
   const [investigatedAt, setInvestigatedAt] = useState("");
   const [report, setReport] = useState("");
   const [runs, setRuns] = useState<RunEvent[]>([]);
-  const [investigateNote, setInvestigateNote] = useState("");
   const [investigateError, setInvestigateError] = useState("");
 
   /**
@@ -333,7 +331,6 @@ export function InvoiceReview() {
         }
         if (st.status === "running") return true;
         applyDispositions(json.dispositions ?? [], st.model);
-        setInvestigateNote(st.note ?? "");
         setInvestigatedAt(st.status === "done" ? st.finishedAt ?? "" : "");
         setReport(st.status === "done" ? st.report ?? "" : "");
         // A failure is announced only to whoever is waiting on the run. Opening
@@ -487,7 +484,6 @@ export function InvoiceReview() {
     () => data?.findings.filter((f) => inLens(f, lens)) ?? [],
     [data, lens],
   );
-  const atStake = live.reduce((s, f) => s + Math.abs(f.amount ?? 0), 0);
   const counts = useMemo(
     () => ({
       fix: live.filter((f) => f.severity === "error").length,
@@ -521,10 +517,7 @@ export function InvoiceReview() {
   return (
     <div className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <InvoicingTabs ym={ym} />
-      <PageHeader
-        title="Checks"
-        description="Everything to fix before the month's invoices go out."
-      />
+      <PageHeader title="Checks" />
       <Tabs
         label="Checks sections"
         items={sections.map((x) => ({
@@ -628,22 +621,6 @@ export function InvoiceReview() {
 
       {data ? (
         <>
-          <StatementBlock
-            className="mt-6"
-            label={`In question — ${data.evidence.monthLabel}`}
-            value={money(atStake)}
-            sub={`${live.length} finding${live.length === 1 ? "" : "s"} across ${data.evidence.jobs.length} job${data.evidence.jobs.length === 1 ? "" : "s"}`}
-            footnote={
-              data.summarySource === "claude"
-                ? "Read by Claude over the checks below."
-                : "Summary written from the checks below."
-            }
-          />
-
-          <Banner tone={counts.fix ? "warning" : "success"} className="mt-4">
-            {data.summary}
-          </Banner>
-
           {investigateError ? (
             <Banner tone="error" className="mt-3">
               {investigateError}
@@ -657,20 +634,14 @@ export function InvoiceReview() {
             </Banner>
           ) : null}
 
-          {investigateNote ? (
-            <Banner tone="neutral" className="mt-3">
-              <span className="font-medium">Claude Code&apos;s reading.</span>{" "}
-              <span className="whitespace-pre-line">{investigateNote}</span>
-            </Banner>
-          ) : null}
-
+          {/* ONE account of the month: Claude Code's report, then the findings
+              line by line. The headline figure, the built-in summary and the
+              short reading were three more summaries of the same list, and
+              the owner asked for them gone (2026-11-10). */}
           {report ? (
-            <details className="mt-3 rounded-lg border border-line px-4 py-3">
-              <summary className="cursor-pointer text-sm font-medium">Full report</summary>
-              <div className="mt-3">
-                <ReportText markdown={report} />
-              </div>
-            </details>
+            <section className="mt-6 rounded-xl border border-line px-4 py-4">
+              <ReportText markdown={report} />
+            </section>
           ) : null}
 
           {runs.length ? (

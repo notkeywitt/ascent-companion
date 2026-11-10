@@ -12,6 +12,16 @@
  * Shop exactly like a real job, and none of it is ever billed to anyone, so
  * without the guard these would fire on them every month forever. Never report
  * Office or Shop as under-billed.
+ *
+ * A JOBTREAD DRAFT IS NOT A BUILT INVOICE — in the monthly review. The office
+ * stages each month's invoice in the app (a virtual invoice from the month's
+ * bills and labor) and creates it in JobTread last, because JobTread does not
+ * carry later bill edits into an invoice that already exists. So during the
+ * review window, "no JobTread invoice yet" is the normal state, not a miss
+ * (owner, 2026-11-10). The monthly review therefore counts only non-draft
+ * invoices, and never reports a job as not invoiced. The pre-send gate runs at
+ * the moment the invoice IS being built, so it sets `countDraftInvoices` and
+ * judges the draft in hand.
  */
 import { defineJobCheck } from "../checkTypes";
 import { cents, findingKey, money, type Finding } from "../types";
@@ -20,6 +30,12 @@ import { billLink } from "./shared";
 export interface UninvoicedConfig {
   /** Below this, an "unbilled remainder" is rounding, not a missed charge. */
   remainderFloor: number;
+  /**
+   * Whether a JobTread DRAFT invoice counts as the job's invoice. Off for the
+   * monthly review (drafts and missing invoices are staging, not misses); on
+   * for the pre-send gate, which checks the invoice being built.
+   */
+  countDraftInvoices?: boolean;
 }
 
 export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
@@ -35,10 +51,14 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
     const base = { jobId: job.jobId, jobName: job.jobName, customerName: job.customerName };
     const floor = config.remainderFloor;
 
+    const counted = config.countDraftInvoices
+      ? job.invoices
+      : job.invoices.filter((i) => i.status !== "draft");
+
     const uninvoiced = job.bills.filter((b) => !b.invoiced);
     const uninvoicedCost = cents(uninvoiced.reduce((s, b) => s + b.cost, 0));
 
-    if (!job.invoices.length && uninvoicedCost > floor) {
+    if (!counted.length && config.countDraftInvoices && uninvoicedCost > floor) {
       // No invoice at all: ONE finding for the job.
       out.push({
         ...base,
@@ -58,7 +78,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
         sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
         sourceLabel: "Open the tracking sheet",
       });
-    } else if (job.invoices.length) {
+    } else if (counted.length) {
       // The job WAS invoiced, so a bill left off is a straggler — and naming
       // the individual bill is what makes it fixable in under a minute.
       for (const bill of uninvoiced) {
@@ -84,7 +104,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
     }
 
     // Time has no per-entry equivalent here, so it keeps the rolled-up form.
-    if (job.invoices.length && job.uninvoicedTimeCost > floor) {
+    if (counted.length && job.uninvoicedTimeCost > floor) {
       out.push({
         ...base,
         key: findingKey("scope-uninvoiced", job.jobId, month.ym),

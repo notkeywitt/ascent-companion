@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildBrief } from "./brief";
 import { runChecks } from "./registry";
+import { DEFAULT_SETTINGS } from "./settings";
 import { billLink, depositPart, matchBackup } from "./checks/shared";
 import { fallbackSummary } from "./summary";
 import { isNeverInvoiced } from "./types";
@@ -24,6 +25,18 @@ import type {
   MonthEvidence,
   ReviewPayload,
 } from "./types";
+
+/** The pre-send gate's settings: a missing or draft JobTread invoice counts. */
+const PRE_SEND = {
+  ...DEFAULT_SETTINGS,
+  checks: {
+    ...DEFAULT_SETTINGS.checks,
+    uninvoiced: {
+      ...DEFAULT_SETTINGS.checks.uninvoiced,
+      config: { ...DEFAULT_SETTINGS.checks.uninvoiced.config, countDraftInvoices: true },
+    },
+  },
+};
 
 function file(partial: Partial<BackupFile> & { id: string; amount: number }): BackupFile {
   return {
@@ -1120,6 +1133,25 @@ describe("everything captured must reach an invoice", () => {
     expect(hits[0].amount).toBe(900); // worst first
   });
 
+  it("monthly review: a job with no JobTread invoice yet is staging, not a miss", () => {
+    const m = month([job({ invoices: [], bills: [bill({ id: "b1", cost: 900, invoiced: false })] })]);
+    expect(kinds(runChecks(m))).not.toContain("job-not-invoiced");
+  });
+
+  it("monthly review: a JobTread draft is not a built invoice yet", () => {
+    const m = month([
+      job({
+        invoices: [invoice({ id: "i1", status: "draft" })],
+        bills: [bill({ id: "b1", cost: 900, invoiced: false })],
+        uninvoicedTimeCost: 500,
+      }),
+    ]);
+    const k = kinds(runChecks(m));
+    expect(k).not.toContain("bill-uninvoiced");
+    expect(k).not.toContain("scope-uninvoiced");
+    expect(kinds(runChecks(m, PRE_SEND))).toContain("bill-uninvoiced");
+  });
+
   it("reports a job that was never invoiced ONCE, not once per bill", () => {
     const f = runChecks(
       month([
@@ -1131,6 +1163,7 @@ describe("everything captured must reach an invoice", () => {
           ],
         }),
       ]),
+      PRE_SEND,
     );
     expect(kinds(f)).toContain("job-not-invoiced");
     expect(kinds(f)).not.toContain("bill-uninvoiced");
@@ -1188,7 +1221,7 @@ describe("Office and Shop are never invoiced", () => {
   });
 
   it("but DOES raise them against an ordinary job with the same shape", () => {
-    const f = runChecks(month([{ ...overhead("Kitchen Remodel"), neverInvoiced: false }]));
+    const f = runChecks(month([{ ...overhead("Kitchen Remodel"), neverInvoiced: false }]), PRE_SEND);
     expect(kinds(f)).toContain("job-not-invoiced");
   });
 });

@@ -25,6 +25,42 @@ node scripts/monthly-check/agent.mjs <command> …
 
 (If `node` is not found, prefix: `export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh" >/dev/null;`)
 
+## Never report a JobTread invoice that does not exist yet
+
+The office **stages** each month's client invoice in the app: the Tracking
+Sheets board builds a virtual invoice from the month's bills and labor. The
+invoice is created in JobTread **last**, because JobTread does not carry later
+bill edits into an invoice that already exists. So during the review window:
+
+- "This job has no JobTread invoice yet" is normal. Never report it.
+- A JobTread **draft** invoice is not a built invoice. Bills and labor "not on"
+  it are staging, not misses. Never report them.
+- Report a bill or labor as left off only when the job has a **built** (non-draft)
+  JobTread invoice for the month. The coded check already follows this rule
+  (`countDraftInvoices`, checks/uninvoiced.ts); older runs may still carry
+  `job-not-invoiced` / `bill-uninvoiced` / `scope-uninvoiced` findings made
+  under the old rule — give those `probably-fine` with the reason "staging".
+
+## Link every item to where it is fixed
+
+Each line in the report and each verdict's `suggestedAction` names the page the
+office opens to fix it. Use full links:
+
+| To fix | Link |
+|---|---|
+| A bill: code it, approve it, void it, move it | `https://ascent-companion.vercel.app/bill/<billId>?jobId=<jobId>` |
+| A job's month: staged invoice, labor, coding | `https://ascent-companion.vercel.app/trackingsheet?jobId=<jobId>&ym=<ym>` |
+| Re-sync a Tracking Sheet | `https://ascent-companion.vercel.app/tracking-sheet?jobId=<jobId>&ym=<ym>` |
+| A bill or invoice in JobTread | `https://app.jobtread.com/jobs/<jobId>/documents/<docId>` |
+| A job in JobTread | `https://app.jobtread.com/jobs/<jobId>` |
+| A Google Tracking Sheet tab | the sheet URL from `agent.mjs tracking`, plus `#gid=` when known |
+| A vendor invoice email | the Gmail `viewUrl` from the thread |
+| This month's findings | `https://ascent-companion.vercel.app/invoice-review?ym=<ym>` |
+
+A finding's own `sourceLink` (relative, e.g. `/bill/…`) is already the right
+page: prefix it with `https://ascent-companion.vercel.app`. Never invent an
+id; when you do not have one, link the job's Tracking Sheets page.
+
 ## Step 1 — pick the month
 
 - `$ARGUMENTS` holds a `YYYY-MM` → use it.
@@ -123,36 +159,34 @@ A difference under $1 with matching hours is rounding; the server already ignore
 ## Step 5 — post it
 
 Write the full report to `.monthly-check/<ym>.report.md`. The page shows it
-under "Full report", so it is the owner's record of the month. Markdown:
-`##` headings, `-` bullets, `|` tables, `**bold**`, links. Sections:
+above the findings list, and it is the only account of the month on the page —
+**no summary section, no headline totals**. It is a list of things to do. Markdown:
+`##` headings, `-` bullets, `|` tables, `**bold**`, `[text](url)` links.
+Sections, in this order, each item one bullet with its fix link:
 
-1. **Summary**: the same reading as `note`.
-2. **To fix before invoices go out**: each confirmed finding: what, job, amount, action.
-3. **Worth confirming**: `needs-human`, and `probably-fine` where the office should check your reading.
-4. **Tracking Sheets**: one table row per job (JobTread vs sheet, bills and labor),
-   then each discrepancy with its fix.
-5. **False alarms**: one line per group, with the reason.
-6. **Not checked**: what was skipped or partial.
+1. **To fix**: confirmed findings — what, job, amount, the action, the link.
+2. **Tracking Sheets**: one table row per job (JobTread vs sheet, bills and
+   labor), then each discrepancy with its fix and the link to the sheet or the
+   job's Tracking Sheets page.
+3. **Worth confirming**: `needs-human`, and `probably-fine` where the office
+   should check your reading.
+4. **False alarms**: one line per group, with the reason.
+5. **Not checked**: what was skipped or partial.
 
 Then write `.monthly-check/<ym>.verdicts.json`:
 
 ```json
 {
   "model": "Claude Code (Opus)",
-  "note": "<the month's reading>",
   "reportFile": ".monthly-check/<ym>.report.md",
   "dispositions": [
-    { "key": "<finding.key>", "verdict": "confirmed", "why": "…", "suggestedAction": "…" }
+    { "key": "<finding.key>", "verdict": "confirmed", "why": "…", "suggestedAction": "… <link>" }
   ]
 }
 ```
 
-`note` is what the page shows as "Claude Code's reading". Six lines at most,
-plain words, readable on a phone. Lead with how many things to fix and the
-dollars in question. Then the worst items, one per line, including any tracking
-sheet that disagrees with JobTread. Say what was NOT checked (`emailChecked`
-false, `mailTruncated`, evidence warnings). Follow the owner's standing
-instructions from the digest. Apply the invoice-review rule on calling a month clean.
+Follow the owner's standing instructions from the digest. Apply the
+invoice-review rule on calling a month clean.
 
 Then `agent.mjs finish <ym> .monthly-check/<ym>.verdicts.json`. It answers with
 `saved` and `rejected`. A rejected key does not match the filed run; fix it and
@@ -160,7 +194,7 @@ post again.
 
 ## Step 6 — report
 
-Reply with the same reading, plus the link
+Reply with the "To fix" list, plus the link
 `https://ascent-companion.vercel.app/invoice-review?ym=<ym>` where the owner
 reads the full report and records rulings. When run on schedule, this reply goes
 to `~/Library/Logs/ascent-monthly-check.log`, and the run's start and outcome
