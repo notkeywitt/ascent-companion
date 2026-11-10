@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T15:43:15Z",
+  "generatedAt": "2026-11-10T15:49:18Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "claude/eager-turing-84swsi",
       "status": "shipped",
       "started": "2026-11-10T15:40:53Z",
-      "updated": "2026-11-10T15:43:15Z",
+      "updated": "2026-11-10T15:49:17Z",
       "goal": "",
       "next": "Check the Tools title menu on a phone after deploy",
       "commits": [
@@ -18,6 +18,13 @@
           "sha": "2fd9ca6",
           "subject": "companion: tools title menu on phone, drop pill row",
           "files": "src/app/tools/page.tsx, src/components/WorkspaceTabs.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "15:49",
+          "sha": "b4d9401",
+          "subject": "companion: drop pill row on phone for tool schedule and requisitions",
+          "files": "src/components/WorkspaceTabs.tsx"
         }
       ]
     },
