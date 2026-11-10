@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-09T23:43:03Z",
+  "generatedAt": "2026-11-10T00:22:39Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "claude/magical-tesla-ixutgx",
       "status": "shipped",
       "started": "2026-11-09T23:21:57Z",
-      "updated": "2026-11-09T23:43:03Z",
+      "updated": "2026-11-10T00:22:39Z",
       "goal": "",
-      "next": "Check on a phone that /employee-time shows no Time/Payroll pills and the bar drawer opens Payroll; check the desktop rail shows Payroll under Time.",
+      "next": "Check on a phone that /employee-time shows only the title, the Time clock / Timesheets switch and the clock.",
       "commits": [
         {
           "date": "2026-11-09",
@@ -18,6 +18,13 @@
           "sha": "fd674b0",
           "subject": "companion: drop time strip on phone, add payroll icon to rail and drawer",
           "files": "src/components/TabBar.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "00:22",
+          "sha": "e6a5a67",
+          "subject": "companion: hide act-as link and time-off line on phone time page",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
         }
       ]
     },
