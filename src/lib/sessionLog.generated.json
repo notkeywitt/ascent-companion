@@ -1,7 +1,18 @@
 {
-  "generatedAt": "2026-11-10T18:24:12Z",
+  "generatedAt": "2026-11-10T18:42:11Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "focused-pascal",
+      "file": "2026-11-10-focused-pascal.md",
+      "branch": "claude/focused-pascal-x7opse",
+      "status": "shipped",
+      "started": "2026-11-10T16:03:14Z",
+      "updated": "2026-11-10T18:42:11Z",
+      "goal": "",
+      "next": "Owner runs Stage 7 (Tools, then Mileage) in a Fable session on desktop. Scheduled run cancelled.",
+      "commits": []
+    },
     {
       "slug": "festive-faraday",
       "file": "2026-11-10-festive-faraday.md",
@@ -1749,17 +1760,6 @@
           "files": "CODEBASE_MAP.md, src/app/api/trackingsheet/all-time/route.ts, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/AllLabor.tsx, src/components/TimeEntryList.tsx"
         }
       ]
-    },
-    {
-      "slug": "focused-pascal",
-      "file": "2026-11-10-focused-pascal.md",
-      "branch": "claude/focused-pascal-x7opse",
-      "status": "shipped",
-      "started": "2026-11-10T16:03:14Z",
-      "updated": "2026-11-10T16:28:50Z",
-      "goal": "",
-      "next": "Check the Fable session (trig_01GuZrSVpcZaMxMfXAy2s7jT, fires 2026-11-10 11:40 PST): Stage 7 Tools + Mileage, flags off. Then queue Employee Time and the Tools read flip.",
-      "commits": []
     },
     {
       "slug": "eager-turing",
