@@ -2,9 +2,9 @@
 slug: focused-pascal
 repo: ascent-companion
 branch: claude/focused-pascal-x7opse
-status: in-progress
+status: shipped
 started: 2026-11-10T16:03:14Z
-updated: 2026-11-10T16:04:12Z
+updated: 2026-11-10T16:04:20Z
 goal: 
 next: Owner to pick a Fable target; recommended: Stage 7 (move Tools, Mileage, EmployeeTime off Apps Script into the companion DB)
 ---
