@@ -2,9 +2,9 @@
 slug: charming-brown
 repo: ascent-companion
 branch: claude/charming-brown-z0s76h
-status: in-progress
+status: shipped
 started: 2026-11-10T15:37:40Z
-updated: 2026-11-10T15:38:16Z
+updated: 2026-11-10T15:38:17Z
 goal: 
 next: Confirm the status bar is dark on the owner's phone after re-adding the app to the home screen.
 ---

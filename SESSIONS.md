@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [charming-brown](.claude/sessions/2026-11-10-charming-brown.md) | 2026-11-10 | 1 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 6 | — |
 | [focused-cerf](.claude/sessions/2026-11-10-focused-cerf.md) | 2026-11-10 | 1 | — |
 | [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 2 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [gifted-mayer](.claude/sessions/2026-11-08-gifted-mayer.md) | 2026-11-08 | 5 | Answer: how Claude feels about this project (no code change) |
 | [stoic-fermat](.claude/sessions/2026-11-07-stoic-fermat.md) | 2026-11-07 | 2 | — |
 | [sweet-pascal](.claude/sessions/2026-11-07-sweet-pascal.md) | 2026-11-07 | 3 | — |
-| [hopeful-davinci](.claude/sessions/2026-11-07-hopeful-davinci.md) | 2026-11-07 | 1 | — |

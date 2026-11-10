@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T15:17:12Z",
+  "generatedAt": "2026-11-10T15:38:18Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "charming-brown",
+      "file": "2026-11-10-charming-brown.md",
+      "branch": "claude/charming-brown-z0s76h",
+      "status": "shipped",
+      "started": "2026-11-10T15:37:40Z",
+      "updated": "2026-11-10T15:38:17Z",
+      "goal": "",
+      "next": "Confirm the status bar is dark on the owner's phone after re-adding the app to the home screen.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "15:38",
+          "sha": "bb7bb5a",
+          "subject": "companion: dark status bar for the installed app",
+          "files": "src/app/manifest.ts"
+        }
+      ]
+    },
     {
       "slug": "tool-tracker-gantt",
       "file": "2026-11-10-tool-tracker-gantt.md",
