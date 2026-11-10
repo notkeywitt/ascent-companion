@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T19:31:07Z",
+  "generatedAt": "2026-11-10T19:42:17Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-10T19:31:07Z",
+      "updated": "2026-11-10T19:42:17Z",
       "goal": "",
-      "next": "Push 51650129 (jobs header layout) once the other session's src/db schema edit lands and tests pass; check the header at 1100, 1280 and 1536 px",
+      "next": "Office: load the Job Trailer on /tools, then assign tools to tasks from the Gantt; watch that a trailer scan moves its load in the Tools sheet",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1705,6 +1705,34 @@
           "sha": "db1d005",
           "subject": "companion: sheet check ignores repeated header codes with no money",
           "files": "src/lib/invoiceReview/sheetCompare.test.ts, src/lib/invoiceReview/sheetCompare.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "11:32",
+          "sha": "589e540",
+          "subject": "companion: sheet check finds the totals row above helper rows",
+          "files": "src/lib/invoiceReview/sheetCompare.test.ts, src/lib/invoiceReview/sheetCompare.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "11:34",
+          "sha": "287933f",
+          "subject": "companion: notes card reads notes only, not the whole month",
+          "files": "src/app/api/invoicing-summary/notes/route.ts, src/components/PackageEmail.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "11:35",
+          "sha": "68a6085",
+          "subject": "companion: sheet check says when extra labor hours are unapproved",
+          "files": "src/lib/invoiceReview/sheetCompare.test.ts, src/lib/invoiceReview/sheetCompare.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "11:42",
+          "sha": "571fed0",
+          "subject": "companion: tool schedule gantt by task, tool groups and job trailer loads",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, src/app/api/tool-tracker/route.ts, +20 more"
         }
       ]
     },
