@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 3 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 239 | — |
 | [awesome-brown](.claude/sessions/2026-11-10-awesome-brown.md) | 2026-11-10 | 0 | — |
 | [amazing-ride](.claude/sessions/2026-11-10-amazing-ride.md) | 2026-11-10 | 1 | — |
@@ -40,7 +41,6 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [charming-brown](.claude/sessions/2026-11-10-charming-brown.md) | 2026-11-10 | 1 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 6 | — |
 | [focused-cerf](.claude/sessions/2026-11-10-focused-cerf.md) | 2026-11-10 | 1 | — |
-| [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 2 | — |
 | [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
 | [magical-tesla](.claude/sessions/2026-11-09-magical-tesla.md) | 2026-11-10 | 2 | — |

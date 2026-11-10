@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/festive-faraday-yovg2f
 status: shipped
 started: 2026-11-10T06:06:02Z
-updated: 2026-11-10T18:24:11Z
+updated: 2026-11-10T18:24:12Z
 goal: 
 next: Get office feedback on Split View calendar mode (beta), including adding time for other employees; decide whether it replaces the grid or stays a toggle.
 ---

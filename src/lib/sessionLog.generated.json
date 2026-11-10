@@ -1,7 +1,40 @@
 {
-  "generatedAt": "2026-11-10T18:20:40Z",
+  "generatedAt": "2026-11-10T18:24:12Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "festive-faraday",
+      "file": "2026-11-10-festive-faraday.md",
+      "branch": "claude/festive-faraday-yovg2f",
+      "status": "shipped",
+      "started": "2026-11-10T06:06:02Z",
+      "updated": "2026-11-10T18:24:12Z",
+      "goal": "",
+      "next": "Get office feedback on Split View calendar mode (beta), including adding time for other employees; decide whether it replaces the grid or stays a toggle.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:16",
+          "sha": "17783f4",
+          "subject": "companion: add split view beta calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:31",
+          "sha": "6456ded",
+          "subject": "companion: add time entries from split view calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "18:24",
+          "sha": "88383f5",
+          "subject": "companion: add time for any employee from split view calendar",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/WeekCalendar.tsx"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
@@ -1850,32 +1883,6 @@
           "sha": "b3e54df",
           "subject": "companion: add links in notices and linkable view addresses",
           "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/vendors/page.tsx, src/components/NoticeText.tsx, +6 more"
-        }
-      ]
-    },
-    {
-      "slug": "festive-faraday",
-      "file": "2026-11-10-festive-faraday.md",
-      "branch": "claude/festive-faraday-yovg2f",
-      "status": "shipped",
-      "started": "2026-11-10T06:06:02Z",
-      "updated": "2026-11-10T06:31:55Z",
-      "goal": "",
-      "next": "Get office feedback on Split View calendar mode (beta), including adding time from it; decide whether it replaces the grid or stays a toggle.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "06:16",
-          "sha": "17783f4",
-          "subject": "companion: add split view beta calendar mode",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:31",
-          "sha": "6456ded",
-          "subject": "companion: add time entries from split view calendar mode",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts"
         }
       ]
     },
