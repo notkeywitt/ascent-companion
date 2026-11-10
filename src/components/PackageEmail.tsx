@@ -216,7 +216,7 @@ export function PackageEmailNotes({
           {loadError}
         </Banner>
       )}
-      {!ready && !loadError && <p className="text-[13px] text-neutral-500">Loading the month's jobs…</p>}
+      {!ready && !loadError && <p className="text-[13px] text-neutral-500">Loading the month&apos;s jobs…</p>}
       {ready && ordered.length === 0 && (
         <p className="text-[13px] text-neutral-500">No jobs are included this month.</p>
       )}

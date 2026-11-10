@@ -43,7 +43,7 @@ environments (CCR) the local `main` ref is often stale or unrelated to
 **Commit and push to `main` when a change is done.** Do not wait to be asked.
 Every one of these must hold first:
 
-1. `npm run typecheck`, `npm test` and `npm run build` all pass. A failure blocks
+1. `npm run typecheck`, `npm test`, `npm run build` and `npm run lint` all pass. A failure blocks
    the push. The `.githooks/pre-push` hook enforces this. Never bypass it with
    `--no-verify`. Check the hook is armed with `git config core.hooksPath` — it
    must print `.githooks`. On a fresh clone it is empty; run
@@ -72,7 +72,7 @@ that is already on `origin`.
 
 **Use `npm run ship` to finish a session.** It commits the session ledger,
 fetches, rebases onto `origin/main`, then pushes `HEAD:main` — the pre-push hook
-still runs typecheck and build. Rebasing before the push is what stops a stale
+still runs typecheck, tests, build and lint. Rebasing before the push is what stops a stale
 branch turning into a push conflict; `main` moves dozens of commits a day.
 
 ## Where you left off — the session ledger

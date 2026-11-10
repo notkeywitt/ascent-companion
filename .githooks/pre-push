@@ -1,5 +1,5 @@
 #!/bin/sh
-# Blocks a push to main unless typecheck, tests and build pass.
+# Blocks a push to main unless typecheck, tests, build and lint pass.
 #
 # main is production on Vercel: a push deploys straight to the live app, with
 # JobTread writes armed. This hook is the only gate between a bad commit and
@@ -19,7 +19,7 @@ if [ "$pushing_main" -eq 0 ]; then
   exit 0
 fi
 
-echo "pre-push: main is production — running typecheck, tests and build"
+echo "pre-push: main is production — running typecheck, tests, build and lint"
 
 # `next build` rewrites next-env.d.ts and tsconfig.json to point at whatever
 # output dir it used. Both are tracked, so keep a copy and put them back exactly
@@ -55,6 +55,14 @@ fi
 # build makes both fail on a missing manifest.
 if ! NEXT_DIST_DIR=.next-prepush npm run build; then
   echo "pre-push: build FAILED — push blocked" >&2
+  exit 1
+fi
+
+# CI (.github/workflows/ci.yml) fails on any lint error. Without this step a
+# lint error passes here, ships, and every later push gets a red CI email.
+# Warnings do not fail; errors do.
+if ! npm run lint; then
+  echo "pre-push: lint FAILED — push blocked" >&2
   exit 1
 fi
 
