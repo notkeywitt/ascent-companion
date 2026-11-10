@@ -78,6 +78,10 @@ export interface TimeEntryRow {
   endedAt?: string | null;
   /** Assistant-local "flag for review" mark — companion DB, not JobTread. */
   flagged?: boolean;
+  /** The entry's job, for a list that spans every job (the all-jobs view).
+   *  Given → the row names its job and the list can group by job. */
+  jobId?: string;
+  jobName?: string;
 }
 
 /** What a cost code has left, after the caller's staged moves. */
@@ -124,7 +128,7 @@ const dayOfEntry = (t: TimeEntryRow) => orgDay(t.startedAt);
 // THE FILTER STATE — a hook, so the PAGE can read what's on screen
 // ---------------------------------------------------------------------------
 
-export type GroupBy = "none" | "date" | "employee" | "code";
+export type GroupBy = "none" | "date" | "employee" | "code" | "job";
 
 export interface TimeFilters {
   employees: Set<string>;
@@ -316,6 +320,7 @@ export function useTimeFilters(
     const key = (t: TimeEntryRow) => {
       if (groupBy === "date") return dayOfEntry(t) || "No date";
       if (groupBy === "employee") return t.employee || "Unknown";
+      if (groupBy === "job") return t.jobName || "No job";
       if (groupBy === "code") {
         const c = codeOf(t);
         return c ? `${c} ${t.codeName}`.trim() : "Uncoded";
@@ -393,7 +398,14 @@ export function useTimeFilters(
  */
 /** The Group switch on its own, for a caller that seats it in its own header
  *  (the Tracking Sheet's Labor row) and passes `hideGroup` to the list. */
-export function TimeGroupSwitch({ filters }: { filters: TimeFilters }) {
+export function TimeGroupSwitch({
+  filters,
+  withJob = false,
+}: {
+  filters: TimeFilters;
+  /** Offer "Job" — for a list that spans every job (the all-jobs view). */
+  withJob?: boolean;
+}) {
   return (
     <Segmented
       label="Group by"
@@ -401,6 +413,7 @@ export function TimeGroupSwitch({ filters }: { filters: TimeFilters }) {
       onChange={filters.setGroupBy}
       options={[
         { value: "none", label: "None" },
+        ...(withJob ? [{ value: "job" as const, label: "Job" }] : []),
         { value: "date", label: "Date" },
         { value: "employee", label: "Employee" },
         { value: "code", label: "Cost code" },
@@ -749,8 +762,10 @@ export interface TimeEntryListProps {
   monthEntries: TimeEntryRow[];
   /** The cost code an entry sits under NOW — a staged move winning. */
   codeOf: (t: TimeEntryRow) => string;
-  /** What that code has left after staged moves, or null when it has no budget row. */
-  headroomFor: (code: string) => CodeHeadroom | null;
+  /** What that code has left after staged moves, or null when it has no budget row.
+   *  Omitted → the chip shows the code and its cost only: a list that spans
+   *  every job has no one budget to read "left" from. */
+  headroomFor?: (code: string) => CodeHeadroom | null;
   /** True when the entry has been staged onto a different code than JobTread has. */
   isMoved: (t: TimeEntryRow) => boolean;
   selected: Set<string>;
@@ -1027,7 +1042,7 @@ export function TimeEntryList({
                       const nowCode = codeOf(t);
                       // Headroom on the code this entry currently sits under —
                       // staged moves included, so the chip reacts as you recode.
-                      const head = headroomFor(nowCode);
+                      const head = headroomFor ? headroomFor(nowCode) : null;
                       const over = Boolean(head) && (head as CodeHeadroom).remaining < 0;
                       return (
                         <li
@@ -1083,6 +1098,9 @@ export function TimeEntryList({
                                     {dayLabel(dayOfEntry(t))}
                                     {rateOf(t.cost, t.hours) ? ` · ${rateOf(t.cost, t.hours)}` : ""}
                                     {t.type ? ` · ${t.type}` : ""}
+                                    {/* A list over every job names each row's
+                                        job, unless the group heading already does. */}
+                                    {t.jobName && f.groupBy !== "job" ? ` · ${t.jobName}` : ""}
                                   </span>
                                   <Chip
                                     tone={t.isApproved ? "success" : "warning"}
@@ -1107,16 +1125,24 @@ export function TimeEntryList({
                                         ? "bg-red-50 text-danger dark:bg-red-950/40"
                                         : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"
                                     }`}
-                                    title={`${head?.name ?? ""} — ${
-                                      head ? money(head.remaining) : "no budget row"
-                                    } remaining`}
+                                    title={
+                                      headroomFor
+                                        ? `${head?.name ?? ""} — ${
+                                            head ? money(head.remaining) : "no budget row"
+                                          } remaining`
+                                        : t.codeName
+                                    }
                                   >
                                     <span className="tabular-nums">{nowCode || "uncoded"}</span>
                                     <span className="tabular-nums">{money0(t.cost)}</span>
-                                    <span className="opacity-60">·</span>
-                                    <span className="tabular-nums">
-                                      {head ? `${money0(head.remaining)} left` : "no budget"}
-                                    </span>
+                                    {headroomFor && (
+                                      <>
+                                        <span className="opacity-60">·</span>
+                                        <span className="tabular-nums">
+                                          {head ? `${money0(head.remaining)} left` : "no budget"}
+                                        </span>
+                                      </>
+                                    )}
                                   </span>
                                   {moved && (
                                     <span className="truncate text-neutral-500 dark:text-neutral-400">
@@ -1142,7 +1168,7 @@ export function TimeEntryList({
                             also open the editor. `timeEntryId` opens the entry
                             itself rather than filtering to its day (lib/jtLinks). */}
                             <JtLink
-                              href={jtTimeUrl({ jobId, userId: t.userId, entryId: t.id })}
+                              href={jtTimeUrl({ jobId: jobId ?? t.jobId, userId: t.userId, entryId: t.id })}
                               title="Open this entry on JobTread's time page"
                               className="mt-1 flex h-11 w-8 shrink-0 items-center justify-center text-xs font-semibold text-neutral-400 transition hover:text-accent"
                             >

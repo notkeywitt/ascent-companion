@@ -25,6 +25,7 @@ import {
   type Selection,
 } from "./DraftWorkbench";
 import { CoiDot } from "@/components/CoiDot";
+import { AllLabor } from "./AllLabor";
 
 /**
  * Tracking Sheets with NO job selected — every vendor bill issued in the
@@ -40,10 +41,13 @@ import { CoiDot } from "@/components/CoiDot";
  * selection rather than one shared budget. Below `xl` there's no room for a
  * third column, so a row instead opens the bill's own full page.
  *
- * The list reads newest first. GROUP BY VENDOR re-cuts the same bills into one
- * folded pane per vendor, each carrying its own count and total — how you check
- * a vendor's month against the statement they sent, rather than hunting their
- * bills down a list ordered by date.
+ * GROUP BY JOB (the default, owner 2026-11-10) cuts the month into one folded
+ * pane per job. GROUP BY VENDOR does the same per vendor — how you check a
+ * vendor's month against the statement they sent. None is newest first.
+ *
+ * The month's LABOR sits above the bills (AllLabor), as it does on a job's
+ * board. The filter set drives it too: Show picks bills, expenses or labor;
+ * Group cuts labor by job, by employee (for Vendor), or not at all.
  */
 
 interface AllBill {
@@ -78,17 +82,17 @@ interface AllBill {
 }
 
 /** How the month is cut up. "none" is the plain newest-first list. */
-type GroupBy = "none" | "vendor";
+type GroupBy = "none" | "vendor" | "job";
 
 /** Two filters over the same month, each "all" by default. `paid` reads
  *  billPaidState, so "unpaid" keeps a PART-paid bill — money is still owed on
  *  it. `kind` reads the document's Bill/Expense name. */
 type PaidFilter = "all" | "paid" | "unpaid";
-type KindFilter = "all" | "bill" | "expense";
+type KindFilter = "all" | "bill" | "expense" | "labor";
 
 /** Remembered per device: grouping is a way of READING the month, not a filter
  *  on it, so whoever reconciles by vendor does it every month. */
-const GROUP_KEY = "allbills.groupBy";
+const GROUP_KEY = "allbills.groupBy.v2";
 
 const jobLabel = (b: AllBill) =>
   [b.customerName, b.jobName].filter(Boolean).join(" — ") || "no job";
@@ -144,7 +148,9 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
   // A re-read after the popup closes keeps the list on screen (and the scroll).
   const quietReload = useRef(false);
 
-  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  // By job unless this device chose otherwise (owner, 2026-11-10). The key is
+  // v2 so a choice saved before Job existed does not override the new default.
+  const [groupBy, setGroupBy] = useState<GroupBy>("job");
   // Not remembered per device, unlike the grouping: a filter HIDES bills, and a
   // month that silently opens short is how one gets missed.
   const [paidFilter, setPaidFilter] = useState<PaidFilter>("all");
@@ -154,7 +160,8 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
   // too, and a first render that read `window` would disagree with the HTML.
   useEffect(() => {
     try {
-      if (localStorage.getItem(GROUP_KEY) === "vendor") setGroupBy("vendor");
+      const saved = localStorage.getItem(GROUP_KEY);
+      if (saved === "vendor" || saved === "none") setGroupBy(saved);
     } catch {
       /* private mode — start ungrouped */
     }
@@ -206,6 +213,7 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
   const shown = useMemo(() => {
     let out = bills ?? [];
     if (pick?.jobId) out = out.filter((b) => b.jobId === pick.jobId);
+    if (kindFilter === "labor") return [];
     if (kindFilter !== "all") out = out.filter((b) => b.isExpense === (kindFilter === "expense"));
     if (paidFilter !== "all") {
       out = out.filter((b) => (billPaidState(b) === "paid") === (paidFilter === "paid"));
@@ -244,9 +252,10 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
    * heading, which is all its own pane below does.
    */
   const vendorGroups = useMemo(() => {
+    if (groupBy === "none") return [];
     const map = new Map<string, AllBill[]>();
     for (const b of shown) {
-      const key = b.vendor.trim() || "No vendor";
+      const key = groupBy === "job" ? jobLabel(b) : b.vendor.trim() || "No vendor";
       const list = map.get(key);
       if (list) list.push(b);
       else map.set(key, [b]);
@@ -254,7 +263,7 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
     return [...map.entries()]
       .map(([vendor, list]) => ({ vendor, bills: list }))
       .sort((a, b) => a.vendor.localeCompare(b.vendor));
-  }, [shown]);
+  }, [shown, groupBy]);
 
   /**
    * Which vendor panes are SHUT. EVERY pane starts shut: grouped by vendor the
@@ -283,7 +292,7 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
   // grouped — so ‹ Prev / Next › steps the same way the eye reads the page.
   const orderedBills = useMemo(
     () =>
-      groupBy === "vendor"
+      groupBy !== "none"
         ? vendorGroups.flatMap((g) => g.bills)
         : [...nonSunsetBills, ...sunsetBills],
     [groupBy, vendorGroups, nonSunsetBills, sunsetBills],
@@ -568,6 +577,15 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
                   >
                     Expenses
                   </FilterChip>
+                  {!pick && (
+                    <FilterChip
+                      on={kindFilter === "labor"}
+                      onClick={() => setKindFilter("labor")}
+                      title="The month's time entries, every job"
+                    >
+                      Labor
+                    </FilterChip>
+                  )}
                 </div>
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   <SectionLabel className="shrink-0">Paid</SectionLabel>
@@ -605,18 +623,31 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
                   >
                     Vendor
                   </FilterChip>
+                  <FilterChip
+                    on={groupBy === "job"}
+                    onClick={() => pickGroupBy("job")}
+                    title="A folded pane per job, each with its own count and total"
+                  >
+                    Job
+                  </FilterChip>
                 </div>
               </>
             )}
 
-            {shown.length === 0 ? (
+            {/* The month's labor, every job — above the bills, as on a job's
+                board. Hidden when Show picks bills or expenses only. */}
+            {!pick && (kindFilter === "all" || kindFilter === "labor") && (
+              <AllLabor ym={ym} groupBy={groupBy} />
+            )}
+
+            {kindFilter === "labor" ? null : shown.length === 0 ? (
               <EmptyState>
                 {(bills ?? []).length === 0
                   ? `No bills issued in ${monthLabel}.`
                   : `No bills in ${monthLabel} match these filters.`}
               </EmptyState>
-            ) : groupBy === "vendor" ? (
-              /* One pane per vendor, alphabetical. Same scroll-inside-itself
+            ) : groupBy !== "none" ? (
+              /* One pane per vendor or job, alphabetical. Same scroll-inside-itself
                  list as below, so the two docked columns stay put. */
               <div className="space-y-2 xl:-mx-1 xl:max-h-[calc(100dvh-13rem)] xl:overflow-y-auto xl:px-1 xl:py-1">
                 {vendorGroups.map((g) =>
