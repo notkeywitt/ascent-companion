@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T14:46:04Z",
+  "generatedAt": "2026-11-10T14:52:37Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "focused-cerf",
+      "file": "2026-11-10-focused-cerf.md",
+      "branch": "claude/focused-cerf-ik9e36",
+      "status": "shipped",
+      "started": "2026-11-10T14:40:11Z",
+      "updated": "2026-11-10T14:52:37Z",
+      "goal": "",
+      "next": "Post the calendar announcement with /employee-time?tab=compare&view=calendar; give other views an address as the owner asks.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "14:52",
+          "sha": "b3e54df",
+          "subject": "companion: add links in notices and linkable view addresses",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/vendors/page.tsx, src/components/NoticeText.tsx, +6 more"
+        }
+      ]
+    },
     {
       "slug": "tool-tracker-gantt",
       "file": "2026-11-10-tool-tracker-gantt.md",
@@ -41,17 +60,6 @@
           "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more"
         }
       ]
-    },
-    {
-      "slug": "focused-cerf",
-      "file": "2026-11-10-focused-cerf.md",
-      "branch": "claude/focused-cerf-ik9e36",
-      "status": "shipped",
-      "started": "2026-11-10T14:40:11Z",
-      "updated": "2026-11-10T14:42:15Z",
-      "goal": "",
-      "next": "Await owner ok, then add links in notice bodies and URL params (?tab, ?view=calendar) on Employee Time.",
-      "commits": []
     },
     {
       "slug": "festive-faraday",

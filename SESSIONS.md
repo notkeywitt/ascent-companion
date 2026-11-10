@@ -32,8 +32,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [focused-cerf](.claude/sessions/2026-11-10-focused-cerf.md) | 2026-11-10 | 1 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 4 | — |
-| [focused-cerf](.claude/sessions/2026-11-10-focused-cerf.md) | 2026-11-10 | 0 | — |
 | [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 2 | — |
 | [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
