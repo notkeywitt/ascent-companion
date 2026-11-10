@@ -1,35 +1,16 @@
 {
-  "generatedAt": "2026-11-10T14:55:36Z",
+  "generatedAt": "2026-11-10T15:17:12Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "focused-cerf",
-      "file": "2026-11-10-focused-cerf.md",
-      "branch": "claude/focused-cerf-ik9e36",
-      "status": "shipped",
-      "started": "2026-11-10T14:40:11Z",
-      "updated": "2026-11-10T14:55:36Z",
-      "goal": "",
-      "next": "Post the calendar announcement with /employee-time?tab=compare&view=calendar; give other views an address as the owner asks.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "14:52",
-          "sha": "b3e54df",
-          "subject": "companion: add links in notices and linkable view addresses",
-          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/vendors/page.tsx, src/components/NoticeText.tsx, +6 more"
-        }
-      ]
-    },
     {
       "slug": "tool-tracker-gantt",
       "file": "2026-11-10-tool-tracker-gantt.md",
       "branch": "claude/tool-tracker-gantt-x7gelq",
       "status": "shipped",
       "started": "2026-11-10T06:16:53Z",
-      "updated": "2026-11-10T14:46:04Z",
+      "updated": "2026-11-10T15:17:12Z",
       "goal": "",
-      "next": "Office fills the tool catalogue and maps task names on /tool-schedule/edit; leave out Studio PreCon on the Jobs tab; then check the Moves list matches reality.",
+      "next": "Office adds tool types, ticks tools on each phase in Edit Tool Schedule > Tasks, gives exceptions their own tools, and leaves out Studio PreCon on the Jobs tab.",
       "commits": [
         {
           "date": "2026-11-10",
@@ -58,6 +39,39 @@
           "sha": "94a2389",
           "subject": "companion: tool schedule job filter, searchable code pickers, sorting",
           "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "14:52",
+          "sha": "7537c11",
+          "subject": "companion: update tool schedule session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-11-10",
+          "time": "15:17",
+          "sha": "ce20a8b",
+          "subject": "companion: map tools straight to phases and tasks, book tools by hand",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, src/app/tool-schedule/BookingForm.tsx, +15 more"
+        }
+      ]
+    },
+    {
+      "slug": "focused-cerf",
+      "file": "2026-11-10-focused-cerf.md",
+      "branch": "claude/focused-cerf-ik9e36",
+      "status": "shipped",
+      "started": "2026-11-10T14:40:11Z",
+      "updated": "2026-11-10T14:55:36Z",
+      "goal": "",
+      "next": "Post the calendar announcement with /employee-time?tab=compare&view=calendar; give other views an address as the owner asks.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "14:52",
+          "sha": "b3e54df",
+          "subject": "companion: add links in notices and linkable view addresses",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/vendors/page.tsx, src/components/NoticeText.tsx, +6 more"
         }
       ]
     },

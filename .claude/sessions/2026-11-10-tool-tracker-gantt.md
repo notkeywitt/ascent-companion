@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tool-tracker-gantt-x7gelq
 status: shipped
 started: 2026-11-10T06:16:53Z
-updated: 2026-11-10T15:17:11Z
+updated: 2026-11-10T15:17:12Z
 goal: 
 next: Office adds tool types, ticks tools on each phase in Edit Tool Schedule > Tasks, gives exceptions their own tools, and leaves out Studio PreCon on the Jobs tab.
 ---
