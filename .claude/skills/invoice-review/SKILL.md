@@ -54,12 +54,11 @@ items in your head, you have gone off the rails.
 Ask the deployed Assistant for the month:
 
 ```
-GET /api/invoice-review?ym=YYYY-MM&narrate=0
+GET /api/invoice-review?ym=YYYY-MM
 ```
 
-`ym` is the **billing** month. `narrate=0` skips the app's own Claude paragraph,
-because you are going to write a better one with the context of this
-conversation. Use the production URL, or `http://localhost:3000` against a
+`ym` is the **billing** month. The app writes no Claude paragraph; you write
+the reading. Use the production URL, or `http://localhost:3000` against a
 `npm run dev` with `.env.local` in place.
 
 Other switches:
@@ -100,7 +99,7 @@ review has no memory of it yet (a month checked for the first time); that is not
 the same as new, so don't call it new.
 
 If the owner is in this repo without a running app, the same thing is reachable
-in code: `runInvoiceReview(getPaveConfig(), year, month, { narrate: false })`
+in code: `runInvoiceReview(getPaveConfig(), year, month, {})`
 from `src/lib/invoiceReview/run.ts`.
 
 You get back `{ evidence, findings, summary }`. Findings are already sorted
@@ -215,32 +214,14 @@ fix" reads as "the month is fine".
 Findings carry the same keys as the monthly review, so a ruling recorded from
 either place suppresses in both.
 
-## Step 3b — let the app do the chasing
+## Step 3b — the scheduled pass
 
-Most of Step 3's legwork is now a button. `POST /api/invoice-review/investigate`
-with `{ "ym": "YYYY-MM" }` runs Claude over the month's findings with read-only
-tools and returns a verdict on each:
+The chasing in Step 3 now runs on its own: `/monthly-check`
+(`.claude/skills/monthly-check/SKILL.md`) runs it in Claude Code on Opus from
+the office Mac on review days, and posts a verdict per finding plus its reading
+of the month to the page. The app no longer calls the Anthropic API for this.
 
-- **`confirmed`** — checked, and it looks real.
-- **`probably-fine`** — a benign explanation was found, and `why` states it.
-- **`needs-human`** — cannot be settled from the evidence; `why` says what is missing.
-
-It does exactly what Step 3 asks you to do by hand: searches every job's filed
-backup for a missing amount, checks a vendor's other spellings, opens a suspected
-double-bill to see whether one half is a credit. Verdicts are stored, so a month
-already investigated comes back with them attached to each finding
-(`finding.disposition`).
-
-**Run it before working the list yourself** on a month with more than a handful
-of findings — it is far quicker than repeating the searches, and it tells you
-which ones it could NOT settle.
-
-Optional `"model"` in the body picks which model runs it, from the allowlist in
-`investigateModels.ts` — Sonnet by default, Opus for a messy month. Anything
-else falls back to the default rather than erroring. The response carries
-`usage` with cache counters; `cacheRead` staying at zero across a multi-step run
-means the prefix cache broke and the run cost more than it should have.
-
+Verdicts on file come back attached to each finding (`finding.disposition`).
 **A verdict is not a ruling.** `probably-fine` leaves the finding on the list at
 full severity. Relay it as "Claude found X, worth confirming", never as "this one
 is fine". Only the owner settles a finding, and only through a ruling.
@@ -350,8 +331,8 @@ the only thing that will explain the silence. To lift one:
 | Learned baselines (vendor cadence) | `src/lib/invoiceReview/norms.ts` |
 | The miss log — what it failed to catch | `src/lib/invoiceReview/misses.ts` |
 | Claude proposing new checks from misses | `src/lib/invoiceReview/learn.ts` |
-| Claude investigating findings (the tool loop) | `src/lib/invoiceReview/investigate.ts` |
-| What Claude is allowed to look at | `src/lib/invoiceReview/investigateTools.ts` |
+| Claude Code's pass (schedule, token helper) | `.claude/skills/monthly-check/SKILL.md`, `scripts/monthly-check/` |
+| The route the Mac calls | `src/app/api/invoice-review/agent/route.ts` |
 | Stored verdicts | `src/lib/invoiceReview/dispositions.ts` |
 | Standing instructions for the summary | `src/lib/invoiceReview/instructions.ts` |
 | The route | `src/app/api/invoice-review/route.ts` |

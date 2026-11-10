@@ -11,7 +11,10 @@ import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 // the session requirement, NOT the authorization; don't add a route that has no
 // credential of its own.
 //
-// Note the review pair: only the `/run` SUBPATH is public. `/api/invoice-review`
+// `/api/invoice-review/agent` is called by Claude Code on the office Mac (no
+// Google session). It checks its own bearer token, REVIEW_AGENT_TOKEN.
+//
+// Note the review pair: only the `/run` and `/agent` SUBPATHS are public. `/api/invoice-review`
 // itself is not listed, so it stays behind the `invoice-review` view gate — a
 // prefix match here would have opened the whole month's billing to anyone.
 //
@@ -27,7 +30,7 @@ import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
 //
 // This list does NOT skip the cross-site check below, which runs first. The
 // scheduler sends no Origin header, so it passes that check on its own.
-const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run", "/api/google-chat", "/m"];
+const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run", "/api/invoice-review/agent", "/api/google-chat", "/m"];
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;

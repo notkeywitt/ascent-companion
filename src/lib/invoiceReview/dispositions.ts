@@ -1,6 +1,6 @@
 /**
- * Claude's verdicts on a month's findings — stored, so an expensive pass is
- * read back rather than re-spent.
+ * Claude's verdicts on a month's findings — written by Claude Code on the
+ * office Mac (/api/invoice-review/agent) and read back by the page.
  *
  * A DISPOSITION IS NOT A RULING, and the gap between them is the whole safety
  * story of this feature. A ruling is the office saying "we looked, it's fine",
@@ -21,8 +21,17 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { invoiceReviewDispositions } from "@/db/schema";
 
-import type { DispositionInput } from "./investigateTools";
 import type { Finding, FindingDisposition } from "./types";
+
+/** One verdict as Claude Code posts it (/api/invoice-review/agent). */
+export interface DispositionInput {
+  key: string;
+  verdict: "confirmed" | "probably-fine" | "needs-human";
+  why: string;
+  suggestedAction: string;
+}
+
+export const VERDICTS: ReadonlySet<string> = new Set(["confirmed", "probably-fine", "needs-human"]);
 
 /** Save a pass's verdicts. Re-investigating a month overwrites its verdicts:
  *  the newest reading is the one worth keeping, and the run history already

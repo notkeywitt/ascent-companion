@@ -12,7 +12,7 @@ import type { FindingKind, ReviewPayload, RulingScope } from "@/lib/invoiceRevie
 /**
  * The monthly client-invoice review.
  *
- * GET  ?ym=YYYY-MM[&narrate=0][&email=0][&format=brief][&stored=1][&history=1]
+ * GET  ?ym=YYYY-MM[&email=0][&format=brief][&stored=1][&history=1]
  *        → run the review for a billing month. `format=brief` returns the
  *          paste-into-Claude briefing as markdown instead of JSON, which is how
  *          the review is used when there is no ANTHROPIC_API_KEY.
@@ -70,9 +70,6 @@ export async function GET(req: NextRequest) {
   if (!parsed) {
     return NextResponse.json({ error: "Pass ym=YYYY-MM (the billing month)." }, { status: 400 });
   }
-  // ?narrate=0 skips the Claude paragraph — for the skill, which writes its own
-  // narrative, and for anyone debugging a check without burning a model call.
-  const narrate = req.nextUrl.searchParams.get("narrate") !== "0";
   // ?email=0 skips the mailbox sweep, which is the slow half (up to two Gmail
   // searches per invoice). The email checks then report nothing at all rather
   // than passing — see `emailChecked` in evidence.ts.
@@ -116,7 +113,6 @@ export async function GET(req: NextRequest) {
 
     if (!payload) {
       payload = await runInvoiceReview(getPaveConfig(), parsed.year, parsed.month, {
-        narrate,
         email,
         saveAs: who || "anonymous",
       });

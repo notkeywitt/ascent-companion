@@ -25,11 +25,6 @@ import {
   StatementBlock,
   Textarea, Tabs } from "@/components/ui";
 import { buildBrief } from "@/lib/invoiceReview/brief";
-import {
-  DEFAULT_INVESTIGATE_MODEL,
-  INVESTIGATE_MODELS,
-  investigateModel,
-} from "@/lib/invoiceReview/investigateModels";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
@@ -52,6 +47,7 @@ interface InvestigationState {
   error: string;
   startedAt: string;
   startedBy: string;
+  finishedAt: string;
 }
 
 /**
@@ -209,19 +205,10 @@ export function InvoiceReview() {
   // "Copied" / "Couldn't copy" on the hand-to-Claude button.
   const [copied, setCopied] = useState("");
 
-  // The investigation pass — Claude chasing each finding with read-only tools.
+  // The investigation pass — Claude Code on the office Mac chasing each
+  // finding. This page only reads it; the Mac runs it on review days.
   const [investigating, setInvestigating] = useState(false);
-  // Remembered per browser, so the office is not re-picking Sonnet every month.
-  // Read lazily rather than in an effect, so the first paint is already right.
-  const [model, setModel] = useState<string>(() => {
-    if (typeof window === "undefined") return DEFAULT_INVESTIGATE_MODEL;
-    try {
-      const saved = window.localStorage.getItem("invoiceReview.investigateModel");
-      return saved && investigateModel(saved) ? saved : DEFAULT_INVESTIGATE_MODEL;
-    } catch {
-      return DEFAULT_INVESTIGATE_MODEL;
-    }
-  });
+  const [investigatedAt, setInvestigatedAt] = useState("");
   const [investigateNote, setInvestigateNote] = useState("");
   const [investigateError, setInvestigateError] = useState("");
 
@@ -303,42 +290,6 @@ export function InvoiceReview() {
   );
 
   /**
-   * Ask Claude to work the list — search Drive for a missing amount, check a
-   * vendor's other spellings, open a suspected double-bill. The verdicts come
-   * back per finding and are stored, so this is paid for once.
-   *
-   * THE RUN IS DETACHED. The POST only STARTS the pass; the server finishes it
-   * in the background and the effect below polls for the outcome. This page
-   * used to hold the request open for the whole loop, which a phone cannot do —
-   * locking the screen killed the fetch and the office got "Load failed" with
-   * nothing to show for the minutes already spent. Closing the page now costs
-   * nothing: the verdicts are on file when it is next opened.
-   *
-   * A 409 means somebody else's pass is already running on this month — which
-   * is not an error, so we just start watching theirs.
-   */
-  const investigate = useCallback(async () => {
-    setInvestigating(true);
-    setInvestigateError("");
-    setInvestigateNote("");
-    try {
-      const res = await fetch("/api/invoice-review/investigate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ym, model }),
-      });
-      const json = await res.json();
-      if (res.status === 409) return; // already running — the poll picks it up
-      if (!res.ok) throw new Error(json?.error ?? "The investigation could not be started.");
-    } catch (e) {
-      setInvestigating(false);
-      setInvestigateError(
-        e instanceof Error ? e.message : "The investigation could not be started.",
-      );
-    }
-  }, [ym, model]);
-
-  /**
    * Read the month's investigation state once, and pick up a pass that is
    * already running — one started on the office desktop, or one this browser
    * started before it was closed. Returns whether a run is still going.
@@ -367,6 +318,7 @@ export function InvoiceReview() {
         if (st.status === "running") return true;
         applyDispositions(json.dispositions ?? [], st.model);
         setInvestigateNote(st.note ?? "");
+        setInvestigatedAt(st.status === "done" ? st.finishedAt ?? "" : "");
         // A failure is announced only to whoever is waiting on the run. Opening
         // the month a week later should not raise a red banner about a pass
         // somebody has long since given up on.
@@ -381,9 +333,8 @@ export function InvoiceReview() {
     [ym, applyDispositions],
   );
 
-  // Opening a month also asks whether a pass is running on it, so the button
-  // reads "Investigating…" instead of inviting a second, paid-for run — and
-  // shows the last pass's "where to start" note, which is now durable.
+  // Opening a month also asks whether a pass is running on it, and shows the
+  // last pass's reading of the month.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -395,8 +346,7 @@ export function InvoiceReview() {
     };
   }, [readInvestigation]);
 
-  // While a pass is running, poll for its outcome. Five seconds: the run takes
-  // a minute or two, and this is one indexed row read.
+  // While a pass is running, poll for its outcome. One indexed row read.
   useEffect(() => {
     if (!investigating) return;
     let stop = false;
@@ -404,21 +354,12 @@ export function InvoiceReview() {
       const running = await readInvestigation(true);
       if (!stop && !running) setInvestigating(false);
     };
-    const id = setInterval(() => void tick(), 5000);
+    const id = setInterval(() => void tick(), 15000);
     return () => {
       stop = true;
       clearInterval(id);
     };
   }, [investigating, readInvestigation]);
-
-  const chooseModel = useCallback((id: string) => {
-    setModel(id);
-    try {
-      window.localStorage.setItem("invoiceReview.investigateModel", id);
-    } catch {
-      // A browser that refuses storage just forgets the choice. Not worth saying.
-    }
-  }, []);
 
   const saveRuling = useCallback(async () => {
     if (!ruling || !ruling.reason.trim()) return;
@@ -617,29 +558,6 @@ export function InvoiceReview() {
             {loading ? "Reviewing…" : data ? "Check again" : "Run review"}
           </Button>
           {data ? (
-            <label className="flex-none">
-              <span className="mb-1 block text-xs uppercase tracking-wide opacity-70">
-                Investigate with
-              </span>
-              <Select
-                value={model}
-                onChange={(e) => chooseModel(e.target.value)}
-                disabled={investigating}
-              >
-                {INVESTIGATE_MODELS.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.label}
-                  </option>
-                ))}
-              </Select>
-            </label>
-          ) : null}
-          {data ? (
-            <Button variant="outline" onClick={investigate} disabled={investigating}>
-              {investigating ? "Investigating…" : "Investigate"}
-            </Button>
-          ) : null}
-          {data ? (
             <Button variant="ghost" onClick={copyForClaude}>
               Copy for Claude
             </Button>
@@ -651,34 +569,16 @@ export function InvoiceReview() {
           ) : null}
         </div>
         {copied ? <p className="mt-2 text-xs opacity-70">{copied}</p> : null}
-        {data && !investigating ? (
-          <p className="mt-2 text-xs opacity-60">
-            {/* Say what it costs BEFORE it is pressed. The office should never
-                find out the price of a button afterwards. */}
-            <span className="font-medium">Investigate</span> has Claude chase each finding —
-            searching the filed backup for a missing amount, checking a vendor&apos;s other
-            spellings, opening a bill to see whether it is a credit. Runs on{" "}
-            {investigateModel(model)?.label ?? model}, roughly{" "}
-            {investigateModel(model)?.busyMonthEstimate ?? "a few cents"} on a busy month.{" "}
-            {investigateModel(model)?.blurb}
-          </p>
-        ) : null}
         {investigating ? (
           <p className="mt-2 text-xs opacity-70">
-            Claude is chasing each finding — searching the filed backup for missing amounts,
-            checking other spellings of a vendor, opening bills. This takes a minute or two.
-            It runs on the server, so you can lock your phone or close this page — the verdicts
-            will be here when you come back.
+            Claude Code on the office Mac is chasing each finding now. Its verdicts appear here
+            when it finishes.
           </p>
-        ) : null}
-        {data && data.summarySource === "fallback" ? (
+        ) : data ? (
           <p className="mt-2 text-xs opacity-60">
-            {/* Say WHY, not just that it happened. A silent fallback hid a real
-                outage for as long as it lasted — see narrate.ts. */}
-            {data.summaryNote ||
-              "The summary is written from the checks, not by Claude."}{" "}
-            “Copy for Claude” hands the whole review to Claude anywhere you already have
-            it.
+            Claude Code on the office Mac chases each finding on review days (the 5th, the 8th,
+            and daily from the 11th to send day).
+            {investigatedAt ? ` Last pass ${whenChecked(investigatedAt)}.` : " No pass on this month yet."}
           </p>
         ) : null}
         {data ? (
@@ -735,7 +635,7 @@ export function InvoiceReview() {
 
           {investigateNote ? (
             <Banner tone="neutral" className="mt-3">
-              <span className="font-medium">Where to start.</span> {investigateNote}
+              <span className="font-medium">Claude Code&apos;s reading.</span> {investigateNote}
             </Banner>
           ) : null}
 

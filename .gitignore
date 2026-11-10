@@ -10,3 +10,6 @@ dist/
 .vercel
 data/
 *.tsbuildinfo
+
+# local output of scripts/monthly-check.mjs (billing data)
+.monthly-check/

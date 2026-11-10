@@ -29,12 +29,12 @@ import { invoiceReviewInvestigations } from "@/db/schema";
 /**
  * How long a 'running' row is believed.
  *
- * A run that is killed mid-flight — a deploy, the route's 300 s ceiling, a
- * crashed lambda — never gets to file its own defeat, so a stale claim would
- * otherwise block the month for good. Set above the route's `maxDuration` so a
- * pass that is merely slow is never declared dead while it is still working.
+ * A pass that dies mid-flight — the Mac sleeps, Claude Code crashes — never
+ * gets to file its own defeat, so a stale claim would otherwise block the
+ * month for good. A Claude Code pass over a busy month takes 10–30 minutes,
+ * so an hour is the point where a 'running' row is presumed dead.
  */
-export const STALE_AFTER_MS = 6 * 60 * 1000;
+export const STALE_AFTER_MS = 60 * 60 * 1000;
 
 export interface InvestigationState {
   ym: string;

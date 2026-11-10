@@ -1,6 +1,6 @@
 /**
  * The review, end to end: gather the evidence, run the checks, apply the
- * standing rulings, and get a paragraph written over the result.
+ * standing rulings, and file the result.
  *
  * Thin by design — every hard part lives in the module it belongs to, and this
  * file only says what order they happen in. That is the same split the Daily
@@ -14,10 +14,7 @@
  */
 import { loadMonthEvidence } from "./evidence";
 import { attachDispositions, readDispositions } from "./dispositions";
-import { activeInstructions } from "./instructions";
 import { attachHistory, readFindingState, recordFindings } from "./lifecycle";
-import { narrateReview } from "./narrate";
-import { costOf, tokensOf } from "@/lib/aiUsage";
 import { learnNorms } from "./norms";
 import { applyRulings, listRulings } from "./rulings";
 import { runChecks } from "./registry";
@@ -31,7 +28,6 @@ export async function runInvoiceReview(
   year: number,
   month: number,
   opts: {
-    narrate?: boolean;
     email?: boolean;
     /** Who to file this run under in the history — a signed-in email, or "cron"
      *  for the scheduled run. Omit to run without recording anything. */
@@ -75,43 +71,15 @@ export async function runInvoiceReview(
   // still recognisably the same finding.
   findings = attachDispositions(findings, await readDispositions(evidence.ym));
 
-  // Claude writes the opening paragraph; the checks own every number in it.
-  // A failure here is never allowed to cost the office the review, but it is no
-  // longer allowed to be invisible either — the reason is carried on the
-  // payload and drawn on the page. See narrate.ts.
-  let narrated = "";
-  let summaryNote = "";
-  let aiCost: ReviewPayload["aiCost"];
-  if (opts.narrate === false) {
-    summaryNote = "The summary was skipped for this run.";
-  } else {
-    try {
-      // The owner's standing instructions shape the paragraph — never what was
-      // found. Read here rather than in narrate.ts, which stays DB-free.
-      const instructions = (await activeInstructions()).map((i) => i.text);
-      narrated = await narrateReview(evidence, findings, instructions, (model, usage) => {
-        const t = tokensOf(usage);
-        aiCost = {
-          usd: costOf(model, t),
-          model,
-          inputTokens: t.input + t.cacheWrite + t.cacheRead,
-          outputTokens: t.output,
-        };
-      });
-    } catch (e) {
-      summaryNote = `Claude didn't write the summary (${
-        e instanceof Error ? e.message : "unknown error"
-      }) — this is the built-in one.`;
-    }
-  }
-
+  // No Claude call here. The paragraph is written from the checks; Claude
+  // Code on the office Mac reads the filed run on review days and posts its
+  // own reading and per-finding verdicts (/api/invoice-review/agent).
   const payload: ReviewPayload = {
     evidence,
     findings,
-    summary: narrated || fallbackSummary(evidence, findings),
-    summarySource: narrated ? "claude" : "fallback",
-    summaryNote,
-    aiCost,
+    summary: fallbackSummary(evidence, findings),
+    summarySource: "fallback",
+    summaryNote: "",
     generatedAt: ranAt,
     durationMs: Date.now() - started,
   };
