@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { Banner, Button, Input, Loading, Segmented, Select } from "@/components/ui";
+import type { Target } from "@/lib/toolSchedule";
+import { TargetPicker, targetLabel, type PickTool, type PickType } from "./ToolPickers";
 
 /**
- * Book a tool by hand — no JobTread task needed. For a job (a need before its
+ * Book a tool by hand — no JobTread task needed. A specific tool from the
+ * Tools list, or any tool of a type. For a job (a need before its
  * Gantt exists, a tool kept on site) or for a place that is not a job (the
  * Shop, out for repair, loaned out). It counts like a scheduled task. Stored as
  * a "hold" (`/api/tool-schedule/holds`); office and admin only.
@@ -13,29 +16,32 @@ import { Banner, Button, Input, Loading, Segmented, Select } from "@/components/
 const PLACES = ["Shop", "Out for repair", "Loaned out", "Rented out"];
 
 interface Choices {
-  kinds: { id: string; name: string }[];
+  tools: PickTool[];
+  types: PickType[];
   jobs: { id: string; name: string }[];
 }
 
-export function BookingForm({ kindId = "", onSaved }: { kindId?: string; onSaved: () => void }) {
+export function BookingForm({ target = "", onSaved }: { target?: Target; onSaved: () => void }) {
   const [choices, setChoices] = useState<Choices | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [where, setWhere] = useState<"job" | "place">("job");
-  const [form, setForm] = useState({ kindId, jobId: "", place: "", startDate: "", endDate: "", qty: "1", note: "" });
+  const [form, setForm] = useState({ target, jobId: "", place: "", startDate: "", endDate: "", qty: "1", note: "" });
 
   useEffect(() => {
-    fetch("/api/tool-schedule/holds")
-      .then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-        setChoices(j as Choices);
-      })
+    const get = async (url: string) => {
+      const r = await fetch(url);
+      const j = await r.json();
+      if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+      return j;
+    };
+    Promise.all([get("/api/tool-schedule/catalog"), get("/api/tool-schedule/holds")])
+      .then(([c, h]) => setChoices({ tools: c.tools ?? [], types: c.types ?? [], jobs: h.jobs ?? [] }))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
   const ready =
-    form.kindId &&
+    form.target &&
     (where === "job" ? form.jobId : form.place.trim()) &&
     form.startDate &&
     form.endDate &&
@@ -48,8 +54,8 @@ export function BookingForm({ kindId = "", onSaved }: { kindId?: string; onSaved
       const jobName = choices?.jobs.find((j) => j.id === form.jobId)?.name ?? "";
       const body =
         where === "job"
-          ? { kindId: form.kindId, jobId: form.jobId, jobName, startDate: form.startDate, endDate: form.endDate, qty: Number(form.qty) || 1, note: form.note }
-          : { kindId: form.kindId, place: form.place.trim(), startDate: form.startDate, endDate: form.endDate, qty: Number(form.qty) || 1, note: form.note };
+          ? { target: form.target, jobId: form.jobId, jobName, startDate: form.startDate, endDate: form.endDate, qty: Number(form.qty) || 1, note: form.note }
+          : { target: form.target, place: form.place.trim(), startDate: form.startDate, endDate: form.endDate, qty: Number(form.qty) || 1, note: form.note };
       const r = await fetch("/api/tool-schedule/holds", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
@@ -63,7 +69,7 @@ export function BookingForm({ kindId = "", onSaved }: { kindId?: string; onSaved
   }
 
   if (!choices) return error ? <Banner tone="error">{error}</Banner> : <Loading />;
-  if (choices.kinds.length === 0) return <p className="text-sm text-neutral-500">Add a tool type in the catalogue first.</p>;
+  const isTool = form.target.startsWith("tool:");
 
   return (
     <form
@@ -74,17 +80,19 @@ export function BookingForm({ kindId = "", onSaved }: { kindId?: string; onSaved
       }}
     >
       {error && <Banner tone="error" className="sm:col-span-2">{error}</Banner>}
-      <label className="grid gap-1 text-[12px] text-neutral-500 sm:col-span-2">
-        Tool type
-        <Select id="book-kind" value={form.kindId} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, kindId: v })); }}>
-          <option value="">Choose…</option>
-          {choices.kinds.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.name}
-            </option>
-          ))}
-        </Select>
-      </label>
+      <div className="grid gap-1 text-[12px] text-neutral-500 sm:col-span-2">
+        Tool
+        {form.target ? (
+          <span className="flex flex-wrap items-center gap-2 text-sm text-neutral-900 dark:text-neutral-100">
+            <b className="font-semibold">{targetLabel(form.target, choices.tools, choices.types)}</b>
+            <Button variant="ghost" size="xs" onClick={() => setForm((f) => ({ ...f, target: "" }))}>
+              Change
+            </Button>
+          </span>
+        ) : (
+          <TargetPicker tools={choices.tools} types={choices.types} onPick={(t) => setForm((f) => ({ ...f, target: t, qty: t.startsWith("tool:") ? "1" : f.qty }))} label="Choose a tool or a type…" />
+        )}
+      </div>
       <div className="grid gap-1 sm:col-span-2">
         <Segmented
           label="Book it for"
@@ -126,7 +134,7 @@ export function BookingForm({ kindId = "", onSaved }: { kindId?: string; onSaved
         To
         <Input id="book-end" type="date" value={form.endDate} min={form.startDate || undefined} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, endDate: v })); }} />
       </label>
-      <label className="grid gap-1 text-[12px] text-neutral-500">
+      <label className={`grid gap-1 text-[12px] text-neutral-500 ${isTool ? "hidden" : ""}`}>
         How many
         <Input id="book-qty" type="number" min={1} max={20} value={form.qty} onChange={(e) => { const v = e.target.value; setForm((f) => ({ ...f, qty: v })); }} />
       </label>

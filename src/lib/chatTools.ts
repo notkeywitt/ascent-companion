@@ -1024,6 +1024,7 @@ export const CHAT_TOOLS: ChatTool[] = [
             job: sp.jobName,
             from: sp.startDate,
             to: sp.endDate,
+            ...(sp.toolName ? { tool: sp.toolName } : {}),
             for: sp.source.type === "task" ? sp.source.taskName : `booked by hand${sp.source.note ? `: ${sp.source.note}` : ""}`,
           })),
           movesComingUp: data.moves

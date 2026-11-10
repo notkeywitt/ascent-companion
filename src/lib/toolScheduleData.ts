@@ -3,31 +3,37 @@ import { getPaveConfig } from "@/lib/config";
 import { orgDay } from "@/lib/orgTime";
 import {
   buildDemand,
+  buildRuleIndex,
   dayIso,
   dayNum,
-  isIsoDay,
-  MAX_RANGE_DAYS,
-  monthsAhead,
   findMoves,
+  isIsoDay,
   isUsable,
   matchJobByLabel,
-  buildRuleIndex,
+  MAX_RANGE_DAYS,
+  monthsAhead,
   normalizeTaskName,
+  parseTarget,
   resolveTaskTools,
+  ruleKey,
   scheduleByKind,
   suggestTools,
+  typeKey,
+  UNTYPED,
   type KindSchedule,
-  type RuleMatch,
   type MoveNeeded,
   type OwnedTool,
+  type RuleMatch,
+  type Target,
+  type ToolKind,
   type UnresolvedName,
 } from "@/lib/toolSchedule";
 import { getSheetTools, loadPlan, type ExcludedJob, type SheetTool, type StoredPlan } from "@/lib/toolScheduleStore";
 
 /**
- * Everything the tool schedule page draws, built on the server: the JobTread
- * schedule (read only), the stored plan and the Tools sheet, run through the
- * pure rules in `toolSchedule.ts`.
+ * Everything the tool schedule draws, built on the server: the JobTread
+ * schedule (read only), the Tools list (the catalogue) and the stored plan,
+ * run through the pure rules in `toolSchedule.ts`.
  */
 
 export interface KindTool {
@@ -63,6 +69,65 @@ async function sheetToolsOrError(): Promise<{ tools: SheetTool[]; error?: string
   }
 }
 
+/** One tool of the catalogue: a Tools-list row with its type key and job. */
+export interface CatalogTool extends KindTool {
+  kindId: string;
+  type: string;
+  /** Its location as a JobTread job id, when the label matches one. */
+  jobId: string | null;
+}
+export interface CatalogType extends ToolKind {
+  /** Usable tools of this type. */
+  owned: number;
+  /** All tools of this type in the Tools list. */
+  total: number;
+  /** Added by the office (none in the Tools list); its tool_kinds row id. */
+  addedRowId?: string;
+}
+
+/**
+ * The catalogue: every Tools-list tool, typed by its ToolType, and the types —
+ * those the list has plus those the office added. A blank ToolType falls under
+ * "No type".
+ */
+export function buildCatalog(sheet: SheetTool[], plan: StoredPlan, jobs: { id: string; name: string }[]) {
+  const tools: CatalogTool[] = sheet.map((t) => ({
+    id: t.id,
+    name: t.name || t.id,
+    type: t.type.trim(),
+    kindId: typeKey(t.type),
+    condition: t.condition,
+    usable: isUsable(t.condition),
+    at: t.locationLabel || "No location",
+    jobId: matchJobByLabel(t.locationLabel, jobs),
+  }));
+  const types = new Map<string, CatalogType>();
+  for (const t of tools) {
+    const ty = types.get(t.kindId) ?? { id: t.kindId, name: t.kindId === UNTYPED ? "No type" : t.type, owned: 0, total: 0 };
+    ty.total++;
+    if (t.usable) ty.owned++;
+    types.set(t.kindId, ty);
+  }
+  for (const a of plan.addedTypes) {
+    const ty = types.get(a.id);
+    if (ty) ty.addedRowId = a.rowId;
+    else types.set(a.id, { id: a.id, name: a.name, owned: 0, total: 0, addedRowId: a.rowId });
+  }
+  const owned: OwnedTool[] = tools.map((t) => ({
+    id: t.id,
+    kindId: t.kindId,
+    name: t.name,
+    condition: t.condition,
+    locationLabel: t.at === "No location" ? "" : t.at,
+    jobId: t.jobId,
+  }));
+  return {
+    tools: tools.sort((a, b) => a.name.localeCompare(b.name)),
+    types: [...types.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    owned,
+  };
+}
+
 /** The schedule's open tasks in range, less the jobs the office left out. */
 async function readTasks(from: string, to: string, plan: StoredPlan) {
   const cfg = getPaveConfig();
@@ -74,37 +139,17 @@ async function readTasks(from: string, to: string, plan: StoredPlan) {
 export async function buildToolSchedule(from: string, to: string): Promise<ToolSchedulePayload> {
   const cfg = getPaveConfig();
   const plan = await loadPlan();
-  const [tasks, sheet, jobs] = await Promise.all([
-    readTasks(from, to, plan),
-    sheetToolsOrError(),
-    getJobs(cfg).catch(() => []),
-  ]);
+  const [tasks, sheet, jobs] = await Promise.all([readTasks(from, to, plan), sheetToolsOrError(), getJobs(cfg).catch(() => [])]);
+  const catalog = buildCatalog(sheet.tools, plan, jobs.map((j) => ({ id: j.id, name: j.name })));
 
-  const jobRefs = jobs.map((j) => ({ id: j.id, name: j.name }));
-  const owned: OwnedTool[] = sheet.tools
-    .filter((t) => plan.members[t.id])
-    .map((t) => ({
-      id: t.id,
-      kindId: plan.members[t.id],
-      name: t.name,
-      condition: t.condition,
-      locationLabel: t.locationLabel,
-      jobId: matchJobByLabel(t.locationLabel, jobRefs),
-    }));
-
-  const { spans, unresolved } = buildDemand(tasks, plan.rules, plan.kinds, plan.holds);
-  const kindRows = scheduleByKind(plan.kinds, spans, owned, from, to);
+  const { spans, unresolved } = buildDemand(tasks, plan.rules, catalog.owned, plan.holds);
+  // A row for every type that is needed, owned, or added by hand.
+  const kindRows = scheduleByKind(catalog.types, spans, catalog.owned, from, to).filter(
+    (r) => r.spans.length > 0 || catalog.types.some((t) => t.id === r.kindId && (t.total > 0 || t.addedRowId)),
+  );
   const rows: ToolScheduleRow[] = kindRows.map((r) => ({
     ...r,
-    tools: owned
-      .filter((t) => t.kindId === r.kindId)
-      .map((t) => ({
-        id: t.id,
-        name: t.name ?? t.id,
-        condition: t.condition ?? "",
-        usable: isUsable(t.condition),
-        at: t.locationLabel || "No location",
-      })),
+    tools: catalog.tools.filter((t) => t.kindId === r.kindId).map(({ id, name, condition, usable, at }) => ({ id, name, condition, usable, at })),
   }));
 
   const jobOrder = new Map<string, { id: string; name: string; first: string; last: string }>();
@@ -122,7 +167,7 @@ export async function buildToolSchedule(from: string, to: string): Promise<ToolS
     from,
     to,
     rows,
-    moves: findMoves(kindRows, owned, from, to),
+    moves: findMoves(kindRows, catalog.owned, from, to),
     unresolvedCount: unresolved.length,
     jobs: scheduled.map((j) => ({ id: j.id, name: j.name })),
     endsEarly: scheduled
@@ -134,9 +179,16 @@ export async function buildToolSchedule(from: string, to: string): Promise<ToolS
   };
 }
 
+/** The catalogue for the editor: tools, types, and whether the Tools list could be read. */
+export async function loadCatalog() {
+  const plan = await loadPlan();
+  const [sheet, jobs] = await Promise.all([sheetToolsOrError(), getJobs(getPaveConfig()).catch(() => [])]);
+  return { plan, ...buildCatalog(sheet.tools, plan, jobs.map((j) => ({ id: j.id, name: j.name }))), toolsError: sheet.error };
+}
+
 export interface UnresolvedWithSuggestions extends UnresolvedName {
-  /** Up to three tool type ids, learned from what is already mapped. */
-  suggestions: string[];
+  /** Up to three targets, learned from what is already mapped. */
+  suggestions: Target[];
 }
 
 /** A task name under a phase, and the level its tools come from (null = none yet). */
@@ -160,26 +212,22 @@ export interface TaskTypeRow {
 }
 
 /**
- * What the editor's Tasks tab needs: the phases and task types the schedule
- * uses in range, every task name under each phase with where its tools come
- * from, and the task names nothing covers yet (with suggested tool types).
+ * What the editor needs to connect tools and tasks: the phases and task types
+ * the schedule uses in range, every task name under each phase with where its
+ * tools come from, the task names nothing covers yet (with suggestions), and
+ * the catalogue to pick from.
  */
-export async function taskRules(from: string, to: string): Promise<{
-  plan: StoredPlan;
-  phases: PhaseRow[];
-  taskTypes: TaskTypeRow[];
-  unresolved: UnresolvedWithSuggestions[];
-}> {
-  const plan = await loadPlan();
+export async function taskRules(from: string, to: string) {
+  const { plan, tools, types, owned, toolsError } = await loadCatalog();
   const tasks = await readTasks(from, to, plan);
   const idx = buildRuleIndex(plan.rules);
   const phases = new Map<string, PhaseRow & { jobs: Set<string>; byName: Map<string, PhaseTaskName> }>();
-  const types = new Map<string, TaskTypeRow>();
+  const taskTypes = new Map<string, TaskTypeRow>();
   for (const t of tasks) {
     if (t.taskTypeId) {
-      const ty = types.get(t.taskTypeId) ?? { id: t.taskTypeId, name: t.taskTypeName ?? t.taskTypeId, taskCount: 0 };
+      const ty = taskTypes.get(t.taskTypeId) ?? { id: t.taskTypeId, name: t.taskTypeName ?? t.taskTypeId, taskCount: 0 };
       ty.taskCount++;
-      types.set(t.taskTypeId, ty);
+      taskTypes.set(t.taskTypeId, ty);
     }
     const pk = normalizeTaskName(t.phase);
     if (!pk) continue;
@@ -192,15 +240,78 @@ export async function taskRules(from: string, to: string): Promise<{
     ph.byName.set(nk, n);
     phases.set(pk, ph);
   }
-  const { unresolved } = buildDemand(tasks, plan.rules, plan.kinds);
+  const { unresolved } = buildDemand(tasks, plan.rules, owned);
   return {
     plan,
+    tools,
+    types,
+    toolsError,
     phases: [...phases.values()]
       .map(({ jobs, byName, ...p }) => ({ ...p, jobNames: [...jobs].sort(), names: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)) }))
       .sort((a, b) => b.taskCount - a.taskCount || a.name.localeCompare(b.name)),
-    taskTypes: [...types.values()].sort((a, b) => a.name.localeCompare(b.name)),
-    unresolved: unresolved.map((u) => ({ ...u, suggestions: suggestTools({ name: u.name, phase: u.phase }, plan.rules, plan.kinds) })),
+    taskTypes: [...taskTypes.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    unresolved: unresolved.map((u) => ({ ...u, suggestions: suggestTools({ name: u.name, phase: u.phase }, plan.rules, types, owned) })),
   };
+}
+
+/** A tool type a rule asks for that no tool of is free, for one job. */
+export interface Shortage {
+  kindId: string;
+  typeName: string;
+  jobId: string;
+  jobName: string;
+  /** "Customer - Job", as a requisition files it. */
+  jobLabel: string;
+  /** The first and last day it is short for that job. */
+  from: string;
+  to: string;
+  taskNames: string[];
+  /** True when the company owns none at all. */
+  noneOwned: boolean;
+}
+
+/**
+ * After a rule names a tool type: the jobs whose tasks under that rule need
+ * one on a day none is free. This is what asks the office whether to file a
+ * requisition. A specific tool is not checked here; its clash shows on the schedule.
+ */
+export async function shortagesFor(match: RuleMatch, key: string, targets: Target[], from: string, to: string): Promise<Shortage[]> {
+  const data = await buildToolSchedule(from, to);
+  const jobs = await getJobs(getPaveConfig()).catch(() => []);
+  const label = new Map(jobs.map((j) => [j.id, j.customer ? `${j.customer} - ${j.name}` : j.name]));
+  const wanted = `${match}:${ruleKey(match, key)}`;
+  const out: Shortage[] = [];
+  for (const t of targets) {
+    const p = parseTarget(t);
+    if (!p || !("type" in p)) continue;
+    const row = data.rows.find((r) => r.kindId === p.type);
+    if (!row) continue;
+    const mine = row.spans.filter((s) => !s.toolId && s.source.type === "task" && s.source.ruleKey === wanted);
+    const byJob = new Map<string, Shortage>();
+    for (const s of mine) {
+      const hit = row.missing ? { startDate: s.startDate, endDate: s.endDate } : row.shortfalls.find((sf) => sf.jobIds.includes(s.jobId) && s.startDate <= sf.endDate && s.endDate >= sf.startDate);
+      if (!hit) continue;
+      const a = s.startDate > hit.startDate ? s.startDate : hit.startDate;
+      const b = s.endDate < hit.endDate ? s.endDate : hit.endDate;
+      const cur = byJob.get(s.jobId) ?? {
+        kindId: row.kindId,
+        typeName: row.name,
+        jobId: s.jobId,
+        jobName: s.jobName,
+        jobLabel: label.get(s.jobId) ?? s.jobName,
+        from: a,
+        to: b,
+        taskNames: [],
+        noneOwned: row.owned === 0,
+      };
+      if (a < cur.from) cur.from = a;
+      if (b > cur.to) cur.to = b;
+      if (s.source.type === "task" && !cur.taskNames.includes(s.source.taskName)) cur.taskNames.push(s.source.taskName);
+      byJob.set(s.jobId, cur);
+    }
+    out.push(...[...byJob.values()].sort((x, y) => x.from.localeCompare(y.from)));
+  }
+  return out;
 }
 
 /** Every job with schedule tasks in range, each marked left out or not. */

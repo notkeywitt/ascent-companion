@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookingForm } from "../BookingForm";
 import {
   Banner,
   btn,
@@ -19,42 +18,35 @@ import {
   tableCls,
   Tabs,
 } from "@/components/ui";
-import type { RuleMatch, ToolHold } from "@/lib/toolSchedule";
+import { matchesAllWords } from "@/lib/searchWords";
+import type { RuleMatch, Target, ToolHold } from "@/lib/toolSchedule";
 import {
-  sortKinds,
+  sortCatalogTools,
   sortRules,
   sortUnresolved,
-  type KindSortKey,
   type RuleSortKey,
   type SortDir,
+  type ToolSortKey,
   type UnresolvedSortKey,
 } from "@/lib/toolScheduleView";
+import { BookingForm } from "../BookingForm";
+import { findShortages, RequisitionPrompt, TargetPicker, targetLabel, type PickTool, type PickType, type Shortage } from "../ToolPickers";
 
 /**
- * The tool schedule's editor (docs/plans/TOOL_SCHEDULE_PLAN.md), for the office:
- *   Catalogue  — tool types, and which Tools-list tools are which type.
- *   Tasks      — tick the tools each phase needs (covers every task under it),
- *                and a task name's own tools where it needs something else.
- *   Bookings   — book a tool by hand, for a job or a place, with no task.
- *   Jobs       — leave a job's schedule out (a PreCon copy of another Gantt).
- * Companion data only: nothing here writes to JobTread.
+ * The tool schedule's editor (docs/plans/TOOL_SCHEDULE_PLAN.md), for the office.
+ * Two ways to connect tools and tasks, over the same rules:
+ *   Tools    — the tool tracker's list (and each tool type): which tasks each
+ *              one is assigned to, and "Assign to tasks".
+ *   Tasks    — the phases, task names and task types the schedule uses: what
+ *              each one needs, and "Add tool". A task needs its phase's tools
+ *              plus its own.
+ *   Bookings — book a tool by hand, for a job or a place, with no task.
+ *   Jobs     — leave a job's schedule out (a PreCon copy of another Gantt).
+ * Naming a tool type no tool of is free for offers a requisition. Companion
+ * data only, except a tool's type, which is saved to the Tools list.
  */
 
-export type EditorTab = "catalogue" | "tasks" | "bookings" | "jobs";
-
-interface Kind {
-  id: string;
-  name: string;
-  notes: string;
-}
-interface SheetTool {
-  id: string;
-  name: string;
-  type: string;
-  toolGroup: string;
-  condition: string;
-  locationLabel: string;
-}
+export type EditorTab = "tools" | "tasks" | "bookings" | "jobs";
 
 async function call<T>(url: string, init?: RequestInit): Promise<T> {
   const r = await fetch(url, {
@@ -66,323 +58,10 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   return j as T;
 }
 
-
-interface Sort<K extends string> {
-  key: K;
-  dir: SortDir;
-}
-
-/** A list's sort: which field, and which way. Ties always read A–Z. */
-function SortBar<K extends string>({
-  label,
-  keys,
-  sort,
-  onChange,
-}: {
-  label: string;
-  keys: readonly { value: K; label: string }[];
-  sort: Sort<K>;
-  onChange: (s: Sort<K>) => void;
-}) {
-  const asc = sort.dir === "asc";
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Sort</span>
-      <Select
-        aria-label={label}
-        value={sort.key}
-        onChange={(e) => onChange({ ...sort, key: e.target.value as K })}
-        className="!w-auto max-w-full text-xs"
-      >
-        {keys.map((k) => (
-          <option key={k.value} value={k.value}>
-            {k.label}
-          </option>
-        ))}
-      </Select>
-      <Button
-        variant="secondary"
-        size="xs"
-        aria-label={`${label}: ${asc ? "ascending" : "descending"}. Switch order`}
-        onClick={() => onChange({ ...sort, dir: asc ? "desc" : "asc" })}
-      >
-        <span aria-hidden>{asc ? "▲" : "▼"}</span>
-      </Button>
-    </div>
-  );
-}
-
-/** A table header that sorts its column. */
-function SortTh<K extends string>({ label, k, sort, onSort }: { label: string; k: K; sort: Sort<K>; onSort: (k: K) => void }) {
-  const on = sort.key === k;
-  return (
-    <th className={tableCls.th} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-      <button type="button" onClick={() => onSort(k)} className="inline-flex min-h-8 items-center gap-1 uppercase">
-        {label}
-        <span aria-hidden className={on ? "" : "text-neutral-400"}>
-          {on ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
-        </span>
-      </button>
-    </th>
-  );
-}
-export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
-  const [tab, setTab] = useState<EditorTab>(initialTab);
-  const [unresolved, setUnresolved] = useState<number | null>(null);
-  const items: { key: EditorTab; label: React.ReactNode }[] = [
-    { key: "catalogue", label: "Catalogue" },
-    { key: "tasks", label: unresolved ? `Tasks (${unresolved})` : "Tasks" },
-    { key: "bookings", label: "Bookings" },
-    { key: "jobs", label: "Jobs" },
-  ];
-  return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-4xl">
-      <PageHeader
-        title="Edit Tool Schedule"
-        actions={
-          <Link href="/tool-schedule" className={btn("secondary", "sm")}>
-            ← Tool Schedule
-          </Link>
-        }
-      />
-      <Tabs
-        label="Section"
-        items={items.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onClick: () => setTab(t.key) }))}
-      />
-      {tab === "catalogue" && <Catalogue />}
-      {tab === "tasks" && <Tasks onCount={setUnresolved} />}
-      {tab === "bookings" && <Bookings />}
-      {tab === "jobs" && <Jobs />}
-    </main>
-  );
-}
-
-/* --------------------------------------------------------------- Catalogue */
-
-interface CatalogData {
-  kinds: Kind[];
-  members: Record<string, string>;
-  /** How many task rules tick each tool type. */
-  uses: Record<string, number>;
-  tools: SheetTool[];
-  toolsError?: string;
-}
-
-function Catalogue() {
-  const [data, setData] = useState<CatalogData | null>(null);
-  const [error, setError] = useState("");
-  const [open, setOpen] = useState<string | null>(null);
-  const [newName, setNewName] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [sort, setSort] = useState<Sort<KindSortKey>>({ key: "name", dir: "asc" });
-
-  const load = useCallback(() => {
-    call<typeof data>("/api/tool-schedule/catalog")
-      .then(setData)
-      .catch((e) => setError(e.message));
-  }, []);
-  useEffect(load, [load]);
-
-  async function add() {
-    if (!newName.trim()) return;
-    setBusy(true);
-    try {
-      const { id } = await call<{ id: string }>("/api/tool-schedule/catalog", { method: "POST", body: JSON.stringify({ name: newName }) });
-      setNewName("");
-      setOpen(id);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (error && !data) return <Banner tone="error">{error}</Banner>;
-  if (!data) return <Loading />;
-  const owned = (kindId: string) => Object.values(data.members).filter((k) => k === kindId).length;
-  const uses = (kindId: string) => data.uses[kindId] ?? 0;
-  const kinds = sortKinds(data.kinds, sort.key, sort.dir, owned, uses);
-
-  return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
-      {error && <Banner tone="error">{error}</Banner>}
-      {data.toolsError && <Banner tone="warning">The Tools list could not be read: {data.toolsError}</Banner>}
-      <form
-        className="flex gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void add();
-        }}
-      >
-        <Input id="new-kind" placeholder="New tool type, e.g. Table saw" value={newName} onChange={(e) => setNewName(e.target.value)} aria-label="New tool type" />
-        <Button type="submit" disabled={busy || !newName.trim()} className="shrink-0">
-          Add tool type
-        </Button>
-      </form>
-      {data.kinds.length > 1 && (
-        <div className="flex justify-end">
-          <SortBar
-            label="Sort tool types"
-            sort={sort}
-            onChange={setSort}
-            keys={[
-              { value: "name", label: "Name" },
-              { value: "owned", label: "Owned" },
-              { value: "uses", label: "Used by" },
-            ]}
-          />
-        </div>
-      )}
-      {data.kinds.length === 0 ? (
-        <EmptyState>No tool types yet. Add the first one above.</EmptyState>
-      ) : (
-        <ListCard className="divide-y divide-line-soft">
-          {kinds.map((k) =>
-            open === k.id ? (
-              <KindEditor
-                key={k.id}
-                kind={k}
-                data={data}
-                onDone={() => {
-                  setOpen(null);
-                  load();
-                }}
-                onError={setError}
-              />
-            ) : (
-              <button key={k.id} type="button" onClick={() => setOpen(k.id)} className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left">
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold">{k.name}</span>
-                  <span className="block text-[12px] text-neutral-500 dark:text-neutral-400">
-                    {uses(k.id) ? `Ticked on ${uses(k.id)} ${uses(k.id) === 1 ? "phase or task" : "phases or tasks"}` : "Not on any phase or task yet"}
-                  </span>
-                </span>
-                <span className={`shrink-0 text-[12px] tabular-nums ${owned(k.id) ? "text-neutral-500" : "font-semibold text-danger"}`}>
-                  {owned(k.id)} owned
-                </span>
-              </button>
-            ),
-          )}
-        </ListCard>
-      )}
-    </div>
-  );
-}
-
-function KindEditor({
-  kind,
-  data,
-  onDone,
-  onError,
-}: {
-  kind: Kind;
-  data: CatalogData;
-  onDone: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [name, setName] = useState(kind.name);
-  const [toolIds, setToolIds] = useState<string[]>(Object.keys(data.members).filter((t) => data.members[t] === kind.id));
-  const [filter, setFilter] = useState(toolIds.length ? "" : kind.name);
-  const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const kindName = new Map(data.kinds.map((k) => [k.id, k.name]));
-  const q = filter.trim().toLowerCase();
-  const shown = data.tools
-    .filter((t) => !q || `${t.name} ${t.type} ${t.toolGroup}`.toLowerCase().includes(q) || toolIds.includes(t.id))
-    .sort((a, b) => Number(toolIds.includes(b.id)) - Number(toolIds.includes(a.id)) || a.name.localeCompare(b.name));
-
-  async function save() {
-    setBusy(true);
-    try {
-      await call("/api/tool-schedule/catalog", { method: "PATCH", body: JSON.stringify({ id: kind.id, name, toolIds }) });
-      onDone();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-      setBusy(false);
-    }
-  }
-  async function remove() {
-    setBusy(true);
-    try {
-      await call(`/api/tool-schedule/catalog?id=${encodeURIComponent(kind.id)}`, { method: "DELETE" });
-      onDone();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : String(e));
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="grid gap-4 bg-neutral-50 px-3 py-4 dark:bg-white/[0.03]">
-      <label className="grid gap-1 text-sm">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Name</span>
-        <Input id={`kind-name-${kind.id}`} value={name} onChange={(e) => setName(e.target.value)} />
-      </label>
-
-      <div className="grid gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-          Which tools in the Tools list are a {name.toLowerCase() || "tool of this type"} ({toolIds.length} chosen)
-        </span>
-        <Input id={`kind-filter-${kind.id}`} placeholder="Filter the Tools list" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter the Tools list" />
-        <div className="grid max-h-72 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-2">
-          {shown.length === 0 && <p className="text-sm text-neutral-500">No tool matches.</p>}
-          {shown.map((t) => {
-            const other = data.members[t.id] && data.members[t.id] !== kind.id ? kindName.get(data.members[t.id]) : null;
-            return (
-              <Checkbox
-                key={t.id}
-                checked={toolIds.includes(t.id)}
-                onChange={(e) => setToolIds(e.target.checked ? [...toolIds, t.id] : toolIds.filter((x) => x !== t.id))}
-                label={
-                  <span className="min-w-0">
-                    {t.name}
-                    <span className="text-[12px] text-neutral-500">
-                      {[t.type, other && `now: ${other}`, t.condition].filter(Boolean).map((s) => ` · ${s}`).join("")}
-                    </span>
-                  </span>
-                }
-              />
-            );
-          })}
-        </div>
-        <p className="text-[12px] text-neutral-500">A tool belongs to one tool type. Ticking a tool that is another type moves it here.</p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Button onClick={save} disabled={busy || !name.trim()}>
-          Save
-        </Button>
-        <Button variant="secondary" onClick={onDone} disabled={busy}>
-          Cancel
-        </Button>
-        <span className="flex-1" />
-        {confirmDelete ? (
-          <>
-            <span className="text-[12px] text-danger">Delete it, its task ticks and its bookings?</span>
-            <Button variant="danger" size="sm" onClick={remove} disabled={busy}>
-              Delete
-            </Button>
-            <Button variant="secondary" size="sm" onClick={() => setConfirmDelete(false)}>
-              Keep
-            </Button>
-          </>
-        ) : (
-          <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(true)}>
-            Delete tool type
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------- Tasks */
-
 interface Rule {
   match: RuleMatch;
   key: string;
-  kindIds: string[];
+  targets: Target[];
   label: string;
   updatedBy: string;
   updatedAt: string;
@@ -406,168 +85,545 @@ interface Unresolved {
   phase: string;
   jobNames: string[];
   taskIds: string[];
-  suggestions: string[];
+  suggestions: Target[];
 }
-interface TasksData {
+interface EditorData {
   rules: Rule[];
-  kinds: { id: string; name: string }[];
+  tools: PickTool[];
+  types: PickType[];
+  toolsError?: string;
   phases: PhaseRow[];
   taskTypes: { id: string; name: string; taskCount: number }[];
   unresolved: Unresolved[];
 }
 
 const MATCH_LABEL: Record<RuleMatch, string> = { task: "One task", name: "Task name", taskType: "Task type", phase: "Phase" };
-const VIA_LABEL: Record<RuleMatch, string> = { task: "Own tools (this job)", name: "Own tools", taskType: "From its task type", phase: "From the phase" };
-const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
-/**
- * Tick the tool types a phase, task name or task type needs. The ticks are a
- * draft until Save. "Needs no tools" covers it with nothing; Clear removes the
- * rule so it falls back to the next level (a task name to its phase).
- */
-function ToolTicks({
-  kinds,
-  saved,
-  initial,
-  suggested = false,
-  busy,
-  onSave,
-  onClear,
+interface Sort<K extends string> {
+  key: K;
+  dir: SortDir;
+}
+
+/** A list's sort: which field, and which way. Ties always read A–Z. */
+function SortBar<K extends string>({
+  label,
+  keys,
+  sort,
+  onChange,
 }: {
-  kinds: { id: string; name: string }[];
-  /** The rule's tools now; null when there is no rule. */
-  saved: string[] | null;
-  /** The first draft: the saved tools, or suggestions. */
-  initial: string[];
-  suggested?: boolean;
-  busy: boolean;
-  onSave: (kindIds: string[]) => void;
-  onClear?: () => void;
+  label: string;
+  keys: readonly { value: K; label: string }[];
+  sort: Sort<K>;
+  onChange: (s: Sort<K>) => void;
 }) {
-  const [draft, setDraft] = useState<string[]>(initial);
-  const toggle = (id: string) => setDraft(draft.includes(id) ? draft.filter((x) => x !== id) : [...draft, id]);
-  const changed = saved === null ? draft.length > 0 : !sameSet(draft, saved);
+  const asc = sort.dir === "asc";
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap gap-1.5">
-        {kinds.map((k) => {
-          const on = draft.includes(k.id);
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Sort</span>
+      <Select aria-label={label} value={sort.key} onChange={(e) => onChange({ ...sort, key: e.target.value as K })} className="!w-auto max-w-full text-xs">
+        {keys.map((k) => (
+          <option key={k.value} value={k.value}>
+            {k.label}
+          </option>
+        ))}
+      </Select>
+      <Button variant="secondary" size="xs" aria-label={`${label}: ${asc ? "ascending" : "descending"}. Switch order`} onClick={() => onChange({ ...sort, dir: asc ? "desc" : "asc" })}>
+        <span aria-hidden>{asc ? "▲" : "▼"}</span>
+      </Button>
+    </div>
+  );
+}
+
+/** A table header that sorts its column. */
+function SortTh<K extends string>({ label, k, sort, onSort }: { label: string; k: K; sort: Sort<K>; onSort: (k: K) => void }) {
+  const on = sort.key === k;
+  return (
+    <th className={tableCls.th} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" onClick={() => onSort(k)} className="inline-flex min-h-8 items-center gap-1 uppercase">
+        {label}
+        <span aria-hidden className={on ? "" : "text-neutral-400"}>
+          {on ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
+
+/** Everything both connecting views read, loaded once and shared. */
+interface Editing {
+  data: EditorData;
+  rulesBy: Map<string, Rule>;
+  label: (t: Target) => string;
+  names: (targets: Target[]) => string;
+  busyKey: string;
+  /** Replace what a rule names ([] = needs no tools); asks about requisitions for a newly named type. */
+  saveRule: (match: RuleMatch, key: string, label: string, targets: Target[]) => Promise<void>;
+  clearRule: (match: RuleMatch, key: string) => Promise<void>;
+  addType: (name: string) => Promise<void>;
+}
+
+export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
+  const [tab, setTab] = useState<EditorTab>(initialTab);
+  const [data, setData] = useState<EditorData | null>(null);
+  const [error, setError] = useState("");
+  const [busyKey, setBusyKey] = useState("");
+  const [prompt, setPrompt] = useState<Shortage[] | null>(null);
+
+  const load = useCallback(() => {
+    call<EditorData>("/api/tool-schedule/rules")
+      .then(setData)
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, []);
+  useEffect(load, [load]);
+
+  const rulesBy = useMemo(() => new Map((data?.rules ?? []).map((r) => [`${r.match}:${r.key}`, r])), [data]);
+
+  async function saveRule(match: RuleMatch, key: string, label: string, targets: Target[]) {
+    const before = rulesBy.get(`${match}:${key}`)?.targets ?? [];
+    setBusyKey(`${match}:${key}`);
+    setError("");
+    try {
+      await call("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match, key, label, targets }) });
+      load();
+      const short = await findShortages(match, key, targets.filter((t) => !before.includes(t)));
+      if (short.length) setPrompt(short);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyKey("");
+    }
+  }
+  async function clearRule(match: RuleMatch, key: string) {
+    setBusyKey(`${match}:${key}`);
+    setError("");
+    try {
+      await call(`/api/tool-schedule/rules?match=${match}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusyKey("");
+    }
+  }
+  async function addType(name: string) {
+    await call("/api/tool-schedule/catalog", { method: "POST", body: JSON.stringify({ name }) });
+    load();
+  }
+
+  const items: { key: EditorTab; label: string }[] = [
+    { key: "tools", label: "Tools" },
+    { key: "tasks", label: data?.unresolved.length ? `Tasks (${data.unresolved.length})` : "Tasks" },
+    { key: "bookings", label: "Bookings" },
+    { key: "jobs", label: "Jobs" },
+  ];
+  const editing: Editing | null = data
+    ? {
+        data,
+        rulesBy,
+        label: (t) => targetLabel(t, data.tools, data.types),
+        names: (ts) => (ts.length ? ts.map((t) => targetLabel(t, data.tools, data.types)).join(", ") : "Needs no tools"),
+        busyKey,
+        saveRule,
+        clearRule,
+        addType,
+      }
+    : null;
+
+  return (
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-4xl">
+      <PageHeader
+        title="Edit Tool Schedule"
+        actions={
+          <Link href="/tool-schedule" className={btn("secondary", "sm")}>
+            ← Tool Schedule
+          </Link>
+        }
+      />
+      <Tabs label="Section" items={items.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onClick: () => setTab(t.key) }))} />
+      {error && <Banner tone="error" className="mb-4">{error}</Banner>}
+      {editing?.data.toolsError && <Banner tone="warning" className="mb-4">The Tools list could not be read: {editing.data.toolsError}</Banner>}
+      {tab === "jobs" ? (
+        <Jobs />
+      ) : !editing ? (
+        error ? null : <Loading label="Reading the tool tracker and the JobTread schedules…" />
+      ) : tab === "tools" ? (
+        <ToolsView e={editing} reload={load} />
+      ) : tab === "tasks" ? (
+        <TasksView e={editing} />
+      ) : (
+        <Bookings />
+      )}
+      {prompt && <RequisitionPrompt shortages={prompt} onClose={() => setPrompt(null)} />}
+    </main>
+  );
+}
+
+/* ------------------------------------------------------------------- Tools */
+
+interface TaskOption {
+  match: RuleMatch;
+  key: string;
+  label: string;
+  hint: string;
+}
+
+/** Every phase, task name and task type a target can be assigned to: those scheduled, and any already ruled. */
+function taskOptions(e: Editing): TaskOption[] {
+  const out = new Map<string, TaskOption>();
+  const add = (o: TaskOption) => !out.has(`${o.match}:${o.key}`) && out.set(`${o.match}:${o.key}`, o);
+  for (const p of e.data.phases) add({ match: "phase", key: p.key, label: p.name, hint: `${p.taskCount} ${p.taskCount === 1 ? "task" : "tasks"}` });
+  for (const p of e.data.phases) for (const n of p.names) add({ match: "name", key: n.key, label: n.name, hint: p.name });
+  for (const u of e.data.unresolved) add({ match: "name", key: u.key, label: u.name, hint: u.phase || u.jobNames.join(", ") });
+  for (const t of e.data.taskTypes) add({ match: "taskType", key: t.id, label: t.name, hint: `${t.taskCount} ${t.taskCount === 1 ? "task" : "tasks"}` });
+  for (const r of e.data.rules) add({ match: r.match, key: r.key, label: r.label || r.key, hint: "Not on the schedule now" });
+  return [...out.values()];
+}
+
+/** Assign one target to tasks, or take it off them: a searchable checklist, saved on each tick. */
+function AssignPicker({ e, target }: { e: Editing; target: Target }) {
+  const [q, setQ] = useState("");
+  const options = taskOptions(e).filter((o) => matchesAllWords(`${o.label} ${o.hint} ${MATCH_LABEL[o.match]}`, q));
+  const groups: { title: string; match: RuleMatch }[] = [
+    { title: "Phases", match: "phase" },
+    { title: "Task names", match: "name" },
+    { title: "Task types", match: "taskType" },
+    { title: "Single tasks", match: "task" },
+  ];
+  async function toggle(o: TaskOption, on: boolean) {
+    const rule = e.rulesBy.get(`${o.match}:${o.key}`);
+    const now = rule?.targets ?? [];
+    if (on) {
+      const rest = now.filter((t) => t !== target);
+      if (rest.length) await e.saveRule(o.match, o.key, o.label, rest);
+      else await e.clearRule(o.match, o.key);
+    } else await e.saveRule(o.match, o.key, o.label, [...now, target]);
+  }
+  return (
+    <div className="grid gap-2 rounded-lg border border-line p-2">
+      <Input id={`assign-${target}`} placeholder="Search phases and task names…" aria-label="Search phases and task names" value={q} onChange={(ev) => setQ(ev.target.value)} />
+      <div className="grid max-h-72 gap-3 overflow-y-auto">
+        {groups.map((g) => {
+          const list = options.filter((o) => o.match === g.match).sort((a, b) => a.label.localeCompare(b.label));
+          if (!list.length) return null;
           return (
-            <button
-              key={k.id}
-              type="button"
-              aria-pressed={on}
-              onClick={() => toggle(k.id)}
-              className={`min-h-8 rounded-full border px-3 text-[12px] font-medium transition ${
-                on ? "border-accent bg-accent/15 text-accent dark:text-accent-soft" : "border-line-strong text-neutral-600 hover:border-accent dark:text-neutral-300"
-              }`}
-            >
-              {on ? "✓ " : ""}
-              {k.name}
-            </button>
+            <div key={g.match}>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{g.title}</div>
+              {list.map((o) => {
+                const on = !!e.rulesBy.get(`${o.match}:${o.key}`)?.targets.includes(target);
+                return (
+                  <div key={o.key} className="flex min-h-9 items-center">
+                    <Checkbox
+                      checked={on}
+                      disabled={e.busyKey === `${o.match}:${o.key}`}
+                      onChange={() => void toggle(o, on)}
+                      label={
+                        <span>
+                          {o.label} <span className="text-[12px] text-neutral-500">· {o.hint}</span>
+                        </span>
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </div>
           );
         })}
+        {options.length === 0 && <p className="text-sm text-neutral-500">Nothing matches.</p>}
       </div>
+    </div>
+  );
+}
+
+/** One tool or tool type: what it is, the tasks it is assigned to, and "Assign to tasks". */
+function TargetRow({
+  e,
+  target,
+  title,
+  meta,
+  extra,
+  danger = false,
+}: {
+  e: Editing;
+  target: Target;
+  title: React.ReactNode;
+  meta: React.ReactNode[];
+  extra?: React.ReactNode;
+  danger?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const assigned = e.data.rules.filter((r) => r.targets.includes(target));
+  async function unassign(r: Rule) {
+    const rest = r.targets.filter((t) => t !== target);
+    if (rest.length) await e.saveRule(r.match, r.key, r.label, rest);
+    else await e.clearRule(r.match, r.key);
+  }
+  return (
+    <div className="grid gap-2 px-3 py-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <span className={`text-sm font-semibold ${danger ? "text-danger" : ""}`}>{title}</span>
+          <MetaLine items={meta} />
+        </div>
+        <span className="shrink-0 text-[12px] tabular-nums text-neutral-500">
+          {assigned.length} {assigned.length === 1 ? "task" : "tasks"}
+        </span>
+      </div>
+      {assigned.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {assigned.map((r) => (
+            <span key={`${r.match}:${r.key}`} className="inline-flex items-center gap-1 rounded-full border border-line-strong py-0.5 pl-2.5 text-[12px]">
+              <span className="text-neutral-500">{MATCH_LABEL[r.match]}:</span> {r.label || r.key}
+              <button
+                type="button"
+                aria-label={`Take it off ${r.label || r.key}`}
+                disabled={e.busyKey === `${r.match}:${r.key}`}
+                onClick={() => void unassign(r)}
+                className="min-h-7 min-w-7 text-neutral-500"
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="secondary" size="xs" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? "Done" : "Assign to tasks"}
+        </Button>
+        {extra}
+      </div>
+      {open && <AssignPicker e={e} target={target} />}
+    </div>
+  );
+}
+
+/** Change a tool's ToolType — saved to the Tools list, the same write the Tools page makes. */
+function TypeEditor({ tool, types, onSaved }: { tool: PickTool; types: PickType[]; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(tool.type);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  if (!open)
+    return (
+      <Button variant="ghost" size="xs" onClick={() => setOpen(true)}>
+        {tool.type ? "Change type" : "Set its type"}
+      </Button>
+    );
+  return (
+    <form
+      className="flex flex-wrap items-center gap-1.5"
+      onSubmit={async (ev) => {
+        ev.preventDefault();
+        setBusy(true);
+        setError("");
+        try {
+          await call("/api/tools", { method: "PATCH", body: JSON.stringify({ toolId: tool.id, fields: { type: value.trim() } }) });
+          setOpen(false);
+          onSaved();
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err));
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <Input id={`type-${tool.id}`} list={`types-${tool.id}`} value={value} onChange={(ev) => setValue(ev.target.value)} aria-label="Tool type" className="!w-48" />
+      <datalist id={`types-${tool.id}`}>
+        {types.map((t) => (
+          <option key={t.id} value={t.name} />
+        ))}
+      </datalist>
+      <Button type="submit" size="xs" disabled={busy || value.trim() === tool.type}>
+        Save to Tools list
+      </Button>
+      <Button variant="ghost" size="xs" onClick={() => setOpen(false)} disabled={busy}>
+        Cancel
+      </Button>
+      {error && <span className="text-[12px] text-danger">{error}</span>}
+    </form>
+  );
+}
+
+function ToolsView({ e, reload }: { e: Editing; reload: () => void }) {
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<Sort<ToolSortKey>>({ key: "type", dir: "asc" });
+  const [newType, setNewType] = useState("");
+  const [busy, setBusy] = useState(false);
+  const uses = (target: Target) => e.data.rules.filter((r) => r.targets.includes(target)).length;
+  const tools = sortCatalogTools(
+    e.data.tools.filter((t) => matchesAllWords(`${t.name} ${t.type} ${t.at} ${t.condition}`, q)),
+    sort.key,
+    sort.dir,
+    (id) => uses(`tool:${id}`),
+  );
+  const types = e.data.types.filter((t) => matchesAllWords(`any ${t.name}`, q));
+
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Input id="catalog-search" placeholder="Search tools and types…" aria-label="Search tools and types" value={q} onChange={(ev) => setQ(ev.target.value)} className="sm:!w-72" />
+        <SortBar
+          label="Sort tools"
+          sort={sort}
+          onChange={setSort}
+          keys={[
+            { value: "type", label: "Type" },
+            { value: "name", label: "Name" },
+            { value: "location", label: "Location" },
+            { value: "tasks", label: "Tasks" },
+          ]}
+        />
+      </div>
+
+      <section>
+        <SectionHeading>Tool types — any one will do</SectionHeading>
+        {types.length === 0 ? (
+          <EmptyState>No tool type matches.</EmptyState>
+        ) : (
+          <ListCard className="divide-y divide-line-soft">
+            {types.map((t) => (
+              <TargetRow
+                key={t.id}
+                e={e}
+                target={`type:${t.id}`}
+                title={`Any ${t.name}`}
+                danger={t.owned === 0}
+                meta={[
+                  t.owned ? `${t.owned} usable` : "None owned",
+                  t.total > t.owned && `${t.total} in the Tools list`,
+                  t.addedRowId && t.total === 0 && "Added by hand",
+                ]}
+                extra={
+                  t.addedRowId && t.total === 0 ? (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      onClick={async () => {
+                        await call(`/api/tool-schedule/catalog?rowId=${encodeURIComponent(t.addedRowId!)}`, { method: "DELETE" });
+                        reload();
+                      }}
+                    >
+                      Remove type
+                    </Button>
+                  ) : undefined
+                }
+              />
+            ))}
+          </ListCard>
+        )}
+        <form
+          className="mt-2 flex gap-2"
+          onSubmit={async (ev) => {
+            ev.preventDefault();
+            if (!newType.trim()) return;
+            setBusy(true);
+            try {
+              await e.addType(newType.trim());
+              setNewType("");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Input id="new-type" placeholder="A tool type you don't own, e.g. Scissor lift" value={newType} onChange={(ev) => setNewType(ev.target.value)} aria-label="New tool type" />
+          <Button type="submit" variant="secondary" disabled={busy || !newType.trim()} className="shrink-0">
+            Add type
+          </Button>
+        </form>
+      </section>
+
+      <section>
+        <SectionHeading>Tools in the tool tracker ({e.data.tools.length})</SectionHeading>
+        {tools.length === 0 ? (
+          <EmptyState>{e.data.tools.length ? "No tool matches." : "The Tools list is empty."}</EmptyState>
+        ) : (
+          <ListCard className="divide-y divide-line-soft">
+            {tools.map((t) => (
+              <TargetRow
+                key={t.id}
+                e={e}
+                target={`tool:${t.id}`}
+                title={t.name}
+                danger={!t.usable}
+                meta={[t.type || "No type", t.condition, t.usable ? t.at : "Not usable"]}
+                extra={<TypeEditor tool={t} types={e.data.types} onSaved={reload} />}
+              />
+            ))}
+          </ListCard>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------- Tasks */
+
+/**
+ * What one phase, task name or task type needs: chips, "Add tool", then Save.
+ * "Needs no tools" covers it with nothing (and drops what its phase would
+ * add); Clear removes the rule.
+ */
+function NeedsEditor({ e, match, k, label, suggestions = [] }: { e: Editing; match: RuleMatch; k: string; label: string; suggestions?: Target[] }) {
+  const rule = e.rulesBy.get(`${match}:${k}`);
+  const saved = rule ? rule.targets : null;
+  const [draft, setDraft] = useState<Target[]>(saved ?? suggestions);
+  useEffect(() => setDraft(saved ?? suggestions), [saved?.join(","), suggestions.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const changed = saved === null ? draft.length > 0 : draft.length !== saved.length || draft.some((t) => !saved.includes(t));
+  const busy = e.busyKey === `${match}:${k}`;
+  const suggested = saved === null && draft.length > 0 && draft.every((t) => suggestions.includes(t)) && draft.length === suggestions.length;
+  return (
+    <div className="grid gap-2">
+      {draft.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {draft.map((t) => (
+            <span key={t} className="inline-flex items-center gap-1 rounded-full border border-accent bg-accent/10 py-0.5 pl-2.5 text-[12px] font-medium">
+              {e.label(t)}
+              <button type="button" aria-label={`Remove ${e.label(t)}`} onClick={() => setDraft(draft.filter((x) => x !== t))} className="min-h-7 min-w-7 text-neutral-500">
+                ✕
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <TargetPicker tools={e.data.tools} types={e.data.types} exclude={draft} onPick={(t) => setDraft([...draft, t])} onAddType={e.addType} />
       <div className="flex flex-wrap items-center gap-1.5">
-        <Button size="xs" disabled={busy || !changed || draft.length === 0} onClick={() => onSave(draft)}>
+        <Button size="xs" disabled={busy || !changed || draft.length === 0} onClick={() => void e.saveRule(match, k, label, draft)}>
           Save
         </Button>
-        <Button variant="ghost" size="xs" disabled={busy || (saved !== null && saved.length === 0)} onClick={() => onSave([])}>
+        <Button variant="ghost" size="xs" disabled={busy || (saved !== null && saved.length === 0)} onClick={() => void e.saveRule(match, k, label, [])}>
           Needs no tools
         </Button>
-        {saved !== null && onClear && (
-          <Button variant="ghost" size="xs" disabled={busy} onClick={onClear}>
+        {saved !== null && (
+          <Button variant="ghost" size="xs" disabled={busy} onClick={() => void e.clearRule(match, k)}>
             Clear
           </Button>
         )}
-        {suggested && saved === null && draft.length > 0 && sameSet(draft, initial) && (
-          <span className="text-[11px] text-neutral-500">Suggested from similar tasks</span>
-        )}
+        {suggested && <span className="text-[11px] text-neutral-500">Suggested from similar tasks</span>}
         {saved !== null && saved.length === 0 && <span className="text-[11px] text-neutral-500">Needs no tools</span>}
       </div>
     </div>
   );
 }
 
-function Tasks({ onCount }: { onCount: (n: number) => void }) {
-  const [data, setData] = useState<TasksData | null>(null);
-  const [error, setError] = useState("");
-  const [busyKey, setBusyKey] = useState("");
+function TasksView({ e }: { e: Editing }) {
   const [openPhase, setOpenPhase] = useState<string | null>(null);
   const [editName, setEditName] = useState<string | null>(null);
   const [unSort, setUnSort] = useState<Sort<UnresolvedSortKey>>({ key: "tasks", dir: "desc" });
   const [ruleSort, setRuleSort] = useState<Sort<RuleSortKey>>({ key: "name", dir: "asc" });
-
-  const load = useCallback(() => {
-    call<TasksData>("/api/tool-schedule/rules")
-      .then((d) => {
-        setData(d);
-        onCount(d.unresolved.length);
-      })
-      .catch((e) => setError(e.message));
-  }, [onCount]);
-  useEffect(load, [load]);
-
-  const rulesBy = useMemo(() => new Map((data?.rules ?? []).map((r) => [`${r.match}:${r.key}`, r])), [data]);
-  const kindName = useMemo(() => new Map((data?.kinds ?? []).map((k) => [k.id, k.name])), [data]);
-  const toolNames = (ids: string[]) => (ids.length ? ids.map((id) => kindName.get(id) ?? "Deleted tool").join(", ") : "Needs no tools");
-
-  async function save(match: RuleMatch, key: string, label: string, kindIds: string[]) {
-    setBusyKey(`${match}:${key}`);
-    setError("");
-    try {
-      await call("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match, key, label, kindIds }) });
-      setEditName(null);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyKey("");
-    }
-  }
-  async function clear(match: RuleMatch, key: string) {
-    setBusyKey(`${match}:${key}`);
-    setError("");
-    try {
-      await call(`/api/tool-schedule/rules?match=${match}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
-      setEditName(null);
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyKey("");
-    }
-  }
-
-  if (error && !data) return <Banner tone="error">{error}</Banner>;
-  if (!data) return <Loading label="Reading the JobTread schedules…" />;
-  if (data.kinds.length === 0) return <EmptyState>Add tool types in Catalogue first.</EmptyState>;
-
-  const ticks = (match: RuleMatch, key: string, label: string, suggestions: string[] = []) => {
-    const rule = rulesBy.get(`${match}:${key}`);
-    const saved = rule ? rule.kindIds : null;
-    return (
-      <ToolTicks
-        key={`${match}:${key}:${saved?.join(",") ?? "-"}`}
-        kinds={data.kinds}
-        saved={saved}
-        initial={saved ?? suggestions}
-        suggested={suggestions.length > 0}
-        busy={busyKey === `${match}:${key}`}
-        onSave={(ids) => save(match, key, label, ids)}
-        onClear={() => clear(match, key)}
-      />
-    );
-  };
+  const { data } = e;
   const unresolved = sortUnresolved(data.unresolved, unSort.key, unSort.dir);
-  const rules = sortRules(data.rules, ruleSort.key, ruleSort.dir, toolNames);
-  const sortRule = (key: RuleSortKey) =>
-    setRuleSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  const rules = sortRules(data.rules, ruleSort.key, ruleSort.dir, e.names);
+  const sortRule = (key: RuleSortKey) => setRuleSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
+  const viaText = (n: PhaseName) => {
+    const own = e.rulesBy.get(`name:${n.key}`);
+    if (own) return own.targets.length ? `Its phase's tools plus ${e.names(own.targets)}` : "Needs no tools";
+    if (n.via === "phase") return "Its phase's tools";
+    if (n.via) return "Tools from its task type";
+    return "No tools yet";
+  };
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      {error && <Banner tone="error">{error}</Banner>}
-
       <section>
         <SectionHeading>Phases</SectionHeading>
         {data.phases.length === 0 ? (
@@ -575,21 +631,15 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
         ) : (
           <ListCard className="divide-y divide-line-soft">
             {data.phases.map((p) => {
-              const rule = rulesBy.get(`phase:${p.key}`);
+              const rule = e.rulesBy.get(`phase:${p.key}`);
               const open = openPhase === p.key;
               return (
                 <div key={p.key} className="grid gap-2 px-3 py-3">
                   <div>
                     <span className="text-sm font-semibold">{p.name}</span>
-                    <MetaLine
-                      items={[
-                        p.jobNames.join(", "),
-                        `${p.taskCount} ${p.taskCount === 1 ? "task" : "tasks"}`,
-                        rule ? toolNames(rule.kindIds) : <span className="text-warn">No tools yet</span>,
-                      ]}
-                    />
+                    <MetaLine items={[p.jobNames.join(", "), `${p.taskCount} ${p.taskCount === 1 ? "task" : "tasks"}`, rule ? e.names(rule.targets) : <span className="text-warn">No tools yet</span>]} />
                   </div>
-                  {ticks("phase", p.key, p.name)}
+                  <NeedsEditor e={e} match="phase" k={p.key} label={p.name} />
                   <button
                     type="button"
                     aria-expanded={open}
@@ -600,25 +650,19 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
                   </button>
                   {open && (
                     <ul className="grid gap-1 rounded-lg border border-line p-2">
-                      {p.names.map((n) => {
-                        const own = rulesBy.get(`name:${n.key}`);
-                        return (
-                          <li key={n.key} className="grid gap-2 py-1">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="min-w-0 text-sm">
-                                {n.name}{" "}
-                                <span className="text-[12px] text-neutral-500">
-                                  · {n.via ? (n.via === "name" && own ? `Own tools: ${toolNames(own.kindIds)}` : VIA_LABEL[n.via]) : "No tools yet"}
-                                </span>
-                              </span>
-                              <Button variant="ghost" size="xs" onClick={() => setEditName(editName === n.key ? null : n.key)}>
-                                {editName === n.key ? "Close" : own ? "Change its tools" : "Give it its own tools"}
-                              </Button>
-                            </div>
-                            {editName === n.key && ticks("name", n.key, n.name)}
-                          </li>
-                        );
-                      })}
+                      {p.names.map((n) => (
+                        <li key={n.key} className="grid gap-2 py-1">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="min-w-0 text-sm">
+                              {n.name} <span className="text-[12px] text-neutral-500">· {viaText(n)}</span>
+                            </span>
+                            <Button variant="ghost" size="xs" onClick={() => setEditName(editName === n.key ? null : n.key)}>
+                              {editName === n.key ? "Close" : "Add tools to this task"}
+                            </Button>
+                          </div>
+                          {editName === n.key && <NeedsEditor e={e} match="name" k={n.key} label={n.name} />}
+                        </li>
+                      ))}
                     </ul>
                   )}
                 </div>
@@ -646,9 +690,7 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
             ) : undefined
           }
         >
-          {data.unresolved.length
-            ? `${data.unresolved.length} task ${data.unresolved.length === 1 ? "name has" : "names have"} no tools yet`
-            : "Every scheduled task is covered"}
+          {data.unresolved.length ? `${data.unresolved.length} task ${data.unresolved.length === 1 ? "name has" : "names have"} no tools yet` : "Every scheduled task is covered"}
         </SectionHeading>
         {data.unresolved.length === 0 ? (
           <EmptyState>All caught up for the next 6 months.</EmptyState>
@@ -660,7 +702,7 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
                   <span className="text-sm font-semibold">{u.name}</span>
                   <MetaLine items={[u.phase, u.jobNames.join(", "), `${u.taskIds.length} ${u.taskIds.length === 1 ? "task" : "tasks"}`]} />
                 </div>
-                {ticks("name", u.key, u.name, u.suggestions)}
+                <NeedsEditor e={e} match="name" k={u.key} label={u.name} suggestions={u.suggestions} />
               </div>
             ))}
           </ListCard>
@@ -677,7 +719,7 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
                   <span className="text-sm font-semibold">{t.name}</span>
                   <MetaLine items={[`${t.taskCount} ${t.taskCount === 1 ? "task" : "tasks"}`]} />
                 </div>
-                {ticks("taskType", t.id, t.name)}
+                <NeedsEditor e={e} match="taskType" k={t.id} label={t.name} />
               </div>
             ))}
           </ListCard>
@@ -708,9 +750,9 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
                     <tr key={k} className={tableCls.tr}>
                       <td className={tableCls.td}>{r.label || r.key}</td>
                       <td className={`${tableCls.td} whitespace-nowrap text-neutral-500`}>{MATCH_LABEL[r.match]}</td>
-                      <td className={`${tableCls.td} ${r.kindIds.length ? "" : "text-neutral-500"}`}>{toolNames(r.kindIds)}</td>
+                      <td className={`${tableCls.td} ${r.targets.length ? "" : "text-neutral-500"}`}>{e.names(r.targets)}</td>
                       <td className={`${tableCls.td} text-right`}>
-                        <Button variant="ghost" size="xs" disabled={busyKey === k} onClick={() => clear(r.match, r.key)}>
+                        <Button variant="ghost" size="xs" disabled={e.busyKey === k} onClick={() => void e.clearRule(r.match, r.key)}>
                           Remove
                         </Button>
                       </td>
@@ -729,14 +771,14 @@ function Tasks({ onCount }: { onCount: (n: number) => void }) {
 /* ---------------------------------------------------------------- Bookings */
 
 function Bookings() {
-  const [data, setData] = useState<{ holds: ToolHold[]; kinds: { id: string; name: string }[] } | null>(null);
+  const [data, setData] = useState<{ holds: ToolHold[]; tools: PickTool[]; types: PickType[] } | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
-    call<NonNullable<typeof data>>("/api/tool-schedule/holds")
-      .then(setData)
-      .catch((e) => setError(e.message));
+    Promise.all([call<{ holds: ToolHold[] }>("/api/tool-schedule/holds"), call<{ tools: PickTool[]; types: PickType[] }>("/api/tool-schedule/catalog")])
+      .then(([h, c]) => setData({ holds: h.holds, tools: c.tools, types: c.types }))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
   useEffect(load, [load]);
 
@@ -754,7 +796,6 @@ function Bookings() {
 
   if (error && !data) return <Banner tone="error">{error}</Banner>;
   if (!data) return <Loading />;
-  const kindName = new Map(data.kinds.map((k) => [k.id, k.name]));
   const fmt = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
 
   return (
@@ -768,7 +809,7 @@ function Bookings() {
             <div key={h.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
               <span className="min-w-0">
                 <span className="block text-sm font-semibold">
-                  {kindName.get(h.kindId) ?? "Deleted tool type"}
+                  {targetLabel(h.target, data.tools, data.types)}
                   {h.qty > 1 ? ` ×${h.qty}` : ""} → {h.jobName || h.jobId}
                 </span>
                 <MetaLine items={[`${fmt(h.startDate)} – ${fmt(h.endDate)}`, !h.jobId && "Not a job", h.note]} />

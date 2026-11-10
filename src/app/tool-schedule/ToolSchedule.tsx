@@ -79,7 +79,7 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const [openKind, setOpenKind] = useState<string | null>(null);
   // Jobs the person hid. Hidden, not chosen, so a job that is new shows by default.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
-  // The booking dialog: null closed, "" open with no tool type chosen, else that type.
+  // The booking dialog: null closed, "" open with nothing chosen, else that target ("type:<key>").
   const [booking, setBooking] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
 
@@ -279,14 +279,14 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
           onClose={() => setOpenKind(null)}
           onBook={() => {
             setOpenKind(null);
-            setBooking(kind.kindId);
+            setBooking(`type:${kind.kindId}`);
           }}
         />
       )}
       {booking !== null && (
         <Dialog onClose={() => setBooking(null)} title="Book a tool" description="For a job or a place, with no JobTread task." size="md">
           <BookingForm
-            kindId={booking}
+            target={booking}
             onSaved={() => {
               setBooking(null);
               setReload((n) => n + 1);
@@ -458,11 +458,12 @@ function Gantt({
                   return (
                     <span
                       key={i}
-                      title={`${s.jobName} · ${what} · ${span(s.startDate, s.endDate)}`}
+                      title={`${s.jobName}${s.toolName ? ` · ${s.toolName}` : ""} · ${what} · ${span(s.startDate, s.endDate)}`}
                       className={`absolute h-4 truncate rounded px-1 text-[10px] font-medium leading-4 text-white ${s.source.type === "hold" ? "bg-[repeating-linear-gradient(135deg,rgb(255_255_255/0.28)_0_4px,transparent_4px_8px)]" : ""}`}
                       style={{ left: l, width: w, top: 7 + s.lane * 20, backgroundColor: jobColour(colours.get(s.jobId)) }}
                     >
                       {s.jobName}
+                      {s.toolName ? ` · ${s.toolName}` : ""}
                     </span>
                   );
                 })}
@@ -621,7 +622,7 @@ function List({ data, colours, onOpen }: { data: ToolSchedulePayload; colours: M
               <button key={`${m.kindId}-${m.jobId}`} type="button" onClick={() => onOpen(m.kindId)} className="flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left">
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold">
-                    {m.kindName} → {m.jobName}
+                    {m.toolName ?? m.kindName} → {m.jobName}
                   </span>
                   <span className="block truncate text-[12px] text-neutral-500">Now at {[...new Set(m.toolsAt.map((t) => t.at))].join(", ")}</span>
                 </span>
@@ -715,6 +716,11 @@ function KindDialog({
                 <li key={s.startDate} className="text-danger">
                   {span(s.startDate, s.endDate)}: need {s.need}, own {s.owned} —{" "}
                   {s.jobIds.map((id) => data.jobs.find((j) => j.id === id)?.name ?? id).join(", ")}
+                  {s.tools.length > 0 && (
+                    <span className="block text-[12px]">
+                      Booked twice or not usable: {s.tools.map((id) => row.tools.find((t) => t.id === id)?.name ?? id).join(", ")}
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -726,7 +732,8 @@ function KindDialog({
             <ul className="grid gap-1 text-sm">
               {moves.map((m) => (
                 <li key={m.jobId}>
-                  To <b className="font-semibold">{m.jobName}</b> by {fmt(m.by)}
+                  {m.toolName ? `${m.toolName} to ` : "To "}
+                  <b className="font-semibold">{m.jobName}</b> by {fmt(m.by)}
                 </li>
               ))}
             </ul>
@@ -760,6 +767,7 @@ function KindDialog({
                   <tr>
                     <th className={tableCls.th}>Job</th>
                     <th className={tableCls.th}>Task</th>
+                    <th className={tableCls.th}>Tool</th>
                     <th className={tableCls.th}>Dates</th>
                   </tr>
                 </thead>
@@ -782,6 +790,7 @@ function KindDialog({
                           `Booked${s.source.note ? `: ${s.source.note}` : ""}${s.qty > 1 ? ` (×${s.qty})` : ""}`
                         )}
                       </td>
+                      <td className={`${tableCls.td} ${s.toolName ? "" : "text-neutral-500"}`}>{s.toolName ?? "Any"}</td>
                       <td className={`${tableCls.td} whitespace-nowrap tabular-nums`}>{span(s.startDate, s.endDate)}</td>
                     </tr>
                   ))}

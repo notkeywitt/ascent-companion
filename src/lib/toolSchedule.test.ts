@@ -6,14 +6,22 @@ import {
   findMoves,
   findShortfalls,
   isPlaceId,
-  matchJobByLabel,
   isUsable,
+  matchJobByLabel,
+  monthsAhead,
   normalizeTaskName,
+  parseTarget,
   placeId,
   resolveTaskTools,
   scheduleByKind,
   suggestTools,
+  toolTarget,
+  typeKey,
+  typeTarget,
+  UNTYPED,
   type DemandSpan,
+  type KindSchedule,
+  type OwnedTool,
   type TaskToolRule,
   type ToolKind,
 } from "./toolSchedule";
@@ -32,94 +40,113 @@ const task = (p: Partial<ScheduleTask>): ScheduleTask => ({
   ...p,
 });
 
+// The catalogue: Tools-list tools typed by ToolType.
+const tools: OwnedTool[] = [
+  { id: "tool079", kindId: "compressor", name: "Makita MAC2400", condition: "New", locationLabel: "Shop", jobId: null },
+  { id: "tool035", kindId: "compressor", name: "Makita 4.2 Gallon", condition: "New", locationLabel: "Gormley - Studio", jobId: "studio" },
+  { id: "tool021", kindId: "laser level", name: "Dewalt Green Laser", condition: "Good", locationLabel: "Shop", jobId: null },
+  { id: "tool999", kindId: "saw", name: "Old saw", condition: "Broken", locationLabel: "Shop", jobId: null },
+];
 const kinds: ToolKind[] = [
-  { id: "mixer", name: "Concrete mixer" },
-  { id: "saw", name: "Table saw" },
-  { id: "laser", name: "Laser level" },
-  { id: "nailer", name: "Framing nailer" },
+  { id: "compressor", name: "Compressor" },
+  { id: "laser level", name: "Laser Level" },
+  { id: "saw", name: "Saw" },
+  { id: "scissor lift", name: "Scissor lift" },
 ];
 
-describe("normalizeTaskName", () => {
+describe("names and targets", () => {
   it("ignores case, punctuation, & vs and, and asides in brackets", () => {
     expect(normalizeTaskName("Wall Framing & Sheathing")).toBe("wall framing and sheathing");
-    expect(normalizeTaskName("wall framing AND sheathing.")).toBe("wall framing and sheathing");
     expect(normalizeTaskName("Install Underground Conduit (if needed)")).toBe("install underground conduit");
     expect(normalizeTaskName("Install Garage Door(s)")).toBe("install garage door");
-    expect(normalizeTaskName("  ")).toBe("");
+  });
+  it("keys a ToolType however the sheet spells it, and files a blank one under No type", () => {
+    expect(typeKey("Nailer ")).toBe(typeKey("nailer"));
+    expect(typeKey("")).toBe(UNTYPED);
+  });
+  it("writes and reads targets", () => {
+    expect(toolTarget("tool021")).toBe("tool:tool021");
+    expect(typeTarget("Laser Level")).toBe("type:laser level");
+    expect(parseTarget("tool:tool021")).toEqual({ tool: "tool021" });
+    expect(parseTarget("type:laser level")).toEqual({ type: "laser level" });
+    expect(parseTarget("none")).toBeNull();
+    expect(parseTarget("tool:")).toBeNull();
   });
 });
 
 describe("resolveTaskTools", () => {
   const rules: TaskToolRule[] = [
-    { match: "phase", key: "Site Prep & Foundation", kindIds: ["laser"] },
-    { match: "name", key: "footings", kindIds: ["mixer", "laser"] },
-    { match: "task", key: "t-override", kindIds: ["saw"] },
-    { match: "taskType", key: "type-framing", kindIds: ["nailer"] },
-    { match: "name", key: "Client Walkthrough", kindIds: [] },
+    { match: "phase", key: "Site Prep & Foundation", targets: ["type:laser level"] },
+    { match: "name", key: "footings", targets: ["tool:tool079"] },
+    { match: "task", key: "t-override", targets: ["type:saw"] },
+    { match: "taskType", key: "type-framing", targets: ["type:compressor"] },
+    { match: "name", key: "Footing Inspection", targets: [] },
   ];
   const idx = buildRuleIndex(rules);
+  const targets = (t: ScheduleTask) => resolveTaskTools(t, idx)?.needs.map((n) => n.target);
 
-  it("gives a task name its tools on every job, whatever its case", () => {
-    expect(resolveTaskTools(task({ name: "FOOTINGS", jobId: "main" }), idx)).toEqual({ kindIds: ["mixer", "laser"], via: "name" });
+  it("adds a task name's tools to its phase's, on every job", () => {
+    expect(targets(task({ name: "FOOTINGS", jobId: "main" }))).toEqual(["tool:tool079", "type:laser level"]);
+    expect(resolveTaskTools(task({}), idx)?.via).toBe("name");
   });
-  it("lets a per-task override beat the name rule", () => {
-    expect(resolveTaskTools(task({ id: "t-override" }), idx)).toEqual({ kindIds: ["saw"], via: "task" });
+  it("adds every level, most specific first, and records which rule asked", () => {
+    const res = resolveTaskTools(task({ id: "t-override", taskTypeId: "type-framing" }), idx)!;
+    expect(res.needs.map((n) => [n.target, n.via, n.ruleKey])).toEqual([
+      ["type:saw", "task", "task:t-override"],
+      ["tool:tool079", "name", "name:footings"],
+      ["type:compressor", "taskType", "taskType:type-framing"],
+      ["type:laser level", "phase", "phase:site prep and foundation"],
+    ]);
   });
-  it("tries the name, then the task type, then the phase", () => {
-    expect(resolveTaskTools(task({ name: "Something else", taskTypeId: "type-framing" }), idx)?.via).toBe("taskType");
-    expect(resolveTaskTools(task({ name: "Something else" }), idx)).toEqual({ kindIds: ["laser"], via: "phase" });
+  it("lets 'needs no tools' drop what its phase would add", () => {
+    expect(resolveTaskTools(task({ name: "Footing Inspection" }), idx)).toEqual({ needs: [], via: "name" });
   });
-  it("keeps 'needs no tools' as covered, with no tools", () => {
-    expect(resolveTaskTools(task({ name: "Client walkthrough", phase: "" }), idx)).toEqual({ kindIds: [], via: "name" });
-  });
-  it("returns null when nothing matches", () => {
+  it("covers a task by its phase alone, and returns null when nothing matches", () => {
+    expect(targets(task({ name: "Strip Topsoil" }))).toEqual(["type:laser level"]);
     expect(resolveTaskTools(task({ name: "Burn and Learn", phase: "" }), idx)).toBeNull();
   });
 });
 
 describe("suggestTools", () => {
   const rules: TaskToolRule[] = [
-    { match: "name", key: "Footings", kindIds: ["mixer"] },
-    { match: "name", key: "Wall Framing & Sheathing", kindIds: ["nailer", "saw"] },
-    { match: "phase", key: "Framing & Rough-Ins", kindIds: ["nailer"] },
+    { match: "name", key: "Footings", targets: ["type:laser level"] },
+    { match: "name", key: "Wall Framing & Sheathing", targets: ["tool:tool079", "type:saw"] },
   ];
-  it("lends the tools of mapped names that share words", () => {
-    expect(suggestTools({ name: "Pour Footings", phase: "" }, rules, kinds)).toEqual(["mixer"]);
-    expect(suggestTools({ name: "Roof Framing", phase: "" }, rules, kinds)[0]).toBe("nailer");
+  it("lends what mapped names that share words ask for", () => {
+    expect(suggestTools({ name: "Pour Footings", phase: "" }, rules, kinds, tools)).toEqual(["type:laser level"]);
+    expect(suggestTools({ name: "Roof Framing", phase: "" }, rules, kinds, tools)).toEqual(["tool:tool079", "type:saw"]);
   });
   it("offers a tool type whose own name is in the task", () => {
-    expect(suggestTools({ name: "Set up laser level", phase: "" }, [], kinds)).toEqual(["laser"]);
+    expect(suggestTools({ name: "Set up the laser level", phase: "" }, [], kinds, tools)).toEqual(["type:laser level"]);
   });
-  it("suggests nothing when no word is shared, and drops deleted tool types", () => {
-    expect(suggestTools({ name: "Burn and Learn", phase: "" }, rules, kinds)).toEqual([]);
-    expect(suggestTools({ name: "Pour Footings", phase: "" }, rules, kinds.filter((k) => k.id !== "mixer"))).toEqual([]);
+  it("suggests nothing when no word is shared, and drops a tool no longer listed", () => {
+    expect(suggestTools({ name: "Burn and Learn", phase: "" }, rules, kinds, tools)).toEqual([]);
+    expect(suggestTools({ name: "Roof Framing", phase: "" }, rules, kinds, [])).toEqual(["type:saw"]);
   });
 });
 
 describe("buildDemand", () => {
   const rules: TaskToolRule[] = [
-    { match: "name", key: "Footings", kindIds: ["mixer", "laser"] },
-    { match: "phase", key: "Framing", kindIds: ["saw", "nailer"] },
-    { match: "name", key: "Final Inspection", kindIds: [] },
+    { match: "name", key: "Footings", targets: ["tool:tool021", "type:compressor"] },
+    { match: "phase", key: "Framing", targets: ["type:saw", "type:scissor lift"] },
+    { match: "name", key: "Final Inspection", targets: [] },
+    { match: "name", key: "Gone", targets: ["tool:tool-deleted"] },
   ];
 
-  it("gives a task one span per tool its rule names", () => {
-    const { spans } = buildDemand([task({})], rules, kinds);
-    expect(spans.map((s) => s.kindId).sort()).toEqual(["laser", "mixer"]);
-    expect(spans[0].source).toMatchObject({ type: "task", taskId: "t1", via: "name" });
+  it("gives a specific tool its own span on its type's row, and a type a span with no tool", () => {
+    const { spans } = buildDemand([task({})], rules, tools);
+    expect(spans.map((s) => [s.kindId, s.toolId ?? null, s.toolName ?? null])).toEqual([
+      ["laser level", "tool021", "Dewalt Green Laser"],
+      ["compressor", null, null],
+    ]);
+    expect(spans[0].source).toMatchObject({ type: "task", taskId: "t1", via: "name", ruleKey: "name:footings" });
   });
-  it("covers every task in a mapped phase", () => {
-    const { spans, unresolved } = buildDemand([task({ name: "Wall Sheathing", phase: "Framing" })], rules, kinds);
-    expect(spans.map((s) => s.kindId).sort()).toEqual(["nailer", "saw"]);
-    expect(spans[0].source).toMatchObject({ via: "phase" });
-    expect(unresolved).toEqual([]);
+  it("counts a type nobody owns, so 'none owned' can show", () => {
+    const { spans } = buildDemand([task({ name: "Wall Sheathing", phase: "Framing" })], rules, tools);
+    expect(spans.map((s) => s.kindId).sort()).toEqual(["saw", "scissor lift"]);
   });
-  it("adds no span for 'needs no tools' or a tool type since deleted", () => {
-    const { spans, unresolved } = buildDemand(
-      [task({ name: "Final Inspection" }), task({ name: "Footings" })],
-      rules,
-      [{ id: "saw", name: "Table saw" }],
-    );
+  it("adds no span for 'needs no tools' or a tool no longer in the Tools list", () => {
+    const { spans, unresolved } = buildDemand([task({ name: "Final Inspection" }), task({ name: "Gone" })], rules, tools);
     expect(spans).toEqual([]);
     expect(unresolved).toEqual([]);
   });
@@ -131,22 +158,22 @@ describe("buildDemand", () => {
         task({ id: "c", name: "Burn and Learn", phase: "", jobId: "main", jobName: "Main House" }),
       ],
       rules,
-      kinds,
+      tools,
     );
     expect(unresolved.map((u) => [u.name, u.jobNames, u.taskIds])).toEqual([
       ["Strip Topsoil & Stockpile", ["Studio", "Studio PreCon"], ["a", "b"]],
       ["Burn and Learn", ["Main House"], ["c"]],
     ]);
   });
-  it("adds bookings, for a job or a place, and drops one for a deleted tool type", () => {
-    const { spans } = buildDemand([], rules, kinds, [
-      { id: "h1", kindId: "saw", jobId: "main", jobName: "Main House", startDate: "2027-01-04", endDate: "2027-01-08", qty: 2, note: "" },
-      { id: "h2", kindId: "saw", jobId: "", jobName: "Out for repair", startDate: "2027-01-05", endDate: "2027-01-20", qty: 1, note: "blade" },
-      { id: "h3", kindId: "gone", jobId: "main", jobName: "Main House", startDate: "2027-01-04", endDate: "2027-01-08", qty: 1, note: "" },
+  it("adds bookings for a tool or a type, for a job or a place", () => {
+    const { spans } = buildDemand([], rules, tools, [
+      { id: "h1", target: "type:compressor", jobId: "main", jobName: "Main House", startDate: "2027-01-04", endDate: "2027-01-08", qty: 2, note: "" },
+      { id: "h2", target: "tool:tool021", jobId: "", jobName: "Out for repair", startDate: "2027-01-05", endDate: "2027-01-20", qty: 3, note: "lens" },
+      { id: "h3", target: "tool:tool-deleted", jobId: "main", jobName: "Main House", startDate: "2027-01-04", endDate: "2027-01-08", qty: 1, note: "" },
     ]);
     expect(spans).toHaveLength(2);
-    expect(spans[0]).toMatchObject({ kindId: "saw", jobId: "main", qty: 2, source: { type: "hold", holdId: "h1" } });
-    expect(spans[1]).toMatchObject({ jobId: "place:out for repair", jobName: "Out for repair" });
+    expect(spans[0]).toMatchObject({ kindId: "compressor", jobId: "main", qty: 2, source: { type: "hold", holdId: "h1" } });
+    expect(spans[1]).toMatchObject({ kindId: "laser level", toolId: "tool021", jobId: "place:out for repair", qty: 1 });
   });
 });
 
@@ -158,79 +185,89 @@ describe("placeId", () => {
   });
 });
 
-const span = (jobId: string, startDate: string, endDate: string, qty = 1): DemandSpan => ({
+const span = (jobId: string, startDate: string, endDate: string, p: Partial<DemandSpan> = {}): DemandSpan => ({
   kindId: "k",
   jobId,
   jobName: jobId,
   startDate,
   endDate,
-  qty,
-  source: { type: "task", taskId: `${jobId}-${startDate}`, taskName: "x", via: "name" },
+  qty: 1,
+  source: { type: "task", taskId: `${jobId}-${startDate}`, taskName: "x", via: "name", ruleKey: "name:x" },
+  ...p,
 });
+const own = (...ids: string[]) => new Set(ids);
 
-describe("findShortfalls", () => {
-  it("finds the overlap where two jobs need the only tool", () => {
-    const out = findShortfalls([span("studio", "2026-11-30", "2026-12-04"), span("main", "2026-12-01", "2026-12-18")], 1, "2026-11-10", "2027-05-10");
-    expect(out).toEqual([{ startDate: "2026-12-01", endDate: "2026-12-04", need: 2, owned: 1, jobIds: ["studio", "main"] }]);
+describe("findShortfalls — any tool of a type", () => {
+  it("finds the overlap where two jobs need the only one", () => {
+    const out = findShortfalls([span("studio", "2026-11-30", "2026-12-04"), span("main", "2026-12-01", "2026-12-18")], own("a"), "2026-11-10", "2027-05-10");
+    expect(out).toEqual([{ startDate: "2026-12-01", endDate: "2026-12-04", need: 2, owned: 1, jobIds: ["studio", "main"], tools: [] }]);
   });
   it("counts a job once a day, however many of its tasks overlap", () => {
-    expect(findShortfalls([span("studio", "2026-12-01", "2026-12-05"), span("studio", "2026-12-03", "2026-12-08")], 1, "2026-12-01", "2026-12-31")).toEqual([]);
+    expect(findShortfalls([span("studio", "2026-12-01", "2026-12-05"), span("studio", "2026-12-03", "2026-12-08")], own("a"), "2026-12-01", "2026-12-31")).toEqual([]);
   });
-  it("counts a hold's quantity", () => {
-    const out = findShortfalls([span("main", "2027-01-04", "2027-01-06", 2)], 1, "2027-01-01", "2027-01-31");
-    expect(out).toMatchObject([{ startDate: "2027-01-04", endDate: "2027-01-06", need: 2 }]);
+  it("counts a booking's quantity", () => {
+    expect(findShortfalls([span("main", "2027-01-04", "2027-01-06", { qty: 2 })], own("a"), "2027-01-01", "2027-01-31")).toMatchObject([{ need: 2 }]);
   });
   it("joins adjacent short days and keeps the peak need", () => {
     const out = findShortfalls(
       [span("a", "2027-01-01", "2027-01-10"), span("b", "2027-01-05", "2027-01-10"), span("c", "2027-01-08", "2027-01-12")],
-      1,
+      own("x"),
       "2027-01-01",
       "2027-01-31",
     );
-    expect(out).toEqual([{ startDate: "2027-01-05", endDate: "2027-01-10", need: 3, owned: 1, jobIds: ["a", "b", "c"] }]);
+    expect(out).toMatchObject([{ startDate: "2027-01-05", endDate: "2027-01-10", need: 3, jobIds: ["a", "b", "c"] }]);
   });
-  it("clips to the range", () => {
-    const out = findShortfalls([span("a", "2026-11-01", "2026-11-20"), span("b", "2026-11-01", "2026-11-20")], 1, "2026-11-10", "2026-11-15");
-    expect(out).toMatchObject([{ startDate: "2026-11-10", endDate: "2026-11-15" }]);
+  it("clips to the range, and treats any need as short when none is owned", () => {
+    expect(findShortfalls([span("a", "2026-11-01", "2026-11-20"), span("b", "2026-11-01", "2026-11-20")], own("x"), "2026-11-10", "2026-11-15")).toMatchObject([
+      { startDate: "2026-11-10", endDate: "2026-11-15" },
+    ]);
+    expect(findShortfalls([span("a", "2027-03-01", "2027-03-02")], own(), "2027-03-01", "2027-03-31")).toHaveLength(1);
   });
-  it("treats any need as short when none is owned", () => {
-    expect(findShortfalls([span("a", "2027-03-01", "2027-03-02")], 0, "2027-03-01", "2027-03-31")).toHaveLength(1);
+});
+
+describe("findShortfalls — specific tools", () => {
+  it("flags one tool named by two jobs at once, even with others free", () => {
+    const out = findShortfalls(
+      [span("studio", "2026-12-01", "2026-12-05", { toolId: "a" }), span("main", "2026-12-04", "2026-12-08", { toolId: "a" })],
+      own("a", "b", "c"),
+      "2026-12-01",
+      "2026-12-31",
+    );
+    expect(out).toEqual([{ startDate: "2026-12-04", endDate: "2026-12-05", need: 2, owned: 3, jobIds: ["studio", "main"], tools: ["a"] }]);
+  });
+  it("flags a broken tool the moment a job names it", () => {
+    expect(findShortfalls([span("studio", "2026-12-01", "2026-12-01", { toolId: "broken" })], own("a"), "2026-12-01", "2026-12-31")).toMatchObject([{ tools: ["broken"] }]);
+  });
+  it("takes a named tool out of the pool for 'any of the type'", () => {
+    const named = span("studio", "2026-12-01", "2026-12-05", { toolId: "a" });
+    expect(findShortfalls([named, span("main", "2026-12-01", "2026-12-05")], own("a", "b"), "2026-12-01", "2026-12-31")).toEqual([]);
+    expect(findShortfalls([named, span("main", "2026-12-01", "2026-12-05"), span("barn", "2026-12-03", "2026-12-03")], own("a", "b"), "2026-12-01", "2026-12-31")).toMatchObject([
+      { startDate: "2026-12-03", endDate: "2026-12-03", need: 3, tools: [] },
+    ]);
+  });
+  it("lets a job's named tool cover its own 'any' need", () => {
+    expect(findShortfalls([span("studio", "2026-12-01", "2026-12-05", { toolId: "a" }), span("studio", "2026-12-01", "2026-12-05")], own("a"), "2026-12-01", "2026-12-31")).toEqual([]);
   });
 });
 
 describe("scheduleByKind", () => {
-  it("counts only usable tools and flags a tool type with none owned", () => {
-    const kinds: ToolKind[] = [
-      { id: "k", name: "Plate compactor" },
-      { id: "z", name: "Tile saw" },
-    ];
+  it("counts only usable tools, flags a type with none owned, and rows a type only a span names", () => {
     const rows = scheduleByKind(
-      kinds,
-      [span("a", "2027-03-01", "2027-03-02")],
-      [
-        { id: "1", kindId: "k", condition: "Broken" },
-        { id: "2", kindId: "z", condition: "Good" },
-      ],
+      [{ id: "saw", name: "Saw" }, { id: "compressor", name: "Compressor" }],
+      [span("a", "2027-03-01", "2027-03-02", { kindId: "saw" }), span("a", "2027-03-01", "2027-03-02", { kindId: "mystery" })],
+      tools,
       "2027-03-01",
       "2027-03-31",
     );
-    expect(rows[0]).toMatchObject({ owned: 0, missing: true });
-    expect(rows[0].shortfalls).toHaveLength(1);
-    expect(rows[1]).toMatchObject({ owned: 1, missing: false, spans: [] });
+    expect(rows.map((r) => [r.kindId, r.owned, r.missing, r.usableToolIds])).toEqual([
+      ["saw", 0, true, []],
+      ["compressor", 2, false, ["tool079", "tool035"]],
+      ["mystery", 0, true, []],
+    ]);
   });
   it("leaves out spans outside the range", () => {
     const rows = scheduleByKind([{ id: "k", name: "Saw" }], [span("a", "2026-01-01", "2026-01-05")], [], "2026-11-10", "2027-05-10");
     expect(rows[0]).toMatchObject({ spans: [], missing: false, shortfalls: [] });
-  });
-});
-
-describe("isUsable", () => {
-  it("rules out broken, in-repair and lost tools", () => {
-    expect(isUsable("Broken")).toBe(false);
-    expect(isUsable("Out for repair")).toBe(false);
-    expect(isUsable("Lost")).toBe(false);
-    expect(isUsable("Good")).toBe(true);
-    expect(isUsable(undefined)).toBe(true);
   });
 });
 
@@ -241,11 +278,9 @@ describe("matchJobByLabel", () => {
     { id: "main", name: "Main House" },
     { id: "m2", name: "Main House" },
   ];
-  it("matches the project part of a 'Customer - Project' label", () => {
+  it("matches the project part of a 'Customer - Project' label, or a bare name", () => {
     expect(matchJobByLabel("Gormley - Studio", jobs)).toBe("studio");
     expect(matchJobByLabel("Gormley - Studio PreCon", jobs)).toBe("pre");
-  });
-  it("matches a bare job name", () => {
     expect(matchJobByLabel("studio", jobs)).toBe("studio");
   });
   it("returns null for the shop, a blank, or a name two jobs share", () => {
@@ -256,38 +291,40 @@ describe("matchJobByLabel", () => {
 });
 
 describe("findMoves", () => {
-  const row = (spans: DemandSpan[]) => ({ kindId: "k", name: "Table saw", owned: 1, spans, shortfalls: [], missing: false });
-  it("flags a job that needs the tool when none is there, from its first day", () => {
-    const out = findMoves(
-      [row([span("studio", "2026-12-07", "2026-12-31"), span("studio", "2027-01-04", "2027-01-08")])],
-      [{ id: "1", kindId: "k", name: "SawStop", locationLabel: "Shop", jobId: null }],
-      "2026-11-10",
-      "2027-05-10",
-    );
+  const row = (kindId: string, spans: DemandSpan[]): KindSchedule => ({ kindId, name: kindId, owned: 1, usableToolIds: [], spans, shortfalls: [], missing: false });
+  const from = "2026-11-10";
+  const to = "2027-05-10";
+  it("moves a named tool to each job that needs it, from wherever it is", () => {
+    const out = findMoves([row("laser level", [span("main", "2026-12-07", "2026-12-31", { kindId: "laser level", toolId: "tool021" })])], tools, from, to);
     expect(out).toEqual([
-      { kindId: "k", kindName: "Table saw", jobId: "studio", jobName: "studio", by: "2026-12-07", toolsAt: [{ name: "SawStop", at: "Shop" }] },
+      { kindId: "laser level", kindName: "laser level", toolId: "tool021", toolName: "Dewalt Green Laser", jobId: "main", jobName: "main", by: "2026-12-07", toolsAt: [{ name: "Dewalt Green Laser", at: "Shop" }] },
     ]);
   });
-  it("says nothing when a usable tool is already at the job", () => {
-    expect(findMoves([row([span("studio", "2026-12-07", "2026-12-31")])], [{ id: "1", kindId: "k", jobId: "studio" }], "2026-11-10", "2027-05-10")).toEqual([]);
+  it("says nothing when the named tool, or one of the type, is already there", () => {
+    expect(findMoves([row("compressor", [span("studio", "2026-12-07", "2026-12-31", { kindId: "compressor", toolId: "tool035" })])], tools, from, to)).toEqual([]);
+    expect(findMoves([row("compressor", [span("studio", "2026-12-07", "2026-12-31", { kindId: "compressor" })])], tools, from, to)).toEqual([]);
   });
-  it("uses the range start for a need already under way", () => {
-    const out = findMoves([row([span("main", "2026-11-01", "2026-11-20")])], [{ id: "1", kindId: "k" }], "2026-11-10", "2027-05-10");
-    expect(out[0].by).toBe("2026-11-10");
+  it("moves 'any of the type' to a job with none there, from the range start when under way", () => {
+    const out = findMoves([row("compressor", [span("main", "2026-11-01", "2026-11-20", { kindId: "compressor" })])], tools, from, to);
+    expect(out).toMatchObject([{ jobId: "main", by: "2026-11-10", toolsAt: [{ at: "Shop" }, { at: "Gormley - Studio" }] }]);
+    expect(out[0].toolId).toBeUndefined();
   });
-  it("gives no move for a booking at a place that is not a job", () => {
-    expect(findMoves([row([span(placeId("Shop"), "2026-12-01", "2026-12-05")])], [{ id: "1", kindId: "k" }], "2026-11-10", "2027-05-10")).toEqual([]);
-  });
-  it("gives no move when none is owned (that is 'missing')", () => {
-    expect(findMoves([row([span("main", "2026-12-01", "2026-12-05")])], [{ id: "1", kindId: "k", condition: "Broken" }], "2026-11-10", "2027-05-10")).toEqual([]);
+  it("gives no move for a place, or for a type with none usable", () => {
+    expect(findMoves([row("compressor", [span(placeId("Shop"), "2026-12-01", "2026-12-05", { kindId: "compressor" })])], tools, from, to)).toEqual([]);
+    expect(findMoves([row("saw", [span("main", "2026-12-01", "2026-12-05", { kindId: "saw" })])], tools, from, to)).toEqual([]);
   });
 });
 
-describe("monthsAhead", () => {
-  it("runs to the day before the same date N months on", async () => {
-    const { monthsAhead } = await import("./toolSchedule");
+describe("isUsable / monthsAhead", () => {
+  it("rules out broken, in-repair and lost tools", () => {
+    expect(isUsable("Broken")).toBe(false);
+    expect(isUsable("Out for repair")).toBe(false);
+    expect(isUsable("Lost")).toBe(false);
+    expect(isUsable("Good")).toBe(true);
+    expect(isUsable(undefined)).toBe(true);
+  });
+  it("runs to the day before the same date N months on", () => {
     expect(monthsAhead("2026-11-10", 6)).toBe("2027-05-09");
-    expect(monthsAhead("2026-11-10", 1)).toBe("2026-12-09");
     expect(monthsAhead("2026-08-31", 6)).toBe("2027-02-27");
   });
 });

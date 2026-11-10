@@ -127,7 +127,7 @@ export function filterScheduleByJobs<R extends KindSchedule>(
   return {
     rows: rows.map((r) => {
       const spans = r.spans.filter((s) => !hidden.has(s.jobId));
-      return { ...r, spans, shortfalls: findShortfalls(spans, r.owned, from, to), missing: r.owned === 0 && spans.length > 0 };
+      return { ...r, spans, shortfalls: findShortfalls(spans, new Set(r.usableToolIds), from, to), missing: r.owned === 0 && spans.length > 0 };
     }),
     moves: moves.filter((m) => !hidden.has(m.jobId)),
   };
@@ -149,20 +149,21 @@ function sorted<T>(items: T[], main: (a: T, b: T) => number, tie: (a: T, b: T) =
   return [...items].sort((a, b) => (dir === "asc" ? main(a, b) : main(b, a)) || tie(a, b));
 }
 
-export type KindSortKey = "name" | "owned" | "uses";
-export function sortKinds<K extends { id: string; name: string }>(
-  kinds: K[],
-  key: KindSortKey,
+export type ToolSortKey = "name" | "type" | "location" | "tasks";
+/** Sort the catalogue's tools. `tasks` is how many rules name the tool. */
+export function sortCatalogTools<T extends { id: string; name: string; type: string; at: string }>(
+  tools: T[],
+  key: ToolSortKey,
   dir: SortDir,
-  owned: (kindId: string) => number,
-  uses: (kindId: string) => number,
-): K[] {
-  const by: Record<KindSortKey, (a: K, b: K) => number> = {
+  tasks: (toolId: string) => number,
+): T[] {
+  const by: Record<ToolSortKey, (a: T, b: T) => number> = {
     name: (a, b) => compareText(a.name, b.name),
-    owned: (a, b) => owned(a.id) - owned(b.id),
-    uses: (a, b) => uses(a.id) - uses(b.id),
+    type: (a, b) => Number(!a.type) - Number(!b.type) || compareText(a.type, b.type), // a blank type last
+    location: (a, b) => compareText(a.at, b.at),
+    tasks: (a, b) => tasks(a.id) - tasks(b.id),
   };
-  return sorted(kinds, by[key], (a, b) => compareText(a.name, b.name), dir);
+  return sorted(tools, by[key], (a, b) => compareText(a.name, b.name), dir);
 }
 
 export type UnresolvedSortKey = "tasks" | "name" | "job" | "phase";
@@ -181,17 +182,17 @@ export function sortUnresolved<U extends { name: string; phase: string; jobNames
 }
 
 export type RuleSortKey = "name" | "type" | "tools";
-export function sortRules<T extends { label: string; key: string; match: string; kindIds: string[] }>(
+export function sortRules<T extends { label: string; key: string; match: string; targets: string[] }>(
   rules: T[],
   key: RuleSortKey,
   dir: SortDir,
-  toolNames: (kindIds: string[]) => string,
+  toolNames: (targets: string[]) => string,
 ): T[] {
   const name = (r: T) => r.label || r.key;
   const by: Record<RuleSortKey, (a: T, b: T) => number> = {
     name: (a, b) => compareText(name(a), name(b)),
     type: (a, b) => compareText(a.match, b.match),
-    tools: (a, b) => compareText(toolNames(a.kindIds), toolNames(b.kindIds)),
+    tools: (a, b) => compareText(toolNames(a.targets), toolNames(b.targets)),
   };
   return sorted(rules, by[key], (a, b) => compareText(name(a), name(b)), dir);
 }

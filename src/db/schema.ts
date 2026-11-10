@@ -1874,9 +1874,11 @@ export const vendorCoi = sqliteTable("vendor_coi", {
  * JobTread has no equipment object and links no schedule task to a cost code, so
  * the plan lives here and the schedule is only read.
  *
- * tool_kinds         a generic tool type ("Table saw").
+ * tool_kinds         a tool type the office added by hand — one the Tools list
+ *                    has no tool of ("Scissor lift"). Owned types come from the
+ *                    Tools list's ToolType column.
  * tool_kind_codes    RETIRED 2026-11-10 (cost codes dropped); kept, unread.
- * tool_kind_members  which physical tool (Tools sheet id) is which tool type.
+ * tool_kind_members  RETIRED 2026-11-10 (a tool's type is its ToolType); kept, unread.
  * task_code_rules    RETIRED 2026-11-10 (see task_tool_rules); kept, unread.
  *                    Was: how a schedule task resolved to a cost code. `match` is
  *                    task | name | taskType | phase; `match_key` is the task id,
@@ -1946,9 +1948,32 @@ export const taskToolRules = sqliteTable(
   (t) => [primaryKey({ columns: [t.match, t.matchKey, t.kindId] })],
 );
 
+/**
+ * What a schedule task needs (lib/toolSchedule.ts), one row per need: `target`
+ * is "tool:<Tools-list id>" (that tool), "type:<normalized ToolType>" (any tool
+ * of that type) or "none" ("needs no tools"). `match` / `match_key` as in
+ * task_tool_rules. Replaced task_tool_rules on 2026-11-10, when the catalogue
+ * became the Tools list itself; that table is still read as a fallback, its
+ * tool kinds read as types, until a rule is saved again.
+ */
+export const taskToolNeeds = sqliteTable(
+  "task_tool_needs",
+  {
+    match: text("match").notNull(),
+    matchKey: text("match_key").notNull(),
+    target: text("target").notNull(),
+    label: text("label").notNull().default(""),
+    updatedBy: text("updated_by").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.match, t.matchKey, t.target] })],
+);
+
 export const toolHolds = sqliteTable("tool_holds", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   kindId: integer("kind_id").notNull(),
+  /** "tool:<id>" or "type:<key>"; "" on older rows = the tool type `kind_id` names. */
+  target: text("target").notNull().default(""),
   jobId: text("job_id").notNull(),
   jobName: text("job_name").notNull().default(""),
   startDate: text("start_date").notNull(),

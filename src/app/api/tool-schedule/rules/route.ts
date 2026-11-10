@@ -5,12 +5,13 @@ import { rangeFromUrl, taskRules } from "@/lib/toolScheduleData";
 import { deleteRule, isRuleMatch, upsertRule } from "@/lib/toolScheduleStore";
 
 /**
- * Which tool types each schedule task needs. JobTread keeps no tool on a task,
- * so the office ticks tools on a phase (covers every task under it), a task
- * name (overrides its phase, on every job), or a task type.
+ * What each schedule task needs: specific tools from the Tools list
+ * ("tool:<id>") or any tool of a type ("type:<key>"). JobTread keeps no tool on
+ * a task, so the office names them on a phase (covers every task under it), a
+ * task name (overrides its phase, on every job), or a task type.
  *
- *   GET    [?months=6]   → { rules, kinds, phases, taskTypes, unresolved (with suggested tool ids) }
- *   PUT    { match, key, kindIds: string[], label? } → { ok }   ([] = needs no tools)
+ *   GET    [?months=6]   → { rules, tools, types, phases, taskTypes, unresolved (with suggested targets) }
+ *   PUT    { match, key, targets: string[], label? } → { ok }   ([] = needs no tools)
  *   DELETE ?match=&key=  → { ok }
  *
  * Gated by the "tool-schedule-edit" view (office + admin).
@@ -25,12 +26,14 @@ export async function GET(req: Request) {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   const { from, to } = rangeFromUrl(new URL(req.url));
   try {
-    const { plan, phases, taskTypes, unresolved } = await taskRules(from, to);
+    const { plan, tools, types, toolsError, phases, taskTypes, unresolved } = await taskRules(from, to);
     return NextResponse.json({
       from,
       to,
       rules: plan.rules,
-      kinds: plan.kinds.map((k) => ({ id: k.id, name: k.name })),
+      tools,
+      types,
+      ...(toolsError ? { toolsError } : {}),
       phases,
       taskTypes,
       unresolved,
@@ -45,11 +48,11 @@ export async function PUT(req: Request) {
   if (!u.canEdit) return NextResponse.json({ error: "Only the office can set which tools a task needs." }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   if (!isRuleMatch(body?.match)) return NextResponse.json({ error: "match must be task, name, taskType or phase." }, { status: 400 });
-  if (!Array.isArray(body?.kindIds)) return NextResponse.json({ error: "kindIds must be a list ([] = needs no tools)." }, { status: 400 });
+  if (!Array.isArray(body?.targets)) return NextResponse.json({ error: "targets must be a list ([] = needs no tools)." }, { status: 400 });
   const key = String(body?.key ?? "").slice(0, 300);
   try {
     await upsertRule(
-      { match: body.match, key, kindIds: body.kindIds.map(String), label: typeof body?.label === "string" ? body.label.slice(0, 300) : key },
+      { match: body.match, key, targets: body.targets.map(String).slice(0, 50), label: typeof body?.label === "string" ? body.label.slice(0, 300) : key },
       u.email,
     );
     return NextResponse.json({ ok: true });

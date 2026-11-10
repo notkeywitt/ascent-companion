@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "14sf-1a1udsf";
+export const SCHEMA_FINGERPRINT = "159e-xozmye";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1479,6 +1479,15 @@ async function applySchema() {
       updated_at TEXT NOT NULL,
       PRIMARY KEY (match, match_key, kind_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS task_tool_needs (
+      match TEXT NOT NULL,
+      match_key TEXT NOT NULL,
+      target TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (match, match_key, target)
+    )`,
     `CREATE TABLE IF NOT EXISTS tool_holds (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       kind_id INTEGER NOT NULL,
@@ -1499,6 +1508,13 @@ async function applySchema() {
     )`,
   ]) {
     await getClient().execute(ddl);
+  }
+  // A booking names a specific Tools-list tool ("tool:<id>") or a tool type
+  // ("type:<key>"); "" on rows made before 2026-11-10 means "use kind_id".
+  try {
+    await getClient().execute("ALTER TABLE tool_holds ADD COLUMN target TEXT NOT NULL DEFAULT ''");
+  } catch {
+    /* column already exists */
   }
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.

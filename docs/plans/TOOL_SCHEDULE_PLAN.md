@@ -19,6 +19,14 @@ The owner approved a clickable sample of the layouts the same day.
   phases, task names and task types (`task_tool_rules`). "Book a tool" (stored as a
   hold) reserves a tool with no JobTread task, for a job or a place that is not a
   job. `tool_kind_codes` and `task_code_rules` are kept, unread.
+- Round 4 done 2026-11-10 — the catalogue IS the tool tracker: every Tools-list tool,
+  typed by its ToolType (plus types the office adds because it owns none). A rule or
+  booking names a specific tool (`tool:<id>`) or any of a type (`type:<key>`), in
+  `task_tool_needs`. Two ways to connect: Tools tab (each tool → Assign to tasks) and
+  Tasks tab (each task → Add tool). A task now needs its phase's tools PLUS its own
+  ("needs no tools" stops the phase). Naming a type none of is free for offers
+  requisitions (`/api/tool-schedule/availability` → `/api/requisitions`).
+  `task_tool_rules` is read as a fallback; `tool_kind_members` is retired.
 - Next: the office fills the catalogue and maps task names; then watch whether
   the move list is useful (it depends on Tools-sheet labels matching job names).
 

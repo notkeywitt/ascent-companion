@@ -351,6 +351,7 @@ export const VIEWS: ViewDef[] = [
       "/api/tool-schedule/rules",
       "/api/tool-schedule/holds",
       "/api/tool-schedule/jobs",
+      "/api/tool-schedule/availability",
     ],
   },
   { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis", "/api/rfis"] },

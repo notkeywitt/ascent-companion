@@ -1,16 +1,20 @@
 // The tool schedule's rules — pure functions, no I/O (TOOL_SCHEDULE_PLAN.md).
 //
-// A schedule task needs the tool types its rule names, on every day it runs.
-// JobTread keeps no tool on a task, so the rules live here: the office ticks
-// tools on a PHASE (covers every task under it) and on a TASK NAME where a
-// task needs something else (it then applies on every job). A booking puts a
-// tool on a job, or a place, by hand — no task needed.
+// The catalogue IS the tool tracker: every tool in the Tools list, typed by its
+// ToolType column. A schedule task needs what its rule names — a specific tool
+// ("tool:<id>") or any tool of a type ("type:<key>"). JobTread keeps no tool on
+// a task, so the rules live here: the office names tools on a PHASE (covers
+// every task under it) and on a TASK NAME for what a task needs beyond its
+// phase (that applies on every job). A booking puts a tool on a job, or a place, by
+// hand — no task needed.
 
 import type { ScheduleTask } from "@/lib/jobtread";
 
 /**
- * How a rule matches a task. Tried in this order; the first level with a rule
- * wins, so a task name overrides its phase.
+ * How a rule matches a task, most specific first. A task needs what every
+ * level's rule names, added together — its phase's tools plus its own — except
+ * that a "needs no tools" rule stops the levels after it (an inspection under a
+ * framing phase needs no saw).
  * - `task`: one task id (an override for one job).
  * - `name`: the normalized task name.
  * - `taskType`: a JobTread task type id (only once the office sets types).
@@ -19,21 +23,60 @@ import type { ScheduleTask } from "@/lib/jobtread";
 export type RuleMatch = "task" | "name" | "taskType" | "phase";
 export const RULE_ORDER: readonly RuleMatch[] = ["task", "name", "taskType", "phase"];
 
+// ---------------------------------------------------------------------------
+// Names and targets
+// ---------------------------------------------------------------------------
+
+/**
+ * The key a task name, phase name or tool type matches on. Case, punctuation,
+ * "&" vs "and" and parenthesized asides ("(if needed)", "Door(s)") don't change it.
+ */
+export function normalizeTaskName(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+/** The type a Tools-list tool with a blank ToolType falls under. */
+export const UNTYPED = "untyped";
+
+/** A tool type's key: its normalized name ("Laser Level " → "laser level"). */
+export const typeKey = (name: string) => normalizeTaskName(name) || UNTYPED;
+
+/**
+ * What a rule or a booking asks for: one tool ("tool:<Tools-list id>") or any
+ * tool of a type ("type:<type key>").
+ */
+export type Target = string;
+export const toolTarget = (toolId: string): Target => `tool:${toolId}`;
+export const typeTarget = (typeName: string): Target => `type:${typeKey(typeName)}`;
+export function parseTarget(t: string): { tool: string } | { type: string } | null {
+  if (t.startsWith("tool:") && t.length > 5) return { tool: t.slice(5) };
+  if (t.startsWith("type:") && t.length > 5) return { type: t.slice(5) };
+  return null;
+}
+
 export interface TaskToolRule {
   match: RuleMatch;
   key: string;
-  /** The tool types it needs. Empty = "needs no tools": covered, but needs nothing. */
-  kindIds: string[];
+  /** What it needs. Empty = "needs no tools": covered, but needs nothing. */
+  targets: Target[];
 }
 
+/** A tool type: one the Tools list has, or one the office added by hand. */
 export interface ToolKind {
-  id: string;
+  id: string; // the type key
   name: string;
 }
 
-/** One physical tool from the Tools sheet, tagged with its tool type. */
+/** One tool from the Tools list. */
 export interface OwnedTool {
   id: string;
+  /** Its type key (`typeKey(ToolType)`). */
   kindId: string;
   name?: string;
   condition?: string;
@@ -50,7 +93,7 @@ export interface OwnedTool {
  */
 export interface ToolHold {
   id: string;
-  kindId: string;
+  target: Target;
   jobId: string;
   jobName: string;
   startDate: string; // YYYY-MM-DD
@@ -64,12 +107,16 @@ export const placeId = (place: string) => `place:${normalizeTaskName(place) || "
 export const isPlaceId = (id: string) => id.startsWith("place:");
 
 export type SpanSource =
-  | { type: "task"; taskId: string; taskName: string; via: RuleMatch }
+  | { type: "task"; taskId: string; taskName: string; via: RuleMatch; ruleKey: string }
   | { type: "hold"; holdId: string; note: string };
 
-/** One job (or place) needing one tool type over a date span. */
+/** One job (or place) needing one tool — a specific one, or any of a type — over a date span. */
 export interface DemandSpan {
+  /** The tool type's key: the Gantt row it sits on. */
   kindId: string;
+  /** Set when a specific tool is named; absent when any tool of the type will do. */
+  toolId?: string;
+  toolName?: string;
   jobId: string;
   jobName: string;
   startDate: string;
@@ -78,7 +125,7 @@ export interface DemandSpan {
   source: SpanSource;
 }
 
-/** Task names that no rule covers — the editor's "needs tools" list. */
+/** Task names that no rule covers — the editor's "no tools yet" list. */
 export interface UnresolvedName {
   key: string; // normalized name
   name: string; // as first seen
@@ -87,7 +134,7 @@ export interface UnresolvedName {
   taskIds: string[];
 }
 
-/** Days where a tool type is needed by more jobs than the company owns. */
+/** Days where a tool type is needed by more jobs than are free, or one tool is booked twice. */
 export interface Shortfall {
   startDate: string;
   endDate: string;
@@ -95,12 +142,16 @@ export interface Shortfall {
   need: number;
   owned: number;
   jobIds: string[];
+  /** Specific tools booked for two jobs at once, or named while broken. */
+  tools: string[];
 }
 
 export interface KindSchedule {
   kindId: string;
   name: string;
   owned: number;
+  /** The usable tools of this type, so a filtered view can find shortfalls again. */
+  usableToolIds: string[];
   spans: DemandSpan[];
   shortfalls: Shortfall[];
   /** Needed in the range, and none owned. */
@@ -108,22 +159,8 @@ export interface KindSchedule {
 }
 
 // ---------------------------------------------------------------------------
-// Names
+// Rules
 // ---------------------------------------------------------------------------
-
-/**
- * The key a task name or phase name matches on. Case, punctuation, "&" vs
- * "and" and parenthesized asides ("(if needed)", "Door(s)") don't change it.
- */
-export function normalizeTaskName(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\([^)]*\)/g, " ")
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim()
-    .replace(/\s+/g, " ");
-}
 
 /** The key a rule of this match type uses for this task, or null if none. */
 export function ruleKeyFor(task: ScheduleTask, match: RuleMatch): string | null {
@@ -156,20 +193,41 @@ export function buildRuleIndex(rules: TaskToolRule[]): RuleIndex {
   return idx;
 }
 
+/** One thing a task needs, and the rule that asked for it. */
+export interface Need {
+  target: Target;
+  via: RuleMatch;
+  /** `${via}:${key}` — which rule it was. */
+  ruleKey: string;
+}
 export interface Resolution {
-  kindIds: string[];
+  needs: Need[];
+  /** The most specific level with a rule. */
   via: RuleMatch;
 }
 
-/** The tool types a task needs, or null when no rule covers it. */
+/**
+ * What a task needs, or null when no rule covers it: every level's targets,
+ * most specific first, until a "needs no tools" rule stops the rest.
+ */
 export function resolveTaskTools(task: ScheduleTask, idx: RuleIndex): Resolution | null {
+  let via: RuleMatch | null = null;
+  const needs: Need[] = [];
+  const seen = new Set<string>();
   for (const match of RULE_ORDER) {
     const key = ruleKeyFor(task, match);
     if (!key) continue;
     const r = idx.get(indexKey(match, key));
-    if (r) return { kindIds: r.kindIds, via: match };
+    if (!r) continue;
+    via ??= match;
+    if (r.targets.length === 0) break;
+    for (const target of r.targets) {
+      if (seen.has(target)) continue;
+      seen.add(target);
+      needs.push({ target, via: match, ruleKey: indexKey(match, key) });
+    }
   }
-  return null;
+  return via ? { needs, via } : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -200,38 +258,39 @@ function tokens(s: string): Set<string> {
 }
 
 /**
- * Up to `n` tool types to offer for a task name, learned from what is already
- * mapped: a rule whose name shares words with this one lends its tools (a word
- * shared with the task name counts 2, with its phase 1), and a tool type whose
- * own name appears in the task counts too. A suggestion only.
+ * Up to `n` targets to offer for a task name, learned from what is already
+ * mapped: a rule whose name shares words with this one lends what it names (a
+ * word shared with the task name counts 2, with its phase 1), and a tool type
+ * whose own name appears in the task counts too. A suggestion only.
  */
 export function suggestTools(
   task: Pick<ScheduleTask, "name" | "phase">,
   rules: TaskToolRule[],
   kinds: ToolKind[],
+  tools: OwnedTool[] = [],
   n = 3,
-): string[] {
+): Target[] {
   const nameT = tokens(task.name);
   const phaseT = tokens(task.phase);
   if (nameT.size === 0 && phaseT.size === 0) return [];
-  const known = new Set(kinds.map((k) => k.id));
+  const known = new Set([...kinds.map((k) => `type:${k.id}`), ...tools.map((t) => toolTarget(t.id))]);
   const score = new Map<string, number>();
-  const add = (id: string, by: number) => known.has(id) && by > 0 && score.set(id, (score.get(id) ?? 0) + by);
+  const add = (t: string, by: number) => known.has(t) && by > 0 && score.set(t, (score.get(t) ?? 0) + by);
   for (const r of rules) {
     if (r.match !== "name" && r.match !== "phase") continue;
     let shared = 0;
     for (const t of tokens(r.key)) shared += nameT.has(t) ? 2 : phaseT.has(t) ? 1 : 0;
-    for (const id of r.kindIds) add(id, shared);
+    for (const t of r.targets) add(t, shared);
   }
   for (const k of kinds) {
     let shared = 0;
     for (const t of tokens(k.name)) shared += nameT.has(t) ? 3 : 0;
-    add(k.id, shared);
+    add(`type:${k.id}`, shared);
   }
   return [...score]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, n)
-    .map(([id]) => id);
+    .map(([t]) => t);
 }
 
 // ---------------------------------------------------------------------------
@@ -239,18 +298,28 @@ export function suggestTools(
 // ---------------------------------------------------------------------------
 
 /**
- * Turn tasks + bookings into demand spans per tool type, and collect the task
- * names no rule covers. A task whose rule says "needs no tools", or names only
- * tool types since deleted, adds no span.
+ * Turn tasks + bookings into demand spans, and collect the task names no rule
+ * covers. A rule that says "needs no tools", or names a tool no longer in the
+ * Tools list, adds no span. A type with no tools still gets spans: that is
+ * how "none owned" shows.
  */
 export function buildDemand(
   tasks: ScheduleTask[],
   rules: TaskToolRule[],
-  kinds: ToolKind[],
+  tools: OwnedTool[],
   holds: ToolHold[] = [],
 ): { spans: DemandSpan[]; unresolved: UnresolvedName[] } {
   const idx = buildRuleIndex(rules);
-  const kindIds = new Set(kinds.map((k) => k.id));
+  const toolsById = new Map(tools.map((t) => [t.id, t]));
+  /** The span fields a target fills in, or null for a tool no longer listed. */
+  const what = (target: Target): Pick<DemandSpan, "kindId" | "toolId" | "toolName"> | null => {
+    const p = parseTarget(target);
+    if (!p) return null;
+    if ("type" in p) return { kindId: p.type };
+    const tool = toolsById.get(p.tool);
+    return tool ? { kindId: tool.kindId, toolId: tool.id, toolName: tool.name ?? tool.id } : null;
+  };
+
   const spans: DemandSpan[] = [];
   const unresolved = new Map<string, UnresolvedName>();
   for (const t of tasks) {
@@ -263,28 +332,30 @@ export function buildDemand(
       unresolved.set(key, u);
       continue;
     }
-    for (const kindId of new Set(res.kindIds)) {
-      if (!kindIds.has(kindId)) continue;
+    for (const need of res.needs) {
+      const w = what(need.target);
+      if (!w) continue;
       spans.push({
-        kindId,
+        ...w,
         jobId: t.jobId,
         jobName: t.jobName,
         startDate: t.startDate,
         endDate: t.endDate,
         qty: 1,
-        source: { type: "task", taskId: t.id, taskName: t.name, via: res.via },
+        source: { type: "task", taskId: t.id, taskName: t.name, via: need.via, ruleKey: need.ruleKey },
       });
     }
   }
   for (const h of holds) {
-    if (!kindIds.has(h.kindId)) continue;
+    const w = what(h.target);
+    if (!w) continue;
     spans.push({
-      kindId: h.kindId,
+      ...w,
       jobId: h.jobId || placeId(h.jobName),
       jobName: h.jobName || "Not a job",
       startDate: h.startDate,
       endDate: h.endDate,
-      qty: Math.max(1, Math.floor(h.qty || 1)),
+      qty: w.toolId ? 1 : Math.max(1, Math.floor(h.qty || 1)),
       source: { type: "hold", holdId: h.id, note: h.note },
     });
   }
@@ -309,35 +380,52 @@ export const dayNum = (iso: string) => Math.round(Date.parse(`${iso.slice(0, 10)
 export const dayIso = (n: number) => new Date(n * DAY_MS).toISOString().slice(0, 10);
 
 /**
- * The periods inside `from`..`to` where the jobs needing a tool type outnumber
- * the usable ones owned. A job counts once per day — two of its tasks on the
- * same day share the tool — unless a hold asks that job for more.
+ * The periods inside `from`..`to` where one tool type runs short. On each day:
+ * - a specific tool counts once for each job that names it — so a tool named
+ *   by two jobs at once, or named while broken, is a shortfall by itself;
+ * - "any tool of the type" counts once per job (a job's largest booking
+ *   quantity), less the specific tools of that type already at that job;
+ * - short when the total is more than the usable tools owned.
  */
-export function findShortfalls(spans: DemandSpan[], owned: number, from: string, to: string): Shortfall[] {
+export function findShortfalls(spans: DemandSpan[], usableToolIds: ReadonlySet<string>, from: string, to: string): Shortfall[] {
   const f = dayNum(from);
   const t = dayNum(to);
+  const owned = usableToolIds.size;
   const ranged = spans
     .map((s) => ({ s, a: Math.max(f, dayNum(s.startDate)), b: Math.min(t, dayNum(s.endDate)) }))
     .filter((x) => x.a <= x.b);
-  type Period = { a: number; b: number; need: number; jobs: Set<string> };
+  type Period = { a: number; b: number; need: number; jobs: Set<string>; tools: Set<string> };
   const periods: Period[] = [];
   let cur: Period | null = null;
   for (let d = f; d <= t; d++) {
-    const perJob = new Map<string, number>();
-    for (const x of ranged)
-      if (x.a <= d && x.b >= d) perJob.set(x.s.jobId, Math.max(perJob.get(x.s.jobId) ?? 0, x.s.qty));
+    const jobsByTool = new Map<string, Set<string>>();
+    const anyByJob = new Map<string, number>();
+    for (const x of ranged) {
+      if (x.a > d || x.b < d) continue;
+      if (x.s.toolId) jobsByTool.set(x.s.toolId, (jobsByTool.get(x.s.toolId) ?? new Set()).add(x.s.jobId));
+      else anyByJob.set(x.s.jobId, Math.max(anyByJob.get(x.s.jobId) ?? 0, x.s.qty));
+    }
+    const specificAt = new Map<string, number>();
+    const clash = new Set<string>();
     let need = 0;
-    for (const q of perJob.values()) need += q;
-    if (need <= owned) {
+    for (const [tool, jobs] of jobsByTool) {
+      need += jobs.size;
+      if (jobs.size > 1 || !usableToolIds.has(tool)) clash.add(tool);
+      for (const j of jobs) specificAt.set(j, (specificAt.get(j) ?? 0) + 1);
+    }
+    for (const [job, q] of anyByJob) need += Math.max(0, q - (specificAt.get(job) ?? 0));
+    if (need <= owned && clash.size === 0) {
       cur = null;
       continue;
     }
+    const jobsToday = new Set([...anyByJob.keys(), ...[...jobsByTool.values()].flatMap((s) => [...s])]);
     if (cur && cur.b === d - 1) {
       cur.b = d;
       cur.need = Math.max(cur.need, need);
-      for (const j of perJob.keys()) cur.jobs.add(j);
+      for (const j of jobsToday) cur.jobs.add(j);
+      for (const c of clash) cur.tools.add(c);
     } else {
-      cur = { a: d, b: d, need, jobs: new Set(perJob.keys()) };
+      cur = { a: d, b: d, need, jobs: jobsToday, tools: clash };
       periods.push(cur);
     }
   }
@@ -347,10 +435,14 @@ export function findShortfalls(spans: DemandSpan[], owned: number, from: string,
     need: p.need,
     owned,
     jobIds: [...p.jobs],
+    tools: [...p.tools],
   }));
 }
 
-/** One row per tool type: its demand in range, what is owned, and the gaps. */
+/**
+ * One row per tool type: its demand in range, the usable tools owned, and the
+ * gaps. Every type in `kinds` gets a row, and so does a type only a span names.
+ */
 export function scheduleByKind(
   kinds: ToolKind[],
   spans: DemandSpan[],
@@ -360,16 +452,19 @@ export function scheduleByKind(
 ): KindSchedule[] {
   const f = dayNum(from);
   const t = dayNum(to);
-  return kinds.map((k) => {
-    const mine = spans.filter((s) => s.kindId === k.id && dayNum(s.endDate) >= f && dayNum(s.startDate) <= t);
-    const owned = tools.filter((x) => x.kindId === k.id && isUsable(x.condition)).length;
+  const names = new Map(kinds.map((k) => [k.id, k.name]));
+  for (const s of spans) if (!names.has(s.kindId)) names.set(s.kindId, s.kindId);
+  return [...names].map(([kindId, name]) => {
+    const mine = spans.filter((s) => s.kindId === kindId && dayNum(s.endDate) >= f && dayNum(s.startDate) <= t);
+    const usable = tools.filter((x) => x.kindId === kindId && isUsable(x.condition)).map((x) => x.id);
     return {
-      kindId: k.id,
-      name: k.name,
-      owned,
+      kindId,
+      name,
+      owned: usable.length,
+      usableToolIds: usable,
       spans: mine,
-      shortfalls: findShortfalls(mine, owned, from, to),
-      missing: owned === 0 && mine.length > 0,
+      shortfalls: findShortfalls(mine, new Set(usable), from, to),
+      missing: usable.length === 0 && mine.length > 0,
     };
   });
 }
@@ -398,45 +493,53 @@ export function matchJobByLabel(label: string | undefined, jobs: { id: string; n
   return null;
 }
 
-/** A tool type a job needs soon, with none of that type there yet. */
+/** A tool a job needs soon that is not there yet. */
 export interface MoveNeeded {
   kindId: string;
   kindName: string;
+  /** Set when the job named this exact tool. */
+  toolId?: string;
+  toolName?: string;
   jobId: string;
   jobName: string;
   /** The first day the job needs it (or `from`, when it already does). */
   by: string;
-  /** Where the usable tools of that type are now. */
+  /** Where the tool — or the usable tools of the type — are now. */
   toolsAt: { name: string; at: string }[];
 }
 
 /**
- * For each tool type and each job that needs it in `from`..`to`: a move is
- * needed when no usable tool of that type sits at that job. A tool type with
- * none owned is "missing" instead, so it gets no move. Soonest first.
+ * Moves coming up, soonest first:
+ * - a named tool, to each job that needs it, when it is somewhere else;
+ * - "any tool of the type", to each job that needs one, when no usable tool of
+ *   that type is there (and the job named no tool of that type itself).
+ * A type with none owned is "missing" instead, and a booking for a place is
+ * never a move.
  */
 export function findMoves(rows: KindSchedule[], tools: OwnedTool[], from: string, to: string): MoveNeeded[] {
   const out: MoveNeeded[] = [];
+  const byId = new Map(tools.map((t) => [t.id, t]));
+  const at = (t: OwnedTool) => ({ name: t.name ?? t.id, at: t.locationLabel || "No location" });
   for (const row of rows) {
     const usable = tools.filter((t) => t.kindId === row.kindId && isUsable(t.condition));
-    if (usable.length === 0) continue;
-    const firstByJob = new Map<string, DemandSpan>();
+    const first = new Map<string, DemandSpan>(); // `${tool or *}|${job}` → earliest span
     for (const s of row.spans) {
-      if (s.endDate < from || s.startDate > to) continue;
-      if (isPlaceId(s.jobId)) continue; // a booking for the Shop or a repair is not a move to a job
-      const cur = firstByJob.get(s.jobId);
-      if (!cur || s.startDate < cur.startDate) firstByJob.set(s.jobId, s);
+      if (s.endDate < from || s.startDate > to || isPlaceId(s.jobId)) continue;
+      const k = `${s.toolId ?? "*"}|${s.jobId}`;
+      const cur = first.get(k);
+      if (!cur || s.startDate < cur.startDate) first.set(k, s);
     }
-    for (const [jobId, s] of firstByJob) {
-      if (usable.some((t) => t.jobId === jobId)) continue;
-      out.push({
-        kindId: row.kindId,
-        kindName: row.name,
-        jobId,
-        jobName: s.jobName,
-        by: s.startDate < from ? from : s.startDate,
-        toolsAt: usable.map((t) => ({ name: t.name ?? t.id, at: t.locationLabel || "No location" })),
-      });
+    const namedAt = new Set([...first.values()].filter((s) => s.toolId).map((s) => s.jobId));
+    for (const s of first.values()) {
+      const by = s.startDate < from ? from : s.startDate;
+      if (s.toolId) {
+        const tool = byId.get(s.toolId);
+        if (!tool || tool.jobId === s.jobId) continue;
+        out.push({ kindId: row.kindId, kindName: row.name, toolId: tool.id, toolName: tool.name ?? tool.id, jobId: s.jobId, jobName: s.jobName, by, toolsAt: [at(tool)] });
+      } else {
+        if (usable.length === 0 || namedAt.has(s.jobId) || usable.some((t) => t.jobId === s.jobId)) continue;
+        out.push({ kindId: row.kindId, kindName: row.name, jobId: s.jobId, jobName: s.jobName, by, toolsAt: usable.map(at) });
+      }
     }
   }
   return out.sort((a, b) => a.by.localeCompare(b.by) || a.kindName.localeCompare(b.kindName));
