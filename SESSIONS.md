@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [festive-davinci](.claude/sessions/2026-11-10-festive-davinci.md) | 2026-11-10 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 248 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 5 | — |
 | [focused-pascal](.claude/sessions/2026-11-10-focused-pascal.md) | 2026-11-10 | 0 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [magical-tesla](.claude/sessions/2026-11-09-magical-tesla.md) | 2026-11-10 | 2 | — |
 | [magical-ride](.claude/sessions/2026-11-09-magical-ride.md) | 2026-11-09 | 3 | — |
 | [fervent-goodall](.claude/sessions/2026-11-09-fervent-goodall.md) | 2026-11-09 | 0 | — |
-| [sleepy-ptolemy](.claude/sessions/2026-11-08-sleepy-ptolemy.md) | 2026-11-09 | 8 | weekly office summary skill (/weekly-summary) + first draft |

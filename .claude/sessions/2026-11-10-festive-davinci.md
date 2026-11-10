@@ -2,9 +2,9 @@
 slug: festive-davinci
 repo: ascent-companion
 branch: claude/festive-davinci-haa9nw
-status: in-progress
+status: shipped
 started: 2026-11-10T20:23:02Z
-updated: 2026-11-10T20:27:17Z
+updated: 2026-11-10T20:27:18Z
 goal: 
 next: Watch that a tapped phase bar on /tool-schedule saves a phase rule and the tasks under it pick it up.
 ---

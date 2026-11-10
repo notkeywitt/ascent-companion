@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T19:51:57Z",
+  "generatedAt": "2026-11-10T20:27:18Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "festive-davinci",
+      "file": "2026-11-10-festive-davinci.md",
+      "branch": "claude/festive-davinci-haa9nw",
+      "status": "shipped",
+      "started": "2026-11-10T20:23:02Z",
+      "updated": "2026-11-10T20:27:18Z",
+      "goal": "",
+      "next": "Watch that a tapped phase bar on /tool-schedule saves a phase rule and the tasks under it pick it up.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "20:27",
+          "sha": "9718a8b",
+          "subject": "companion: tap a phase bar on the tool schedule to assign tools to the whole phase",
+          "files": "src/app/tool-schedule/ToolSchedule.tsx"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
