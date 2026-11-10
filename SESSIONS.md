@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 1 | — |
+| [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 2 | — |
 | [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
 | [magical-tesla](.claude/sessions/2026-11-09-magical-tesla.md) | 2026-11-10 | 2 | — |
