@@ -131,16 +131,19 @@ export interface JtLaborCode {
   hoursByRate: Record<string, number>;
   /** Who worked at each rate. */
   peopleByRate: Record<string, string[]>;
+  /** Hours not yet approved — usually entered after the Labor tab was built. */
+  unapprovedHours: number;
 }
 
 /** A month's time entries per cost code: hours, cost and the rates behind it. */
 export function totalJtLabor(
-  entries: { code: string; hours: number; cost: number; hourlyRate: number; employee: string }[],
+  entries: { code: string; hours: number; cost: number; hourlyRate: number; employee: string; isApproved?: boolean }[],
 ): Record<string, JtLaborCode> {
   const out: Record<string, JtLaborCode> = {};
   for (const e of entries) {
     const code = normCode(e.code) || "(uncoded)";
-    const slot = (out[code] ??= { hours: 0, cost: 0, hoursByRate: {}, peopleByRate: {} });
+    const slot = (out[code] ??= { hours: 0, cost: 0, hoursByRate: {}, peopleByRate: {}, unapprovedHours: 0 });
+    if (e.isApproved === false) slot.unapprovedHours += Number(e.hours) || 0;
     const rate = String(round2(Number(e.hourlyRate) || 0));
     slot.hours += Number(e.hours) || 0;
     slot.cost += Number(e.cost) || 0;
@@ -151,6 +154,7 @@ export function totalJtLabor(
   for (const v of Object.values(out)) {
     v.hours = round2(v.hours);
     v.cost = round2(v.cost);
+    v.unapprovedHours = round2(v.unapprovedHours);
     for (const k of Object.keys(v.hoursByRate)) v.hoursByRate[k] = round2(v.hoursByRate[k]);
   }
   return out;
@@ -372,7 +376,8 @@ const hrs = (n: number) => `${round2(n)} h`;
 function compareLabor(jtLabor: Record<string, JtLaborCode>, lab: LaborTab, issues: SheetIssue[]) {
   const codes = new Set([...Object.keys(jtLabor), ...Object.keys(lab.rows)]);
   for (const code of [...codes].sort()) {
-    const jt = jtLabor[code] ?? { hours: 0, cost: 0, hoursByRate: {}, peopleByRate: {} };
+    const jt = jtLabor[code] ?? { hours: 0, cost: 0, hoursByRate: {}, peopleByRate: {}, unapprovedHours: 0 };
+    const pending = jt.unapprovedHours > 0 ? ` ${hrs(jt.unapprovedHours)} of JobTread's are not approved yet — likely entered after the Labor tab was built.` : "";
     const row = lab.rows[code];
     const where = row ? `Labor row ${row.row}` : "Labor tab";
     const sheetHours = row?.hours ?? 0;
@@ -384,7 +389,7 @@ function compareLabor(jtLabor: Record<string, JtLaborCode>, lab: LaborTab, issue
         sheet: 0,
         expected: jt.hours,
         where,
-        detail: `${code}: JobTread has ${hrs(jt.hours)} (${money(jt.cost)}) and the Labor tab has no row for it.`,
+        detail: `${code}: JobTread has ${hrs(jt.hours)} (${money(jt.cost)}) and the Labor tab has no row for it.${pending}`,
       });
       continue;
     }
@@ -406,7 +411,7 @@ function compareLabor(jtLabor: Record<string, JtLaborCode>, lab: LaborTab, issue
         sheet: sheetHours,
         expected: jt.hours,
         where,
-        detail: `${code}: JobTread ${hrs(jt.hours)} (${money(jt.cost)}), Labor tab ${hrs(sheetHours)} (${money(sheetCost)}).`,
+        detail: `${code}: JobTread ${hrs(jt.hours)} (${money(jt.cost)}), Labor tab ${hrs(sheetHours)} (${money(sheetCost)}).${pending}`,
       });
       continue;
     }

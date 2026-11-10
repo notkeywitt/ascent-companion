@@ -160,6 +160,22 @@ describe("compareTrackingSheet — labor", () => {
     expect(r.laborSheet?.cost).toBe(9357.25);
   });
 
+  it("says when the extra hours are not approved yet", () => {
+    const r = compareTrackingSheet({
+      year: 2026,
+      month: 10,
+      jt: totalJtLines([], []),
+      jtLabor: totalJtLabor([
+        ...entries,
+        { code: "01 31 10", hours: 4, cost: 340, hourlyRate: 85, employee: "A", isApproved: false },
+      ]),
+      subVendor: [[]],
+      labor: laborTab,
+    });
+    const off = r.issues.find((i) => i.kind === "labor-hours-off" && i.code === "01 31 10");
+    expect(off?.detail).toContain("4 h of JobTread's are not approved yet");
+  });
+
   it("reads the tab's own totals", () => {
     const lab = readLabor(laborTab);
     expect(lab.statedCost).toBe(9357.25);
