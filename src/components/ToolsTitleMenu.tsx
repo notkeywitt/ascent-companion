@@ -13,9 +13,9 @@ const PAGES = [
 ];
 
 /**
- * Phone only: the page title is a menu to the other pages of the Tools group.
- * It replaces the pill row (WorkspaceTabs hides on these pages below `pad`).
- * From `pad` up the pills return and the title is plain. `current` is the
+ * The page title is a menu to the other pages of the Tools group, at every
+ * width. On a phone it replaces the pill row (WorkspaceTabs hides on these
+ * pages below `pad`); from `pad` up the pills show too. `current` is the
  * page's own view id; the menu lists the others this person can open.
  */
 export function ToolsTitleMenu({ current }: { current: "tools" | "tool-schedule" | "requisitions" }) {
@@ -36,10 +36,9 @@ export function ToolsTitleMenu({ current }: { current: "tools" | "tool-schedule"
 
   return (
     <>
-      <PageTitle className="min-w-0 max-pad:hidden">{title}</PageTitle>
       <div
         ref={ref}
-        className="relative min-w-0 pad:hidden"
+        className="relative min-w-0"
         onKeyDown={(e) => {
           if (e.key === "Escape") setOpen(false);
         }}
