@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T22:03:50Z",
+  "generatedAt": "2026-11-10T22:13:31Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-10T22:03:50Z",
+      "updated": "2026-11-10T22:13:31Z",
       "goal": "",
       "next": "Office: add a tool with In Trailer? set and check it takes the trailer's location",
       "commits": [
@@ -1754,6 +1754,13 @@
           "sha": "a68f3bc",
           "subject": "companion: add In Trailer? dropdown to the new tool dialog",
           "files": "src/app/tools/ToolLinks.tsx, src/app/tools/page.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "14:13",
+          "sha": "652e109",
+          "subject": "companion: monthly review treats unbuilt invoices as staging; checks page shows report + findings only",
+          "files": ".claude/skills/invoice-review/SKILL.md, .claude/skills/monthly-check/SKILL.md, src/app/invoice-review/InvoiceReview.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/uninvoiced.ts, src/lib/invoiceReview/preSend.ts, +1 more"
         }
       ]
     },

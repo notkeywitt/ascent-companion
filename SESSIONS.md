@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 249 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 250 | — |
 | [festive-davinci](.claude/sessions/2026-11-10-festive-davinci.md) | 2026-11-10 | 1 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 5 | — |
 | [focused-pascal](.claude/sessions/2026-11-10-focused-pascal.md) | 2026-11-10 | 0 | — |
