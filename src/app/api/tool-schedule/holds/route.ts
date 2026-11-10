@@ -12,7 +12,7 @@ import { addHold, deleteHold, loadPlan } from "@/lib/toolScheduleStore";
  *
  *   GET                                   → { holds, jobs }
  *   POST { target, jobId | place, startDate, endDate, qty?, note? } → { id }
- *        target: "tool:<Tools-list id>" (that tool) or "type:<key>" (any of the type)
+ *        target: "tool:<Tools-list id>" (that tool, and its trailer load), "type:<key>" (any of the type) or "group:<key>" (every tool of the group)
  *   DELETE ?id=                           → { ok }
  *
  * Gated by the "tool-schedule-edit" view (office + admin).

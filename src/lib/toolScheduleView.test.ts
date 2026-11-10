@@ -5,6 +5,7 @@ import { viewIdForPath, ROLE_VIEWS } from "./views";
 import {
   assignLanes,
   compareText,
+  conflictsBySource,
   filterScheduleByJobs,
   jobColourIndex,
   jobsInView,
@@ -123,6 +124,26 @@ describe("filterScheduleByJobs", () => {
   it("drops a hidden job's moves and ignores an id it does not know", () => {
     const out = filterScheduleByJobs([row(spans)], moves, new Set(["studio", "nobody"]), from, to);
     expect(out.moves.map((m) => m.jobId)).toEqual(["main"]);
+  });
+});
+
+describe("conflictsBySource", () => {
+  it("marks the bars that sit in a shortfall, with the target that ran short", () => {
+    const a = { ...span("a", "2026-12-01", "2026-12-05"), target: "type:k" };
+    const b = { ...span("b", "2026-12-04", "2026-12-08"), target: "type:k" };
+    const c = { ...span("c", "2026-12-20", "2026-12-22"), target: "type:k" };
+    const r = filterScheduleByJobs([row([a, b, c])], [], new Set(["nobody"]), "2026-12-01", "2026-12-31").rows;
+    const out = conflictsBySource(r);
+    expect([...out.keys()].sort()).toEqual(["task:a2026-12-01", "task:b2026-12-04"]);
+    expect([...out.get("task:a2026-12-01")!]).toEqual(["type:k"]);
+  });
+  it("marks a named tool only when that tool is booked twice", () => {
+    const a = { ...span("a", "2026-12-01", "2026-12-05"), toolId: "tool0", target: "tool:tool0" };
+    const b = { ...span("b", "2026-12-04", "2026-12-08"), toolId: "tool0", target: "tool:tool0" };
+    const r = filterScheduleByJobs([row([a, b], 2)], [], new Set(["nobody"]), "2026-12-01", "2026-12-31").rows;
+    expect(conflictsBySource(r).size).toBe(2);
+    const fine = filterScheduleByJobs([row([a, { ...b, toolId: "tool1", target: "tool:tool1" }], 2)], [], new Set(["nobody"]), "2026-12-01", "2026-12-31").rows;
+    expect(conflictsBySource(fine).size).toBe(0);
   });
 });
 

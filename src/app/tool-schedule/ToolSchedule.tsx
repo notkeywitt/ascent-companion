@@ -1,23 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
 import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
-import { dayNum } from "@/lib/toolSchedule";
+import { dayNum, normalizeTaskName } from "@/lib/toolSchedule";
 import { setUrlParam } from "@/lib/urlParam";
-import type { RuleMatch } from "@/lib/toolSchedule";
-import type { ToolSchedulePayload, ToolScheduleRow } from "@/lib/toolScheduleData";
+import type { RuleMatch, Target } from "@/lib/toolSchedule";
+import type { GanttBooking, GanttTask, ToolSchedulePayload, ToolScheduleRow } from "@/lib/toolScheduleData";
 import { BookingForm } from "./BookingForm";
-import { assignLanes, filterScheduleByJobs, jobColourIndex, jobsInView, needsOnDay, weeksOfNeed } from "@/lib/toolScheduleView";
+import { conflictsBySource, filterScheduleByJobs, jobColourIndex, jobsInView, needsOnDay, weeksOfNeed } from "@/lib/toolScheduleView";
+import { findShortages, RequisitionPrompt, TargetPicker, type PickGroup, type PickTool, type PickType, type Shortage } from "./ToolPickers";
 
 /**
- * The tool schedule: which tool types each job needs on which days, from the
+ * The tool schedule: which tools each job needs on which days, from the
  * JobTread schedules, against what the company owns (docs/plans/TOOL_SCHEDULE_PLAN.md).
- * Three views of the same answer — Gantt, calendar, list — and a detail dialog
- * per tool type. Read only; the office edits what it counts on /tool-schedule/edit.
+ * The Gantt has the JobTread tasks down the side, by job; tapping a bar shows
+ * that task's tools, and the office adds or removes them there. The calendar
+ * and list show need per tool type, with a detail dialog per type.
  */
 
 type View = "gantt" | "calendar" | "list";
@@ -77,6 +79,8 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const [data, setData] = useState<ToolSchedulePayload | null>(null);
   const [error, setError] = useState("");
   const [openKind, setOpenKind] = useState<string | null>(null);
+  // A Gantt row open in its dialog: "task:<id>" or "hold:<id>".
+  const [openItem, setOpenItem] = useState<string | null>(null);
   // Jobs the person hid. Hidden, not chosen, so a job that is new shows by default.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   // The booking dialog: null closed, "" open with nothing chosen, else that target ("type:<key>").
@@ -134,12 +138,16 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
       rows: f.rows,
       moves: f.moves,
       jobs: allJobs.filter((j) => !hidden.has(j.id)),
+      tasks: data.tasks.filter((t) => !hidden.has(t.jobId)),
+      bookings: data.bookings.filter((b) => !hidden.has(b.rowJobId)),
       endsEarly: data.endsEarly.filter((j) => !hidden.has(j.id)),
     };
   }, [data, hidden, allJobs]);
   const shortCount = shown?.rows.reduce((n, r) => n + (r.missing ? 0 : r.shortfalls.length), 0) ?? 0;
   const missingCount = shown?.rows.filter((r) => r.missing).length ?? 0;
   const kind = shown?.rows.find((r) => r.kindId === openKind) ?? null;
+  const openTask = openItem?.startsWith("task:") ? (shown?.tasks.find((t) => `task:${t.id}` === openItem) ?? null) : null;
+  const openHold = openItem?.startsWith("hold:") ? (shown?.bookings.find((b) => `hold:${b.id}` === openItem) ?? null) : null;
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-6xl">
@@ -209,19 +217,20 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
           )}
           {data.unresolvedCount > 0 && (
             <Banner tone="warning" className="mb-3">
-              {data.unresolvedCount} task {data.unresolvedCount === 1 ? "name has" : "names have"} no cost code yet, so
-              {data.unresolvedCount === 1 ? " its" : " their"} tool needs are not counted.{" "}
+              {data.unresolvedCount} task {data.unresolvedCount === 1 ? "name has" : "names have"} no tools set yet, so
+              {data.unresolvedCount === 1 ? " its" : " their"} tool needs are not counted.
+              {canEdit && " Tap a dashed bar on the Gantt to add tools, or "}
               {canEdit && (
                 <Link href="/tool-schedule/edit?tab=tasks" className="font-semibold underline">
-                  Map them
+                  see them all
                 </Link>
               )}
             </Banner>
           )}
 
-          {data.rows.length === 0 ? (
+          {data.rows.length === 0 && data.tasks.length === 0 ? (
             <EmptyState>
-              No tool types yet.{" "}
+              No tools in the schedule yet.{" "}
               {canEdit ? (
                 <Link href="/tool-schedule/edit" className="font-semibold underline">
                   Add the first one
@@ -238,14 +247,14 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
               </button>
             </EmptyState>
           ) : view === "gantt" ? (
-            <Gantt data={shown} colours={colours} onOpen={setOpenKind} months={Number(months)} />
+            <Gantt data={shown} colours={colours} onOpen={setOpenItem} months={Number(months)} />
           ) : view === "calendar" ? (
             <Calendar data={shown} onOpen={setOpenKind} />
           ) : (
             <List data={shown} colours={colours} onOpen={setOpenKind} />
           )}
 
-          {data.rows.length > 0 && view !== "calendar" && (
+          {(data.rows.length > 0 || data.tasks.length > 0) && view !== "calendar" && (
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-neutral-500 dark:text-neutral-400">
               {shown.jobs.map((j) => (
                 <span key={j.id} className="inline-flex items-center gap-1.5">
@@ -282,6 +291,12 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
             setBooking(`type:${kind.kindId}`);
           }}
         />
+      )}
+      {openTask && shown && (
+        <TaskDialog task={openTask} data={shown} canEdit={canEdit} onClose={() => setOpenItem(null)} onSaved={() => setReload((n) => n + 1)} />
+      )}
+      {openHold && (
+        <BookingDialog hold={openHold} canEdit={canEdit} onClose={() => setOpenItem(null)} onSaved={() => { setOpenItem(null); setReload((n) => n + 1); }} />
       )}
       {booking !== null && (
         <Dialog onClose={() => setBooking(null)} title="Book a tool" description="For a job or a place, with no JobTread task." size="md">
@@ -384,23 +399,43 @@ function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: strin
 
 /* ------------------------------------------------------------------- Gantt */
 
+/** A Gantt row: a JobTread task, or a booking, under its job. */
+type GanttItem =
+  | { kind: "task"; id: string; task: GanttTask }
+  | { kind: "hold"; id: string; hold: GanttBooking };
+
+/** The jobs on view, each with its tasks (start order) and then its bookings. */
+function ganttGroups(data: ToolSchedulePayload, toolsOnly: boolean): { id: string; name: string; items: GanttItem[] }[] {
+  const groups = new Map<string, { id: string; name: string; items: GanttItem[] }>();
+  const take = (id: string, name: string) => groups.get(id) ?? groups.set(id, { id, name, items: [] }).get(id)!;
+  for (const j of data.jobs) take(j.id, j.name);
+  for (const t of data.tasks) if (!toolsOnly || t.needs.length) take(t.jobId, t.jobName).items.push({ kind: "task", id: `task:${t.id}`, task: t });
+  for (const h of data.bookings) take(h.rowJobId, h.jobName || "Not a job").items.push({ kind: "hold", id: `hold:${h.id}`, hold: h });
+  return [...groups.values()].filter((g) => g.items.length);
+}
+
+const ROW_H = 30;
+
 function Gantt({
   data,
   colours,
-  onOpen,
   months,
+  onOpen,
 }: {
   data: ToolSchedulePayload;
   colours: Map<string, number>;
-  onOpen: (id: string) => void;
   months: number;
+  onOpen: (id: string) => void;
 }) {
+  const [toolsOnly, setToolsOnly] = useState(false);
   const f = dayNum(data.from);
   const days = dayNum(data.to) - f + 1;
   const ppd = months <= 1 ? 28 : months <= 3 ? 11 : 6.5; // pixels per day
   const width = Math.round(days * ppd);
   const x = (iso: string) => Math.round((dayNum(iso) - f) * ppd);
   const clampX = (iso: string) => Math.min(width, Math.max(0, x(iso)));
+  const conflicts = useMemo(() => conflictsBySource(data.rows), [data.rows]);
+  const groups = ganttGroups(data, toolsOnly);
 
   const monthTicks: { left: number; label: string }[] = [];
   const weekTicks: { left: number; label: string }[] = [];
@@ -414,93 +449,124 @@ function Gantt({
       });
     if (dt.getUTCDay() === 1) weekTicks.push({ left: d * ppd, label: months <= 1 ? fmt(iso) : String(dt.getUTCDate()) });
   }
+  const grid = (
+    <>
+      {weekTicks.map((t) => (
+        <span key={t.left} aria-hidden className="absolute inset-y-0 border-l border-line-soft" style={{ left: t.left }} />
+      ))}
+    </>
+  );
 
   return (
-    <Card pad={false} className="overflow-x-auto">
-      <div className="grid min-w-max grid-cols-[9rem_auto] sm:grid-cols-[11rem_auto]">
-        <div className="sticky left-0 z-20 flex h-11 items-end border-b border-r border-line bg-white px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink-raised dark:text-neutral-400">
-          Tool
-        </div>
-        <div className="relative h-11 border-b border-line" style={{ width }}>
-          {monthTicks.map((t) => (
-            <span key={`m${t.left}`} className="absolute top-1 h-10 whitespace-nowrap border-l border-line-strong pl-1 text-[11px] font-semibold" style={{ left: t.left }}>
-              {t.label}
-            </span>
-          ))}
-          {weekTicks.map((t) => (
-            <span key={`w${t.left}`} className="absolute bottom-0.5 pl-0.5 text-[10px] tabular-nums text-neutral-400" style={{ left: t.left }}>
-              {t.label}
-            </span>
-          ))}
-        </div>
+    <div className="grid gap-2">
+      <Segmented
+        label="Which tasks"
+        value={toolsOnly ? "tools" : "all"}
+        onChange={(v) => setToolsOnly(v === "tools")}
+        options={[
+          { value: "all", label: "Every task" },
+          { value: "tools", label: "Tasks with tools" },
+        ]}
+      />
+      {groups.length === 0 ? (
+        <EmptyState>{toolsOnly ? "No task in this range has tools yet. Tap a bar under Every task to add some." : "No schedule tasks in this range."}</EmptyState>
+      ) : (
+        <Card pad={false} className="overflow-x-auto">
+          <div className="grid min-w-max grid-cols-[10rem_auto] sm:grid-cols-[14rem_auto]">
+            <div className="sticky left-0 z-20 flex h-11 items-end border-b border-r border-line bg-white px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink-raised dark:text-neutral-400">
+              Task
+            </div>
+            <div className="relative h-11 border-b border-line" style={{ width }}>
+              {monthTicks.map((t) => (
+                <span key={`m${t.left}`} className="absolute top-1 h-10 whitespace-nowrap border-l border-line-strong pl-1 text-[11px] font-semibold" style={{ left: t.left }}>
+                  {t.label}
+                </span>
+              ))}
+              {weekTicks.map((t) => (
+                <span key={`w${t.left}`} className="absolute bottom-0.5 pl-0.5 text-[10px] tabular-nums text-neutral-400" style={{ left: t.left }}>
+                  {t.label}
+                </span>
+              ))}
+            </div>
 
-        {data.rows.map((r) => {
-          const { spans, lanes } = assignLanes(r.spans);
-          const height = Math.max(54, lanes * 20 + 14);
-          return (
-            <GanttRow key={r.kindId} row={r} height={height} onOpen={onOpen}>
-              <div className="relative" style={{ width, height }}>
-                {weekTicks.map((t) => (
-                  <span key={t.left} aria-hidden className="absolute inset-y-0 border-l border-line-soft" style={{ left: t.left }} />
-                ))}
-                {r.shortfalls.map((s) => (
-                  <span
-                    key={s.startDate}
-                    title={`${span(s.startDate, s.endDate)}: need ${s.need}, own ${s.owned}`}
-                    className={`absolute inset-y-0 border-x border-danger bg-danger/15 ${r.owned === 0 ? "bg-[repeating-linear-gradient(135deg,rgb(var(--danger)/0.18)_0_6px,transparent_6px_12px)]" : ""}`}
-                    style={{ left: clampX(s.startDate), width: Math.max(3, clampX(addDays(s.endDate, 1)) - clampX(s.startDate)) }}
-                  />
-                ))}
-                {spans.map((s, i) => {
-                  const l = clampX(s.startDate);
-                  const w = Math.max(4, clampX(addDays(s.endDate, 1)) - l - 1);
-                  const what = s.source.type === "task" ? s.source.taskName : `Booked${s.source.note ? `: ${s.source.note}` : ""}`;
+            {groups.map((g) => (
+              <Fragment key={g.id}>
+                <div className="sticky left-0 z-10 flex h-8 items-center gap-1.5 border-b border-r border-line bg-neutral-50 px-3 text-[13px] font-bold dark:bg-ink-overlay">
+                  <i aria-hidden className="inline-block h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: jobColour(colours.get(g.id)) }} />
+                  <span className="truncate">{g.name}</span>
+                </div>
+                <div className="relative h-8 border-b border-line bg-neutral-50 dark:bg-ink-overlay" style={{ width }}>
+                  {grid}
+                </div>
+                {g.items.map((it) => {
+                  const a = it.kind === "task" ? it.task.startDate : it.hold.startDate;
+                  const z = it.kind === "task" ? it.task.endDate : it.hold.endDate;
+                  const short = conflicts.has(it.id);
+                  const title = it.kind === "task" ? it.task.name : `Booked: ${it.hold.label}`;
+                  const sub = it.kind === "task" ? it.task.phase : it.hold.note;
+                  const tools =
+                    it.kind === "task"
+                      ? it.task.needs.length
+                        ? it.task.needs.map((n) => n.label).join(" · ")
+                        : it.task.covered
+                          ? "Needs no tools"
+                          : "No tools yet"
+                      : `${it.hold.label}${it.hold.qty > 1 ? ` ×${it.hold.qty}` : ""}`;
+                  const empty = it.kind === "task" && it.task.needs.length === 0;
+                  const l = clampX(a);
+                  const w = Math.max(6, clampX(addDays(z, 1)) - l - 1);
                   return (
-                    <span
-                      key={i}
-                      title={`${s.jobName}${s.toolName ? ` · ${s.toolName}` : ""} · ${what} · ${span(s.startDate, s.endDate)}`}
-                      className={`absolute h-4 truncate rounded px-1 text-[10px] font-medium leading-4 text-white ${s.source.type === "hold" ? "bg-[repeating-linear-gradient(135deg,rgb(255_255_255/0.28)_0_4px,transparent_4px_8px)]" : ""}`}
-                      style={{ left: l, width: w, top: 7 + s.lane * 20, backgroundColor: jobColour(colours.get(s.jobId)) }}
-                    >
-                      {s.jobName}
-                      {s.toolName ? ` · ${s.toolName}` : ""}
-                    </span>
+                    <Fragment key={it.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpen(it.id)}
+                        className="sticky left-0 z-10 flex min-w-0 flex-col justify-center border-b border-r border-line-soft bg-white px-3 text-left dark:bg-ink-raised"
+                        style={{ height: ROW_H }}
+                      >
+                        <span className={`truncate text-[12px] font-semibold leading-tight ${short ? "text-danger" : ""}`}>{title}</span>
+                        {sub && <span className="truncate text-[10px] leading-tight text-neutral-500 dark:text-neutral-400">{sub}</span>}
+                      </button>
+                      <div className="relative border-b border-line-soft" style={{ width, height: ROW_H }}>
+                        {grid}
+                        <button
+                          type="button"
+                          onClick={() => onOpen(it.id)}
+                          title={`${title} · ${span(a, z)} · ${tools}${short ? " · short" : ""}`}
+                          aria-label={`${title}, ${span(a, z)}: ${tools}${short ? ", short" : ""}. Open to assign tools`}
+                          className={`absolute top-1 flex h-[22px] items-center overflow-hidden whitespace-nowrap rounded px-1.5 text-[11px] font-medium ${
+                            empty ? "border border-dashed text-neutral-600 dark:text-neutral-300" : "text-white"
+                          } ${it.kind === "hold" ? "bg-[repeating-linear-gradient(135deg,rgb(255_255_255/0.28)_0_4px,transparent_4px_8px)]" : ""} ${
+                            short ? "ring-2 ring-danger ring-offset-1 ring-offset-white dark:ring-offset-ink-raised" : ""
+                          }`}
+                          style={{
+                            left: l,
+                            width: w,
+                            ...(empty
+                              ? { borderColor: jobColour(colours.get(g.id)), background: "transparent" }
+                              : { backgroundColor: jobColour(colours.get(g.id)) }),
+                          }}
+                        >
+                          {w >= 120 && (short ? `⚠ ${tools}` : tools)}
+                        </button>
+                        {w < 120 && (
+                          <span
+                            aria-hidden
+                            className={`pointer-events-none absolute top-1 flex h-[22px] items-center whitespace-nowrap pl-1.5 text-[11px] ${empty ? "text-neutral-400" : "text-neutral-600 dark:text-neutral-300"}`}
+                            style={{ left: l + w }}
+                          >
+                            {short ? `⚠ ${tools}` : tools}
+                          </span>
+                        )}
+                      </div>
+                    </Fragment>
                   );
                 })}
-              </div>
-            </GanttRow>
-          );
-        })}
-      </div>
-    </Card>
-  );
-}
-
-function GanttRow({ row, height, onOpen, children }: { row: ToolScheduleRow; height: number; onOpen: (id: string) => void; children: React.ReactNode }) {
-  const state = row.missing ? (
-    <span className="text-danger">None owned</span>
-  ) : row.shortfalls.length ? (
-    <span className="text-danger">
-      Own {row.owned} · short {row.shortfalls.length}×
-    </span>
-  ) : (
-    <span>Own {row.owned}</span>
-  );
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => onOpen(row.kindId)}
-        className="sticky left-0 z-10 flex flex-col justify-center border-b border-r border-line-soft bg-white px-3 text-left last-of-type:border-b-0 dark:bg-ink-raised"
-        style={{ height }}
-      >
-        <span className="truncate text-sm font-semibold">{row.name}</span>
-        <span className="text-[12px] text-neutral-500 dark:text-neutral-400">{state}</span>
-      </button>
-      <button type="button" onClick={() => onOpen(row.kindId)} aria-label={`${row.name} details`} className="block border-b border-line-soft text-left">
-        {children}
-      </button>
-    </>
+              </Fragment>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -800,6 +866,192 @@ function KindDialog({
           )}
         </section>
       </div>
+    </Dialog>
+  );
+}
+
+/* ------------------------------------------------------------- Task dialog */
+
+/** Where a need comes from, and what a change to it touches. */
+const FROM_TEXT: Record<RuleMatch, (t: GanttTask) => string> = {
+  task: () => "This task only",
+  name: (t) => `Every “${t.name}” task, on every job`,
+  taskType: () => "Its task type, on every job",
+  phase: (t) => `Its phase, ${t.phase} — every task under it`,
+};
+
+/** The rule key a task matches at a level, as the rules route stores it. */
+function keyFor(t: GanttTask, match: RuleMatch): string {
+  if (match === "task") return t.id;
+  if (match === "name") return normalizeTaskName(t.name);
+  if (match === "phase") return normalizeTaskName(t.phase);
+  return t.taskTypeId ?? "";
+}
+
+interface Catalog {
+  tools: PickTool[];
+  types: PickType[];
+  groups: PickGroup[];
+}
+
+async function send<T>(url: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(url, { ...init, headers: init?.body ? { "Content-Type": "application/json" } : undefined });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
+  return j as T;
+}
+
+/**
+ * One JobTread task: its dates, the tools it needs and where each comes from.
+ * The office adds a tool — for this task only, every task of this name, or its
+ * whole phase — or takes one off the rule that named it. Saved at once.
+ */
+function TaskDialog({ task, data, canEdit, onClose, onSaved }: { task: GanttTask; data: ToolSchedulePayload; canEdit: boolean; onClose: () => void; onSaved: () => void }) {
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [scope, setScope] = useState<RuleMatch>("name");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [prompt, setPrompt] = useState<Shortage[] | null>(null);
+  const short = conflictsBySource(data.rows).get(`task:${task.id}`) ?? new Set<string>();
+
+  useEffect(() => {
+    if (!canEdit) return;
+    send<Catalog>("/api/tool-schedule/catalog")
+      .then((c) => setCatalog({ tools: c.tools ?? [], types: c.types ?? [], groups: c.groups ?? [] }))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [canEdit]);
+
+  const ruleTargets = (match: RuleMatch) => data.rules.find((r) => r.match === match && r.key === keyFor(task, match))?.targets ?? [];
+  const labelFor = (match: RuleMatch) => (match === "task" ? `${task.name} (${task.jobName})` : match === "name" ? task.name : match === "phase" ? task.phase : task.name);
+
+  async function save(match: RuleMatch, targets: Target[], added: Target[] = []) {
+    setBusy(true);
+    setError("");
+    try {
+      const key = keyFor(task, match);
+      if (targets.length) await send("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match, key, label: labelFor(match), targets }) });
+      else await send(`/api/tool-schedule/rules?match=${match}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
+      onSaved();
+      const s = await findShortages(match, key, added);
+      if (s.length) setPrompt(s);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const scopes = [
+    { value: "task", label: "This job only" },
+    { value: "name", label: "Every task of this name" },
+    ...(task.phase ? [{ value: "phase", label: "Whole phase" }] : []),
+  ] as { value: RuleMatch; label: string }[];
+
+  return (
+    <Dialog
+      onClose={onClose}
+      busy={busy}
+      title={task.name}
+      description={[task.jobName, task.phase, span(task.startDate, task.endDate)].filter(Boolean).join(" · ")}
+      size="md"
+    >
+      <div className="grid gap-5">
+        {error && <Banner tone="error">{error}</Banner>}
+        <section>
+          <SectionHeading>Tools</SectionHeading>
+          {task.needs.length === 0 ? (
+            <p className="text-sm text-neutral-500">{task.covered ? "Set to need no tools." : "No tools set yet."}</p>
+          ) : (
+            <ul className="grid gap-1.5">
+              {task.needs.map((n) => (
+                <li key={`${n.via}:${n.target}`} className="flex items-start justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className={`block text-sm font-semibold ${short.has(n.target) ? "text-danger" : ""}`}>
+                      {short.has(n.target) ? "⚠ " : ""}
+                      {n.label}
+                    </span>
+                    <span className="block text-[12px] text-neutral-500">
+                      {FROM_TEXT[n.via](task)}
+                      {short.has(n.target) ? " · short on some of these days" : ""}
+                    </span>
+                  </span>
+                  {canEdit && (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      disabled={busy}
+                      aria-label={`Remove ${n.label}`}
+                      onClick={() => void save(n.via, ruleTargets(n.via).filter((t) => t !== n.target))}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+        {canEdit && (
+          <section className="grid gap-2">
+            <SectionHeading>Add a tool</SectionHeading>
+            <Segmented label="Add it for" value={scope} onChange={setScope} options={scopes} />
+            <p className="text-[12px] text-neutral-500">{FROM_TEXT[scope](task)}.</p>
+            {!catalog ? (
+              error ? null : <Loading label="Reading the Tools list…" />
+            ) : (
+              <TargetPicker
+                tools={catalog.tools}
+                types={catalog.types}
+                groups={catalog.groups}
+                exclude={ruleTargets(scope)}
+                label="Choose a tool, type or group…"
+                onPick={(t) => void save(scope, [...ruleTargets(scope), t], [t])}
+              />
+            )}
+          </section>
+        )}
+      </div>
+      {prompt && <RequisitionPrompt shortages={prompt} onClose={() => setPrompt(null)} />}
+    </Dialog>
+  );
+}
+
+/** A booking on the Gantt: what, where, when — and Remove for the office. */
+function BookingDialog({ hold, canEdit, onClose, onSaved }: { hold: GanttBooking; canEdit: boolean; onClose: () => void; onSaved: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  return (
+    <Dialog
+      onClose={onClose}
+      busy={busy}
+      title={`Booked: ${hold.label}`}
+      description={`${hold.jobName || "Not a job"} · ${span(hold.startDate, hold.endDate)}`}
+      size="sm"
+      footer={
+        canEdit ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await send(`/api/tool-schedule/holds?id=${encodeURIComponent(hold.id)}`, { method: "DELETE" });
+                onSaved();
+              } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+                setBusy(false);
+              }
+            }}
+          >
+            Remove booking
+          </Button>
+        ) : undefined
+      }
+    >
+      {error && <Banner tone="error" className="mb-3">{error}</Banner>}
+      <MetaLine items={[hold.qty > 1 && `×${hold.qty}`, hold.note || "No note", !hold.jobId && "Not a job"]} />
     </Dialog>
   );
 }

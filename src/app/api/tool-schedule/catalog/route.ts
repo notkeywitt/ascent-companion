@@ -10,7 +10,7 @@ import { addType, deleteType } from "@/lib/toolScheduleStore";
  * A tool's name, type and condition are edited on the Tools page
  * (`/api/tools`); this route only adds and removes the hand-added types.
  *
- *   GET                    → { tools, types, toolsError? }
+ *   GET                    → { tools, types, groups, toolsError? }
  *   POST   { name }        → { id }      (add a type the Tools list has none of)
  *   DELETE ?rowId=         → { ok }      (remove an added type; rules naming it keep it)
  *
@@ -25,8 +25,8 @@ const fail = (e: unknown, status = 500) => NextResponse.json({ error: e instance
 export async function GET() {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   try {
-    const { tools, types, toolsError } = await loadCatalog();
-    return NextResponse.json({ tools, types, ...(toolsError ? { toolsError } : {}) });
+    const { tools, types, groups, toolsError } = await loadCatalog();
+    return NextResponse.json({ tools, types, groups, ...(toolsError ? { toolsError } : {}) });
   } catch (e) {
     return fail(e, 502);
   }

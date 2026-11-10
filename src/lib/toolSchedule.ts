@@ -48,17 +48,28 @@ export const UNTYPED = "untyped";
 export const typeKey = (name: string) => normalizeTaskName(name) || UNTYPED;
 
 /**
- * What a rule or a booking asks for: one tool ("tool:<Tools-list id>") or any
- * tool of a type ("type:<type key>").
+ * What a rule or a booking asks for: one tool ("tool:<Tools-list id>"), any
+ * tool of a type ("type:<type key>"), or every tool of a group
+ * ("group:<group key>" — the Tools list's ToolGroup column: the suction cups,
+ * a nail gun and its compressor).
  */
 export type Target = string;
 export const toolTarget = (toolId: string): Target => `tool:${toolId}`;
 export const typeTarget = (typeName: string): Target => `type:${typeKey(typeName)}`;
-export function parseTarget(t: string): { tool: string } | { type: string } | null {
+export const groupTarget = (groupName: string): Target => `group:${typeKey(groupName)}`;
+export function parseTarget(t: string): { tool: string } | { type: string } | { group: string } | null {
   if (t.startsWith("tool:") && t.length > 5) return { tool: t.slice(5) };
   if (t.startsWith("type:") && t.length > 5) return { type: t.slice(5) };
+  if (t.startsWith("group:") && t.length > 6) return { group: t.slice(6) };
   return null;
 }
+
+/**
+ * A tool of this type can hold other tools: they ride in it, go where it goes,
+ * and are booked with it. Owner decision 2026-11-10: the Job Trailer.
+ */
+export const TRAILER_TYPES: readonly string[] = ["job trailer"];
+export const isTrailerType = (typeName: string) => TRAILER_TYPES.includes(typeKey(typeName));
 
 export interface TaskToolRule {
   match: RuleMatch;
@@ -84,6 +95,10 @@ export interface OwnedTool {
   locationLabel?: string;
   /** That location as a JobTread job id, when it matches one (`matchJobByLabel`). */
   jobId?: string | null;
+  /** Its group key (`typeKey(ToolGroup)`), "" or absent when it has none. */
+  groupId?: string;
+  /** The trailer it rides in, by Tools-list id. */
+  trailerId?: string;
 }
 
 /**
@@ -123,6 +138,10 @@ export interface DemandSpan {
   endDate: string;
   qty: number;
   source: SpanSource;
+  /** Set when the tool rides in this trailer (by tool id): it comes with the trailer, so it never needs its own move. */
+  inTrailer?: string;
+  /** The rule or booking target this span came from (a group or trailer gives several spans). */
+  target?: Target;
 }
 
 /** Task names that no rule covers — the editor's "no tools yet" list. */
@@ -297,6 +316,33 @@ export function suggestTools(
 // Demand
 // ---------------------------------------------------------------------------
 
+type SpanWhat = Pick<DemandSpan, "kindId" | "toolId" | "toolName" | "inTrailer">;
+
+/**
+ * What a target stands for, as span fields: one entry for a type; the tool
+ * and everything riding in it for a tool; every tool of a group (each with its
+ * own load) for a group. Nothing for a tool or group no longer in the Tools list.
+ */
+export function targetExpander(tools: OwnedTool[]): (target: Target) => SpanWhat[] {
+  const byId = new Map(tools.map((t) => [t.id, t]));
+  const loads = new Map<string, OwnedTool[]>();
+  for (const t of tools) if (t.trailerId && t.trailerId !== t.id && byId.has(t.trailerId)) loads.set(t.trailerId, [...(loads.get(t.trailerId) ?? []), t]);
+  const one = (t: OwnedTool, inTrailer?: string): SpanWhat => ({ kindId: t.kindId, toolId: t.id, toolName: t.name ?? t.id, ...(inTrailer ? { inTrailer } : {}) });
+  const withLoad = (t: OwnedTool): SpanWhat[] => [one(t), ...(loads.get(t.id) ?? []).map((x) => one(x, t.id))];
+  return (target) => {
+    const p = parseTarget(target);
+    if (!p) return [];
+    if ("type" in p) return [{ kindId: p.type }];
+    if ("tool" in p) {
+      const tool = byId.get(p.tool);
+      return tool ? withLoad(tool) : [];
+    }
+    const out = new Map<string, SpanWhat>();
+    for (const t of tools) if (t.groupId === p.group) for (const w of withLoad(t)) if (!out.has(w.toolId!)) out.set(w.toolId!, w);
+    return [...out.values()];
+  };
+}
+
 /**
  * Turn tasks + bookings into demand spans, and collect the task names no rule
  * covers. A rule that says "needs no tools", or names a tool no longer in the
@@ -310,15 +356,7 @@ export function buildDemand(
   holds: ToolHold[] = [],
 ): { spans: DemandSpan[]; unresolved: UnresolvedName[] } {
   const idx = buildRuleIndex(rules);
-  const toolsById = new Map(tools.map((t) => [t.id, t]));
-  /** The span fields a target fills in, or null for a tool no longer listed. */
-  const what = (target: Target): Pick<DemandSpan, "kindId" | "toolId" | "toolName"> | null => {
-    const p = parseTarget(target);
-    if (!p) return null;
-    if ("type" in p) return { kindId: p.type };
-    const tool = toolsById.get(p.tool);
-    return tool ? { kindId: tool.kindId, toolId: tool.id, toolName: tool.name ?? tool.id } : null;
-  };
+  const what = targetExpander(tools);
 
   const spans: DemandSpan[] = [];
   const unresolved = new Map<string, UnresolvedName>();
@@ -332,11 +370,15 @@ export function buildDemand(
       unresolved.set(key, u);
       continue;
     }
-    for (const need of res.needs) {
-      const w = what(need.target);
-      if (!w) continue;
+    const seen = new Set<string>();
+    for (const need of res.needs) for (const w of what(need.target)) {
+      // A tool named twice for one task (on its own and in its group) counts once.
+      const k = w.toolId ? `tool:${w.toolId}` : `type:${w.kindId}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
       spans.push({
         ...w,
+        target: need.target,
         jobId: t.jobId,
         jobName: t.jobName,
         startDate: t.startDate,
@@ -346,11 +388,10 @@ export function buildDemand(
       });
     }
   }
-  for (const h of holds) {
-    const w = what(h.target);
-    if (!w) continue;
+  for (const h of holds) for (const w of what(h.target)) {
     spans.push({
       ...w,
+      target: h.target,
       jobId: h.jobId || placeId(h.jobName),
       jobName: h.jobName || "Not a job",
       startDate: h.startDate,
@@ -513,8 +554,8 @@ export interface MoveNeeded {
  * - a named tool, to each job that needs it, when it is somewhere else;
  * - "any tool of the type", to each job that needs one, when no usable tool of
  *   that type is there (and the job named no tool of that type itself).
- * A type with none owned is "missing" instead, and a booking for a place is
- * never a move.
+ * A type with none owned is "missing" instead, a booking for a place is
+ * never a move, and a tool riding in a trailer moves with the trailer.
  */
 export function findMoves(rows: KindSchedule[], tools: OwnedTool[], from: string, to: string): MoveNeeded[] {
   const out: MoveNeeded[] = [];
@@ -524,7 +565,8 @@ export function findMoves(rows: KindSchedule[], tools: OwnedTool[], from: string
     const usable = tools.filter((t) => t.kindId === row.kindId && isUsable(t.condition));
     const first = new Map<string, DemandSpan>(); // `${tool or *}|${job}` → earliest span
     for (const s of row.spans) {
-      if (s.endDate < from || s.startDate > to || isPlaceId(s.jobId)) continue;
+      // A tool riding in a trailer goes with the trailer: the trailer's move covers it.
+      if (s.endDate < from || s.startDate > to || isPlaceId(s.jobId) || s.inTrailer) continue;
       const k = `${s.toolId ?? "*"}|${s.jobId}`;
       const cur = first.get(k);
       if (!cur || s.startDate < cur.startDate) first.set(k, s);

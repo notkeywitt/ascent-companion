@@ -19,6 +19,16 @@ export interface PickTool {
   condition: string;
   usable: boolean;
   at: string;
+  group?: string;
+  groupId?: string;
+  isTrailer?: boolean;
+  trailerId?: string;
+}
+/** A ToolGroup: tools that go out together. */
+export interface PickGroup {
+  id: string;
+  name: string;
+  toolIds: string[];
 }
 export interface PickType {
   id: string;
@@ -28,12 +38,21 @@ export interface PickType {
   addedRowId?: string;
 }
 
-/** "Makita MAC2400" for a tool, "Any Compressor" for a type. */
-export function targetLabel(target: Target, tools: PickTool[], types: PickType[]): string {
+/** "Makita MAC2400" for a tool, "Any Compressor" for a type, "Suction Cups (group of 4)" for a group. */
+export function targetLabel(target: Target, tools: PickTool[], types: PickType[], groups: PickGroup[] = []): string {
   const p = parseTarget(target);
   if (!p) return target;
   if ("tool" in p) return tools.find((t) => t.id === p.tool)?.name ?? "Tool no longer in the Tools list";
-  return `Any ${types.find((t) => t.id === p.type)?.name ?? p.type}`;
+  if ("type" in p) return `Any ${types.find((t) => t.id === p.type)?.name ?? p.type}`;
+  const g = groups.find((x) => x.id === p.group);
+  return g ? `${g.name} (group of ${g.toolIds.length})` : "Group no longer in the Tools list";
+}
+
+/** How many tools ride in each trailer. */
+export function loadCounts(tools: PickTool[]): Map<string, number> {
+  const m = new Map<string, number>();
+  for (const t of tools) if (t.trailerId) m.set(t.trailerId, (m.get(t.trailerId) ?? 0) + 1);
+  return m;
 }
 
 /**
@@ -44,6 +63,7 @@ export function targetLabel(target: Target, tools: PickTool[], types: PickType[]
 export function TargetPicker({
   tools,
   types,
+  groups = [],
   exclude = [],
   onPick,
   onAddType,
@@ -51,6 +71,7 @@ export function TargetPicker({
 }: {
   tools: PickTool[];
   types: PickType[];
+  groups?: PickGroup[];
   exclude?: Target[];
   onPick: (target: Target) => void;
   onAddType?: (name: string) => Promise<void>;
@@ -64,13 +85,16 @@ export function TargetPicker({
     setOpen(false);
     setQ("");
   };
-  const groups = types
+  const typeRows = types
     .map((ty) => ({
       ty,
       tools: tools.filter((t) => t.kindId === ty.id && matchesAllWords(`${t.name} ${t.type} ${t.at}`, q)),
       typeHit: matchesAllWords(`any ${ty.name}`, q),
     }))
     .filter((g) => g.typeHit || g.tools.length > 0);
+  const names = new Map(tools.map((t) => [t.id, t.name]));
+  const groupHits = groups.filter((g) => matchesAllWords(`group ${g.name} ${g.toolIds.map((id) => names.get(id) ?? "").join(" ")}`, q));
+  const loads = loadCounts(tools);
   const exact = types.some((t) => t.id === typeKey(q));
 
   return (
@@ -96,12 +120,31 @@ export function TargetPicker({
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
-            placeholder="Search tools or types…"
-            aria-label="Search tools or types"
+            placeholder="Search tools, types or groups…"
+            aria-label="Search tools, types or groups"
             className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none"
           />
           <ul className="overflow-auto py-1">
-            {groups.map(({ ty, tools: list, typeHit }) => (
+            {groupHits.length > 0 && (
+              <li className="border-b border-line-soft pb-1">
+                <div className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Groups — every tool in it</div>
+                {groupHits.map((g) => (
+                  <button
+                    key={g.id}
+                    type="button"
+                    disabled={exclude.includes(`group:${g.id}`)}
+                    onClick={() => pick(`group:${g.id}`)}
+                    className="flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-[13px] font-semibold hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-white/5"
+                  >
+                    <span>{g.name}</span>
+                    <span className="min-w-0 truncate text-[11px] font-normal text-neutral-500">
+                      {g.toolIds.map((id) => names.get(id) ?? id).join(", ")}
+                    </span>
+                  </button>
+                ))}
+              </li>
+            )}
+            {typeRows.map(({ ty, tools: list, typeHit }) => (
               <li key={ty.id}>
                 {typeHit && (
                   <button
@@ -124,13 +167,16 @@ export function TargetPicker({
                     onClick={() => pick(`tool:${t.id}`)}
                     className="flex w-full items-baseline justify-between gap-2 py-1.5 pl-7 pr-3 text-left text-[13px] hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-white/5"
                   >
-                    <span className={t.usable ? "" : "text-neutral-400 line-through"}>{t.name}</span>
+                    <span className={t.usable ? "" : "text-neutral-400 line-through"}>
+                      {t.name}
+                      {loads.get(t.id) ? <span className="text-[11px] text-neutral-500"> + {loads.get(t.id)} riding in it</span> : null}
+                    </span>
                     <span className="min-w-0 truncate text-[11px] text-neutral-500">{t.usable ? t.at : t.condition}</span>
                   </button>
                 ))}
               </li>
             ))}
-            {groups.length === 0 && <li className="px-3 py-2 text-[13px] text-neutral-500">No tool or type matches.</li>}
+            {typeRows.length === 0 && groupHits.length === 0 && <li className="px-3 py-2 text-[13px] text-neutral-500">No tool or type matches.</li>}
             {onAddType && q.trim() && !exact && (
               <li className="border-t border-line-soft">
                 <button

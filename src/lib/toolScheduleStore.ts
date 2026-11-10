@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db, ensureDb } from "@/db";
-import { taskToolNeeds, taskToolRules, toolHolds, toolJobExcludes, toolKinds } from "@/db/schema";
+import { taskToolNeeds, taskToolRules, toolHolds, toolJobExcludes, toolKinds, toolTrailerItems } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import {
   parseTarget,
@@ -46,18 +46,21 @@ export interface StoredPlan {
   rules: StoredRule[];
   holds: ToolHold[];
   excludes: ExcludedJob[];
+  /** Tool id → the trailer (tool id) it rides in. */
+  trailerOf: Record<string, string>;
 }
 
 const now = () => new Date().toISOString();
 
 export async function loadPlan(): Promise<StoredPlan> {
   await ensureDb();
-  const [kinds, needRows, oldRuleRows, holds, excludes] = await Promise.all([
+  const [kinds, needRows, oldRuleRows, holds, excludes, loads] = await Promise.all([
     db.select().from(toolKinds),
     db.select().from(taskToolNeeds),
     db.select().from(taskToolRules),
     db.select().from(toolHolds),
     db.select().from(toolJobExcludes),
+    db.select().from(toolTrailerItems),
   ]);
   // A tool kind (the round-3 catalogue) reads as the type of the same name.
   const kindType = new Map(kinds.map((k) => [k.id, `type:${typeKey(k.name)}`]));
@@ -80,6 +83,7 @@ export async function loadPlan(): Promise<StoredPlan> {
       .filter((h) => h.target)
       .sort((a, b) => a.startDate.localeCompare(b.startDate)),
     excludes: excludes.map((e) => ({ jobId: e.jobId, jobName: e.jobName })),
+    trailerOf: Object.fromEntries(loads.map((l) => [l.toolId, l.trailerId])),
   };
 }
 
@@ -205,6 +209,28 @@ export async function setJobExcluded(jobId: string, jobName: string, excluded: b
     .onConflictDoUpdate({ target: toolJobExcludes.jobId, set: { jobName, updatedBy: by, updatedAt: now() } });
 }
 
+// ------------------------------------------------------------------ trailers
+
+/** Tool id → the trailer it rides in. */
+export async function trailerLoads(): Promise<Record<string, string>> {
+  await ensureDb();
+  const rows = await db.select().from(toolTrailerItems);
+  return Object.fromEntries(rows.map((r) => [r.toolId, r.trailerId]));
+}
+
+/** Put a tool in a trailer, or take it out (`trailerId` ""). A trailer never rides in itself. */
+export async function setToolTrailer(toolId: string, trailerId: string, by: string): Promise<void> {
+  await ensureDb();
+  if (!trailerId || trailerId === toolId) {
+    await db.delete(toolTrailerItems).where(eq(toolTrailerItems.toolId, toolId));
+    return;
+  }
+  await db
+    .insert(toolTrailerItems)
+    .values({ toolId, trailerId, updatedBy: by, updatedAt: now() })
+    .onConflictDoUpdate({ target: toolTrailerItems.toolId, set: { trailerId, updatedBy: by, updatedAt: now() } });
+}
+
 // -------------------------------------------------------------------- supply
 
 /** One row of the Tools sheet, as the tool schedule uses it. */
@@ -214,6 +240,8 @@ export interface SheetTool {
   type: string;
   toolGroup: string;
   condition: string;
+  /** The raw Location: a Project Database id. */
+  location: string;
   locationLabel: string;
 }
 
@@ -235,6 +263,7 @@ const readSheetTools = unstable_cache(
         type: String(t.type ?? ""),
         toolGroup: String(t.toolGroup ?? ""),
         condition: String(t.condition ?? ""),
+        location: String(t.location ?? ""),
         locationLabel: String(t.locationLabel ?? ""),
       }),
     ).filter((t) => t.id);

@@ -1,12 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Banner,
   btn,
   Button,
-  Checkbox,
   EmptyState,
   Input,
   ListCard,
@@ -20,84 +19,26 @@ import {
 } from "@/components/ui";
 import { matchesAllWords } from "@/lib/searchWords";
 import type { RuleMatch, Target, ToolHold } from "@/lib/toolSchedule";
-import {
-  sortCatalogTools,
-  sortRules,
-  sortUnresolved,
-  type RuleSortKey,
-  type SortDir,
-  type ToolSortKey,
-  type UnresolvedSortKey,
-} from "@/lib/toolScheduleView";
+import { sortRules, sortUnresolved, type RuleSortKey, type SortDir, type UnresolvedSortKey } from "@/lib/toolScheduleView";
 import { BookingForm } from "../BookingForm";
-import { findShortages, RequisitionPrompt, TargetPicker, targetLabel, type PickTool, type PickType, type Shortage } from "../ToolPickers";
+import { AssignedTasks, call, MATCH_LABEL, useTaskRules, type Editing, type PhaseName } from "../TaskAssign";
+import { RequisitionPrompt, TargetPicker, targetLabel, type PickGroup, type PickTool, type PickType } from "../ToolPickers";
 
 /**
  * The tool schedule's editor (docs/plans/TOOL_SCHEDULE_PLAN.md), for the office.
- * Two ways to connect tools and tasks, over the same rules:
- *   Tools    — the tool tracker's list (and each tool type): which tasks each
- *              one is assigned to, and "Assign to tasks".
+ * Each tool's tasks, group and trailer are set on the Tools page, in its edit
+ * dialog; each schedule task's tools on the Tool Schedule's Gantt. Here:
+ *   Types & groups — "any tool of a type" and whole groups: which tasks
+ *              each is assigned to, and tool types the company does not own.
  *   Tasks    — the phases, task names and task types the schedule uses: what
  *              each one needs, and "Add tool". A task needs its phase's tools
  *              plus its own.
  *   Bookings — book a tool by hand, for a job or a place, with no task.
  *   Jobs     — leave a job's schedule out (a PreCon copy of another Gantt).
- * Naming a tool type no tool of is free for offers a requisition. Companion
- * data only, except a tool's type, which is saved to the Tools list.
+ * Naming a tool type no tool of is free for offers a requisition.
  */
 
 export type EditorTab = "tools" | "tasks" | "bookings" | "jobs";
-
-async function call<T>(url: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(url, {
-    ...init,
-    headers: init?.body ? { "Content-Type": "application/json" } : undefined,
-  });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);
-  return j as T;
-}
-
-interface Rule {
-  match: RuleMatch;
-  key: string;
-  targets: Target[];
-  label: string;
-  updatedBy: string;
-  updatedAt: string;
-}
-interface PhaseName {
-  key: string;
-  name: string;
-  taskCount: number;
-  via: RuleMatch | null;
-}
-interface PhaseRow {
-  key: string;
-  name: string;
-  taskCount: number;
-  jobNames: string[];
-  names: PhaseName[];
-}
-interface Unresolved {
-  key: string;
-  name: string;
-  phase: string;
-  jobNames: string[];
-  taskIds: string[];
-  suggestions: Target[];
-}
-interface EditorData {
-  rules: Rule[];
-  tools: PickTool[];
-  types: PickType[];
-  toolsError?: string;
-  phases: PhaseRow[];
-  taskTypes: { id: string; name: string; taskCount: number }[];
-  unresolved: Unresolved[];
-}
-
-const MATCH_LABEL: Record<RuleMatch, string> = { task: "One task", name: "Task name", taskType: "Task type", phase: "Phase" };
 
 interface Sort<K extends string> {
   key: K;
@@ -149,85 +90,16 @@ function SortTh<K extends string>({ label, k, sort, onSort }: { label: string; k
   );
 }
 
-/** Everything both connecting views read, loaded once and shared. */
-interface Editing {
-  data: EditorData;
-  rulesBy: Map<string, Rule>;
-  label: (t: Target) => string;
-  names: (targets: Target[]) => string;
-  busyKey: string;
-  /** Replace what a rule names ([] = needs no tools); asks about requisitions for a newly named type. */
-  saveRule: (match: RuleMatch, key: string, label: string, targets: Target[]) => Promise<void>;
-  clearRule: (match: RuleMatch, key: string) => Promise<void>;
-  addType: (name: string) => Promise<void>;
-}
-
 export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
   const [tab, setTab] = useState<EditorTab>(initialTab);
-  const [data, setData] = useState<EditorData | null>(null);
-  const [error, setError] = useState("");
-  const [busyKey, setBusyKey] = useState("");
-  const [prompt, setPrompt] = useState<Shortage[] | null>(null);
-
-  const load = useCallback(() => {
-    call<EditorData>("/api/tool-schedule/rules")
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-  }, []);
-  useEffect(load, [load]);
-
-  const rulesBy = useMemo(() => new Map((data?.rules ?? []).map((r) => [`${r.match}:${r.key}`, r])), [data]);
-
-  async function saveRule(match: RuleMatch, key: string, label: string, targets: Target[]) {
-    const before = rulesBy.get(`${match}:${key}`)?.targets ?? [];
-    setBusyKey(`${match}:${key}`);
-    setError("");
-    try {
-      await call("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match, key, label, targets }) });
-      load();
-      const short = await findShortages(match, key, targets.filter((t) => !before.includes(t)));
-      if (short.length) setPrompt(short);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyKey("");
-    }
-  }
-  async function clearRule(match: RuleMatch, key: string) {
-    setBusyKey(`${match}:${key}`);
-    setError("");
-    try {
-      await call(`/api/tool-schedule/rules?match=${match}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyKey("");
-    }
-  }
-  async function addType(name: string) {
-    await call("/api/tool-schedule/catalog", { method: "POST", body: JSON.stringify({ name }) });
-    load();
-  }
+  const { editing, error, load, prompt, clearPrompt } = useTaskRules();
 
   const items: { key: EditorTab; label: string }[] = [
-    { key: "tools", label: "Tools" },
-    { key: "tasks", label: data?.unresolved.length ? `Tasks (${data.unresolved.length})` : "Tasks" },
+    { key: "tools", label: "Types & groups" },
+    { key: "tasks", label: editing?.data.unresolved.length ? `Tasks (${editing.data.unresolved.length})` : "Tasks" },
     { key: "bookings", label: "Bookings" },
     { key: "jobs", label: "Jobs" },
   ];
-  const editing: Editing | null = data
-    ? {
-        data,
-        rulesBy,
-        label: (t) => targetLabel(t, data.tools, data.types),
-        names: (ts) => (ts.length ? ts.map((t) => targetLabel(t, data.tools, data.types)).join(", ") : "Needs no tools"),
-        busyKey,
-        saveRule,
-        clearRule,
-        addType,
-      }
-    : null;
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-4xl">
@@ -245,96 +117,22 @@ export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
       {tab === "jobs" ? (
         <Jobs />
       ) : !editing ? (
-        error ? null : <Loading label="Reading the tool tracker and the JobTread schedules…" />
+        error ? null : <Loading label="Reading the Tools list and the JobTread schedules…" />
       ) : tab === "tools" ? (
-        <ToolsView e={editing} reload={load} />
+        <TypesView e={editing} reload={load} />
       ) : tab === "tasks" ? (
         <TasksView e={editing} />
       ) : (
         <Bookings />
       )}
-      {prompt && <RequisitionPrompt shortages={prompt} onClose={() => setPrompt(null)} />}
+      {prompt && <RequisitionPrompt shortages={prompt} onClose={clearPrompt} />}
     </main>
   );
 }
 
-/* ------------------------------------------------------------------- Tools */
+/* ---------------------------------------------------------- Types & groups */
 
-interface TaskOption {
-  match: RuleMatch;
-  key: string;
-  label: string;
-  hint: string;
-}
-
-/** Every phase, task name and task type a target can be assigned to: those scheduled, and any already ruled. */
-function taskOptions(e: Editing): TaskOption[] {
-  const out = new Map<string, TaskOption>();
-  const add = (o: TaskOption) => !out.has(`${o.match}:${o.key}`) && out.set(`${o.match}:${o.key}`, o);
-  for (const p of e.data.phases) add({ match: "phase", key: p.key, label: p.name, hint: `${p.taskCount} ${p.taskCount === 1 ? "task" : "tasks"}` });
-  for (const p of e.data.phases) for (const n of p.names) add({ match: "name", key: n.key, label: n.name, hint: p.name });
-  for (const u of e.data.unresolved) add({ match: "name", key: u.key, label: u.name, hint: u.phase || u.jobNames.join(", ") });
-  for (const t of e.data.taskTypes) add({ match: "taskType", key: t.id, label: t.name, hint: `${t.taskCount} ${t.taskCount === 1 ? "task" : "tasks"}` });
-  for (const r of e.data.rules) add({ match: r.match, key: r.key, label: r.label || r.key, hint: "Not on the schedule now" });
-  return [...out.values()];
-}
-
-/** Assign one target to tasks, or take it off them: a searchable checklist, saved on each tick. */
-function AssignPicker({ e, target }: { e: Editing; target: Target }) {
-  const [q, setQ] = useState("");
-  const options = taskOptions(e).filter((o) => matchesAllWords(`${o.label} ${o.hint} ${MATCH_LABEL[o.match]}`, q));
-  const groups: { title: string; match: RuleMatch }[] = [
-    { title: "Phases", match: "phase" },
-    { title: "Task names", match: "name" },
-    { title: "Task types", match: "taskType" },
-    { title: "Single tasks", match: "task" },
-  ];
-  async function toggle(o: TaskOption, on: boolean) {
-    const rule = e.rulesBy.get(`${o.match}:${o.key}`);
-    const now = rule?.targets ?? [];
-    if (on) {
-      const rest = now.filter((t) => t !== target);
-      if (rest.length) await e.saveRule(o.match, o.key, o.label, rest);
-      else await e.clearRule(o.match, o.key);
-    } else await e.saveRule(o.match, o.key, o.label, [...now, target]);
-  }
-  return (
-    <div className="grid gap-2 rounded-lg border border-line p-2">
-      <Input id={`assign-${target}`} placeholder="Search phases and task names…" aria-label="Search phases and task names" value={q} onChange={(ev) => setQ(ev.target.value)} />
-      <div className="grid max-h-72 gap-3 overflow-y-auto">
-        {groups.map((g) => {
-          const list = options.filter((o) => o.match === g.match).sort((a, b) => a.label.localeCompare(b.label));
-          if (!list.length) return null;
-          return (
-            <div key={g.match}>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{g.title}</div>
-              {list.map((o) => {
-                const on = !!e.rulesBy.get(`${o.match}:${o.key}`)?.targets.includes(target);
-                return (
-                  <div key={o.key} className="flex min-h-9 items-center">
-                    <Checkbox
-                      checked={on}
-                      disabled={e.busyKey === `${o.match}:${o.key}`}
-                      onChange={() => void toggle(o, on)}
-                      label={
-                        <span>
-                          {o.label} <span className="text-[12px] text-neutral-500">· {o.hint}</span>
-                        </span>
-                      }
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })}
-        {options.length === 0 && <p className="text-sm text-neutral-500">Nothing matches.</p>}
-      </div>
-    </div>
-  );
-}
-
-/** One tool or tool type: what it is, the tasks it is assigned to, and "Assign to tasks". */
+/** One tool type or group: what it is, the tasks it is assigned to, and "Assign to tasks". */
 function TargetRow({
   e,
   target,
@@ -350,13 +148,7 @@ function TargetRow({
   extra?: React.ReactNode;
   danger?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const assigned = e.data.rules.filter((r) => r.targets.includes(target));
-  async function unassign(r: Rule) {
-    const rest = r.targets.filter((t) => t !== target);
-    if (rest.length) await e.saveRule(r.match, r.key, r.label, rest);
-    else await e.clearRule(r.match, r.key);
-  }
+  const count = e.data.rules.filter((r) => r.targets.includes(target)).length;
   return (
     <div className="grid gap-2 px-3 py-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -365,115 +157,45 @@ function TargetRow({
           <MetaLine items={meta} />
         </div>
         <span className="shrink-0 text-[12px] tabular-nums text-neutral-500">
-          {assigned.length} {assigned.length === 1 ? "task" : "tasks"}
+          {count} {count === 1 ? "task" : "tasks"}
         </span>
       </div>
-      {assigned.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {assigned.map((r) => (
-            <span key={`${r.match}:${r.key}`} className="inline-flex items-center gap-1 rounded-full border border-line-strong py-0.5 pl-2.5 text-[12px]">
-              <span className="text-neutral-500">{MATCH_LABEL[r.match]}:</span> {r.label || r.key}
-              <button
-                type="button"
-                aria-label={`Take it off ${r.label || r.key}`}
-                disabled={e.busyKey === `${r.match}:${r.key}`}
-                onClick={() => void unassign(r)}
-                className="min-h-7 min-w-7 text-neutral-500"
-              >
-                ✕
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="secondary" size="xs" aria-expanded={open} onClick={() => setOpen(!open)}>
-          {open ? "Done" : "Assign to tasks"}
-        </Button>
-        {extra}
-      </div>
-      {open && <AssignPicker e={e} target={target} />}
+      <AssignedTasks e={e} target={target} extra={extra} />
     </div>
   );
 }
 
-/** Change a tool's ToolType — saved to the Tools list, the same write the Tools page makes. */
-function TypeEditor({ tool, types, onSaved }: { tool: PickTool; types: PickType[]; onSaved: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState(tool.type);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  if (!open)
-    return (
-      <Button variant="ghost" size="xs" onClick={() => setOpen(true)}>
-        {tool.type ? "Change type" : "Set its type"}
-      </Button>
-    );
-  return (
-    <form
-      className="flex flex-wrap items-center gap-1.5"
-      onSubmit={async (ev) => {
-        ev.preventDefault();
-        setBusy(true);
-        setError("");
-        try {
-          await call("/api/tools", { method: "PATCH", body: JSON.stringify({ toolId: tool.id, fields: { type: value.trim() } }) });
-          setOpen(false);
-          onSaved();
-        } catch (err) {
-          setError(err instanceof Error ? err.message : String(err));
-        } finally {
-          setBusy(false);
-        }
-      }}
-    >
-      <Input id={`type-${tool.id}`} list={`types-${tool.id}`} value={value} onChange={(ev) => setValue(ev.target.value)} aria-label="Tool type" className="!w-48" />
-      <datalist id={`types-${tool.id}`}>
-        {types.map((t) => (
-          <option key={t.id} value={t.name} />
-        ))}
-      </datalist>
-      <Button type="submit" size="xs" disabled={busy || value.trim() === tool.type}>
-        Save to Tools list
-      </Button>
-      <Button variant="ghost" size="xs" onClick={() => setOpen(false)} disabled={busy}>
-        Cancel
-      </Button>
-      {error && <span className="text-[12px] text-danger">{error}</span>}
-    </form>
-  );
-}
-
-function ToolsView({ e, reload }: { e: Editing; reload: () => void }) {
+function TypesView({ e, reload }: { e: Editing; reload: () => void }) {
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState<Sort<ToolSortKey>>({ key: "type", dir: "asc" });
   const [newType, setNewType] = useState("");
   const [busy, setBusy] = useState(false);
-  const uses = (target: Target) => e.data.rules.filter((r) => r.targets.includes(target)).length;
-  const tools = sortCatalogTools(
-    e.data.tools.filter((t) => matchesAllWords(`${t.name} ${t.type} ${t.at} ${t.condition}`, q)),
-    sort.key,
-    sort.dir,
-    (id) => uses(`tool:${id}`),
-  );
+  const names = new Map(e.data.tools.map((t) => [t.id, t.name]));
   const types = e.data.types.filter((t) => matchesAllWords(`any ${t.name}`, q));
+  const groups = e.data.groups.filter((g) => matchesAllWords(`${g.name} ${g.toolIds.map((id) => names.get(id) ?? "").join(" ")}`, q));
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <Input id="catalog-search" placeholder="Search tools and types…" aria-label="Search tools and types" value={q} onChange={(ev) => setQ(ev.target.value)} className="sm:!w-72" />
-        <SortBar
-          label="Sort tools"
-          sort={sort}
-          onChange={setSort}
-          keys={[
-            { value: "type", label: "Type" },
-            { value: "name", label: "Name" },
-            { value: "location", label: "Location" },
-            { value: "tasks", label: "Tasks" },
-          ]}
-        />
-      </div>
+      <p className="text-sm text-neutral-600 dark:text-neutral-300">
+        A single tool&apos;s tasks, group and trailer are set on the{" "}
+        <Link href="/tools" className="font-semibold underline">
+          Tools page
+        </Link>
+        : tap the tool, then Edit. A schedule task&apos;s tools are set by tapping its bar on the Tool Schedule.
+      </p>
+      <Input id="catalog-search" placeholder="Search types and groups…" aria-label="Search types and groups" value={q} onChange={(ev) => setQ(ev.target.value)} className="sm:!w-72" />
+
+      <section>
+        <SectionHeading>Groups — every tool in the group goes</SectionHeading>
+        {groups.length === 0 ? (
+          <EmptyState>{e.data.groups.length ? "No group matches." : "No groups yet. Give tools the same Tool group on the Tools page."}</EmptyState>
+        ) : (
+          <ListCard className="divide-y divide-line-soft">
+            {groups.map((g) => (
+              <TargetRow key={g.id} e={e} target={`group:${g.id}`} title={g.name} meta={[g.toolIds.map((id) => names.get(id) ?? id).join(", ")]} />
+            ))}
+          </ListCard>
+        )}
+      </section>
 
       <section>
         <SectionHeading>Tool types — any one will do</SectionHeading>
@@ -531,27 +253,6 @@ function ToolsView({ e, reload }: { e: Editing; reload: () => void }) {
           </Button>
         </form>
       </section>
-
-      <section>
-        <SectionHeading>Tools in the tool tracker ({e.data.tools.length})</SectionHeading>
-        {tools.length === 0 ? (
-          <EmptyState>{e.data.tools.length ? "No tool matches." : "The Tools list is empty."}</EmptyState>
-        ) : (
-          <ListCard className="divide-y divide-line-soft">
-            {tools.map((t) => (
-              <TargetRow
-                key={t.id}
-                e={e}
-                target={`tool:${t.id}`}
-                title={t.name}
-                danger={!t.usable}
-                meta={[t.type || "No type", t.condition, t.usable ? t.at : "Not usable"]}
-                extra={<TypeEditor tool={t} types={e.data.types} onSaved={reload} />}
-              />
-            ))}
-          </ListCard>
-        )}
-      </section>
     </div>
   );
 }
@@ -585,7 +286,7 @@ function NeedsEditor({ e, match, k, label, suggestions = [] }: { e: Editing; mat
           ))}
         </div>
       )}
-      <TargetPicker tools={e.data.tools} types={e.data.types} exclude={draft} onPick={(t) => setDraft([...draft, t])} onAddType={e.addType} />
+      <TargetPicker tools={e.data.tools} types={e.data.types} groups={e.data.groups} exclude={draft} onPick={(t) => setDraft([...draft, t])} onAddType={e.addType} />
       <div className="flex flex-wrap items-center gap-1.5">
         <Button size="xs" disabled={busy || !changed || draft.length === 0} onClick={() => void e.saveRule(match, k, label, draft)}>
           Save
@@ -771,13 +472,13 @@ function TasksView({ e }: { e: Editing }) {
 /* ---------------------------------------------------------------- Bookings */
 
 function Bookings() {
-  const [data, setData] = useState<{ holds: ToolHold[]; tools: PickTool[]; types: PickType[] } | null>(null);
+  const [data, setData] = useState<{ holds: ToolHold[]; tools: PickTool[]; types: PickType[]; groups: PickGroup[] } | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
-    Promise.all([call<{ holds: ToolHold[] }>("/api/tool-schedule/holds"), call<{ tools: PickTool[]; types: PickType[] }>("/api/tool-schedule/catalog")])
-      .then(([h, c]) => setData({ holds: h.holds, tools: c.tools, types: c.types }))
+    Promise.all([call<{ holds: ToolHold[] }>("/api/tool-schedule/holds"), call<{ tools: PickTool[]; types: PickType[]; groups?: PickGroup[] }>("/api/tool-schedule/catalog")])
+      .then(([h, c]) => setData({ holds: h.holds, tools: c.tools, types: c.types, groups: c.groups ?? [] }))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
   useEffect(load, [load]);
@@ -809,7 +510,7 @@ function Bookings() {
             <div key={h.id} className="flex items-start justify-between gap-3 px-3 py-2.5">
               <span className="min-w-0">
                 <span className="block text-sm font-semibold">
-                  {targetLabel(h.target, data.tools, data.types)}
+                  {targetLabel(h.target, data.tools, data.types, data.groups)}
                   {h.qty > 1 ? ` ×${h.qty}` : ""} → {h.jobName || h.jobId}
                 </span>
                 <MetaLine items={[`${fmt(h.startDate)} – ${fmt(h.endDate)}`, !h.jobId && "Not a job", h.note]} />

@@ -27,6 +27,15 @@ The owner approved a clickable sample of the layouts the same day.
   ("needs no tools" stops the phase). Naming a type none of is free for offers
   requisitions (`/api/tool-schedule/availability` → `/api/requisitions`).
   `task_tool_rules` is read as a fallback; `tool_kind_members` is retired.
+- Round 5 done 2026-11-10 — the Gantt's rows are the JobTread tasks, by job (not
+  tool types); tapping a bar opens the task: its tools, where each comes from, Remove,
+  and Add for this job only, every task of the name, or the whole phase. Groups: the
+  Tools list's ToolGroup column — `group:<key>` names every tool in it. A Job Trailer
+  (`TRAILER_TYPES`) holds tools (`tool_trailer_items`): booking it books its load, its
+  load needs no moves of its own, and a scan or Location edit of the trailer writes the
+  same Location to its load (`moveLoadWith`, after the reply). Each tool's tasks, group
+  and trailer are set in the Tools page's edit dialog; the editor's Tools tab became
+  "Types & groups".
 - Next: the office fills the catalogue and maps task names; then watch whether
   the move list is useful (it depends on Tools-sheet labels matching job names).
 

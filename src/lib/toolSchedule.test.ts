@@ -5,7 +5,9 @@ import {
   buildRuleIndex,
   findMoves,
   findShortfalls,
+  groupTarget,
   isPlaceId,
+  isTrailerType,
   isUsable,
   matchJobByLabel,
   monthsAhead,
@@ -15,6 +17,7 @@ import {
   resolveTaskTools,
   scheduleByKind,
   suggestTools,
+  targetExpander,
   toolTarget,
   typeKey,
   typeTarget,
@@ -326,5 +329,58 @@ describe("isUsable / monthsAhead", () => {
   it("runs to the day before the same date N months on", () => {
     expect(monthsAhead("2026-11-10", 6)).toBe("2027-05-09");
     expect(monthsAhead("2026-08-31", 6)).toBe("2027-02-27");
+  });
+});
+
+describe("groups and trailers", () => {
+  // Owner's examples 2026-11-10: the suction cups go out together; the job trailer holds tools.
+  const kit: OwnedTool[] = [
+    { id: "cup1", kindId: "cups", name: "Suction Cup 1", groupId: "suction cups", locationLabel: "Shop", jobId: null },
+    { id: "cup2", kindId: "cups", name: "Suction Cup 2", groupId: "suction cups", locationLabel: "Shop", jobId: null },
+    { id: "trailer", kindId: "job trailer", name: "Job Trailer", locationLabel: "Shop", jobId: null },
+    { id: "gun", kindId: "nail gun", name: "Framing Gun", trailerId: "trailer", locationLabel: "Shop", jobId: null },
+    { id: "loose", kindId: "nail gun", name: "Loose Gun", trailerId: "gone", locationLabel: "Shop", jobId: null },
+  ];
+
+  it("reads group targets and knows the job trailer", () => {
+    expect(parseTarget("group:suction cups")).toEqual({ group: "suction cups" });
+    expect(parseTarget("group:")).toBeNull();
+    expect(isTrailerType("Job Trailer")).toBe(true);
+    expect(isTrailerType("Trailer")).toBe(false);
+    expect(groupTarget("Suction Cups")).toBe("group:suction cups");
+  });
+
+  it("a group is every tool in it; a trailer brings its load", () => {
+    const what = targetExpander(kit);
+    expect(what("group:suction cups").map((w) => w.toolId)).toEqual(["cup1", "cup2"]);
+    expect(what("tool:trailer")).toEqual([
+      { kindId: "job trailer", toolId: "trailer", toolName: "Job Trailer" },
+      { kindId: "nail gun", toolId: "gun", toolName: "Framing Gun", inTrailer: "trailer" },
+    ]);
+    // A load pointing at a trailer that is not in the list rides nowhere.
+    expect(what("tool:loose")).toEqual([{ kindId: "nail gun", toolId: "loose", toolName: "Loose Gun" }]);
+    expect(what("group:nothing")).toEqual([]);
+  });
+
+  it("a task names each tool once, and records which target asked for it", () => {
+    const rules: TaskToolRule[] = [
+      { match: "phase", key: "framing", targets: ["group:suction cups"] },
+      { match: "name", key: "windows", targets: ["tool:cup1", "tool:trailer"] },
+    ];
+    const { spans } = buildDemand([task({ name: "Windows", phase: "Framing" })], rules, kit);
+    expect(spans.map((s) => [s.toolId, s.target])).toEqual([
+      ["cup1", "tool:cup1"],
+      ["trailer", "tool:trailer"],
+      ["gun", "tool:trailer"],
+      ["cup2", "group:suction cups"],
+    ]);
+  });
+
+  it("a tool in a trailer never needs its own move", () => {
+    const rules: TaskToolRule[] = [{ match: "name", key: "footings", targets: ["tool:trailer"] }];
+    const { spans } = buildDemand([task({})], rules, kit);
+    const rows = scheduleByKind([], spans, kit, "2026-12-01", "2026-12-31");
+    const moves = findMoves(rows, kit, "2026-12-01", "2026-12-31");
+    expect(moves.map((m) => m.toolId)).toEqual(["trailer"]);
   });
 });

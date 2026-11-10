@@ -10,7 +10,7 @@ import { deleteRule, isRuleMatch, upsertRule } from "@/lib/toolScheduleStore";
  * a task, so the office names them on a phase (covers every task under it), a
  * task name (overrides its phase, on every job), or a task type.
  *
- *   GET    [?months=6]   → { rules, tools, types, phases, taskTypes, unresolved (with suggested targets) }
+ *   GET    [?months=6]   → { rules, tools, types, groups, phases, taskTypes, unresolved (with suggested targets) }
  *   PUT    { match, key, targets: string[], label? } → { ok }   ([] = needs no tools)
  *   DELETE ?match=&key=  → { ok }
  *
@@ -26,13 +26,14 @@ export async function GET(req: Request) {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   const { from, to } = rangeFromUrl(new URL(req.url));
   try {
-    const { plan, tools, types, toolsError, phases, taskTypes, unresolved } = await taskRules(from, to);
+    const { plan, tools, types, groups, toolsError, phases, taskTypes, unresolved } = await taskRules(from, to);
     return NextResponse.json({
       from,
       to,
       rules: plan.rules,
       tools,
       types,
+      groups,
       ...(toolsError ? { toolsError } : {}),
       phases,
       taskTypes,

@@ -8,12 +8,14 @@ import {
   dayNum,
   findMoves,
   isIsoDay,
+  isTrailerType,
   isUsable,
   matchJobByLabel,
   MAX_RANGE_DAYS,
   monthsAhead,
   normalizeTaskName,
   parseTarget,
+  placeId,
   resolveTaskTools,
   ruleKey,
   scheduleByKind,
@@ -25,6 +27,8 @@ import {
   type OwnedTool,
   type RuleMatch,
   type Target,
+  type TaskToolRule,
+  type ToolHold,
   type ToolKind,
   type UnresolvedName,
 } from "@/lib/toolSchedule";
@@ -46,10 +50,37 @@ export interface KindTool {
 export interface ToolScheduleRow extends KindSchedule {
   tools: KindTool[];
 }
+/** One JobTread schedule task in range, for the Gantt: what it needs and why. */
+export interface GanttTask {
+  id: string;
+  jobId: string;
+  jobName: string;
+  name: string;
+  phase: string;
+  taskTypeId: string | null;
+  startDate: string;
+  endDate: string;
+  /** What it needs, most specific rule first. Empty when covered by "needs no tools" or by nothing. */
+  needs: { target: Target; via: RuleMatch; label: string }[];
+  /** False when no rule covers it yet. */
+  covered: boolean;
+}
+/** A booking, for the Gantt: a row under its job (or place). */
+export interface GanttBooking extends ToolHold {
+  label: string;
+  /** The id it is counted under: the job id, or `placeId(place)`. */
+  rowJobId: string;
+}
+
 export interface ToolSchedulePayload {
   from: string;
   to: string;
   rows: ToolScheduleRow[];
+  /** Every open schedule task in range (less left-out jobs), in start order: the Gantt's rows. */
+  tasks: GanttTask[];
+  bookings: GanttBooking[];
+  /** The stored rules, so the task dialog can add to or take from one. */
+  rules: TaskToolRule[];
   moves: MoveNeeded[];
   unresolvedCount: number;
   /** Jobs with tasks in the range, in first-task order. */
@@ -75,6 +106,19 @@ export interface CatalogTool extends KindTool {
   type: string;
   /** Its location as a JobTread job id, when the label matches one. */
   jobId: string | null;
+  /** Its ToolGroup as typed, and that group's key ("" for none). */
+  group: string;
+  groupId: string;
+  /** A trailer: other tools can ride in it. */
+  isTrailer: boolean;
+  /** The trailer it rides in, when it does. Its `at` is then the trailer's. */
+  trailerId?: string;
+}
+/** A ToolGroup: tools that go out together, assigned as one. */
+export interface CatalogGroup {
+  id: string;
+  name: string;
+  toolIds: string[];
 }
 export interface CatalogType extends ToolKind {
   /** Usable tools of this type. */
@@ -91,7 +135,7 @@ export interface CatalogType extends ToolKind {
  * "No type".
  */
 export function buildCatalog(sheet: SheetTool[], plan: StoredPlan, jobs: { id: string; name: string }[]) {
-  const tools: CatalogTool[] = sheet.map((t) => ({
+  const raw: CatalogTool[] = sheet.map((t) => ({
     id: t.id,
     name: t.name || t.id,
     type: t.type.trim(),
@@ -100,7 +144,24 @@ export function buildCatalog(sheet: SheetTool[], plan: StoredPlan, jobs: { id: s
     usable: isUsable(t.condition),
     at: t.locationLabel || "No location",
     jobId: matchJobByLabel(t.locationLabel, jobs),
+    group: t.toolGroup.trim(),
+    groupId: t.toolGroup.trim() ? typeKey(t.toolGroup) : "",
+    isTrailer: isTrailerType(t.type),
   }));
+  // A tool riding in a trailer is wherever the trailer is.
+  const byId = new Map(raw.map((t) => [t.id, t]));
+  const tools = raw.map((t): CatalogTool => {
+    const trailer = byId.get(plan.trailerOf[t.id] ?? "");
+    if (!trailer || !trailer.isTrailer || trailer.id === t.id || t.isTrailer) return t;
+    return { ...t, trailerId: trailer.id, at: `In ${trailer.name} · ${trailer.at}`, jobId: trailer.jobId };
+  });
+  const groups = new Map<string, CatalogGroup>();
+  for (const t of tools) {
+    if (!t.groupId) continue;
+    const g = groups.get(t.groupId) ?? { id: t.groupId, name: t.group, toolIds: [] };
+    g.toolIds.push(t.id);
+    groups.set(t.groupId, g);
+  }
   const types = new Map<string, CatalogType>();
   for (const t of tools) {
     const ty = types.get(t.kindId) ?? { id: t.kindId, name: t.kindId === UNTYPED ? "No type" : t.type, owned: 0, total: 0 };
@@ -120,12 +181,25 @@ export function buildCatalog(sheet: SheetTool[], plan: StoredPlan, jobs: { id: s
     condition: t.condition,
     locationLabel: t.at === "No location" ? "" : t.at,
     jobId: t.jobId,
+    groupId: t.groupId,
+    trailerId: t.trailerId,
   }));
   return {
     tools: tools.sort((a, b) => a.name.localeCompare(b.name)),
     types: [...types.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    groups: [...groups.values()].sort((a, b) => a.name.localeCompare(b.name)),
     owned,
   };
+}
+
+/** "Makita MAC2400", "Any Compressor", "Suction Cups (group of 4)" — a target as people read it. */
+export function targetName(target: Target, catalog: { tools: CatalogTool[]; types: CatalogType[]; groups: CatalogGroup[] }): string {
+  const p = parseTarget(target);
+  if (!p) return target;
+  if ("tool" in p) return catalog.tools.find((t) => t.id === p.tool)?.name ?? "Tool no longer in the Tools list";
+  if ("type" in p) return `Any ${catalog.types.find((t) => t.id === p.type)?.name ?? p.type}`;
+  const g = catalog.groups.find((x) => x.id === p.group);
+  return g ? `${g.name} (group of ${g.toolIds.length})` : "Group no longer in the Tools list";
 }
 
 /** The schedule's open tasks in range, less the jobs the office left out. */
@@ -163,10 +237,35 @@ export async function buildToolSchedule(from: string, to: string): Promise<ToolS
   }
   const scheduled = [...jobOrder.values()].sort((a, b) => a.first.localeCompare(b.first) || a.name.localeCompare(b.name));
 
+  const idx = buildRuleIndex(plan.rules);
+  const ganttTasks: GanttTask[] = tasks
+    .map((t) => {
+      const res = resolveTaskTools(t, idx);
+      return {
+        id: t.id,
+        jobId: t.jobId,
+        jobName: t.jobName,
+        name: t.name,
+        phase: t.phase,
+        taskTypeId: t.taskTypeId,
+        startDate: t.startDate,
+        endDate: t.endDate,
+        needs: (res?.needs ?? []).map((n) => ({ target: n.target, via: n.via, label: targetName(n.target, catalog) })),
+        covered: !!res,
+      };
+    })
+    .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.endDate.localeCompare(b.endDate) || a.name.localeCompare(b.name));
+  const bookings: GanttBooking[] = plan.holds
+    .filter((h) => h.endDate >= from && h.startDate <= to)
+    .map((h) => ({ ...h, label: targetName(h.target, catalog), rowJobId: h.jobId || placeId(h.jobName) }));
+
   return {
     from,
     to,
     rows,
+    tasks: ganttTasks,
+    bookings,
+    rules: plan.rules.map(({ match, key, targets }) => ({ match, key, targets })),
     moves: findMoves(kindRows, catalog.owned, from, to),
     unresolvedCount: unresolved.length,
     jobs: scheduled.map((j) => ({ id: j.id, name: j.name })),
@@ -218,7 +317,7 @@ export interface TaskTypeRow {
  * the catalogue to pick from.
  */
 export async function taskRules(from: string, to: string) {
-  const { plan, tools, types, owned, toolsError } = await loadCatalog();
+  const { plan, tools, types, groups, owned, toolsError } = await loadCatalog();
   const tasks = await readTasks(from, to, plan);
   const idx = buildRuleIndex(plan.rules);
   const phases = new Map<string, PhaseRow & { jobs: Set<string>; byName: Map<string, PhaseTaskName> }>();
@@ -245,6 +344,7 @@ export async function taskRules(from: string, to: string) {
     plan,
     tools,
     types,
+    groups,
     toolsError,
     phases: [...phases.values()]
       .map(({ jobs, byName, ...p }) => ({ ...p, jobNames: [...jobs].sort(), names: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)) }))

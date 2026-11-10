@@ -1990,3 +1990,16 @@ export const toolJobExcludes = sqliteTable("tool_job_excludes", {
   updatedBy: text("updated_by").notNull().default(""),
   updatedAt: text("updated_at").notNull(),
 });
+
+/**
+ * tool_trailer_items  a Tools-list tool that rides in a trailer (a tool of a
+ *                     trailer type, `isTrailerType`). It goes where the
+ *                     trailer goes: its location follows the trailer's, and
+ *                     booking the trailer books it too. One trailer per tool.
+ */
+export const toolTrailerItems = sqliteTable("tool_trailer_items", {
+  toolId: text("tool_id").primaryKey(),
+  trailerId: text("trailer_id").notNull(),
+  updatedBy: text("updated_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});

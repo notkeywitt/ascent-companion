@@ -96,6 +96,33 @@ export function jobColourIndex(jobIds: string[]): Map<string, number> {
   return m;
 }
 
+/**
+ * The spans that sit in a shortfall: a named tool booked twice (or not
+ * usable), or "any of a type" on a day the type runs short. Keyed by task id
+ * or booking id, each with the targets that ran short — the Gantt marks those bars.
+ */
+export function conflictsBySource(rows: KindSchedule[]): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const r of rows) {
+    if (r.shortfalls.length === 0) continue;
+    for (const s of r.spans) {
+      const hit = r.shortfalls.some(
+        (sf) =>
+          s.startDate <= sf.endDate &&
+          s.endDate >= sf.startDate &&
+          sf.jobIds.includes(s.jobId) &&
+          (s.toolId ? sf.tools.includes(s.toolId) : sf.need > sf.owned),
+      );
+      if (!hit) continue;
+      const id = s.source.type === "task" ? `task:${s.source.taskId}` : `hold:${s.source.holdId}`;
+      const set = out.get(id) ?? new Set<string>();
+      if (s.target) set.add(s.target);
+      out.set(id, set);
+    }
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Job filter
 // ---------------------------------------------------------------------------

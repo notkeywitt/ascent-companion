@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Banner, Button, Input, Loading, Segmented, Select } from "@/components/ui";
 import type { Target } from "@/lib/toolSchedule";
-import { TargetPicker, targetLabel, type PickTool, type PickType } from "./ToolPickers";
+import { TargetPicker, targetLabel, type PickGroup, type PickTool, type PickType } from "./ToolPickers";
 
 /**
  * Book a tool by hand — no JobTread task needed. A specific tool from the
@@ -18,6 +18,7 @@ const PLACES = ["Shop", "Out for repair", "Loaned out", "Rented out"];
 interface Choices {
   tools: PickTool[];
   types: PickType[];
+  groups: PickGroup[];
   jobs: { id: string; name: string }[];
 }
 
@@ -36,7 +37,7 @@ export function BookingForm({ target = "", onSaved }: { target?: Target; onSaved
       return j;
     };
     Promise.all([get("/api/tool-schedule/catalog"), get("/api/tool-schedule/holds")])
-      .then(([c, h]) => setChoices({ tools: c.tools ?? [], types: c.types ?? [], jobs: h.jobs ?? [] }))
+      .then(([c, h]) => setChoices({ tools: c.tools ?? [], types: c.types ?? [], groups: c.groups ?? [], jobs: h.jobs ?? [] }))
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, []);
 
@@ -69,7 +70,7 @@ export function BookingForm({ target = "", onSaved }: { target?: Target; onSaved
   }
 
   if (!choices) return error ? <Banner tone="error">{error}</Banner> : <Loading />;
-  const isTool = form.target.startsWith("tool:");
+  const isTool = !form.target.startsWith("type:");
 
   return (
     <form
@@ -84,13 +85,13 @@ export function BookingForm({ target = "", onSaved }: { target?: Target; onSaved
         Tool
         {form.target ? (
           <span className="flex flex-wrap items-center gap-2 text-sm text-neutral-900 dark:text-neutral-100">
-            <b className="font-semibold">{targetLabel(form.target, choices.tools, choices.types)}</b>
+            <b className="font-semibold">{targetLabel(form.target, choices.tools, choices.types, choices.groups)}</b>
             <Button variant="ghost" size="xs" onClick={() => setForm((f) => ({ ...f, target: "" }))}>
               Change
             </Button>
           </span>
         ) : (
-          <TargetPicker tools={choices.tools} types={choices.types} onPick={(t) => setForm((f) => ({ ...f, target: t, qty: t.startsWith("tool:") ? "1" : f.qty }))} label="Choose a tool or a type…" />
+          <TargetPicker tools={choices.tools} types={choices.types} groups={choices.groups} onPick={(t) => setForm((f) => ({ ...f, target: t, qty: t.startsWith("type:") ? f.qty : "1" }))} label="Choose a tool, type or group…" />
         )}
       </div>
       <div className="grid gap-1 sm:col-span-2">

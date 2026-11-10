@@ -1,8 +1,9 @@
 import { revalidateTag, unstable_cache } from "next/cache";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import { callAppsScript, callAppsScriptOrThrow } from "@/lib/appsScript";
+import { moveLoadWith } from "@/lib/toolTrailers";
 
 // Stay just under this route's maxDuration (60s) so a stall returns a readable
 // 504 rather than an opaque platform timeout.
@@ -91,6 +92,14 @@ export async function PATCH(req: NextRequest) {
   const result = await callAppsScript({ ...body, action: "updateTool" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   revalidateTag(TOOLS_TAG); // the edit must show on the next bootstrap, not after the TTL
+  // A trailer whose Location changed takes its load with it (lib/toolTrailers.ts).
+  const fields = (body.fields ?? {}) as Record<string, unknown>;
+  if (typeof fields.location === "string" && fields.location) {
+    const session = await auth();
+    const toolId = String(body.toolId ?? "");
+    const projectId = fields.location;
+    after(() => moveLoadWith(toolId, projectId, session?.user?.email ?? "").then(() => undefined));
+  }
   return NextResponse.json(result.data, { status: 200 });
 }
 

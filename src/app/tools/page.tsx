@@ -7,6 +7,7 @@ import { LopezMap } from "@/components/LopezMap";
 import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
+import { ToolLinks } from "./ToolLinks";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
 // "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
@@ -392,6 +393,16 @@ export default function ToolsPage() {
   const [jobFilter, setJobFilter] = useState("All");
 
   const [editing, setEditing] = useState<Tool | null>(null);
+  // Tool id → the trailer it rides in (companion data, /api/tools/trailer).
+  const [loads, setLoads] = useState<Record<string, string>>({});
+  useEffect(() => {
+    fetch("/api/tools/trailer")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => j?.loads && setLoads(j.loads))
+      .catch(() => {
+        /* no trailer loads shown; the list still works */
+      });
+  }, []);
   const [form, setForm] = useState<Tool | null>(null);
   const [newPhoto, setNewPhoto] = useState<string>(""); // downscaled data URL, if replacing
   const [saving, setSaving] = useState(false);
@@ -1088,6 +1099,7 @@ export default function ToolsPage() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{t.name || t.id}</div>
                         <div className="truncate text-xs text-neutral-500">
+                          {loads[t.id] && `In ${tools.find((x) => x.id === loads[t.id])?.name || loads[t.id]} · `}
                           {t.locationLabel || "Unassigned"}
                         </div>
                       </div>
@@ -1575,6 +1587,20 @@ export default function ToolsPage() {
                 {saveErr}
               </Banner>
             )}
+
+            <ToolLinks
+              tool={editing}
+              tools={tools}
+              loads={loads}
+              onLoadsChange={setLoads}
+              onMoved={(id, location, locationLabel) => {
+                setTools((all) => all.map((t) => (t.id === id ? { ...t, location, locationLabel } : t)));
+                if (id === editing.id) {
+                  setEditing({ ...editing, location, locationLabel });
+                  setForm({ ...form, location });
+                }
+              }}
+            />
         </Dialog>
       )}
     </main>
