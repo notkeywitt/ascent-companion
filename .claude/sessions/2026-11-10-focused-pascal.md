@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/focused-pascal-x7opse
 status: shipped
 started: 2026-11-10T16:03:14Z
-updated: 2026-11-10T16:17:17Z
+updated: 2026-11-10T16:28:49Z
 goal: 
-next: Owner to pick a Fable target; recommended: Stage 7 (move Tools, Mileage, EmployeeTime off Apps Script into the companion DB)
+next: Check the Fable session (trig_01GuZrSVpcZaMxMfXAy2s7jT, fires 2026-11-10 11:40 PST): Stage 7 Tools + Mileage, flags off. Then queue Employee Time and the Tools read flip.
 ---
 
 ## Log
