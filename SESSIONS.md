@@ -32,8 +32,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [eager-turing](.claude/sessions/2026-11-10-eager-turing.md) | 2026-11-10 | 3 | — |
 | [focused-pascal](.claude/sessions/2026-11-10-focused-pascal.md) | 2026-11-10 | 0 | — |
+| [eager-turing](.claude/sessions/2026-11-10-eager-turing.md) | 2026-11-10 | 3 | — |
 | [charming-brown](.claude/sessions/2026-11-10-charming-brown.md) | 2026-11-10 | 1 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 6 | — |
 | [focused-cerf](.claude/sessions/2026-11-10-focused-cerf.md) | 2026-11-10 | 1 | — |
