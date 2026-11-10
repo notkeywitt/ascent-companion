@@ -26,12 +26,13 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 57d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 58d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 239 | — |
 | [awesome-brown](.claude/sessions/2026-11-10-awesome-brown.md) | 2026-11-10 | 0 | — |
 | [amazing-ride](.claude/sessions/2026-11-10-amazing-ride.md) | 2026-11-10 | 1 | — |
 | [focused-pascal](.claude/sessions/2026-11-10-focused-pascal.md) | 2026-11-10 | 0 | — |
@@ -43,7 +44,6 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
 | [magical-tesla](.claude/sessions/2026-11-09-magical-tesla.md) | 2026-11-10 | 2 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-09 | 236 | — |
 | [magical-ride](.claude/sessions/2026-11-09-magical-ride.md) | 2026-11-09 | 3 | — |
 | [fervent-goodall](.claude/sessions/2026-11-09-fervent-goodall.md) | 2026-11-09 | 0 | — |
 | [sleepy-ptolemy](.claude/sessions/2026-11-08-sleepy-ptolemy.md) | 2026-11-09 | 8 | weekly office summary skill (/weekly-summary) + first draft |

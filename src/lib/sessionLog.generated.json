@@ -1,272 +1,16 @@
 {
-  "generatedAt": "2026-11-10T17:40:36Z",
+  "generatedAt": "2026-11-10T18:20:40Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "awesome-brown",
-      "file": "2026-11-10-awesome-brown.md",
-      "branch": "claude/awesome-brown-bex30z",
-      "status": "shipped",
-      "started": "2026-11-10T17:38:52Z",
-      "updated": "2026-11-10T17:40:35Z",
-      "goal": "",
-      "next": "No code change this session. Answered how the invoice tag is created (Clients > job panel > InvoiceTagCard).",
-      "commits": []
-    },
-    {
-      "slug": "amazing-ride",
-      "file": "2026-11-10-amazing-ride.md",
-      "branch": "claude/amazing-ride-m1veok",
-      "status": "shipped",
-      "started": "2026-11-10T16:56:03Z",
-      "updated": "2026-11-10T17:16:48Z",
-      "goal": "",
-      "next": "Check the all-jobs Tracking Sheets view live: labor card loads, Group=Job default, Show=Labor hides bills, a labor row opens its job's board with the entry ticked.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "17:16",
-          "sha": "74a96c8",
-          "subject": "companion: all-jobs labor list, group by job, shared filters",
-          "files": "CODEBASE_MAP.md, src/app/api/trackingsheet/all-time/route.ts, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/AllLabor.tsx, src/components/TimeEntryList.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "focused-pascal",
-      "file": "2026-11-10-focused-pascal.md",
-      "branch": "claude/focused-pascal-x7opse",
-      "status": "shipped",
-      "started": "2026-11-10T16:03:14Z",
-      "updated": "2026-11-10T16:28:50Z",
-      "goal": "",
-      "next": "Check the Fable session (trig_01GuZrSVpcZaMxMfXAy2s7jT, fires 2026-11-10 11:40 PST): Stage 7 Tools + Mileage, flags off. Then queue Employee Time and the Tools read flip.",
-      "commits": []
-    },
-    {
-      "slug": "eager-turing",
-      "file": "2026-11-10-eager-turing.md",
-      "branch": "claude/eager-turing-84swsi",
-      "status": "shipped",
-      "started": "2026-11-10T15:40:53Z",
-      "updated": "2026-11-10T16:11:43Z",
-      "goal": "",
-      "next": "Check the Tools title menu on a phone after deploy",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "15:43",
-          "sha": "2fd9ca6",
-          "subject": "companion: tools title menu on phone, drop pill row",
-          "files": "src/app/tools/page.tsx, src/components/WorkspaceTabs.tsx"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "15:49",
-          "sha": "b4d9401",
-          "subject": "companion: drop pill row on phone for tool schedule and requisitions",
-          "files": "src/components/WorkspaceTabs.tsx"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "16:11",
-          "sha": "e73e535",
-          "subject": "companion: share the tools title menu with tool schedule and requisitions",
-          "files": "src/app/requisitions/page.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/tools/page.tsx, src/components/ToolsTitleMenu.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "charming-brown",
-      "file": "2026-11-10-charming-brown.md",
-      "branch": "claude/charming-brown-z0s76h",
-      "status": "shipped",
-      "started": "2026-11-10T15:37:40Z",
-      "updated": "2026-11-10T15:39:35Z",
-      "goal": "",
-      "next": "Confirm the status bar is dark on the owner's phone after re-adding the app to the home screen.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "15:38",
-          "sha": "bb7bb5a",
-          "subject": "companion: dark status bar for the installed app",
-          "files": "src/app/manifest.ts"
-        }
-      ]
-    },
-    {
-      "slug": "tool-tracker-gantt",
-      "file": "2026-11-10-tool-tracker-gantt.md",
-      "branch": "claude/tool-tracker-gantt-x7gelq",
-      "status": "shipped",
-      "started": "2026-11-10T06:16:53Z",
-      "updated": "2026-11-10T15:17:12Z",
-      "goal": "",
-      "next": "Office adds tool types, ticks tools on each phase in Edit Tool Schedule > Tasks, gives exceptions their own tools, and leaves out Studio PreCon on the Jobs tab.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "06:30",
-          "sha": "96b2b15",
-          "subject": "companion: start tool schedule session ledger",
-          "files": ""
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:36",
-          "sha": "5183823",
-          "subject": "companion: add tool schedule reads and rules (stage 1)",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/jobtread.ts, src/lib/jobtread/costCodes.ts, src/lib/jobtread/tasks.ts, src/lib/toolSchedule.test.ts, +1 more"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:59",
-          "sha": "e7c272e",
-          "subject": "companion: add tool schedule page and catalogue editor",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/jobs/route.ts, src/app/api/tool-schedule/route.ts, +20 more"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "14:46",
-          "sha": "94a2389",
-          "subject": "companion: tool schedule job filter, searchable code pickers, sorting",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "14:52",
-          "sha": "7537c11",
-          "subject": "companion: update tool schedule session ledger",
-          "files": ""
-        },
-        {
-          "date": "2026-11-10",
-          "time": "15:17",
-          "sha": "ce20a8b",
-          "subject": "companion: map tools straight to phases and tasks, book tools by hand",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, src/app/tool-schedule/BookingForm.tsx, +15 more"
-        }
-      ]
-    },
-    {
-      "slug": "focused-cerf",
-      "file": "2026-11-10-focused-cerf.md",
-      "branch": "claude/focused-cerf-ik9e36",
-      "status": "shipped",
-      "started": "2026-11-10T14:40:11Z",
-      "updated": "2026-11-10T14:55:36Z",
-      "goal": "",
-      "next": "Post the calendar announcement with /employee-time?tab=compare&view=calendar; give other views an address as the owner asks.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "14:52",
-          "sha": "b3e54df",
-          "subject": "companion: add links in notices and linkable view addresses",
-          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/vendors/page.tsx, src/components/NoticeText.tsx, +6 more"
-        }
-      ]
-    },
-    {
-      "slug": "festive-faraday",
-      "file": "2026-11-10-festive-faraday.md",
-      "branch": "claude/festive-faraday-yovg2f",
-      "status": "shipped",
-      "started": "2026-11-10T06:06:02Z",
-      "updated": "2026-11-10T06:31:55Z",
-      "goal": "",
-      "next": "Get office feedback on Split View calendar mode (beta), including adding time from it; decide whether it replaces the grid or stays a toggle.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "06:16",
-          "sha": "17783f4",
-          "subject": "companion: add split view beta calendar mode",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:31",
-          "sha": "6456ded",
-          "subject": "companion: add time entries from split view calendar mode",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts"
-        }
-      ]
-    },
-    {
-      "slug": "bold-cori",
-      "file": "2026-11-10-bold-cori.md",
-      "branch": "claude/bold-cori-12ehzv",
-      "status": "shipped",
-      "started": "2026-11-10T00:37:18Z",
-      "updated": "2026-11-10T00:39:05Z",
-      "goal": "",
-      "next": "None. Watch that the next push to main turns CI green.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "00:39",
-          "sha": "3f8a9a0",
-          "subject": "companion: fix lint error failing ci, add lint to pre-push hook",
-          "files": ".githooks/pre-push, CLAUDE.md, src/components/PackageEmail.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "sharp-keller",
-      "file": "2026-11-10-sharp-keller.md",
-      "branch": "claude/sharp-keller-kbw4g4",
-      "status": "shipped",
-      "started": "2026-11-10T00:24:57Z",
-      "updated": "2026-11-10T00:31:15Z",
-      "goal": "",
-      "next": "Optional: align MLG_ADMIN_EMAILS in ascent-appscript/Mileage.js with companion roles, so updateMileage edit rights match too.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "00:28",
-          "sha": "013ed03",
-          "subject": "companion: show field users only their own logged miles",
-          "files": "CODEBASE_MAP.md, src/app/api/mileage/report/route.ts, src/app/api/mileage/route.ts, src/lib/mileageScope.test.ts, src/lib/mileageScope.ts"
-        }
-      ]
-    },
-    {
-      "slug": "magical-tesla",
-      "file": "2026-11-09-magical-tesla.md",
-      "branch": "claude/magical-tesla-ixutgx",
-      "status": "shipped",
-      "started": "2026-11-09T23:21:57Z",
-      "updated": "2026-11-10T00:22:39Z",
-      "goal": "",
-      "next": "Check on a phone that /employee-time shows only the title, the Time clock / Timesheets switch and the clock.",
-      "commits": [
-        {
-          "date": "2026-11-09",
-          "time": "23:43",
-          "sha": "fd674b0",
-          "subject": "companion: drop time strip on phone, add payroll icon to rail and drawer",
-          "files": "src/components/TabBar.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "00:22",
-          "sha": "e6a5a67",
-          "subject": "companion: hide act-as link and time-off line on phone time page",
-          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-09T21:24:04Z",
+      "updated": "2026-11-10T18:20:40Z",
       "goal": "",
-      "next": "none — bill print button shipped",
+      "next": "Owner runs vercel login + link, then /monthly-check runs October 2026; push monthly-check runner after a clean run",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1919,6 +1663,283 @@
           "sha": "1c047a1",
           "subject": "companion: print button on the bill scan lightbox",
           "files": "src/components/InvoiceViewer.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "10:17",
+          "sha": "f87a6d8",
+          "subject": "companion: tools title dropdown on desktop too",
+          "files": "src/components/ToolsTitleMenu.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "10:17",
+          "sha": "7abe03e",
+          "subject": "companion: link the vendor name on a bill card to its vendor page",
+          "files": "src/app/bill/[docId]/BillView.tsx, src/app/trackingsheet/BillCodingCard.tsx, src/app/vendors/page.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "10:20",
+          "sha": "56f8afa",
+          "subject": "companion: move the invoice review's claude work to claude code on the office mac",
+          "files": ".claude/skills/invoice-review/SKILL.md, .claude/skills/monthly-check/SKILL.md, .gitignore, CODEBASE_MAP.md, scripts/monthly-check/agent.mjs, scripts/monthly-check/install.sh, +15 more"
+        }
+      ]
+    },
+    {
+      "slug": "awesome-brown",
+      "file": "2026-11-10-awesome-brown.md",
+      "branch": "claude/awesome-brown-bex30z",
+      "status": "shipped",
+      "started": "2026-11-10T17:38:52Z",
+      "updated": "2026-11-10T17:40:35Z",
+      "goal": "",
+      "next": "No code change this session. Answered how the invoice tag is created (Clients > job panel > InvoiceTagCard).",
+      "commits": []
+    },
+    {
+      "slug": "amazing-ride",
+      "file": "2026-11-10-amazing-ride.md",
+      "branch": "claude/amazing-ride-m1veok",
+      "status": "shipped",
+      "started": "2026-11-10T16:56:03Z",
+      "updated": "2026-11-10T17:16:48Z",
+      "goal": "",
+      "next": "Check the all-jobs Tracking Sheets view live: labor card loads, Group=Job default, Show=Labor hides bills, a labor row opens its job's board with the entry ticked.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "17:16",
+          "sha": "74a96c8",
+          "subject": "companion: all-jobs labor list, group by job, shared filters",
+          "files": "CODEBASE_MAP.md, src/app/api/trackingsheet/all-time/route.ts, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/AllLabor.tsx, src/components/TimeEntryList.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "focused-pascal",
+      "file": "2026-11-10-focused-pascal.md",
+      "branch": "claude/focused-pascal-x7opse",
+      "status": "shipped",
+      "started": "2026-11-10T16:03:14Z",
+      "updated": "2026-11-10T16:28:50Z",
+      "goal": "",
+      "next": "Check the Fable session (trig_01GuZrSVpcZaMxMfXAy2s7jT, fires 2026-11-10 11:40 PST): Stage 7 Tools + Mileage, flags off. Then queue Employee Time and the Tools read flip.",
+      "commits": []
+    },
+    {
+      "slug": "eager-turing",
+      "file": "2026-11-10-eager-turing.md",
+      "branch": "claude/eager-turing-84swsi",
+      "status": "shipped",
+      "started": "2026-11-10T15:40:53Z",
+      "updated": "2026-11-10T16:11:43Z",
+      "goal": "",
+      "next": "Check the Tools title menu on a phone after deploy",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "15:43",
+          "sha": "2fd9ca6",
+          "subject": "companion: tools title menu on phone, drop pill row",
+          "files": "src/app/tools/page.tsx, src/components/WorkspaceTabs.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "15:49",
+          "sha": "b4d9401",
+          "subject": "companion: drop pill row on phone for tool schedule and requisitions",
+          "files": "src/components/WorkspaceTabs.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "16:11",
+          "sha": "e73e535",
+          "subject": "companion: share the tools title menu with tool schedule and requisitions",
+          "files": "src/app/requisitions/page.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/tools/page.tsx, src/components/ToolsTitleMenu.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "charming-brown",
+      "file": "2026-11-10-charming-brown.md",
+      "branch": "claude/charming-brown-z0s76h",
+      "status": "shipped",
+      "started": "2026-11-10T15:37:40Z",
+      "updated": "2026-11-10T15:39:35Z",
+      "goal": "",
+      "next": "Confirm the status bar is dark on the owner's phone after re-adding the app to the home screen.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "15:38",
+          "sha": "bb7bb5a",
+          "subject": "companion: dark status bar for the installed app",
+          "files": "src/app/manifest.ts"
+        }
+      ]
+    },
+    {
+      "slug": "tool-tracker-gantt",
+      "file": "2026-11-10-tool-tracker-gantt.md",
+      "branch": "claude/tool-tracker-gantt-x7gelq",
+      "status": "shipped",
+      "started": "2026-11-10T06:16:53Z",
+      "updated": "2026-11-10T15:17:12Z",
+      "goal": "",
+      "next": "Office adds tool types, ticks tools on each phase in Edit Tool Schedule > Tasks, gives exceptions their own tools, and leaves out Studio PreCon on the Jobs tab.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:30",
+          "sha": "96b2b15",
+          "subject": "companion: start tool schedule session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:36",
+          "sha": "5183823",
+          "subject": "companion: add tool schedule reads and rules (stage 1)",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/jobtread.ts, src/lib/jobtread/costCodes.ts, src/lib/jobtread/tasks.ts, src/lib/toolSchedule.test.ts, +1 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:59",
+          "sha": "e7c272e",
+          "subject": "companion: add tool schedule page and catalogue editor",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/jobs/route.ts, src/app/api/tool-schedule/route.ts, +20 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "14:46",
+          "sha": "94a2389",
+          "subject": "companion: tool schedule job filter, searchable code pickers, sorting",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "14:52",
+          "sha": "7537c11",
+          "subject": "companion: update tool schedule session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-11-10",
+          "time": "15:17",
+          "sha": "ce20a8b",
+          "subject": "companion: map tools straight to phases and tasks, book tools by hand",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, src/app/tool-schedule/BookingForm.tsx, +15 more"
+        }
+      ]
+    },
+    {
+      "slug": "focused-cerf",
+      "file": "2026-11-10-focused-cerf.md",
+      "branch": "claude/focused-cerf-ik9e36",
+      "status": "shipped",
+      "started": "2026-11-10T14:40:11Z",
+      "updated": "2026-11-10T14:55:36Z",
+      "goal": "",
+      "next": "Post the calendar announcement with /employee-time?tab=compare&view=calendar; give other views an address as the owner asks.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "14:52",
+          "sha": "b3e54df",
+          "subject": "companion: add links in notices and linkable view addresses",
+          "files": "CODEBASE_MAP.md, USER_MANUAL.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/vendors/page.tsx, src/components/NoticeText.tsx, +6 more"
+        }
+      ]
+    },
+    {
+      "slug": "festive-faraday",
+      "file": "2026-11-10-festive-faraday.md",
+      "branch": "claude/festive-faraday-yovg2f",
+      "status": "shipped",
+      "started": "2026-11-10T06:06:02Z",
+      "updated": "2026-11-10T06:31:55Z",
+      "goal": "",
+      "next": "Get office feedback on Split View calendar mode (beta), including adding time from it; decide whether it replaces the grid or stays a toggle.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:16",
+          "sha": "17783f4",
+          "subject": "companion: add split view beta calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:31",
+          "sha": "6456ded",
+          "subject": "companion: add time entries from split view calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts"
+        }
+      ]
+    },
+    {
+      "slug": "bold-cori",
+      "file": "2026-11-10-bold-cori.md",
+      "branch": "claude/bold-cori-12ehzv",
+      "status": "shipped",
+      "started": "2026-11-10T00:37:18Z",
+      "updated": "2026-11-10T00:39:05Z",
+      "goal": "",
+      "next": "None. Watch that the next push to main turns CI green.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "00:39",
+          "sha": "3f8a9a0",
+          "subject": "companion: fix lint error failing ci, add lint to pre-push hook",
+          "files": ".githooks/pre-push, CLAUDE.md, src/components/PackageEmail.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "sharp-keller",
+      "file": "2026-11-10-sharp-keller.md",
+      "branch": "claude/sharp-keller-kbw4g4",
+      "status": "shipped",
+      "started": "2026-11-10T00:24:57Z",
+      "updated": "2026-11-10T00:31:15Z",
+      "goal": "",
+      "next": "Optional: align MLG_ADMIN_EMAILS in ascent-appscript/Mileage.js with companion roles, so updateMileage edit rights match too.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "00:28",
+          "sha": "013ed03",
+          "subject": "companion: show field users only their own logged miles",
+          "files": "CODEBASE_MAP.md, src/app/api/mileage/report/route.ts, src/app/api/mileage/route.ts, src/lib/mileageScope.test.ts, src/lib/mileageScope.ts"
+        }
+      ]
+    },
+    {
+      "slug": "magical-tesla",
+      "file": "2026-11-09-magical-tesla.md",
+      "branch": "claude/magical-tesla-ixutgx",
+      "status": "shipped",
+      "started": "2026-11-09T23:21:57Z",
+      "updated": "2026-11-10T00:22:39Z",
+      "goal": "",
+      "next": "Check on a phone that /employee-time shows only the title, the Time clock / Timesheets switch and the clock.",
+      "commits": [
+        {
+          "date": "2026-11-09",
+          "time": "23:43",
+          "sha": "fd674b0",
+          "subject": "companion: drop time strip on phone, add payroll icon to rail and drawer",
+          "files": "src/components/TabBar.tsx, src/components/WorkspaceTabs.tsx, src/lib/workspaces.test.ts, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "00:22",
+          "sha": "e6a5a67",
+          "subject": "companion: hide act-as link and time-off line on phone time page",
+          "files": "src/app/employee-time/EmployeeTimeClient.tsx"
         }
       ]
     },
