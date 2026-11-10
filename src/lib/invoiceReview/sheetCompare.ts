@@ -193,12 +193,17 @@ export function readSubVendor(g: Grid): SubVendorTab {
     else columns[code] = colLetter(c);
   }
 
-  // The totals row: the LAST row with anything from column E on.
+  // The totals row: the row with the most filled cells across the code
+  // columns. Not simply the last row — some sheets keep helper rows (TRUE, a
+  // count, grand totals in one far column) below it. Ties go to the lower row.
   let totalsRow = -1;
-  for (let r = g.length - 1; r > 0; r--) {
-    if ((g[r] ?? []).slice(4).some((v) => String(v ?? "").trim() !== "")) {
+  let best = 0;
+  const codeCols = Object.values(columns).map((l) => header.findIndex((_, i) => i >= 4 && colLetter(i) === l));
+  for (let r = 1; r < g.length; r++) {
+    const filled = codeCols.filter((c) => String(g[r]?.[c] ?? "").trim() !== "").length;
+    if (filled >= best && filled > 0) {
+      best = filled;
       totalsRow = r;
-      break;
     }
   }
   const columnTotals: Record<string, number | null> = {};

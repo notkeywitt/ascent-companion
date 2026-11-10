@@ -98,6 +98,12 @@ describe("compareTrackingSheet — bills", () => {
     expect(r.issues.find((i) => i.kind === "no-column")?.code).toBe("06 10 10");
   });
 
+  it("finds the totals row above helper rows", () => {
+    const g = bunkhouse.map((row) => [...(row ?? [])]);
+    g.push(["", "", "", "", "", "", "", "", "TRUE"], ["", "", "", "", "", "", "", "", "$99,999.00"]);
+    expect(readSubVendor(g).columnTotals.G).toBe(860.85);
+  });
+
   it("ignores a repeated header code that carries no money", () => {
     const g = bunkhouse.map((row) => [...(row ?? [])]);
     g[0].push("22 00 00", "22 00 00");
