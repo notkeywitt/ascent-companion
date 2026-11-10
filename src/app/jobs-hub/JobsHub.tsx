@@ -481,7 +481,7 @@ export function JobsHub() {
                         ym={ym}
                         jobs={noteJobs}
                         onOpenBill={openBill}
-                        className="min-h-48 pad:h-full pad:min-w-[280px] pad:flex-1"
+                        className="min-h-48 pad:h-full pad:min-w-[280px] pad:flex-1 pad:pt-10"
                       />
                     </div>
                   ) : (
