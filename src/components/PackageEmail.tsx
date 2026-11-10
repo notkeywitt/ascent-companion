@@ -267,7 +267,7 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
     setJobs(null);
     setLoadError("");
     try {
-      const res = await fetch(`/api/invoicing-summary?ym=${encodeURIComponent(ym)}`, { cache: "no-store" });
+      const res = await fetch(`/api/invoicing-summary/notes?ym=${encodeURIComponent(ym)}`, { cache: "no-store" });
       const body = await res.json();
       if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
       setJobs(((body.jobs ?? []) as (NoteJob & { include: boolean })[]).filter((j) => j.include));
