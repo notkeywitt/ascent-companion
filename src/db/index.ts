@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "12tx-16qlq29";
+export const SCHEMA_FINGERPRINT = "143v-kdacgc";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1423,6 +1423,56 @@ async function applySchema() {
     })),
     "write",
   );
+  // The tool schedule (schema.ts "tool_kinds" and below; lib/toolSchedule.ts).
+  for (const ddl of [
+    `CREATE TABLE IF NOT EXISTS tool_kinds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      notes TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_kind_codes (
+      kind_id INTEGER NOT NULL,
+      cost_code_id TEXT NOT NULL,
+      PRIMARY KEY (kind_id, cost_code_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_kind_members (
+      tool_id TEXT PRIMARY KEY,
+      kind_id INTEGER NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS task_code_rules (
+      match TEXT NOT NULL,
+      match_key TEXT NOT NULL,
+      cost_code_id TEXT,
+      label TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (match, match_key)
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_holds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind_id INTEGER NOT NULL,
+      job_id TEXT NOT NULL,
+      job_name TEXT NOT NULL DEFAULT '',
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      qty INTEGER NOT NULL DEFAULT 1,
+      note TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_job_excludes (
+      job_id TEXT PRIMARY KEY,
+      job_name TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`,
+  ]) {
+    await getClient().execute(ddl);
+  }
   // The journal is read newest-first, and filtered by the record, the job, the
   // person, or the one action a row belonged to.
   for (const idx of [

@@ -976,6 +976,64 @@ export const CHAT_TOOLS: ChatTool[] = [
     },
   },
   {
+    name: "get_tool_schedule",
+    description:
+      "The tool schedule: which tool types (table saw, compressor) each job needs and when, " +
+      "built from the JobTread schedules, against how many the company owns. Gives each tool " +
+      "type's shortfalls (days more jobs need it than are owned), whether none is owned, the " +
+      "jobs that need it next, and moves coming up (a job needs it soon and none is there). " +
+      "Use for 'do we have enough compressors in March?', 'when does Studio need the table saw?' " +
+      "or 'what tools are we short on?'. Words match the tool type or the job. Where a tool " +
+      "is right now is find_tools.",
+    input_schema: {
+      type: "object",
+      properties: {
+        ...WORDS_PROP,
+        months: { type: "integer", minimum: 1, maximum: 12, description: "How far ahead to look. Default 6." },
+      },
+      additionalProperties: false,
+    },
+    handler: async (_cfg, input) => {
+      const { buildToolSchedule } = await import("@/lib/toolScheduleData");
+      const { monthsAhead } = await import("@/lib/toolSchedule");
+      const { orgDay } = await import("@/lib/orgTime");
+      const from = orgDay(new Date().toISOString());
+      const months = Math.min(12, Math.max(1, Number(input.months) || 6));
+      const data = await buildToolSchedule(from, monthsAhead(from, months));
+      const words = wordsOf(input);
+      const jobName = new Map(data.jobs.map((j) => [j.id, j.name]));
+      const rows = data.rows.filter((r) =>
+        hasAnyWord(`${r.name} ${r.spans.map((sp) => sp.jobName).join(" ")}`, words),
+      );
+      return {
+        from: data.from,
+        to: data.to,
+        ...(data.toolsError ? { note: "The Tools list could not be read, so owned counts are 0." } : {}),
+        ...(data.unresolvedCount ? { tasksWithNoCode: data.unresolvedCount } : {}),
+        toolTypes: rows.map((r) => ({
+          name: r.name,
+          owned: r.owned,
+          ...(r.missing ? { noneOwned: true } : {}),
+          shortfalls: r.shortfalls.map((sh) => ({
+            from: sh.startDate,
+            to: sh.endDate,
+            need: sh.need,
+            jobs: sh.jobIds.map((id) => jobName.get(id) ?? id),
+          })),
+          neededBy: r.spans.slice(0, 12).map((sp) => ({
+            job: sp.jobName,
+            from: sp.startDate,
+            to: sp.endDate,
+            for: sp.source.type === "task" ? sp.source.taskName : `hold: ${sp.source.note}`,
+          })),
+          movesComingUp: data.moves
+            .filter((m) => m.kindId === r.kindId)
+            .map((m) => ({ to: m.jobName, by: m.by, toolsNowAt: [...new Set(m.toolsAt.map((t) => t.at))] })),
+        })),
+      };
+    },
+  },
+  {
     name: "get_todos",
     description:
       "Open JobTread to-dos across the company, including ones on no job: name, " +

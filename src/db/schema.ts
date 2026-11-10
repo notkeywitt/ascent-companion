@@ -1844,3 +1844,76 @@ export const vendorCoi = sqliteTable("vendor_coi", {
   updatedBy: text("updated_by").notNull().default(""),
   updatedAt: text("updated_at").notNull(),
 });
+
+/**
+ * The tool schedule (docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/toolSchedule.ts).
+ * JobTread has no equipment object and links no schedule task to a cost code, so
+ * the plan lives here and the schedule is only read.
+ *
+ * tool_kinds         a generic tool type ("Table saw").
+ * tool_kind_codes    the cost codes a tool type is needed for.
+ * tool_kind_members  which physical tool (Tools sheet id) is which tool type.
+ * task_code_rules    how a schedule task resolves to a cost code. `match` is
+ *                    task | name | taskType | phase; `match_key` is the task id,
+ *                    the normalized name, the task type id or the normalized
+ *                    phase. cost_code_id NULL = "needs no tools".
+ * tool_holds         a tool reserved for a job by hand, outside the schedule.
+ * tool_job_excludes  a job whose schedule the tool schedule ignores (a PreCon
+ *                    copy of another job's Gantt would double its demand).
+ */
+export const toolKinds = sqliteTable("tool_kinds", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  notes: text("notes").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const toolKindCodes = sqliteTable(
+  "tool_kind_codes",
+  {
+    kindId: integer("kind_id").notNull(),
+    costCodeId: text("cost_code_id").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.kindId, t.costCodeId] })],
+);
+
+export const toolKindMembers = sqliteTable("tool_kind_members", {
+  toolId: text("tool_id").primaryKey(),
+  kindId: integer("kind_id").notNull(),
+  updatedBy: text("updated_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const taskCodeRules = sqliteTable(
+  "task_code_rules",
+  {
+    match: text("match").notNull(),
+    matchKey: text("match_key").notNull(),
+    costCodeId: text("cost_code_id"),
+    label: text("label").notNull().default(""),
+    updatedBy: text("updated_by").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.match, t.matchKey] })],
+);
+
+export const toolHolds = sqliteTable("tool_holds", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kindId: integer("kind_id").notNull(),
+  jobId: text("job_id").notNull(),
+  jobName: text("job_name").notNull().default(""),
+  startDate: text("start_date").notNull(),
+  endDate: text("end_date").notNull(),
+  qty: integer("qty").notNull().default(1),
+  note: text("note").notNull().default(""),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export const toolJobExcludes = sqliteTable("tool_job_excludes", {
+  jobId: text("job_id").primaryKey(),
+  jobName: text("job_name").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});

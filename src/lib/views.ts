@@ -336,6 +336,23 @@ export const VIEWS: ViewDef[] = [
   { id: "mileage", label: "Miles", group: "Field", paths: ["/mileage-tracker"] },
   { id: "employee-time", label: "Time", group: "Field", paths: ["/employee-time"] },
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker"] },
+  // The tool schedule (docs/plans/TOOL_SCHEDULE_PLAN.md): which tools each job
+  // needs when, from the JobTread schedules. Everyone sees it (owner,
+  // 2026-11-10); only "tool-schedule-edit" changes what it counts. The edit
+  // routes are longer prefixes, so they win over "/api/tool-schedule" here.
+  { id: "tool-schedule", label: "Tool Schedule", group: "Field", paths: ["/tool-schedule", "/api/tool-schedule"] },
+  {
+    id: "tool-schedule-edit",
+    label: "Tool Schedule (edit)",
+    group: "Field",
+    paths: [
+      "/tool-schedule/edit",
+      "/api/tool-schedule/catalog",
+      "/api/tool-schedule/rules",
+      "/api/tool-schedule/holds",
+      "/api/tool-schedule/jobs",
+    ],
+  },
   { id: "rfis", label: "RFIs", group: "Field", paths: ["/rfis", "/api/rfis"] },
   // Time off — the accrual/balance page. Field employees get the self-service
   // view (own balance + request time off, via /api/time-off/me and POST/GET
@@ -588,6 +605,7 @@ const FIELD_VIEWS: string[] = [
   "mileage",
   "employee-time",
   "tools",
+  "tool-schedule",
   "requisitions",
   "time-off",
   "help",

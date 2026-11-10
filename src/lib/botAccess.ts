@@ -91,6 +91,7 @@ export const JOB_TOOLS = [
   "read_file",
   "get_calendar",
   "find_tools",
+  "get_tool_schedule",
   "get_todos",
   "find_contact",
   "search_drive",

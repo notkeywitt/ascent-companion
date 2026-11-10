@@ -3,7 +3,9 @@ import type { CostCodeRef, ScheduleTask } from "@/lib/jobtread";
 import {
   buildDemand,
   buildRuleIndex,
+  findMoves,
   findShortfalls,
+  matchJobByLabel,
   isUsable,
   normalizeTaskName,
   resolveTaskCode,
@@ -213,5 +215,60 @@ describe("isUsable", () => {
     expect(isUsable("Lost")).toBe(false);
     expect(isUsable("Good")).toBe(true);
     expect(isUsable(undefined)).toBe(true);
+  });
+});
+
+describe("matchJobByLabel", () => {
+  const jobs = [
+    { id: "studio", name: "Studio" },
+    { id: "pre", name: "Studio PreCon" },
+    { id: "main", name: "Main House" },
+    { id: "m2", name: "Main House" },
+  ];
+  it("matches the project part of a 'Customer - Project' label", () => {
+    expect(matchJobByLabel("Gormley - Studio", jobs)).toBe("studio");
+    expect(matchJobByLabel("Gormley - Studio PreCon", jobs)).toBe("pre");
+  });
+  it("matches a bare job name", () => {
+    expect(matchJobByLabel("studio", jobs)).toBe("studio");
+  });
+  it("returns null for the shop, a blank, or a name two jobs share", () => {
+    expect(matchJobByLabel("Shop", jobs)).toBeNull();
+    expect(matchJobByLabel("", jobs)).toBeNull();
+    expect(matchJobByLabel("Berger - Main House", jobs)).toBeNull();
+  });
+});
+
+describe("findMoves", () => {
+  const row = (spans: DemandSpan[]) => ({ kindId: "k", name: "Table saw", owned: 1, spans, shortfalls: [], missing: false });
+  it("flags a job that needs the tool when none is there, from its first day", () => {
+    const out = findMoves(
+      [row([span("studio", "2026-12-07", "2026-12-31"), span("studio", "2027-01-04", "2027-01-08")])],
+      [{ id: "1", kindId: "k", name: "SawStop", locationLabel: "Shop", jobId: null }],
+      "2026-11-10",
+      "2027-05-10",
+    );
+    expect(out).toEqual([
+      { kindId: "k", kindName: "Table saw", jobId: "studio", jobName: "studio", by: "2026-12-07", toolsAt: [{ name: "SawStop", at: "Shop" }] },
+    ]);
+  });
+  it("says nothing when a usable tool is already at the job", () => {
+    expect(findMoves([row([span("studio", "2026-12-07", "2026-12-31")])], [{ id: "1", kindId: "k", jobId: "studio" }], "2026-11-10", "2027-05-10")).toEqual([]);
+  });
+  it("uses the range start for a need already under way", () => {
+    const out = findMoves([row([span("main", "2026-11-01", "2026-11-20")])], [{ id: "1", kindId: "k" }], "2026-11-10", "2027-05-10");
+    expect(out[0].by).toBe("2026-11-10");
+  });
+  it("gives no move when none is owned (that is 'missing')", () => {
+    expect(findMoves([row([span("main", "2026-12-01", "2026-12-05")])], [{ id: "1", kindId: "k", condition: "Broken" }], "2026-11-10", "2027-05-10")).toEqual([]);
+  });
+});
+
+describe("monthsAhead", () => {
+  it("runs to the day before the same date N months on", async () => {
+    const { monthsAhead } = await import("./toolSchedule");
+    expect(monthsAhead("2026-11-10", 6)).toBe("2027-05-09");
+    expect(monthsAhead("2026-11-10", 1)).toBe("2026-12-09");
+    expect(monthsAhead("2026-08-31", 6)).toBe("2027-02-27");
   });
 });

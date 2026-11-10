@@ -34,7 +34,12 @@ export interface ToolKind {
 export interface OwnedTool {
   id: string;
   kindId: string;
+  name?: string;
   condition?: string;
+  /** Where the sheet says it is now, as text ("Shop", "Smith - Studio"). */
+  locationLabel?: string;
+  /** That location as a JobTread job id, when it matches one (`matchJobByLabel`). */
+  jobId?: string | null;
 }
 
 /** A tool reserved for a job by hand, outside the schedule. */
@@ -350,3 +355,89 @@ export function scheduleByKind(
     };
   });
 }
+
+// ---------------------------------------------------------------------------
+// Moves
+// ---------------------------------------------------------------------------
+
+/**
+ * The JobTread job a Tools-sheet location names, or null. A sheet location is
+ * a Project Database row labelled "Customer - Project"; its id is not a
+ * JobTread id, so the match is on the project part of the label (or the whole
+ * label), compared as normalized names. A label that could be two jobs is null.
+ */
+export function matchJobByLabel(label: string | undefined, jobs: { id: string; name: string }[]): string | null {
+  const raw = (label ?? "").trim();
+  if (!raw) return null;
+  const parts = raw.split(" - ");
+  const tries = [normalizeTaskName(parts[parts.length - 1]), normalizeTaskName(raw)];
+  for (const key of tries) {
+    if (!key) continue;
+    const hits = jobs.filter((j) => normalizeTaskName(j.name) === key);
+    if (hits.length === 1) return hits[0].id;
+    if (hits.length > 1) return null;
+  }
+  return null;
+}
+
+/** A tool type a job needs soon, with none of that type there yet. */
+export interface MoveNeeded {
+  kindId: string;
+  kindName: string;
+  jobId: string;
+  jobName: string;
+  /** The first day the job needs it (or `from`, when it already does). */
+  by: string;
+  /** Where the usable tools of that type are now. */
+  toolsAt: { name: string; at: string }[];
+}
+
+/**
+ * For each tool type and each job that needs it in `from`..`to`: a move is
+ * needed when no usable tool of that type sits at that job. A tool type with
+ * none owned is "missing" instead, so it gets no move. Soonest first.
+ */
+export function findMoves(rows: KindSchedule[], tools: OwnedTool[], from: string, to: string): MoveNeeded[] {
+  const out: MoveNeeded[] = [];
+  for (const row of rows) {
+    const usable = tools.filter((t) => t.kindId === row.kindId && isUsable(t.condition));
+    if (usable.length === 0) continue;
+    const firstByJob = new Map<string, DemandSpan>();
+    for (const s of row.spans) {
+      if (s.endDate < from || s.startDate > to) continue;
+      const cur = firstByJob.get(s.jobId);
+      if (!cur || s.startDate < cur.startDate) firstByJob.set(s.jobId, s);
+    }
+    for (const [jobId, s] of firstByJob) {
+      if (usable.some((t) => t.jobId === jobId)) continue;
+      out.push({
+        kindId: row.kindId,
+        kindName: row.name,
+        jobId,
+        jobName: s.jobName,
+        by: s.startDate < from ? from : s.startDate,
+        toolsAt: usable.map((t) => ({ name: t.name ?? t.id, at: t.locationLabel || "No location" })),
+      });
+    }
+  }
+  return out.sort((a, b) => a.by.localeCompare(b.by) || a.kindName.localeCompare(b.kindName));
+}
+
+// ---------------------------------------------------------------------------
+// Range
+// ---------------------------------------------------------------------------
+
+export const isIsoDay = (s: unknown): s is string =>
+  typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && Number.isFinite(dayNum(s));
+
+/** `from` plus whole months, less a day: Nov 10 + 6 months → May 9. */
+export function monthsAhead(from: string, months: number): string {
+  const d = new Date(`${from}T00:00:00Z`);
+  const target = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + months, d.getUTCDate()));
+  // Feb 30 rolls into March; step back to the month's last day instead.
+  if (target.getUTCDate() !== d.getUTCDate()) target.setUTCDate(0);
+  return dayIso(dayNum(target.toISOString().slice(0, 10)) - 1);
+}
+
+/** The longest range the schedule reads: a little over a year. */
+export const MAX_RANGE_DAYS = 400;

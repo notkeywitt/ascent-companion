@@ -13,7 +13,9 @@ The owner approved a clickable sample of the layouts the same day.
 
 - Stage 0 (sample layouts): done, approved 2026-11-10.
 - Stage 1 (reads + rules): done — `getUpcomingScheduleTasks`, `getCostCodes`, `src/lib/toolSchedule.ts`.
-- Next: Stage 2.
+- Stages 2–4: done 2026-11-10 — tables, editor, schedule page, moves, left-out jobs, chat tool.
+- Next: the office fills the catalogue and maps task names; then watch whether
+  the move list is useful (it depends on Tools-sheet labels matching job names).
 
 ## 1. What JobTread offers
 
@@ -76,19 +78,23 @@ No JobTread write. No Apps Script change.
 - Views: `tool-schedule` (all roles), `tool-schedule-edit` (office + admin).
   Tab next to Tools in `workspaces.ts`; help entry.
 
-### Stage 4 — extras
-- "Move coming up": a tool sits at another job when the next job needs it.
-  Needs the Tools sheet's ProjectID matched to a JobTread job id.
-- "Jobs with no schedule past <date>" line.
-- `find_tools` chat answer adds "needed next at".
+### Stage 4 — extras — done
+- "Moves coming up" (`findMoves`): a job needs a tool type and no usable one
+  sits there. The Tools sheet's location is a Project Database row, not a
+  JobTread id, so `matchJobByLabel` matches its "Customer - Project" label to a
+  job name; an unmatched location (the Shop) counts as "not at the job".
+- "Schedule ends before <date>" line under the schedule.
+- Left-out jobs (`tool_job_excludes`, editor's Jobs tab) — the Studio PreCon fix.
+- Chat tool `get_tool_schedule` (a new tool, beside `find_tools`, which stays
+  "where is it now").
 
 ## 5. Risks
 
 - A renamed task drops out until re-mapped. The "needs a code" list shows it.
 - A 6-month view is only as good as the schedules. Holds cover known needs early.
 - Two jobs can carry the same schedule: "Studio" and "Studio PreCon" both hold
-  the full Studio Gantt today. Both count, so demand doubles. Stage 3 needs a
-  way to leave a job out (a per-job exclude, or skip PreCon-phase jobs).
+  the full Studio Gantt today. Both count until the office leaves one out on
+  the editor's Jobs tab.
 
 ## 6. Files this plan touches
 
