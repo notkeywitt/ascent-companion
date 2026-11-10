@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "14ce-zxbrgu";
+export const SCHEMA_FINGERPRINT = "14sf-1a1udsf";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -934,6 +934,24 @@ async function applySchema() {
       disposition_count INTEGER NOT NULL DEFAULT 0,
       truncated INTEGER NOT NULL DEFAULT 0,
       usage TEXT NOT NULL DEFAULT '{}'
+    )
+  `);
+  try {
+    await getClient().execute(
+      "ALTER TABLE invoice_review_investigations ADD COLUMN report TEXT NOT NULL DEFAULT ''",
+    );
+  } catch {
+    /* column already exists */
+  }
+  // The scheduled monthly check's own run log (office Mac → /api/invoice-review/agent).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS monthly_check_runs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ym TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL,
+      message TEXT NOT NULL DEFAULT '',
+      log TEXT NOT NULL DEFAULT '',
+      at TEXT NOT NULL
     )
   `);
 

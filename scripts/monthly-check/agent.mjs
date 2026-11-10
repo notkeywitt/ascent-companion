@@ -8,9 +8,17 @@
  *   node scripts/monthly-check/agent.mjs begin YYYY-MM MODEL
  *   node scripts/monthly-check/agent.mjs finish YYYY-MM FILE.json
  *   node scripts/monthly-check/agent.mjs fail YYYY-MM "reason"
+ *   node scripts/monthly-check/agent.mjs tracking
+ *   node scripts/monthly-check/agent.mjs sheet-columns YYYY-MM FILE.json
+ *   node scripts/monthly-check/agent.mjs sheet-check YYYY-MM FILE.json
+ *   node scripts/monthly-check/agent.mjs log STATUS "message" [YYYY-MM] [LOGFILE]
  *
  * `read` saves the whole run to .monthly-check/<ym>.json and prints a compact
- * digest of it. `finish` posts { model, note, dispositions } from FILE.json.
+ * digest of it. `finish` posts { model, note, dispositions } from FILE.json,
+ * plus the markdown at its `reportFile` as the full report.
+ * `sheet-columns` takes { headers } and says which Tracking Sheet columns to
+ * read; `sheet-check` posts { jtJobId, subVendor, labor, headers, codes,
+ * columns } and prints what disagrees with JobTread (sheetCompare.ts).
  *
  * The token lives in ~/.ascent-monthly-check/token (install.sh makes it).
  * It is read here so it never appears on a command line or in a transcript.
@@ -130,14 +138,64 @@ async function main() {
       return;
     case "finish": {
       const body = JSON.parse(readFileSync(b, "utf8"));
+      if (body.reportFile) body.report = readFileSync(path.resolve(ROOT, body.reportFile), "utf8");
+      delete body.reportFile;
       console.log(JSON.stringify(await call("POST", "/api/invoice-review/agent", { ...body, action: "finish", ym: a })));
+      return;
+    }
+    case "tracking": {
+      const r = await call("GET", "/api/invoice-review/agent?action=tracking");
+      for (const j of r.jobs) console.log(`${j.jtJobId}\t${j.spreadsheetId}\t${j.label}`);
+      if (!r.jobs.length) console.log("No jobs have a Tracking Sheet.");
+      return;
+    }
+    case "sheet-columns": {
+      const body = JSON.parse(readFileSync(b, "utf8"));
+      console.log(JSON.stringify(await call("POST", "/api/invoice-review/agent", { action: "sheet-columns", ym: a, headers: body.headers })));
+      return;
+    }
+    case "sheet-check": {
+      const body = JSON.parse(readFileSync(b, "utf8"));
+      const r = await call("POST", "/api/invoice-review/agent", { ...body, action: "sheet-check", ym: a });
+      const out = path.join(OUT_DIR, `${a}.sheet.${body.jtJobId}.result.json`);
+      mkdirSync(OUT_DIR, { recursive: true });
+      writeFileSync(out, JSON.stringify(r, null, 2));
+      console.log(
+        `bills: JobTread ${money(r.jtTotal)}, sheet ${money(r.sheetTotal)}, difference ${money(r.difference)}` +
+          (r.laborJt ? ` | labor: JobTread ${r.laborJt.hours} h ${money(r.laborJt.cost)}` : "") +
+          (r.laborSheet ? `, sheet ${r.laborSheet.hours} h ${money(r.laborSheet.cost)}` : "") +
+          (r.invoiceColumns ? ` | columns ${JSON.stringify(r.invoiceColumns)}` : ""),
+      );
+      for (const i of r.issues) {
+        console.log(`- [${i.kind}] ${i.detail} (${i.where})`);
+        for (const l of i.lines ?? []) console.log(`    ${l.vendor} ${l.bill} (${l.status}) ${l.name}: ${money(l.cost)}`);
+      }
+      if (!r.issues.length) console.log("No discrepancies.");
+      console.log(`full result: ${out}`);
+      return;
+    }
+    case "log": {
+      // log STATUS "message" [ym] [logfile]
+      const [, status, message, ym, logFile] = process.argv.slice(2);
+      let tail = "";
+      if (logFile) {
+        try {
+          tail = readFileSync(logFile, "utf8").split("\n").slice(-60).join("\n");
+        } catch {
+          /* no log to attach */
+        }
+      }
+      console.log(JSON.stringify(await call("POST", "/api/invoice-review/agent", { action: "log", status, message, ym: ym || "", log: tail })));
       return;
     }
     case "fail":
       console.log(JSON.stringify(await call("POST", "/api/invoice-review/agent", { action: "fail", ym: a, error: b })));
       return;
     default:
-      console.error("usage: agent.mjs schedule | run [ym] | read ym | begin ym model | finish ym file | fail ym reason");
+      console.error(
+        "usage: agent.mjs schedule | run [ym] | read ym | begin ym model | finish ym file | fail ym reason |" +
+          " tracking | sheet-columns ym file | sheet-check ym file | log status message [ym] [logfile]",
+      );
       process.exit(2);
   }
 }

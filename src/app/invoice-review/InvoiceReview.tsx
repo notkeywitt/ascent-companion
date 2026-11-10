@@ -24,6 +24,7 @@ import {
   Select,
   StatementBlock,
   Textarea, Tabs } from "@/components/ui";
+import { ReportText } from "@/components/ReportText";
 import { buildBrief } from "@/lib/invoiceReview/brief";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
@@ -48,6 +49,17 @@ interface InvestigationState {
   startedAt: string;
   startedBy: string;
   finishedAt: string;
+  report?: string;
+}
+
+/** One event of the scheduled monthly check on the office Mac. */
+interface RunEvent {
+  id: number;
+  ym: string;
+  status: "started" | "done" | "error";
+  message: string;
+  log: string;
+  at: string;
 }
 
 /**
@@ -209,6 +221,8 @@ export function InvoiceReview() {
   // finding. This page only reads it; the Mac runs it on review days.
   const [investigating, setInvestigating] = useState(false);
   const [investigatedAt, setInvestigatedAt] = useState("");
+  const [report, setReport] = useState("");
+  const [runs, setRuns] = useState<RunEvent[]>([]);
   const [investigateNote, setInvestigateNote] = useState("");
   const [investigateError, setInvestigateError] = useState("");
 
@@ -302,7 +316,9 @@ export function InvoiceReview() {
         const json = (await res.json()) as {
           investigation: InvestigationState | null;
           dispositions?: DispositionRow[];
+          runs?: RunEvent[];
         };
+        setRuns(json.runs ?? []);
         const st = json.investigation;
         if (!st) {
           // No status row at all. On open that just means the month has never
@@ -319,6 +335,7 @@ export function InvoiceReview() {
         applyDispositions(json.dispositions ?? [], st.model);
         setInvestigateNote(st.note ?? "");
         setInvestigatedAt(st.status === "done" ? st.finishedAt ?? "" : "");
+        setReport(st.status === "done" ? st.report ?? "" : "");
         // A failure is announced only to whoever is waiting on the run. Opening
         // the month a week later should not raise a red banner about a pass
         // somebody has long since given up on.
@@ -633,10 +650,53 @@ export function InvoiceReview() {
             </Banner>
           ) : null}
 
+          {runs[0]?.status === "error" ? (
+            <Banner tone="error" className="mt-3">
+              <span className="font-medium">The scheduled check failed {whenChecked(runs[0].at)}.</span>{" "}
+              {runs[0].message}
+            </Banner>
+          ) : null}
+
           {investigateNote ? (
             <Banner tone="neutral" className="mt-3">
-              <span className="font-medium">Claude Code&apos;s reading.</span> {investigateNote}
+              <span className="font-medium">Claude Code&apos;s reading.</span>{" "}
+              <span className="whitespace-pre-line">{investigateNote}</span>
             </Banner>
+          ) : null}
+
+          {report ? (
+            <details className="mt-3 rounded-lg border border-line px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium">Full report</summary>
+              <div className="mt-3">
+                <ReportText markdown={report} />
+              </div>
+            </details>
+          ) : null}
+
+          {runs.length ? (
+            <details className="mt-3 rounded-lg border border-line px-4 py-3">
+              <summary className="cursor-pointer text-sm font-medium">Scheduled runs</summary>
+              <ul className="mt-2 divide-y divide-line-soft text-xs">
+                {runs.map((r) => (
+                  <li key={r.id} className="py-2">
+                    <span className="font-medium">
+                      {r.status === "error" ? "Failed" : r.status === "done" ? "Finished" : "Started"}
+                    </span>{" "}
+                    {whenChecked(r.at)}
+                    {r.ym ? ` · ${r.ym}` : ""}
+                    {r.message ? <span className="opacity-70"> — {r.message}</span> : null}
+                    {r.log ? (
+                      <details className="mt-1">
+                        <summary className="cursor-pointer opacity-70">Log</summary>
+                        <pre className="mt-1 max-h-64 overflow-auto whitespace-pre-wrap text-[11px] opacity-80">
+                          {r.log}
+                        </pre>
+                      </details>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </details>
           ) : null}
 
           {data.evidence.warnings.length ? (

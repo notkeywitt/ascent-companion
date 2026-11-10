@@ -1,6 +1,6 @@
 ---
 name: monthly-check
-description: Run the COMPLETE monthly invoice check on Opus in Claude Code — make sure the month has a fresh coded run in the app (JobTread + Drive + mailbox), chase every finding with the JobTread, Gmail and Drive tools, then post a verdict per finding and the month's reading back to the app's /invoice-review page. Runs on its own on review days from the office Mac (scripts/monthly-check/). Use when the owner types /monthly-check, or asks to "run the monthly check", "run the full invoice check", or "check the month on Opus".
+description: Run the COMPLETE monthly invoice check on Opus in Claude Code — make sure the month has a fresh coded run in the app (JobTread + Drive + mailbox), chase every finding with the JobTread, Gmail and Drive tools, reconcile each legacy client's Google Tracking Sheet (bills and labor) against JobTread, then post a verdict per finding, the month's reading and the full report back to the app's /invoice-review page. Runs on its own on review days from the office Mac (scripts/monthly-check/). Use when the owner types /monthly-check, or asks to "run the monthly check", "run the full invoice check", or "check the month on Opus".
 model: opus
 argument-hint: "[YYYY-MM]"
 ---
@@ -58,6 +58,7 @@ Work every live `error` finding as invoice-review Step 3 describes. Then the
 | Does the bill exist under another vendor spelling, amount or job? Is one half a credit? | `mcp__claude_ai_JobTread_x_Ascent__query` |
 | Is the email a real invoice? Does it carry a "Processed" / "Added to JT" label? | Gmail `search_threads`, `get_thread`, `get_message` |
 | Is the backup PDF filed under another job? | Drive `search_files` for the amount (`"$1,234.56"`), `get_file_metadata` |
+| Does a legacy client's Tracking Sheet match JobTread? | Step 4b — Google Sheets `get_values` |
 
 Give each finding you looked at one verdict:
 
@@ -69,14 +70,77 @@ Give each finding you looked at one verdict:
 date, amount, where). `suggestedAction`: one line, what the office does next.
 Never change anything. Never record a ruling. A verdict is not a ruling.
 
+## Step 4b — the legacy clients' Google Tracking Sheets
+
+The sheets drift from JobTread. The usual causes: the sync missed a bill, a cost
+code has no column or row on the sheet, a spreadsheet formula is broken, or the
+Labor tab prices a code at a different rate than JobTread costed the hours. The
+server does every comparison (`src/lib/invoiceReview/sheetCompare.ts`). You only
+read the cells and post them. **Never add up sheet figures yourself.**
+
+1. `agent.mjs tracking` lists each job with a sheet: `jtJobId`, `spreadsheetId`, label.
+2. For each job, read with Google Sheets `get_values`:
+   - `'Sub/Vendor Invoices'!A1:EZ150`
+   - `'Labor'!A1:I80`
+   - `'Tracking Sheet'!A7:FZ9` (the header rows)
+   - `'Tracking Sheet'!A10:A300` (the code column)
+3. Write `.monthly-check/<ym>.sheet.<jtJobId>.json` as
+   `{ "jtJobId": "…", "headers": <the A7:FZ9 values> }`, then run
+   `agent.mjs sheet-columns <ym> <that file>`. It answers which column letters
+   hold LABOR and INVOICES for the CURRENT INVOICE block and the month's block.
+4. Read each of those columns, rows 10–300 (for example `'Tracking Sheet'!EQ10:EQ300`).
+5. Rewrite the same file with every read **copied verbatim** from the tool results
+   (the `values` arrays, unchanged):
+
+   ```json
+   { "jtJobId": "…", "subVendor": [...], "labor": [...], "headers": [...],
+     "codes": [...], "columns": { "EQ": [...], "EP": [...] }, "firstRow": 10 }
+   ```
+
+6. `agent.mjs sheet-check <ym> <that file>`. It prints the totals and each
+   discrepancy with the JobTread bills behind it.
+7. Before you report a discrepancy, re-read the one cell it names to rule out a
+   copying slip.
+
+What each kind means and what the office does:
+
+| kind | Meaning | Fix |
+|---|---|---|
+| `not-synced` | JobTread's code total ≠ the sheet's A:C rows | Re-sync the job (Tracking Sheet page); if it persists, the bill line is the cause — name it |
+| `uncoded-in-jt` | A JobTread line has no cost code | Code the line, then re-sync |
+| `no-column` | Code has rows but no column in row 1 | Add the code's column |
+| `column-total-off` | A code column's total ≠ its rows | Repair the column's FILTER/total formula |
+| `not-on-tracking-tab` | Code has money but no row on the Tracking Sheet tab | Add the code's row |
+| `tracking-tab-off` | A LABOR/INVOICES cell ≠ what feeds it | Fix that cell's lookup formula |
+| `labor-hours-off` | Labor tab hours ≠ JobTread | Re-run the labor report; check entries coded or dated after it ran |
+| `labor-rate-off` | Sheet rate ≠ the rate JobTread costed | Decide which is right: the sheet's code rate, or the person's pay rate on the entries |
+| `labor-cost-off` | Same hours and rate, different total | Formula on that Labor row |
+| `labor-row-math` / `labor-total-off` | A Labor row or its totals don't add up | Formula repair |
+| `sheet-error` | A cell shows `#REF!`, `#N/A`, … | Formula repair |
+
+A difference under $1 with matching hours is rounding; the server already ignores it.
+
 ## Step 5 — post it
 
-Write `.monthly-check/<ym>.verdicts.json`:
+Write the full report to `.monthly-check/<ym>.report.md`. The page shows it
+under "Full report", so it is the owner's record of the month. Markdown:
+`##` headings, `-` bullets, `|` tables, `**bold**`, links. Sections:
+
+1. **Summary**: the same reading as `note`.
+2. **To fix before invoices go out**: each confirmed finding: what, job, amount, action.
+3. **Worth confirming**: `needs-human`, and `probably-fine` where the office should check your reading.
+4. **Tracking Sheets**: one table row per job (JobTread vs sheet, bills and labor),
+   then each discrepancy with its fix.
+5. **False alarms**: one line per group, with the reason.
+6. **Not checked**: what was skipped or partial.
+
+Then write `.monthly-check/<ym>.verdicts.json`:
 
 ```json
 {
   "model": "Claude Code (Opus)",
   "note": "<the month's reading>",
+  "reportFile": ".monthly-check/<ym>.report.md",
   "dispositions": [
     { "key": "<finding.key>", "verdict": "confirmed", "why": "…", "suggestedAction": "…" }
   ]
@@ -85,10 +149,10 @@ Write `.monthly-check/<ym>.verdicts.json`:
 
 `note` is what the page shows as "Claude Code's reading". Six lines at most,
 plain words, readable on a phone. Lead with how many things to fix and the
-dollars in question. Then the worst items, one per line. Say what was NOT
-checked (`emailChecked` false, `mailTruncated`, evidence warnings). Follow the
-owner's standing instructions from the digest. Apply the invoice-review rule on
-calling a month clean.
+dollars in question. Then the worst items, one per line, including any tracking
+sheet that disagrees with JobTread. Say what was NOT checked (`emailChecked`
+false, `mailTruncated`, evidence warnings). Follow the owner's standing
+instructions from the digest. Apply the invoice-review rule on calling a month clean.
 
 Then `agent.mjs finish <ym> .monthly-check/<ym>.verdicts.json`. It answers with
 `saved` and `rejected`. A rejected key does not match the filed run; fix it and
@@ -98,8 +162,9 @@ post again.
 
 Reply with the same reading, plus the link
 `https://ascent-companion.vercel.app/invoice-review?ym=<ym>` where the owner
-records rulings. When run on schedule, this reply goes to
-`~/Library/Logs/ascent-monthly-check.log`.
+reads the full report and records rulings. When run on schedule, this reply goes
+to `~/Library/Logs/ascent-monthly-check.log`, and the run's start and outcome
+appear on the page under "Scheduled runs".
 
 ## The schedule
 

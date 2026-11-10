@@ -1145,9 +1145,33 @@ export const invoiceReviewInvestigations = sqliteTable("invoice_review_investiga
   /** The loop's token usage as JSON, cache counters included — a silent caching
    *  regression is only visible if it is written down. */
   usage: text("usage").notNull().default("{}"),
+  /** Claude Code's full report for the month, markdown. Drawn on the page under
+   *  the short `note`. */
+  report: text("report").notNull().default(""),
 });
 
 export type InvoiceReviewInvestigationRow = typeof invoiceReviewInvestigations.$inferSelect;
+
+/**
+ * ONE ROW PER EVENT of the scheduled monthly check on the office Mac
+ * (scripts/monthly-check/run.sh → /api/invoice-review/agent action "log").
+ *
+ * The Mac's own log file is not readable from the app, and a run that fails
+ * before it claims a pass would otherwise leave no trace on the page. So the
+ * runner posts each start and each outcome here, with the tail of its log on a
+ * failure. Append-only; the page shows the newest few.
+ */
+export const monthlyCheckRuns = sqliteTable("monthly_check_runs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** The billing month, or "" when the run failed before it picked one. */
+  ym: text("ym").notNull().default(""),
+  /** started | done | error */
+  status: text("status").notNull(),
+  message: text("message").notNull().default(""),
+  /** Last lines of the Mac's log, on a failure. */
+  log: text("log").notNull().default(""),
+  at: text("at").notNull(),
+});
 
 /**
  * The Daily Digest's todo/reminder memory — what the owner asked to be reminded

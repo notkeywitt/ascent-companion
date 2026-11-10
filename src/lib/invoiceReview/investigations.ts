@@ -21,10 +21,10 @@
  * through: better to refuse the run than to start a five-minute pass whose
  * result nobody can ever collect.
  */
-import { eq } from "drizzle-orm";
+import { desc, eq, or } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { invoiceReviewInvestigations } from "@/db/schema";
+import { invoiceReviewInvestigations, monthlyCheckRuns } from "@/db/schema";
 
 /**
  * How long a 'running' row is believed.
@@ -49,6 +49,8 @@ export interface InvestigationState {
   dispositionCount: number;
   truncated: boolean;
   usage: { input: number; output: number; cacheWrite: number; cacheRead: number } | null;
+  /** Claude Code's full report, markdown. "" when none was filed. */
+  report: string;
 }
 
 function ageMs(iso: string): number {
@@ -93,6 +95,7 @@ function toState(r: typeof invoiceReviewInvestigations.$inferSelect): Investigat
     dispositionCount: r.dispositionCount,
     truncated: r.truncated,
     usage,
+    report: r.report ?? "",
   };
 }
 
@@ -127,6 +130,7 @@ export async function beginInvestigation(
     dispositionCount: 0,
     truncated: false,
     usage: "{}",
+    report: "",
   };
   await db
     .insert(invoiceReviewInvestigations)
@@ -146,6 +150,7 @@ export async function finishInvestigation(
     dispositionCount: number;
     truncated: boolean;
     usage: unknown;
+    report?: string;
   },
 ): Promise<void> {
   try {
@@ -162,6 +167,7 @@ export async function finishInvestigation(
         dispositionCount: result.dispositionCount,
         truncated: result.truncated,
         usage: JSON.stringify(result.usage ?? {}),
+        report: result.report ?? "",
       })
       .where(eq(invoiceReviewInvestigations.ym, ym));
   } catch (e) {
@@ -201,5 +207,57 @@ export async function readInvestigation(ym: string): Promise<InvestigationState 
     return rows[0] ? toState(rows[0]) : null;
   } catch {
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The scheduled monthly check's run log (office Mac → /api/invoice-review/agent)
+
+export interface MonthlyCheckRunEvent {
+  id: number;
+  ym: string;
+  status: "started" | "done" | "error";
+  message: string;
+  log: string;
+  at: string;
+}
+
+const RUN_STATUSES = new Set(["started", "done", "error"]);
+
+/** Append one event. Best-effort: a lost log line must not fail the run. */
+export async function logMonthlyCheckRun(e: {
+  ym: string;
+  status: string;
+  message: string;
+  log: string;
+}): Promise<void> {
+  if (!RUN_STATUSES.has(e.status)) return;
+  try {
+    await ensureDb();
+    await db.insert(monthlyCheckRuns).values({
+      ym: e.ym,
+      status: e.status,
+      message: e.message.slice(0, 2000),
+      log: e.log.slice(-8000),
+      at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("[invoice-review] could not log the monthly check run:", err);
+  }
+}
+
+/** The newest events for a month, plus those that never reached a month. */
+export async function recentMonthlyCheckRuns(ym: string, limit = 8): Promise<MonthlyCheckRunEvent[]> {
+  try {
+    await ensureDb();
+    const rows = await db
+      .select()
+      .from(monthlyCheckRuns)
+      .where(or(eq(monthlyCheckRuns.ym, ym), eq(monthlyCheckRuns.ym, "")))
+      .orderBy(desc(monthlyCheckRuns.id))
+      .limit(limit);
+    return rows.map((r) => ({ ...r, status: r.status as MonthlyCheckRunEvent["status"] }));
+  } catch {
+    return [];
   }
 }

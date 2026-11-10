@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { readDispositions } from "@/lib/invoiceReview/dispositions";
 import { parseYm } from "@/lib/invoiceReview/evidence";
-import { readInvestigation } from "@/lib/invoiceReview/investigations";
+import { readInvestigation, recentMonthlyCheckRuns } from "@/lib/invoiceReview/investigations";
 
 /**
  * GET /api/invoice-review/investigate?ym=YYYY-MM — the month's investigation
- * pass: its status line and the verdicts on file.
+ * pass: its status line, the verdicts on file, the full report, and the
+ * scheduled runs' recent outcomes (start, done, error with its log tail).
  *
  * The pass itself is no longer run here. Claude Code on the office Mac runs it
  * on review days (`/monthly-check` skill, scheduled by
@@ -27,7 +28,11 @@ export async function GET(req: NextRequest) {
   }
   const ym = `${parsed.year}-${String(parsed.month).padStart(2, "0")}`;
 
-  const [investigation, byKey] = await Promise.all([readInvestigation(ym), readDispositions(ym)]);
+  const [investigation, byKey, runs] = await Promise.all([
+    readInvestigation(ym),
+    readDispositions(ym),
+    recentMonthlyCheckRuns(ym),
+  ]);
   const dispositions = [...byKey.entries()].map(([key, d]) => ({
     key,
     verdict: d.verdict,
@@ -36,5 +41,5 @@ export async function GET(req: NextRequest) {
     model: d.model,
     at: d.at,
   }));
-  return NextResponse.json({ ym, investigation, dispositions });
+  return NextResponse.json({ ym, investigation, dispositions, runs });
 }

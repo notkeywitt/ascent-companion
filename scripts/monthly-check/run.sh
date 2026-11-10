@@ -30,18 +30,33 @@ if [ "${1:-}" = "--now" ]; then FORCE=1; YM="${2:-}"; fi
 if [ -z "$FORCE" ]; then
   [ -f "$STAMP" ] && exit 0
   [ "$(date +%H)" -lt 9 ] && exit 0
-  SCHEDULE="$(node "$HERE/agent.mjs" schedule 2>&1)" || { say "schedule check failed: $SCHEDULE"; exit 1; }
+  SCHEDULE="$(node "$HERE/agent.mjs" schedule 2>&1)" || {
+    say "schedule check failed: $SCHEDULE"
+    node "$HERE/agent.mjs" log error "The office Mac could not reach the app: ${SCHEDULE:0:300}" >/dev/null 2>&1 || true
+    exit 1
+  }
   YM="$(printf '%s' "$SCHEDULE" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.due?j.due.ym:"")})')"
   [ -z "$YM" ] && exit 0
 fi
+
+# Each start and outcome is posted to the app (/invoice-review shows them), so
+# a failure is visible without this Mac's log file.
+report() { node "$HERE/agent.mjs" log "$@" >/dev/null 2>&1 || true; }
 
 CLAUDE="$(command -v claude || true)"
 if [ -z "$CLAUDE" ]; then
   CLAUDE="$(ls -d "$HOME"/.vscode/extensions/anthropic.claude-code-*/resources/native-binary/claude 2>/dev/null | sort -V | tail -1)"
 fi
-[ -x "$CLAUDE" ] || { say "Claude Code not found"; exit 1; }
+if [ ! -x "$CLAUDE" ]; then
+  say "Claude Code not found"
+  report error "Claude Code was not found on the office Mac." "$YM"
+  exit 1
+fi
 
+RUNLOG="$DIR/last-run.log"
+mkdir -p "$DIR"
 say "monthly check starting${YM:+ for $YM} ($CLAUDE)"
+report started "Scheduled check started on the office Mac." "$YM"
 cd "$REPO" || exit 1
 "$CLAUDE" -p "/monthly-check ${YM}" \
   --model opus \
@@ -52,13 +67,17 @@ cd "$REPO" || exit 1
     "mcp__claude_ai_JobTread_x_Ascent__query" \
     "mcp__claude_ai_Gmail__search_threads" "mcp__claude_ai_Gmail__get_thread" "mcp__claude_ai_Gmail__get_message" \
     "mcp__claude_ai_Google_Drive__search_files" "mcp__claude_ai_Google_Drive__get_file_metadata" \
-    "mcp__claude_ai_Google_Drive__read_file_content"
-STATUS=$?
+    "mcp__claude_ai_Google_Drive__read_file_content" \
+    "mcp__claude_ai_Google_Sheets__get_values" "mcp__claude_ai_Google_Sheets__get_spreadsheet" \
+  2>&1 | tee "$RUNLOG"
+STATUS=${PIPESTATUS[0]}
 
-if [ $STATUS -eq 0 ]; then
-  mkdir -p "$DIR" && touch "$STAMP"
+if [ "$STATUS" -eq 0 ]; then
+  touch "$STAMP"
   say "monthly check finished"
+  report done "Scheduled check finished." "$YM"
 else
   say "monthly check failed (exit $STATUS); launchd tries again next hour"
+  report error "Claude Code exited with code $STATUS. It tries again next hour." "$YM" "$RUNLOG"
 fi
-exit $STATUS
+exit "$STATUS"

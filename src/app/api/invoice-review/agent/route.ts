@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 
+import { callAppsScript } from "@/lib/appsScript";
 import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { getBillLinesForJob, getJobBillsForMonth, getJobTimeEntriesForMonth } from "@/lib/jobtread";
 import { DIGEST_GLOBAL } from "@/lib/digest/settings";
 import { VERDICTS, saveDispositions, type DispositionInput } from "@/lib/invoiceReview/dispositions";
 import { parseYm } from "@/lib/invoiceReview/evidence";
@@ -11,12 +13,20 @@ import {
   beginInvestigation,
   failInvestigation,
   finishInvestigation,
+  logMonthlyCheckRun,
   readInvestigation,
 } from "@/lib/invoiceReview/investigations";
 import { runInvoiceReview } from "@/lib/invoiceReview/run";
 import { listRuns, readLatestRun } from "@/lib/invoiceReview/runs";
 import { reviewWindow, scheduledReview } from "@/lib/invoiceReview/schedule";
 import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/settings";
+import {
+  compareTrackingSheet,
+  findInvoiceColumns,
+  totalJtLabor,
+  totalJtLines,
+  type Grid,
+} from "@/lib/invoiceReview/sheetCompare";
 
 /**
  * /api/invoice-review/agent — the door Claude Code on the office Mac uses.
@@ -30,10 +40,17 @@ import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/setting
  * GET  ?action=schedule            is a review due today, and for which month
  * GET  ?action=read&ym=YYYY-MM     the latest filed run, its history, the
  *                                  owner's standing instructions, the pass state
+ * GET  ?action=tracking            the legacy jobs with a Google Tracking Sheet
+ * POST { action: "sheet-columns", ym, headers }   where the LABOR / INVOICES
+ *                                  columns are on a sheet's Tracking Sheet tab
+ * POST { action: "sheet-check", ym, jtJobId, subVendor, labor?, headers?,
+ *        codes?, columns? }        compare one sheet with JobTread (sheetCompare.ts)
  * POST { action: "run", ym? }      file a fresh run (JobTread + Drive + mail)
  * POST { action: "begin", ym, model }            mark the pass as running
- * POST { action: "finish", ym, model, note, dispositions }  file verdicts + note
+ * POST { action: "finish", ym, model, note, report, dispositions }
+ *                                  file verdicts, the short reading and the full report
  * POST { action: "fail", ym, error }             file a failed pass
+ * POST { action: "log", ym?, status, message, log? }   one scheduled-run event
  *
  * AUTH. A bearer token, REVIEW_AGENT_TOKEN, and nothing else — no session
  * fallback. Public in src/middleware.ts for that reason. Unset = 503.
@@ -109,7 +126,24 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json({ error: "action must be schedule or read." }, { status: 400 });
+  if (action === "tracking") {
+    const res = await callAppsScript<Record<string, unknown>>({ action: "listTrackingSheetJobs" });
+    if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
+    const jobs = ((res.data?.jobs as Record<string, unknown>[]) ?? [])
+      .map((j) => {
+        const url = String(j.url ?? "");
+        return {
+          jtJobId: String(j.jtJobId ?? ""),
+          label: String(j.label ?? ""),
+          url,
+          spreadsheetId: url.match(/\/d\/([A-Za-z0-9_-]+)/)?.[1] ?? "",
+        };
+      })
+      .filter((j) => j.jtJobId && j.spreadsheetId);
+    return NextResponse.json({ jobs });
+  }
+
+  return NextResponse.json({ error: "action must be schedule, read or tracking." }, { status: 400 });
 }
 
 export async function POST(req: NextRequest) {
@@ -150,6 +184,17 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (action === "log") {
+    const logYm = body.ym ? monthOf(body.ym) ?? "" : "";
+    await logMonthlyCheckRun({
+      ym: logYm,
+      status: text(body.status),
+      message: text(body.message),
+      log: String(body.log ?? ""),
+    });
+    return NextResponse.json({ ok: true });
+  }
+
   const ym = monthOf(body.ym);
   if (!ym) return NextResponse.json({ error: "Pass ym: YYYY-MM." }, { status: 400 });
   const model = text(body.model) || "claude-code";
@@ -163,6 +208,41 @@ export async function POST(req: NextRequest) {
       );
     }
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === "sheet-columns") {
+    const [y, m] = ym.split("-").map(Number);
+    return NextResponse.json(findInvoiceColumns((body.headers as Grid) ?? [], y, m));
+  }
+
+  if (action === "sheet-check") {
+    if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
+    const jobId = text(body.jtJobId);
+    if (!jobId) return NextResponse.json({ error: "Pass jtJobId." }, { status: 400 });
+    const [y, m] = ym.split("-").map(Number);
+    try {
+      const cfg = getPaveConfig();
+      const [bills, entries] = await Promise.all([
+        getJobBillsForMonth(cfg, jobId, y, m, true, true),
+        getJobTimeEntriesForMonth(cfg, jobId, y, m),
+      ]);
+      const lines = await getBillLinesForJob(cfg, jobId, bills.map((b) => b.id));
+      const result = compareTrackingSheet({
+        year: y,
+        month: m,
+        jt: totalJtLines(bills, lines),
+        jtLabor: totalJtLabor(entries),
+        subVendor: (body.subVendor as Grid) ?? [],
+        labor: body.labor as Grid | undefined,
+        headers: body.headers as Grid | undefined,
+        codes: body.codes as Grid | undefined,
+        columns: body.columns as Record<string, Grid> | undefined,
+        firstRow: Number(body.firstRow) || 10,
+      });
+      return NextResponse.json({ ok: true, ym, jtJobId: jobId, ...result });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Sheet check failed." }, { status: 500 });
+    }
   }
 
   if (action === "fail") {
@@ -205,9 +285,13 @@ export async function POST(req: NextRequest) {
       dispositionCount: items.length,
       truncated: false,
       usage: null,
+      report: String(body.report ?? "").slice(0, 100_000),
     });
     return NextResponse.json({ ok: true, saved: items.length, rejected });
   }
 
-  return NextResponse.json({ error: "action must be run, begin, finish or fail." }, { status: 400 });
+  return NextResponse.json(
+    { error: "action must be run, begin, finish, fail, log, sheet-columns or sheet-check." },
+    { status: 400 },
+  );
 }
