@@ -1,60 +1,16 @@
 {
-  "generatedAt": "2026-11-10T18:45:08Z",
+  "generatedAt": "2026-11-10T18:51:20Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "focused-pascal",
-      "file": "2026-11-10-focused-pascal.md",
-      "branch": "claude/focused-pascal-x7opse",
-      "status": "shipped",
-      "started": "2026-11-10T16:03:14Z",
-      "updated": "2026-11-10T18:45:08Z",
-      "goal": "",
-      "next": "Owner runs Stage 7 (Tools, then Mileage) in a Fable session on desktop. Scheduled run cancelled.",
-      "commits": []
-    },
-    {
-      "slug": "festive-faraday",
-      "file": "2026-11-10-festive-faraday.md",
-      "branch": "claude/festive-faraday-yovg2f",
-      "status": "shipped",
-      "started": "2026-11-10T06:06:02Z",
-      "updated": "2026-11-10T18:24:12Z",
-      "goal": "",
-      "next": "Get office feedback on Split View calendar mode (beta), including adding time for other employees; decide whether it replaces the grid or stays a toggle.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "06:16",
-          "sha": "17783f4",
-          "subject": "companion: add split view beta calendar mode",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:31",
-          "sha": "6456ded",
-          "subject": "companion: add time entries from split view calendar mode",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "18:24",
-          "sha": "88383f5",
-          "subject": "companion: add time for any employee from split view calendar",
-          "files": "CODEBASE_MAP.md, src/app/employee-time/WeekCalendar.tsx"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-10T18:20:40Z",
+      "updated": "2026-11-10T18:51:20Z",
       "goal": "",
-      "next": "Owner runs vercel login + link, then /monthly-check runs October 2026; push monthly-check runner after a clean run",
+      "next": "Push 51650129 (jobs header layout) once the other session's src/db schema edit lands and tests pass; check the header at 1100, 1280 and 1536 px",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1728,6 +1684,64 @@
           "sha": "56f8afa",
           "subject": "companion: move the invoice review's claude work to claude code on the office mac",
           "files": ".claude/skills/invoice-review/SKILL.md, .claude/skills/monthly-check/SKILL.md, .gitignore, CODEBASE_MAP.md, scripts/monthly-check/agent.mjs, scripts/monthly-check/install.sh, +15 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "10:41",
+          "sha": "5165012",
+          "subject": "companion: jobs header keeps list and map side by side below 2xl",
+          "files": "src/app/globals.css, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "10:51",
+          "sha": "46f80af",
+          "subject": "companion: monthly check reconciles tracking sheets and shows its full report",
+          "files": ".claude/skills/monthly-check/SKILL.md, CODEBASE_MAP.md, scripts/monthly-check/agent.mjs, scripts/monthly-check/run.sh, src/app/api/invoice-review/agent/route.ts, src/app/api/invoice-review/investigate/route.ts, +9 more"
+        }
+      ]
+    },
+    {
+      "slug": "focused-pascal",
+      "file": "2026-11-10-focused-pascal.md",
+      "branch": "claude/focused-pascal-x7opse",
+      "status": "shipped",
+      "started": "2026-11-10T16:03:14Z",
+      "updated": "2026-11-10T18:45:08Z",
+      "goal": "",
+      "next": "Owner runs Stage 7 (Tools, then Mileage) in a Fable session on desktop. Scheduled run cancelled.",
+      "commits": []
+    },
+    {
+      "slug": "festive-faraday",
+      "file": "2026-11-10-festive-faraday.md",
+      "branch": "claude/festive-faraday-yovg2f",
+      "status": "shipped",
+      "started": "2026-11-10T06:06:02Z",
+      "updated": "2026-11-10T18:24:12Z",
+      "goal": "",
+      "next": "Get office feedback on Split View calendar mode (beta), including adding time for other employees; decide whether it replaces the grid or stays a toggle.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:16",
+          "sha": "17783f4",
+          "subject": "companion: add split view beta calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:31",
+          "sha": "6456ded",
+          "subject": "companion: add time entries from split view calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "18:24",
+          "sha": "88383f5",
+          "subject": "companion: add time for any employee from split view calendar",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/WeekCalendar.tsx"
         }
       ]
     },

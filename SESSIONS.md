@@ -32,9 +32,9 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 241 | — |
 | [focused-pascal](.claude/sessions/2026-11-10-focused-pascal.md) | 2026-11-10 | 0 | — |
 | [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 3 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 239 | — |
 | [awesome-brown](.claude/sessions/2026-11-10-awesome-brown.md) | 2026-11-10 | 0 | — |
 | [amazing-ride](.claude/sessions/2026-11-10-amazing-ride.md) | 2026-11-10 | 1 | — |
 | [eager-turing](.claude/sessions/2026-11-10-eager-turing.md) | 2026-11-10 | 3 | — |
