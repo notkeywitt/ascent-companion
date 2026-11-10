@@ -79,7 +79,7 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const [data, setData] = useState<ToolSchedulePayload | null>(null);
   const [error, setError] = useState("");
   const [openKind, setOpenKind] = useState<string | null>(null);
-  // A Gantt row open in its dialog: "task:<id>" or "hold:<id>".
+  // A Gantt row open in its dialog: "task:<id>", "phase:<jobId>:<phaseId>" or "hold:<id>".
   const [openItem, setOpenItem] = useState<string | null>(null);
   // Jobs the person hid. Hidden, not chosen, so a job that is new shows by default.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -147,6 +147,13 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const missingCount = shown?.rows.filter((r) => r.missing).length ?? 0;
   const kind = shown?.rows.find((r) => r.kindId === openKind) ?? null;
   const openTask = openItem?.startsWith("task:") ? (shown?.tasks.find((t) => `task:${t.id}` === openItem) ?? null) : null;
+  const openPhase = openItem?.startsWith("phase:")
+    ? (() => {
+        const [, jobId, phaseId] = openItem.split(":");
+        const tasks = (shown?.tasks ?? []).filter((t) => t.jobId === jobId && t.phaseId === phaseId);
+        return tasks.length ? tasks : null;
+      })()
+    : null;
   const openHold = openItem?.startsWith("hold:") ? (shown?.bookings.find((b) => `hold:${b.id}` === openItem) ?? null) : null;
 
   return (
@@ -294,6 +301,9 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
       )}
       {openTask && shown && (
         <TaskDialog task={openTask} data={shown} canEdit={canEdit} onClose={() => setOpenItem(null)} onSaved={() => setReload((n) => n + 1)} />
+      )}
+      {openPhase && shown && (
+        <PhaseDialog tasks={openPhase} data={shown} canEdit={canEdit} onClose={() => setOpenItem(null)} onSaved={() => setReload((n) => n + 1)} />
       )}
       {openHold && (
         <BookingDialog hold={openHold} canEdit={canEdit} onClose={() => setOpenItem(null)} onSaved={() => { setOpenItem(null); setReload((n) => n + 1); }} />
@@ -609,14 +619,28 @@ function Gantt({
                       style={{ width, height: isJob ? 34 : ROW_H }}
                     >
                       {grid}
-                      <button
-                        type="button"
-                        onClick={() => toggle(it.id)}
-                        aria-label={`${open ? "Collapse" : "Expand"} ${it.name}, ${span(it.start, it.end)}`}
-                        title={`${it.name} · ${span(it.start, it.end)}`}
-                        className={`absolute top-1/2 -translate-y-1/2 rounded-sm ${isJob ? "h-2" : "h-1.5"} ${it.short ? "ring-2 ring-danger" : ""}`}
-                        style={{ left: l, width: w, backgroundColor: colour, opacity: isJob ? 0.55 : 0.4 }}
-                      />
+                      {isJob ? (
+                        <button
+                          type="button"
+                          onClick={() => toggle(it.id)}
+                          aria-label={`${open ? "Collapse" : "Expand"} ${it.name}, ${span(it.start, it.end)}`}
+                          title={`${it.name} · ${span(it.start, it.end)}`}
+                          className={`absolute top-1/2 h-2 -translate-y-1/2 rounded-sm ${it.short ? "ring-2 ring-danger" : ""}`}
+                          style={{ left: l, width: w, backgroundColor: colour, opacity: 0.55 }}
+                        />
+                      ) : (
+                        // A phase's bar opens its tools; the name and arrow still collapse it. Tall hit area for a thumb.
+                        <button
+                          type="button"
+                          onClick={() => onOpen(it.id)}
+                          aria-label={`${it.name}, ${span(it.start, it.end)}. Open to assign tools to the whole phase`}
+                          title={`${it.name} · ${span(it.start, it.end)} · tap to assign tools to the whole phase`}
+                          className="absolute top-0 flex h-full items-center"
+                          style={{ left: l, width: Math.max(w, 24) }}
+                        >
+                          <span className={`block h-2.5 w-full rounded-sm ${it.short ? "ring-2 ring-danger" : ""}`} style={{ backgroundColor: colour, opacity: 0.6 }} />
+                        </button>
+                      )}
                     </div>
                   </Fragment>
                 );
@@ -1125,6 +1149,109 @@ function TaskDialog({ task, data, canEdit, onClose, onSaved }: { task: GanttTask
                 exclude={ruleTargets(scope)}
                 label="Choose a tool, type or group…"
                 onPick={(t) => void save(scope, [...ruleTargets(scope), t], [t])}
+              />
+            )}
+          </section>
+        )}
+      </div>
+      {prompt && <RequisitionPrompt shortages={prompt} onClose={() => setPrompt(null)} />}
+    </Dialog>
+  );
+}
+
+/**
+ * One phase (a JobTread task group): the tools every task under it needs.
+ * The rule is keyed by the phase's name, so it covers a phase of that name on
+ * every job. A task can still add its own tools, or set "needs no tools".
+ */
+function PhaseDialog({ tasks, data, canEdit, onClose, onSaved }: { tasks: GanttTask[]; data: ToolSchedulePayload; canEdit: boolean; onClose: () => void; onSaved: () => void }) {
+  const first = tasks[0];
+  const key = normalizeTaskName(first.phase);
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [prompt, setPrompt] = useState<Shortage[] | null>(null);
+  const targets = data.rules.find((r) => r.match === "phase" && r.key === key)?.targets ?? [];
+  // A target's name, as the tasks under the phase already show it.
+  const labels = new Map<string, string>();
+  for (const t of tasks) for (const n of t.needs) if (n.via === "phase") labels.set(n.target, n.label);
+  const short = new Set<string>();
+  const bySource = conflictsBySource(data.rows);
+  for (const t of tasks) for (const x of bySource.get(`task:${t.id}`) ?? []) short.add(x);
+  const starts = tasks.map((t) => t.startDate).sort();
+  const ends = tasks.map((t) => t.endDate).sort();
+
+  useEffect(() => {
+    if (!canEdit) return;
+    send<Catalog>("/api/tool-schedule/catalog")
+      .then((c) => setCatalog({ tools: c.tools ?? [], types: c.types ?? [], groups: c.groups ?? [] }))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  }, [canEdit]);
+
+  async function save(next: Target[], added: Target[] = []) {
+    setBusy(true);
+    setError("");
+    try {
+      if (next.length) await send("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match: "phase", key, label: first.phase, targets: next }) });
+      else await send(`/api/tool-schedule/rules?match=phase&key=${encodeURIComponent(key)}`, { method: "DELETE" });
+      onSaved();
+      const s = await findShortages("phase", key, added);
+      if (s.length) setPrompt(s);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const label = (t: Target) => labels.get(t) ?? catalog?.tools.find((x) => `tool:${x.id}` === t)?.name ?? t.replace(/^(tool|type|group):/, "");
+
+  return (
+    <Dialog
+      onClose={onClose}
+      busy={busy}
+      title={first.phase}
+      description={[first.jobName, `${tasks.length} ${tasks.length === 1 ? "task" : "tasks"}`, span(starts[0], ends[ends.length - 1])].join(" · ")}
+      size="md"
+    >
+      <div className="grid gap-5">
+        {error && <Banner tone="error">{error}</Banner>}
+        <section>
+          <SectionHeading>Tools for the whole phase</SectionHeading>
+          {targets.length === 0 ? (
+            <p className="text-sm text-neutral-500">No tools set on this phase yet.</p>
+          ) : (
+            <ul className="grid gap-1.5">
+              {targets.map((t) => (
+                <li key={t} className="flex items-start justify-between gap-3">
+                  <span className={`min-w-0 text-sm font-semibold ${short.has(t) ? "text-danger" : ""}`}>
+                    {short.has(t) ? "⚠ " : ""}
+                    {label(t)}
+                  </span>
+                  {canEdit && (
+                    <Button variant="ghost" size="xs" disabled={busy} aria-label={`Remove ${label(t)}`} onClick={() => void save(targets.filter((x) => x !== t))}>
+                      Remove
+                    </Button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-2 text-[12px] text-neutral-500">Every task under “{first.phase}” needs these, on every job with a phase of this name.</p>
+        </section>
+        {canEdit && (
+          <section className="grid gap-2">
+            <SectionHeading>Add a tool</SectionHeading>
+            {!catalog ? (
+              error ? null : <Loading label="Reading the Tools list…" />
+            ) : (
+              <TargetPicker
+                tools={catalog.tools}
+                types={catalog.types}
+                groups={catalog.groups}
+                exclude={targets}
+                label="Choose a tool, type or group…"
+                onPick={(t) => void save([...targets, t], [t])}
               />
             )}
           </section>
