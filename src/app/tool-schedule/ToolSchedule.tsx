@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { Banner, btn, Card, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
+import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
 import { dayNum } from "@/lib/toolSchedule";
 import type { ToolSchedulePayload, ToolScheduleRow } from "@/lib/toolScheduleData";
-import { assignLanes, jobColourIndex, needsOnDay, weeksOfNeed } from "@/lib/toolScheduleView";
+import { assignLanes, filterScheduleByJobs, jobColourIndex, jobsInView, needsOnDay, weeksOfNeed } from "@/lib/toolScheduleView";
 
 /**
  * The tool schedule: which tool types each job needs on which days, from the
@@ -39,6 +40,8 @@ const fmt = (iso: string, year = false) =>
 const span = (a: string, b: string) => (a === b ? fmt(a) : `${fmt(a)} – ${fmt(b)}`);
 const jobColour = (i: number | undefined) => `var(--viz-${(i ?? 0) + 1})`;
 
+const HIDDEN_KEY = "toolSchedule.hiddenJobs";
+
 function readPref<T extends string>(key: string, ok: readonly T[], fallback: T): T {
   try {
     const v = localStorage.getItem(key) as T | null;
@@ -61,11 +64,24 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const [data, setData] = useState<ToolSchedulePayload | null>(null);
   const [error, setError] = useState("");
   const [openKind, setOpenKind] = useState<string | null>(null);
+  // Jobs the person hid. Hidden, not chosen, so a job that is new shows by default.
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     setView(readPref<View>("toolSchedule.view", ["gantt", "calendar", "list"], "gantt"));
     setMonths(readPref<Months>("toolSchedule.months", ["1", "3", "6"], "6"));
+    try {
+      const saved = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? "[]");
+      if (Array.isArray(saved)) setHidden(new Set(saved.map(String)));
+    } catch {
+      /* nothing saved, or storage is blocked */
+    }
   }, []);
+
+  function changeHidden(next: Set<string>) {
+    setHidden(next);
+    writePref(HIDDEN_KEY, JSON.stringify([...next]));
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -83,16 +99,31 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
     };
   }, [months]);
 
-  const colours = useMemo(() => jobColourIndex(data?.jobs.map((j) => j.id) ?? []), [data]);
-  const shortCount = data?.rows.reduce((n, r) => n + (r.missing ? 0 : r.shortfalls.length), 0) ?? 0;
-  const missingCount = data?.rows.filter((r) => r.missing).length ?? 0;
-  const kind = data?.rows.find((r) => r.kindId === openKind) ?? null;
+  // Every job in the data, so a hold-only job can be hidden too. Colours follow
+  // the full list, so hiding a job does not recolour the others.
+  const allJobs = useMemo(() => (data ? jobsInView(data.jobs, data.rows) : []), [data]);
+  const colours = useMemo(() => jobColourIndex([...(data?.jobs ?? []).map((j) => j.id), ...allJobs.map((j) => j.id)]), [data, allJobs]);
+  const hiddenCount = allJobs.filter((j) => hidden.has(j.id)).length;
+  // The schedule for the jobs on view: shortfalls and missing tools are found again for them.
+  const shown = useMemo<ToolSchedulePayload | null>(() => {
+    if (!data) return null;
+    const f = filterScheduleByJobs(data.rows, data.moves, hidden, data.from, data.to);
+    return {
+      ...data,
+      rows: f.rows,
+      moves: f.moves,
+      jobs: allJobs.filter((j) => !hidden.has(j.id)),
+      endsEarly: data.endsEarly.filter((j) => !hidden.has(j.id)),
+    };
+  }, [data, hidden, allJobs]);
+  const shortCount = shown?.rows.reduce((n, r) => n + (r.missing ? 0 : r.shortfalls.length), 0) ?? 0;
+  const missingCount = shown?.rows.filter((r) => r.missing).length ?? 0;
+  const kind = shown?.rows.find((r) => r.kindId === openKind) ?? null;
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-6xl">
       <PageHeader
         title="Tool Schedule"
-        description="Which tools each job needs, and when — built from the JobTread schedules."
         actions={
           canEdit ? (
             <Link href="/tool-schedule/edit" className={btn("secondary", "sm")}>
@@ -103,15 +134,18 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
       />
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <Segmented
-          label="Show as"
-          value={view}
-          options={VIEW_OPTIONS}
-          onChange={(v) => {
-            setView(v);
-            writePref("toolSchedule.view", v);
-          }}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Show as"
+            value={view}
+            options={VIEW_OPTIONS}
+            onChange={(v) => {
+              setView(v);
+              writePref("toolSchedule.view", v);
+            }}
+          />
+          {data && allJobs.length > 0 && <JobFilter jobs={allJobs} hidden={hidden} onChange={changeHidden} />}
+        </div>
         <Segmented
           label="How far ahead"
           value={months}
@@ -127,13 +161,18 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
       {error && <Banner tone="error" className="mb-3">Could not load the tool schedule: {error}</Banner>}
       {!data && !error && <Loading label="Reading the JobTread schedules…" />}
 
-      {data && (
+      {data && shown && (
         <>
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {shortCount > 0 && <Chip tone="danger">{shortCount} {shortCount === 1 ? "conflict" : "conflicts"}</Chip>}
             {missingCount > 0 && <Chip tone="danger">{missingCount} missing</Chip>}
-            {data.moves.length > 0 && <Chip tone="warning">{data.moves.length} {data.moves.length === 1 ? "move" : "moves"} coming up</Chip>}
-            <MetaLine items={[span(data.from, data.to) + ", " + data.to.slice(0, 4), `${data.jobs.length} jobs scheduled`]} />
+            {shown.moves.length > 0 && <Chip tone="warning">{shown.moves.length} {shown.moves.length === 1 ? "move" : "moves"} coming up</Chip>}
+            <MetaLine
+              items={[
+                span(data.from, data.to) + ", " + data.to.slice(0, 4),
+                hiddenCount > 0 ? `Showing ${allJobs.length - hiddenCount} of ${allJobs.length} jobs` : `${allJobs.length} ${allJobs.length === 1 ? "job" : "jobs"}`,
+              ]}
+            />
           </div>
 
           {data.toolsError && (
@@ -164,17 +203,24 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
                 "The office adds them."
               )}
             </EmptyState>
+          ) : shown.jobs.length === 0 && allJobs.length > 0 ? (
+            <EmptyState>
+              No jobs selected.{" "}
+              <button type="button" className="font-semibold underline" onClick={() => changeHidden(new Set())}>
+                Show all
+              </button>
+            </EmptyState>
           ) : view === "gantt" ? (
-            <Gantt data={data} colours={colours} onOpen={setOpenKind} months={Number(months)} />
+            <Gantt data={shown} colours={colours} onOpen={setOpenKind} months={Number(months)} />
           ) : view === "calendar" ? (
-            <Calendar data={data} onOpen={setOpenKind} />
+            <Calendar data={shown} onOpen={setOpenKind} />
           ) : (
-            <List data={data} colours={colours} onOpen={setOpenKind} />
+            <List data={shown} colours={colours} onOpen={setOpenKind} />
           )}
 
           {data.rows.length > 0 && view !== "calendar" && (
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-neutral-500 dark:text-neutral-400">
-              {data.jobs.map((j) => (
+              {shown.jobs.map((j) => (
                 <span key={j.id} className="inline-flex items-center gap-1.5">
                   <i aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: jobColour(colours.get(j.id)) }} />
                   {j.name}
@@ -187,18 +233,102 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
             </div>
           )}
 
-          {data.endsEarly.length > 0 && (
+          {shown.endsEarly.length > 0 && (
             <p className="mt-4 text-[12px] text-neutral-500 dark:text-neutral-400">
               Schedule ends before {fmt(data.to, true)}:{" "}
-              {data.endsEarly.map((j) => `${j.name} (${fmt(j.lastDay)})`).join(", ")}. Tool needs after those dates are not counted.
+              {shown.endsEarly.map((j) => `${j.name} (${fmt(j.lastDay)})`).join(", ")}. Tool needs after those dates are not counted.
               {data.excludes.length > 0 && ` Left out by the office: ${data.excludes.map((e) => e.jobName || e.jobId).join(", ")}.`}
             </p>
           )}
         </>
       )}
 
-      {kind && data && <KindDialog row={kind} data={data} colours={colours} canEdit={canEdit} onClose={() => setOpenKind(null)} />}
+      {kind && shown && <KindDialog row={kind} data={shown} colours={colours} canEdit={canEdit} onClose={() => setOpenKind(null)} />}
     </main>
+  );
+}
+
+/* --------------------------------------------------------------- Job filter */
+
+/** Pick which jobs the schedule shows. A panel of checkboxes; a search box once the list is long. */
+function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: string }[]; hidden: Set<string>; onChange: (h: Set<string>) => void }) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const hiddenCount = jobs.filter((j) => hidden.has(j.id)).length;
+  const label = hiddenCount === 0 ? "All jobs" : `${jobs.length - hiddenCount} of ${jobs.length} jobs`;
+  const listed = jobs.filter((j) => matchesAllWords(j.name, q));
+  const toggle = (id: string) => {
+    const next = new Set(hidden);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    onChange(next);
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setOpen(false);
+      }}
+    >
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={open}
+        onClick={() => {
+          setOpen((o) => !o);
+          setQ("");
+        }}
+        className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold lg:min-h-7 ${hiddenCount ? "bg-accent/15 text-accent dark:text-accent-soft" : "bg-neutral-100 text-neutral-700 dark:bg-white/[0.07] dark:text-neutral-200"}`}
+      >
+        {label}
+        <span aria-hidden className="text-[10px]">
+          ▾
+        </span>
+      </button>
+      {open && (
+        <div className="absolute left-0 z-30 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-white p-2 shadow-xl shadow-black/10 dark:bg-ink-overlay dark:shadow-black/40">
+          {jobs.length > 8 && (
+            <input
+              autoFocus
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search jobs…"
+              aria-label="Search jobs"
+              className="mb-1 w-full rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
+            />
+          )}
+          <div className="mb-1 flex gap-1">
+            <Button variant="ghost" size="xs" onClick={() => onChange(new Set())} disabled={hiddenCount === 0}>
+              All
+            </Button>
+            <Button variant="ghost" size="xs" onClick={() => onChange(new Set(jobs.map((j) => j.id)))} disabled={hiddenCount === jobs.length}>
+              None
+            </Button>
+          </div>
+          <ul className="max-h-64 overflow-auto">
+            {listed.map((j) => (
+              <li key={j.id} className="flex min-h-9 items-center">
+                <Checkbox checked={!hidden.has(j.id)} onChange={() => toggle(j.id)} label={j.name} className="w-full" />
+              </li>
+            ))}
+            {listed.length === 0 && <li className="px-2 py-2 text-sm text-neutral-500">No job matches.</li>}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@
 // rules that decide what is needed live in toolSchedule.ts; this only arranges
 // the answer for the Gantt, the calendar and the list.
 
-import { dayIso, dayNum, type DemandSpan, type KindSchedule } from "@/lib/toolSchedule";
+import { dayIso, dayNum, findShortfalls, type DemandSpan, type KindSchedule, type MoveNeeded } from "@/lib/toolSchedule";
 
 /** A span placed on a lane, so overlapping spans in one Gantt row stack. */
 export interface LanedSpan extends DemandSpan {
@@ -94,4 +94,103 @@ export function jobColourIndex(jobIds: string[]): Map<string, number> {
   const m = new Map<string, number>();
   for (const id of jobIds) if (!m.has(id)) m.set(id, m.size % 8);
   return m;
+}
+
+// ---------------------------------------------------------------------------
+// Job filter
+// ---------------------------------------------------------------------------
+
+/** Every job that appears in the data, by name: scheduled jobs plus hold-only ones. */
+export function jobsInView(
+  jobs: { id: string; name: string }[],
+  rows: Pick<KindSchedule, "spans">[],
+): { id: string; name: string }[] {
+  const m = new Map(jobs.map((j) => [j.id, j.name]));
+  for (const r of rows) for (const s of r.spans) if (!m.has(s.jobId)) m.set(s.jobId, s.jobName);
+  return [...m].map(([id, name]) => ({ id, name })).sort((a, b) => compareText(a.name, b.name));
+}
+
+/**
+ * The schedule as if only the jobs not in `hidden` existed: their spans stay,
+ * the shortfalls are found again against what is owned, and a tool type is
+ * "missing" only if a shown job needs it. A view of what these jobs need, not
+ * of what the company needs.
+ */
+export function filterScheduleByJobs<R extends KindSchedule>(
+  rows: R[],
+  moves: MoveNeeded[],
+  hidden: ReadonlySet<string>,
+  from: string,
+  to: string,
+): { rows: R[]; moves: MoveNeeded[] } {
+  if (hidden.size === 0) return { rows, moves };
+  return {
+    rows: rows.map((r) => {
+      const spans = r.spans.filter((s) => !hidden.has(s.jobId));
+      return { ...r, spans, shortfalls: findShortfalls(spans, r.owned, from, to), missing: r.owned === 0 && spans.length > 0 };
+    }),
+    moves: moves.filter((m) => !hidden.has(m.jobId)),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Search and sort
+// ---------------------------------------------------------------------------
+
+export type SortDir = "asc" | "desc";
+
+/** Text order that reads digits as numbers: "06 10 00" before "06 20 13", "Saw 2" before "Saw 10". */
+export function compareText(a: string, b: string): number {
+  return a.localeCompare(b, "en", { numeric: true, sensitivity: "base" });
+}
+
+/** A sorted copy. `dir` turns only the main order; ties always read A–Z by `tie`. */
+function sorted<T>(items: T[], main: (a: T, b: T) => number, tie: (a: T, b: T) => number, dir: SortDir): T[] {
+  return [...items].sort((a, b) => (dir === "asc" ? main(a, b) : main(b, a)) || tie(a, b));
+}
+
+export type KindSortKey = "name" | "owned" | "codes";
+export function sortKinds<K extends { id: string; name: string; costCodeIds: string[] }>(
+  kinds: K[],
+  key: KindSortKey,
+  dir: SortDir,
+  owned: (kindId: string) => number,
+): K[] {
+  const by: Record<KindSortKey, (a: K, b: K) => number> = {
+    name: (a, b) => compareText(a.name, b.name),
+    owned: (a, b) => owned(a.id) - owned(b.id),
+    codes: (a, b) => a.costCodeIds.length - b.costCodeIds.length,
+  };
+  return sorted(kinds, by[key], (a, b) => compareText(a.name, b.name), dir);
+}
+
+export type UnresolvedSortKey = "tasks" | "name" | "job" | "phase";
+export function sortUnresolved<U extends { name: string; phase: string; jobNames: string[]; taskIds: string[] }>(
+  list: U[],
+  key: UnresolvedSortKey,
+  dir: SortDir,
+): U[] {
+  const by: Record<UnresolvedSortKey, (a: U, b: U) => number> = {
+    tasks: (a, b) => a.taskIds.length - b.taskIds.length,
+    name: (a, b) => compareText(a.name, b.name),
+    job: (a, b) => compareText(a.jobNames.join(", "), b.jobNames.join(", ")),
+    phase: (a, b) => compareText(a.phase, b.phase),
+  };
+  return sorted(list, by[key], (a, b) => compareText(a.name, b.name), dir);
+}
+
+export type RuleSortKey = "name" | "type" | "code";
+export function sortRules<T extends { label: string; key: string; match: string; costCodeId: string | null }>(
+  rules: T[],
+  key: RuleSortKey,
+  dir: SortDir,
+  codeNumber: (costCodeId: string | null) => string,
+): T[] {
+  const name = (r: T) => r.label || r.key;
+  const by: Record<RuleSortKey, (a: T, b: T) => number> = {
+    name: (a, b) => compareText(name(a), name(b)),
+    type: (a, b) => compareText(a.match, b.match),
+    code: (a, b) => compareText(codeNumber(a.costCodeId), codeNumber(b.costCodeId)),
+  };
+  return sorted(rules, by[key], (a, b) => compareText(name(a), name(b)), dir);
 }

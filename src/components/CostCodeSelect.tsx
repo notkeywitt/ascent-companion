@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { matchesAllWords } from "@/lib/searchWords";
 
 export interface Option {
   id: string;
@@ -151,6 +152,8 @@ export function CostCodeSelect({
   onChange,
   inline = false,
   textCls = "text-[13px]",
+  placeholder = "— uncoded —",
+  noneLabel = "— uncoded —",
 }: {
   options: Option[];
   value: string;
@@ -160,6 +163,10 @@ export function CostCodeSelect({
   inline?: boolean;
   /** The closed box's text size. */
   textCls?: string;
+  /** The closed box's text when nothing is chosen. */
+  placeholder?: string;
+  /** The clear row at the top of the list. */
+  noneLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -185,8 +192,7 @@ export function CostCodeSelect({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const q = query.trim().toLowerCase();
-  const filtered = q ? groups.filter((g) => g.haystack.includes(q)) : groups;
+  const filtered = groups.filter((g) => matchesAllWords(g.haystack, query));
 
   function pick(id: string) {
     onChange(id);
@@ -220,7 +226,7 @@ export function CostCodeSelect({
           )
             : value
               ? "— coded to a line not on this list —"
-              : "— uncoded —"}
+              : placeholder}
           {selectedLabel && <span className="text-neutral-500"> · {selectedLabel}</span>}
         </span>
         <span className="text-[10px] text-neutral-400">▾</span>
@@ -242,7 +248,7 @@ export function CostCodeSelect({
                 onClick={() => pick("")}
                 className="w-full px-3 py-2 text-left text-xs text-neutral-400 hover:bg-neutral-100 dark:hover:bg-white/5"
               >
-                — uncoded —
+                {noneLabel}
               </button>
             </li>
 

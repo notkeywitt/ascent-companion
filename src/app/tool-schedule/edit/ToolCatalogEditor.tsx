@@ -21,6 +21,15 @@ import {
 } from "@/components/ui";
 import type { CostCodeRef } from "@/lib/jobtread";
 import type { RuleMatch, ToolHold } from "@/lib/toolSchedule";
+import {
+  sortKinds,
+  sortRules,
+  sortUnresolved,
+  type KindSortKey,
+  type RuleSortKey,
+  type SortDir,
+  type UnresolvedSortKey,
+} from "@/lib/toolScheduleView";
 
 /**
  * The tool schedule's editor (docs/plans/TOOL_SCHEDULE_PLAN.md), for the office:
@@ -61,6 +70,65 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
 
 const codeLabel = (c: CostCodeRef | undefined, id: string) => (c ? `${c.number} ${c.name}` : id);
 
+interface Sort<K extends string> {
+  key: K;
+  dir: SortDir;
+}
+
+/** A list's sort: which field, and which way. Ties always read A–Z. */
+function SortBar<K extends string>({
+  label,
+  keys,
+  sort,
+  onChange,
+}: {
+  label: string;
+  keys: readonly { value: K; label: string }[];
+  sort: Sort<K>;
+  onChange: (s: Sort<K>) => void;
+}) {
+  const asc = sort.dir === "asc";
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Sort</span>
+      <Select
+        aria-label={label}
+        value={sort.key}
+        onChange={(e) => onChange({ ...sort, key: e.target.value as K })}
+        className="!w-auto max-w-full text-xs"
+      >
+        {keys.map((k) => (
+          <option key={k.value} value={k.value}>
+            {k.label}
+          </option>
+        ))}
+      </Select>
+      <Button
+        variant="secondary"
+        size="xs"
+        aria-label={`${label}: ${asc ? "ascending" : "descending"}. Switch order`}
+        onClick={() => onChange({ ...sort, dir: asc ? "desc" : "asc" })}
+      >
+        <span aria-hidden>{asc ? "▲" : "▼"}</span>
+      </Button>
+    </div>
+  );
+}
+
+/** A table header that sorts its column. */
+function SortTh<K extends string>({ label, k, sort, onSort }: { label: string; k: K; sort: Sort<K>; onSort: (k: K) => void }) {
+  const on = sort.key === k;
+  return (
+    <th className={tableCls.th} aria-sort={on ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
+      <button type="button" onClick={() => onSort(k)} className="inline-flex min-h-8 items-center gap-1 uppercase">
+        {label}
+        <span aria-hidden className={on ? "" : "text-neutral-400"}>
+          {on ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
+        </span>
+      </button>
+    </th>
+  );
+}
 export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
   const [tab, setTab] = useState<EditorTab>(initialTab);
   const [unresolved, setUnresolved] = useState<number | null>(null);
@@ -74,7 +142,6 @@ export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-4xl">
       <PageHeader
         title="Edit Tool Schedule"
-        description="Say which tools each cost code needs. The schedule does the rest."
         actions={
           <Link href="/tool-schedule" className={btn("secondary", "sm")}>
             ← Tool Schedule
@@ -101,6 +168,7 @@ function Catalogue() {
   const [open, setOpen] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [sort, setSort] = useState<Sort<KindSortKey>>({ key: "name", dir: "asc" });
 
   const load = useCallback(() => {
     call<typeof data>("/api/tool-schedule/catalog")
@@ -129,6 +197,7 @@ function Catalogue() {
   if (error && !data) return <Banner tone="error">{error}</Banner>;
   if (!data) return <Loading />;
   const owned = (kindId: string) => Object.values(data.members).filter((k) => k === kindId).length;
+  const kinds = sortKinds(data.kinds, sort.key, sort.dir, owned);
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
@@ -146,14 +215,25 @@ function Catalogue() {
           Add tool type
         </Button>
       </form>
-      <p className="text-[12px] text-neutral-500">
-        A tool type counts as needed on every day a scheduled task with one of its cost codes runs.
-      </p>
+      {data.kinds.length > 1 && (
+        <div className="flex justify-end">
+          <SortBar
+            label="Sort tool types"
+            sort={sort}
+            onChange={setSort}
+            keys={[
+              { value: "name", label: "Name" },
+              { value: "owned", label: "Owned" },
+              { value: "codes", label: "Cost codes" },
+            ]}
+          />
+        </div>
+      )}
       {data.kinds.length === 0 ? (
         <EmptyState>No tool types yet. Add the first one above.</EmptyState>
       ) : (
         <ListCard className="divide-y divide-line-soft">
-          {data.kinds.map((k) =>
+          {kinds.map((k) =>
             open === k.id ? (
               <KindEditor
                 key={k.id}
@@ -257,6 +337,8 @@ function KindEditor({
           options={data.costCodes.filter((c) => !codes.includes(c.id))}
           value=""
           onChange={(id) => id && setCodes([...codes, id])}
+          placeholder="Add a cost code…"
+          noneLabel="Cancel"
         />
       </div>
 
@@ -343,6 +425,8 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
   const [error, setError] = useState("");
   const [busyKey, setBusyKey] = useState("");
   const [byPhase, setByPhase] = useState<Record<string, boolean>>({});
+  const [unSort, setUnSort] = useState<Sort<UnresolvedSortKey>>({ key: "tasks", dir: "desc" });
+  const [ruleSort, setRuleSort] = useState<Sort<RuleSortKey>>({ key: "name", dir: "asc" });
 
   const load = useCallback(() => {
     call<NonNullable<typeof data>>("/api/tool-schedule/rules")
@@ -396,28 +480,39 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
 
   if (error && !data) return <Banner tone="error">{error}</Banner>;
   if (!data) return <Loading label="Reading the JobTread schedules…" />;
-  const codeOptions = data.costCodes.map((c) => (
-    <option key={c.id} value={c.id}>
-      {c.number} {c.name}
-    </option>
-  ));
+  const unresolved = sortUnresolved(data.unresolved, unSort.key, unSort.dir);
+  const rules = sortRules(data.rules, ruleSort.key, ruleSort.dir, (id) => (id ? codes.get(id)?.number ?? "" : ""));
+  const sortRule = (key: RuleSortKey) =>
+    setRuleSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {error && <Banner tone="error">{error}</Banner>}
-      <p className="text-[12px] text-neutral-500">
-        JobTread schedule tasks carry no cost code. Map each task name once; the same name then maps on every job. A task
-        that needs no tools still needs an answer, so it leaves this list.
-      </p>
       <section>
-        <SectionHeading>
+        <SectionHeading
+          trailing={
+            data.unresolved.length > 1 ? (
+              <SortBar
+                label="Sort task names"
+                sort={unSort}
+                onChange={setUnSort}
+                keys={[
+                  { value: "tasks", label: "Tasks" },
+                  { value: "name", label: "Name" },
+                  { value: "job", label: "Job" },
+                  { value: "phase", label: "Phase" },
+                ]}
+              />
+            ) : undefined
+          }
+        >
           {data.unresolved.length ? `${data.unresolved.length} task ${data.unresolved.length === 1 ? "name needs" : "names need"} a code` : "Every scheduled task has a code"}
         </SectionHeading>
         {data.unresolved.length === 0 ? (
           <EmptyState>All caught up for the next 6 months.</EmptyState>
         ) : (
           <ListCard className="divide-y divide-line-soft">
-            {data.unresolved.map((u) => {
+            {unresolved.map((u) => {
               const phase = byPhase[u.key] && u.phase;
               return (
                 <div key={u.key} className="grid gap-2 px-3 py-3">
@@ -431,16 +526,17 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
                         ✓ <span className="font-mono text-[11px] text-neutral-500">{c.number}</span> {c.name}
                       </Button>
                     ))}
-                    <Select
-                      aria-label={`Choose another code for ${u.name}`}
-                      value=""
-                      disabled={busyKey === u.key}
-                      onChange={(e) => e.target.value && map(u, e.target.value)}
-                      className="!w-auto max-w-full text-xs"
-                    >
-                      <option value="">Other code…</option>
-                      {codeOptions}
-                    </Select>
+                    <div className="w-full sm:w-80">
+                      <CostCodeSelect
+                        inline
+                        textCls="text-xs"
+                        options={data.costCodes}
+                        value=""
+                        onChange={(id) => id && map(u, id)}
+                        placeholder="Other code…"
+                        noneLabel="Cancel"
+                      />
+                    </div>
                     <Button variant="ghost" size="xs" disabled={busyKey === u.key} onClick={() => map(u, null)}>
                       Needs no tools
                     </Button>
@@ -462,40 +558,35 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
         {data.rules.length === 0 ? (
           <EmptyState>Nothing mapped yet.</EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-line">
+          <div className="relative overflow-x-auto rounded-xl border border-line">
             <table className={tableCls.root}>
               <thead>
                 <tr>
-                  <th className={tableCls.th}>Matches</th>
-                  <th className={tableCls.th}>Cost code</th>
+                  <SortTh label="Matches" k="name" sort={ruleSort} onSort={sortRule} />
+                  <SortTh label="Type" k="type" sort={ruleSort} onSort={sortRule} />
+                  <SortTh label="Cost code" k="code" sort={ruleSort} onSort={sortRule} />
                   <th className={tableCls.th}>
                     <span className="sr-only">Remove</span>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {[...data.rules]
-                  .sort((a, b) => a.label.localeCompare(b.label))
-                  .map((r) => {
+                {rules.map((r) => {
                     const k = `${r.match}:${r.key}`;
                     return (
                       <tr key={k} className={tableCls.tr}>
-                        <td className={tableCls.td}>
-                          {r.label || r.key}
-                          <div className="text-[11px] text-neutral-500">{MATCH_LABEL[r.match]}</div>
-                        </td>
-                        <td className={tableCls.td}>
-                          <Select
-                            aria-label={`Cost code for ${r.label}`}
+                        <td className={tableCls.td}>{r.label || r.key}</td>
+                        <td className={`${tableCls.td} whitespace-nowrap text-neutral-500`}>{MATCH_LABEL[r.match]}</td>
+                        <td className={`${tableCls.td} min-w-56`}>
+                          <CostCodeSelect
+                            inline
+                            textCls="text-xs"
+                            options={data.costCodes}
                             value={r.costCodeId ?? ""}
-                            disabled={busyKey === k}
-                            onChange={(e) => change(r, e.target.value || null)}
-                            className="text-xs"
-                          >
-                            <option value="">Needs no tools</option>
-                            {r.costCodeId && !codes.has(r.costCodeId) && <option value={r.costCodeId}>Archived code</option>}
-                            {codeOptions}
-                          </Select>
+                            onChange={(id) => change(r, id || null)}
+                            placeholder="Needs no tools"
+                            noneLabel="Needs no tools"
+                          />
                         </td>
                         <td className={`${tableCls.td} text-right`}>
                           <Button variant="ghost" size="xs" disabled={busyKey === k} onClick={() => remove(r)}>
@@ -564,10 +655,6 @@ function Holds() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {error && <Banner tone="error">{error}</Banner>}
-      <p className="text-[12px] text-neutral-500">
-        A hold reserves a tool type for a job outside the schedule: a known need before the job has a Gantt, or a tool
-        kept on site. It counts like a scheduled task.
-      </p>
       {data.holds.length === 0 ? (
         <EmptyState>No holds.</EmptyState>
       ) : (
@@ -676,10 +763,6 @@ function Jobs() {
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
       {error && <Banner tone="error">{error}</Banner>}
-      <p className="text-[12px] text-neutral-500">
-        Jobs with schedule tasks in the next 6 months. Leave out a job whose Gantt is a copy of another job&apos;s (a PreCon
-        job), or both count and its tool needs double.
-      </p>
       {jobs.length === 0 ? (
         <EmptyState>No job has schedule tasks in the next 6 months.</EmptyState>
       ) : (

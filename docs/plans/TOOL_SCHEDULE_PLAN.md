@@ -14,6 +14,7 @@ The owner approved a clickable sample of the layouts the same day.
 - Stage 0 (sample layouts): done, approved 2026-11-10.
 - Stage 1 (reads + rules): done — `getUpcomingScheduleTasks`, `getCostCodes`, `src/lib/toolSchedule.ts`.
 - Stages 2–4: done 2026-11-10 — tables, editor, schedule page, moves, left-out jobs, chat tool.
+- Round 2 done 2026-11-10 — help text trimmed, searchable cost-code pickers, a job filter on the schedule page, sortable catalogue and task-code lists.
 - Next: the office fills the catalogue and maps task names; then watch whether
   the move list is useful (it depends on Tools-sheet labels matching job names).
 

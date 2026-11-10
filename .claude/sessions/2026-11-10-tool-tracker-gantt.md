@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tool-tracker-gantt-x7gelq
 status: shipped
 started: 2026-11-10T06:16:53Z
-updated: 2026-11-10T06:59:19Z
+updated: 2026-11-10T07:02:37Z
 goal: 
 next: Office fills the tool catalogue and maps task names on /tool-schedule/edit; leave out Studio PreCon on the Jobs tab; then check the Moves list matches reality.
 ---

@@ -1,7 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { matchesAllWords } from "./searchWords";
 import type { DemandSpan, KindSchedule } from "./toolSchedule";
 import { viewIdForPath, ROLE_VIEWS } from "./views";
-import { assignLanes, jobColourIndex, mondayOf, needsOnDay, weeksOfNeed } from "./toolScheduleView";
+import {
+  assignLanes,
+  compareText,
+  filterScheduleByJobs,
+  jobColourIndex,
+  jobsInView,
+  mondayOf,
+  needsOnDay,
+  sortKinds,
+  sortRules,
+  sortUnresolved,
+  weeksOfNeed,
+} from "./toolScheduleView";
 
 const span = (jobId: string, startDate: string, endDate: string, qty = 1): DemandSpan => ({
   kindId: "k",
@@ -75,5 +88,107 @@ describe("tool schedule gating", () => {
     expect(ROLE_VIEWS.field).not.toContain("tool-schedule-edit");
     expect(ROLE_VIEWS.lead).not.toContain("tool-schedule-edit");
     expect(ROLE_VIEWS.office).toContain("tool-schedule-edit");
+  });
+});
+
+describe("filterScheduleByJobs", () => {
+  const spans = [span("studio", "2026-12-01", "2026-12-10"), span("main", "2026-12-05", "2026-12-20")];
+  const moves = [
+    { kindId: "Saw", kindName: "Saw", jobId: "studio", jobName: "STUDIO", by: "2026-12-01", toolsAt: [] },
+    { kindId: "Saw", kindName: "Saw", jobId: "main", jobName: "MAIN", by: "2026-12-05", toolsAt: [] },
+  ];
+  const from = "2026-11-10";
+  const to = "2027-05-09";
+
+  it("returns the data untouched when nothing is hidden", () => {
+    const rows = [row(spans)];
+    expect(filterScheduleByJobs(rows, moves, new Set(), from, to)).toEqual({ rows, moves });
+  });
+  it("finds the conflict from the spans while both jobs show, and loses it when one is hidden", () => {
+    const shown = filterScheduleByJobs([row(spans)], moves, new Set(["nobody"]), from, to).rows[0];
+    expect(shown.shortfalls).toMatchObject([{ startDate: "2026-12-05", endDate: "2026-12-10", need: 2, owned: 1 }]);
+    expect(filterScheduleByJobs([row(spans)], moves, new Set(["main"]), from, to).rows[0].shortfalls).toEqual([]);
+  });
+  it("finds the shortfall again from the spans that remain", () => {
+    const three = [span("a", "2026-12-01", "2026-12-05"), span("b", "2026-12-03", "2026-12-08"), span("c", "2026-12-04", "2026-12-06")];
+    const out = filterScheduleByJobs([row(three)], [], new Set(["c"]), from, to).rows[0];
+    expect(out.shortfalls).toMatchObject([{ startDate: "2026-12-03", endDate: "2026-12-05", need: 2, owned: 1 }]);
+  });
+  it("marks a tool type missing only while a shown job needs it", () => {
+    const none = row(spans, 0);
+    expect(filterScheduleByJobs([none], [], new Set(["studio"]), from, to).rows[0].missing).toBe(true);
+    expect(filterScheduleByJobs([none], [], new Set(["studio", "main"]), from, to).rows[0]).toMatchObject({ missing: false, spans: [], shortfalls: [] });
+  });
+  it("drops a hidden job's moves and ignores an id it does not know", () => {
+    const out = filterScheduleByJobs([row(spans)], moves, new Set(["studio", "nobody"]), from, to);
+    expect(out.moves.map((m) => m.jobId)).toEqual(["main"]);
+  });
+});
+
+describe("jobsInView", () => {
+  it("adds a job that only has a hold, and sorts by name", () => {
+    const rows = [row([span("hold-only", "2027-01-04", "2027-01-08")])];
+    expect(jobsInView([{ id: "main", name: "Main House" }, { id: "barn", name: "Barn" }], rows)).toEqual([
+      { id: "barn", name: "Barn" },
+      { id: "hold-only", name: "HOLD-ONLY" },
+      { id: "main", name: "Main House" },
+    ]);
+  });
+});
+
+describe("matchesAllWords", () => {
+  it("needs every word, in any order, and matches an empty query", () => {
+    const hay = "03 30 10 Cast-in-Place Concrete Slabs";
+    expect(matchesAllWords(hay, "slab concrete")).toBe(true);
+    expect(matchesAllWords(hay, "03 30")).toBe(true);
+    expect(matchesAllWords(hay, "slab roofing")).toBe(false);
+    expect(matchesAllWords(hay, "  ")).toBe(true);
+  });
+});
+
+describe("sorting", () => {
+  it("reads digits as numbers", () => {
+    expect(["Saw 10", "Saw 2"].sort(compareText)).toEqual(["Saw 2", "Saw 10"]);
+    expect(["06 20 13", "06 10 00"].sort(compareText)).toEqual(["06 10 00", "06 20 13"]);
+  });
+  it("sorts tool types by name, owned and cost codes, both ways", () => {
+    const kinds = [
+      { id: "a", name: "Saw", costCodeIds: ["1", "2", "3"] },
+      { id: "b", name: "Mixer", costCodeIds: ["1"] },
+      { id: "c", name: "Lift", costCodeIds: [] },
+    ];
+    const own: Record<string, number> = { a: 1, b: 0, c: 1 };
+    const ids = (k: typeof kinds) => k.map((x) => x.id);
+    expect(ids(sortKinds(kinds, "name", "asc", (id) => own[id]))).toEqual(["c", "b", "a"]);
+    expect(ids(sortKinds(kinds, "name", "desc", (id) => own[id]))).toEqual(["a", "b", "c"]);
+    expect(ids(sortKinds(kinds, "owned", "asc", (id) => own[id]))).toEqual(["b", "c", "a"]);
+    expect(ids(sortKinds(kinds, "codes", "desc", (id) => own[id]))).toEqual(["a", "b", "c"]);
+  });
+  it("sorts unresolved task names by tasks, name, job and phase", () => {
+    const list = [
+      { name: "Burn", phase: "", jobNames: ["Main House"], taskIds: ["1"] },
+      { name: "Strip", phase: "Site Prep", jobNames: ["Studio", "Pre"], taskIds: ["2", "3"] },
+      { name: "Anchor", phase: "Framing", jobNames: ["Barn"], taskIds: ["4"] },
+    ];
+    const names = (l: typeof list) => l.map((x) => x.name);
+    expect(names(sortUnresolved(list, "tasks", "desc"))).toEqual(["Strip", "Anchor", "Burn"]); // the tie reads A–Z
+    expect(names(sortUnresolved(list, "tasks", "asc"))).toEqual(["Anchor", "Burn", "Strip"]);
+    expect(names(sortUnresolved(list, "name", "asc"))).toEqual(["Anchor", "Burn", "Strip"]);
+    expect(names(sortUnresolved(list, "job", "asc"))).toEqual(["Anchor", "Burn", "Strip"]);
+    expect(names(sortUnresolved(list, "phase", "desc"))).toEqual(["Strip", "Anchor", "Burn"]);
+  });
+  it("sorts mapped rules by name, type and cost code number, with no-code rules first", () => {
+    const num: Record<string, string> = { x: "06 10 00", y: "03 30 00" };
+    const rules = [
+      { match: "name", key: "footings", label: "Footings", costCodeId: "y" },
+      { match: "phase", key: "framing", label: "Framing", costCodeId: "x" },
+      { match: "name", key: "inspection", label: "Inspection", costCodeId: null },
+    ];
+    const labels = (r: typeof rules) => r.map((x) => x.label);
+    const code = (id: string | null) => (id ? num[id] : "");
+    expect(labels(sortRules(rules, "name", "asc", code))).toEqual(["Footings", "Framing", "Inspection"]);
+    expect(labels(sortRules(rules, "type", "asc", code))).toEqual(["Footings", "Inspection", "Framing"]);
+    expect(labels(sortRules(rules, "code", "asc", code))).toEqual(["Inspection", "Footings", "Framing"]);
+    expect(labels(sortRules(rules, "code", "desc", code))).toEqual(["Framing", "Footings", "Inspection"]);
   });
 });
