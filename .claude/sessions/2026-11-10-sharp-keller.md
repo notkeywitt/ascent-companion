@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/sharp-keller-kbw4g4
 status: shipped
 started: 2026-11-10T00:24:57Z
-updated: 2026-11-10T00:28:42Z
+updated: 2026-11-10T00:30:59Z
 goal: 
 next: Optional: align MLG_ADMIN_EMAILS in ascent-appscript/Mileage.js with companion roles, so updateMileage edit rights match too.
 ---
