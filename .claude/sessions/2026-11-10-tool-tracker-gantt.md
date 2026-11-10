@@ -4,14 +4,16 @@ repo: ascent-companion
 branch: claude/tool-tracker-gantt-x7gelq
 status: in-progress
 started: 2026-11-10T06:16:53Z
-updated: 2026-11-10T06:30:36Z
+updated: 2026-11-10T06:36:41Z
 goal: 
-next: Owner reviews the tool schedule mockup (claude.ai/artifact/HiE5NYRxgYSbvq42CDByvp); then stage 1 of the plan: getUpcomingScheduleTasks, getCostCodes, src/lib/toolSchedule.ts with tests.
+next: Stage 2 of docs/plans/TOOL_SCHEDULE_PLAN.md: DB tables, /api/tool-schedule/catalog|rules|holds, /tool-schedule/edit page.
 ---
 
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
 - 2026-11-10 06:30 · `96b2b15` companion: start tool schedule session ledger
+- 2026-11-10 06:36 · `5183823` companion: add tool schedule reads and rules (stage 1)
+  CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/jobtread.ts, src/lib/jobtread/costCodes.ts, src/lib/jobtread/tasks.ts, src/lib/toolSchedule.test.ts, +1 more
 
 ## Notes
