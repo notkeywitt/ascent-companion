@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T00:39:05Z",
+  "generatedAt": "2026-11-10T06:16:14Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "festive-faraday",
+      "file": "2026-11-10-festive-faraday.md",
+      "branch": "claude/festive-faraday-yovg2f",
+      "status": "shipped",
+      "started": "2026-11-10T06:06:02Z",
+      "updated": "2026-11-10T06:16:13Z",
+      "goal": "",
+      "next": "Get office feedback on Split View calendar mode (beta); decide whether it replaces the grid or stays a toggle.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:16",
+          "sha": "17783f4",
+          "subject": "companion: add split view beta calendar mode",
+          "files": "CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts"
+        }
+      ]
+    },
     {
       "slug": "bold-cori",
       "file": "2026-11-10-bold-cori.md",
