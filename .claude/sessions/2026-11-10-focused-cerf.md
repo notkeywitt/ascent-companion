@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/focused-cerf-ik9e36
 status: shipped
 started: 2026-11-10T14:40:11Z
-updated: 2026-11-10T14:55:20Z
+updated: 2026-11-10T14:55:36Z
 goal: 
 next: Post the calendar announcement with /employee-time?tab=compare&view=calendar; give other views an address as the owner asks.
 ---
