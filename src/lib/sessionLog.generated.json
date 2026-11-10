@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T19:42:17Z",
+  "generatedAt": "2026-11-10T19:50:03Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-10T19:42:17Z",
+      "updated": "2026-11-10T19:50:03Z",
       "goal": "",
-      "next": "Office: load the Job Trailer on /tools, then assign tools to tasks from the Gantt; watch that a trailer scan moves its load in the Tools sheet",
+      "next": "Office: check the grouped Gantt against JobTread's order on Studio; load the Job Trailer on /tools and assign tools from the Gantt",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1733,6 +1733,20 @@
           "sha": "571fed0",
           "subject": "companion: tool schedule gantt by task, tool groups and job trailer loads",
           "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, src/app/api/tool-tracker/route.ts, +20 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "11:49",
+          "sha": "544cff3",
+          "subject": "companion: move all-jobs notes below the month picker",
+          "files": "src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "11:50",
+          "sha": "25652bf",
+          "subject": "companion: tool schedule gantt groups tasks by job and phase like jobtread",
+          "files": "docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/lib/help.ts, src/lib/jobtread/tasks.ts, src/lib/toolScheduleData.ts"
         }
       ]
     },
