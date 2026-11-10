@@ -98,6 +98,13 @@ describe("compareTrackingSheet — bills", () => {
     expect(r.issues.find((i) => i.kind === "no-column")?.code).toBe("06 10 10");
   });
 
+  it("ignores a repeated header code that carries no money", () => {
+    const g = bunkhouse.map((row) => [...(row ?? [])]);
+    g[0].push("22 00 00", "22 00 00");
+    const r = compareTrackingSheet({ year: 2026, month: 10, jt: totalJtLines(bills, lines), subVendor: g });
+    expect(r.issues.some((i) => i.code === "22 00 00")).toBe(false);
+  });
+
   it("flags a column whose total does not match its rows", () => {
     const broken = bunkhouse.map((row) => [...(row ?? [])]);
     broken[6][6] = "$0.00";

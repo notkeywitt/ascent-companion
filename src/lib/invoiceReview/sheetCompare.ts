@@ -520,7 +520,10 @@ export function compareTrackingSheet(input: SheetCheckInput): SheetCheckResult {
       });
     }
   }
-  for (const code of sv.duplicateColumns) {
+  // A template repeats some header codes; that only matters when the code
+  // carries money this month.
+  for (const code of new Set(sv.duplicateColumns)) {
+    if (Math.abs(sv.rows[code] ?? 0) <= CENT) continue;
     issues.push({
       kind: "column-total-off",
       code,
