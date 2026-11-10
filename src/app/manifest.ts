@@ -14,10 +14,11 @@ export default function manifest(): MetadataRoute.Manifest {
     // the owner's call (2026-09-05): a bright frame before a dark app is the
     // worse of the two misses, since it flashes in the dark rather than merely
     // reading dim in the light. A device on light gets one brief dark frame.
-    // `theme_color` stays cream for the status-bar chrome; the real per-theme
-    // status colors are the `themeColor` media queries in app/layout.tsx.
+    // `theme_color` paints the installed app's status bar. It matches the
+    // `themeColor` in app/layout.tsx (#0A0A0A, the dark ground), so the bar
+    // joins the header instead of showing a cream strip above it.
     background_color: "#1B1B17",
-    theme_color: "#FAF7EE",
+    theme_color: "#0A0A0A",
     // The INSTALLED icon — what Chrome and Safari put on a home screen, a dock
     // or a taskbar. It is the REVERSED mark: a white peak on the off-black
     // square, which is the brand's own `ascent_logo_icon_bk` asset.
