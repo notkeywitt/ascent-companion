@@ -1,7 +1,54 @@
 {
-  "generatedAt": "2026-11-10T18:53:26Z",
+  "generatedAt": "2026-11-10T18:53:39Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "tool-tracker-gantt",
+      "file": "2026-11-10-tool-tracker-gantt.md",
+      "branch": "claude/tool-tracker-gantt-x7gelq",
+      "status": "shipped",
+      "started": "2026-11-10T06:16:53Z",
+      "updated": "2026-11-10T18:53:39Z",
+      "goal": "",
+      "next": "Office: in Edit Tool Schedule > Tools, assign tools and types to phases; fix blank ToolTypes with Set its type; leave out Studio PreCon on Jobs; confirm the first requisition prompt files correctly.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "06:30",
+          "sha": "96b2b15",
+          "subject": "companion: start tool schedule session ledger",
+          "files": ""
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:36",
+          "sha": "5183823",
+          "subject": "companion: add tool schedule reads and rules (stage 1)",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/jobtread.ts, src/lib/jobtread/costCodes.ts, src/lib/jobtread/tasks.ts, src/lib/toolSchedule.test.ts, +1 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "06:59",
+          "sha": "e7c272e",
+          "subject": "companion: add tool schedule page and catalogue editor",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/jobs/route.ts, src/app/api/tool-schedule/route.ts, +20 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "14:46",
+          "sha": "94a2389",
+          "subject": "companion: tool schedule job filter, searchable code pickers, sorting",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "18:49",
+          "sha": "9940afc",
+          "subject": "companion: tool schedule catalogue is the tool tracker",
+          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/availability/route.ts, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, +16 more"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
@@ -1698,53 +1745,6 @@
           "sha": "46f80af",
           "subject": "companion: monthly check reconciles tracking sheets and shows its full report",
           "files": ".claude/skills/monthly-check/SKILL.md, CODEBASE_MAP.md, scripts/monthly-check/agent.mjs, scripts/monthly-check/run.sh, src/app/api/invoice-review/agent/route.ts, src/app/api/invoice-review/investigate/route.ts, +9 more"
-        }
-      ]
-    },
-    {
-      "slug": "tool-tracker-gantt",
-      "file": "2026-11-10-tool-tracker-gantt.md",
-      "branch": "claude/tool-tracker-gantt-x7gelq",
-      "status": "shipped",
-      "started": "2026-11-10T06:16:53Z",
-      "updated": "2026-11-10T18:49:46Z",
-      "goal": "",
-      "next": "Office: in Edit Tool Schedule > Tools, assign tools and types to phases; fix blank ToolTypes with Set its type; leave out Studio PreCon on Jobs; confirm the first requisition prompt files correctly.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "06:30",
-          "sha": "96b2b15",
-          "subject": "companion: start tool schedule session ledger",
-          "files": ""
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:36",
-          "sha": "5183823",
-          "subject": "companion: add tool schedule reads and rules (stage 1)",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/jobtread.ts, src/lib/jobtread/costCodes.ts, src/lib/jobtread/tasks.ts, src/lib/toolSchedule.test.ts, +1 more"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "06:59",
-          "sha": "e7c272e",
-          "subject": "companion: add tool schedule page and catalogue editor",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/jobs/route.ts, src/app/api/tool-schedule/route.ts, +20 more"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "14:46",
-          "sha": "94a2389",
-          "subject": "companion: tool schedule job filter, searchable code pickers, sorting",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more"
-        },
-        {
-          "date": "2026-11-10",
-          "time": "18:49",
-          "sha": "9940afc",
-          "subject": "companion: tool schedule catalogue is the tool tracker",
-          "files": "CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/availability/route.ts, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, +16 more"
         }
       ]
     },

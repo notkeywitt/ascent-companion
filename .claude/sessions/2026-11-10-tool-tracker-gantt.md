@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/tool-tracker-gantt-x7gelq
 status: shipped
 started: 2026-11-10T06:16:53Z
-updated: 2026-11-10T18:49:46Z
+updated: 2026-11-10T18:53:39Z
 goal: 
 next: Office: in Edit Tool Schedule > Tools, assign tools and types to phases; fix blank ToolTypes with Set its type; leave out Studio PreCon on Jobs; confirm the first requisition prompt files correctly.
 ---
