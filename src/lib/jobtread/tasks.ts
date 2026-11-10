@@ -784,3 +784,94 @@ export async function updateToDo(cfg: PaveConfig, id: string, patch: ToDoPatch):
 export async function deleteToDo(cfg: PaveConfig, id: string): Promise<void> {
   await pave(cfg, { deleteTask: { $: { id } } });
 }
+
+/** One leaf schedule task, as the tool schedule reads it. */
+export interface ScheduleTask {
+  id: string;
+  name: string;
+  /** The phase (parent group row) it sits under, "" when it has none. */
+  phase: string;
+  taskTypeId: string | null;
+  taskTypeName: string | null;
+  startDate: string; // YYYY-MM-DD
+  endDate: string; // YYYY-MM-DD
+  progress: number | null; // 0..1
+  jobId: string;
+  jobName: string;
+}
+
+/**
+ * Every open leaf schedule task, on any job, that overlaps `from`..`to`
+ * (YYYY-MM-DD) — the demand side of the tool schedule (TOOL_SCHEDULE_PLAN.md).
+ *
+ * Leaf rows only: a group row (`isGroup`) spans its children, so counting it
+ * would double the demand. Done tasks (`progress` 1) are dropped in code, as in
+ * `fetchTasks`. No nested connection, so the paged walk stays under the 413
+ * limit. Query shape probed live 2026-11-10: 116 tasks in the next 6 months.
+ */
+export function getUpcomingScheduleTasks(cfg: PaveConfig, from: string, to: string): Promise<ScheduleTask[]> {
+  return cachedRef(`toolScheduleTasks:${cfg.orgId}:${from}:${to}`, 5 * 60_000, () =>
+    _getUpcomingScheduleTasksUncached(cfg, from, to),
+  );
+}
+export async function _getUpcomingScheduleTasksUncached(
+  cfg: PaveConfig,
+  from: string,
+  to: string,
+): Promise<ScheduleTask[]> {
+  const rows = await pageAll<any>(cfg, {
+    label: "organization.tasks (tool schedule)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        id: {},
+        tasks: {
+          $: {
+            where: {
+              and: [
+                ["isToDo", false],
+                ["isGroup", false],
+                { "!=": [{ field: ["job", "id"] }, { value: null }] },
+                { ">=": [{ field: ["endDate"] }, { value: from }] },
+                { "<=": [{ field: ["startDate"] }, { value: to }] },
+              ],
+            },
+            sortBy: [{ field: "startDate", order: "asc" }],
+            ...args,
+          },
+          nextPage: {},
+          nodes: {
+            id: {},
+            name: {},
+            startDate: {},
+            endDate: {},
+            progress: {},
+            taskType: { id: {}, name: {} },
+            parentTask: { name: {} },
+            job: { id: {}, name: {} },
+          },
+        },
+      },
+    }),
+    pick: (r) => r?.organization?.tasks,
+  });
+  const out: ScheduleTask[] = [];
+  for (const n of rows) {
+    if (!n?.startDate || !n?.endDate || !n?.job?.id) continue;
+    const progress = typeof n.progress === "number" ? n.progress : null;
+    if (progress !== null && progress >= 1) continue;
+    out.push({
+      id: n.id,
+      name: n.name || "(untitled)",
+      phase: n.parentTask?.name ?? "",
+      taskTypeId: n.taskType?.id ?? null,
+      taskTypeName: n.taskType?.name ?? null,
+      startDate: n.startDate,
+      endDate: n.endDate,
+      progress,
+      jobId: n.job.id,
+      jobName: n.job.name ?? "",
+    });
+  }
+  return out;
+}
