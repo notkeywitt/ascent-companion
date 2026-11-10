@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
 import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
@@ -143,7 +144,7 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-6xl">
       <PageHeader
-        title="Tool Schedule"
+        titleSlot={<ToolsTitleMenu current="tool-schedule" />}
         actions={
           canEdit ? (
             <>

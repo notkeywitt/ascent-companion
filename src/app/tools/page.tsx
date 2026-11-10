@@ -1,12 +1,10 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { useAccess } from "@/components/AccessProvider";
 import { LopezMap } from "@/components/LopezMap";
-import { PageTitle, PeakMark } from "@/components/PageTitle";
+import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
 
@@ -58,80 +56,6 @@ const TEXT_FIELDS: { key: Exclude<EditableKey, "location">; label: string; wide?
   { key: "serial", label: "Serial number" },
   { key: "accessories", label: "Related accessories", wide: true },
 ];
-
-/**
- * Phone only: the title is a menu to the other pages of this workspace. It
- * replaces the pill row (WorkspaceTabs hides on /tools below `pad`). From `pad`
- * up the pills return and the title is plain.
- */
-function ToolsTitleMenu() {
-  const access = useAccess();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const items = [
-    { view: "tool-schedule", href: "/tool-schedule", label: "Tool Schedule" },
-    { view: "requisitions", href: "/requisitions", label: "Requisitions" },
-  ].filter((i) => access.can(i.view));
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: Event) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", onDoc);
-    return () => document.removeEventListener("pointerdown", onDoc);
-  }, [open]);
-
-  return (
-    <>
-      <PageTitle className="min-w-0 max-pad:hidden">Tools</PageTitle>
-      <div
-        ref={ref}
-        className="relative min-w-0 pad:hidden"
-        onKeyDown={(e) => {
-          if (e.key === "Escape") setOpen(false);
-        }}
-      >
-        {items.length === 0 ? (
-          <PageTitle>Tools</PageTitle>
-        ) : (
-          <>
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={open}
-              onClick={() => setOpen((o) => !o)}
-              className="flex min-h-10 items-center gap-2.5"
-            >
-              <PeakMark className="h-3.5 w-[22px] shrink-0" />
-              <h1 className="text-xl font-bold tracking-tight">Tools</h1>
-              <span aria-hidden className="text-xs text-neutral-500">
-                ▾
-              </span>
-            </button>
-            {open && (
-              <div
-                role="menu"
-                className="absolute left-0 z-30 mt-1 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-white p-1 shadow-xl shadow-black/10 dark:bg-ink-overlay dark:shadow-black/40"
-              >
-                {items.map((i) => (
-                  <Link
-                    key={i.view}
-                    role="menuitem"
-                    href={i.href}
-                    className="flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold hover:bg-neutral-100 dark:hover:bg-white/[0.07]"
-                  >
-                    {i.label}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </>
-  );
-}
 
 const conditionClass = (c: string) => {
   const k = c.toLowerCase();
@@ -1065,7 +989,7 @@ export default function ToolsPage() {
       <div className="xl:grid xl:grid-cols-[minmax(0,46rem)_minmax(0,1fr)] xl:gap-8">
       <div className="min-w-0">
       <PageHeader
-        titleSlot={<ToolsTitleMenu />}
+        titleSlot={<ToolsTitleMenu current="tools" />}
         description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
         actions={
           <>
