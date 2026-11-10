@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-10T22:13:31Z",
+  "generatedAt": "2026-11-10T22:17:32Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-10T22:13:31Z",
+      "updated": "2026-11-10T22:17:32Z",
       "goal": "",
       "next": "Office: add a tool with In Trailer? set and check it takes the trailer's location",
       "commits": [
@@ -1761,6 +1761,13 @@
           "sha": "652e109",
           "subject": "companion: monthly review treats unbuilt invoices as staging; checks page shows report + findings only",
           "files": ".claude/skills/invoice-review/SKILL.md, .claude/skills/monthly-check/SKILL.md, src/app/invoice-review/InvoiceReview.tsx, src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/checks/uninvoiced.ts, src/lib/invoiceReview/preSend.ts, +1 more"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "14:17",
+          "sha": "4ec0e2b",
+          "subject": "companion: hide workspace pills on jobs hub at every narrow width",
+          "files": "src/components/WorkspaceTabs.tsx"
         }
       ]
     },
