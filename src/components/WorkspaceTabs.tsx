@@ -29,7 +29,7 @@ import { NO_STRIP, NO_STRIP_WORKSPACES, locate, reachableTabs } from "@/lib/work
  * five pages three times on one phone screen.
  */
 /** Pages whose strip hides on a phone only. */
-const PHONE_NO_STRIP = new Set(["jobs-hub", "employees", "tools", "tool-schedule", "requisitions"]);
+const PHONE_NO_STRIP = new Set(["employees", "tools", "tool-schedule", "requisitions"]);
 
 export function WorkspaceTabs() {
   const pathname = usePathname();
@@ -39,6 +39,9 @@ export function WorkspaceTabs() {
 
   if (access.role === "field" || access.role === "lead") return null;
   const here = locate(pathname);
+  // The Jobs Hub shows no strip at any narrow width (owner, 2026-11-10); from
+  // 2xl the sidebar lists the tabs.
+  if (here?.tab.view === "jobs-hub") return null;
   if (!here || NO_STRIP.has(here.tab.view) || NO_STRIP_WORKSPACES.has(here.workspace.id)) return null;
   const tabs = reachableTabs(here.workspace, access.can);
   if (tabs.length < 2) return null;
@@ -47,8 +50,7 @@ export function WorkspaceTabs() {
 
   return (
     // From 2xl the sidebar lists these same tabs, so the strip steps aside.
-    // The Jobs Hub drops it on a phone (owner, 2026-11-07): its job picker and
-    // tabs sit right under the header already. Employees drops it on a phone
+    // The Jobs Hub drops it at every width (owner, 2026-11-10). Employees drops it on a phone
     // too (owner, 2026-11-07): New Hires is a button under the title, and the
     // other pages are in the drawer. Time drops it on a phone too (owner,
     // 2026-11-09): Payroll is an icon in the drawer instead. Tools, Tool Schedule and Requisitions drop it on a
