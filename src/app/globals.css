@@ -647,7 +647,7 @@ textarea:focus-visible {
 }
 
 /* --- The Jobs page's job card, by the CARD's width (owner, 2026-11-06) -----
-   The card's width is not the window's: from xl it shares the row with the
+   The card's width is not the window's: from 2xl it shares the row with the
    jobs list and the map. So the card is a container and answers to its own width.
 
      A  job · customer      to be invoiced      month picker     (the head)

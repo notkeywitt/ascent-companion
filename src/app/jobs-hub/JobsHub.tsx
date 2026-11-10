@@ -368,12 +368,16 @@ export function JobsHub() {
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the
             month's totals beside the map while no job is picked). */}
-        <div className="grid gap-6 max-xl:landscape:grid-cols-[320px_minmax(0,1fr)] xl:h-[360px] xl:grid-cols-[320px_minmax(0,1fr)_280px] xl:grid-rows-[minmax(0,1fr)]">
+        <div className="grid gap-6 max-2xl:landscape:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-2xl:landscape:grid-rows-[360px_auto] 2xl:h-[360px] 2xl:grid-cols-[320px_minmax(0,1fr)_280px] 2xl:grid-rows-[minmax(0,1fr)]">
           {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it.
+              From 2xl the list, card and map share it. Below 2xl, held
+              sideways, the list (3/5) and the map (2/5) share it and the card
+              spans the row under them: at xl the card was too narrow and its
+              footer covered the notes (owner, 2026-11-10).
               A phone or iPad held upright picks from the dropdown over the map instead. */}
-          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 landscape:flex xl:flex max-xl:landscape:col-start-1 max-xl:landscape:row-start-1">
+          <Card pad={false} className="hidden min-h-0 min-w-0 flex-col overflow-hidden p-3 landscape:flex 2xl:flex max-2xl:landscape:col-start-1 max-2xl:landscape:row-start-1">
             {!jobs && <Loading />}
-            <div className="no-scrollbar max-h-80 min-h-0 flex-1 space-y-3 overflow-y-auto xl:max-h-none">
+            <div className="no-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto">
               {byPhase.map(([phase, list]) => (
                 <section key={phase}>
                   <div className={`px-2 pb-0.5 ${caption}`}>{phase}</div>
@@ -408,7 +412,7 @@ export function JobsHub() {
           {/* The second card, with the month picker in its top right corner. */}
           {/* A phone puts the month controls in a row above the card: laid
               over its corner they covered the rings (owner, 2026-11-03). */}
-          <div className="relative flex min-h-0 min-w-0 flex-col gap-3 pad:block max-xl:landscape:col-span-2 max-xl:landscape:row-start-2">
+          <div className="relative flex min-h-0 min-w-0 flex-col gap-3 pad:block max-2xl:landscape:col-span-2 max-2xl:landscape:row-start-2">
             {selected ? (
               details?.get(selected.id) ? (
                 <JobCard
@@ -449,7 +453,7 @@ export function JobsHub() {
                         onOpenBill={openBill}
                         onNotes={onJobNotes}
                         request={noteRequest}
-                        className="min-h-48 flex-1"
+                        className="min-h-48 flex-1 2xl:min-h-0"
                       />
                     ),
                   }}
@@ -507,11 +511,11 @@ export function JobsHub() {
             )}
           </div>
           {/* The map, on the page beside the cards (owner, 2026-11-01). Below
-              xl, held sideways, it shares the top row with the jobs list and the
+              2xl, held sideways, it shares the top row with the jobs list and the
               job card spans the row under them. Held upright, the map comes
               first, short enough to fit the screen, with the jobs dropdown
               under it (owner, 2026-11-06). */}
-          <div className="order-first flex min-h-0 flex-col gap-3 landscape:order-none xl:order-none max-xl:landscape:col-start-2 max-xl:landscape:row-start-1">
+          <div className="order-first flex min-h-0 flex-col gap-3 landscape:order-none 2xl:order-none max-2xl:landscape:col-start-2 max-2xl:landscape:row-start-1">
             <Select
               aria-label="Job"
               value={selectedId ?? ""}
@@ -521,7 +525,7 @@ export function JobsHub() {
                 const id = e.target.value || selectedId;
                 if (id) pick(id);
               }}
-              className="order-last landscape:hidden xl:hidden"
+              className="order-last landscape:hidden 2xl:hidden"
             >
               <option value="">{jobs ? "All jobs" : "Loading jobs…"}</option>
               {byPhase.map(([phase, list]) => (
@@ -538,7 +542,7 @@ export function JobsHub() {
                 </optgroup>
               ))}
             </Select>
-            <div className="min-h-64 flex-1 xl:min-h-0 max-xl:portrait:h-[min(16rem,35svh)] max-xl:portrait:min-h-0 max-xl:portrait:flex-none">{map}</div>
+            <div className="min-h-64 flex-1 landscape:min-h-0 2xl:min-h-0 max-2xl:portrait:h-[min(16rem,35svh)] max-2xl:portrait:min-h-0 max-2xl:portrait:flex-none">{map}</div>
           </div>
         </div>
 
