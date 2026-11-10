@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/festive-faraday-yovg2f
 status: shipped
 started: 2026-11-10T06:06:02Z
-updated: 2026-11-10T06:31:55Z
+updated: 2026-11-10T18:24:11Z
 goal: 
-next: Get office feedback on Split View calendar mode (beta), including adding time from it; decide whether it replaces the grid or stays a toggle.
+next: Get office feedback on Split View calendar mode (beta), including adding time for other employees; decide whether it replaces the grid or stays a toggle.
 ---
 
 ## Log
@@ -16,5 +16,7 @@ next: Get office feedback on Split View calendar mode (beta), including adding t
   CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.test.ts, src/app/employee-time/weekGrid.ts
 - 2026-11-10 06:31 · `6456ded` companion: add time entries from split view calendar mode
   CODEBASE_MAP.md, src/app/employee-time/EmployeeTimeClient.tsx, src/app/employee-time/WeekCalendar.tsx, src/app/employee-time/WeekCompare.tsx, src/app/employee-time/weekGrid.ts
+- 2026-11-10 18:24 · `88383f5` companion: add time for any employee from split view calendar
+  CODEBASE_MAP.md, src/app/employee-time/WeekCalendar.tsx
 
 ## Notes
