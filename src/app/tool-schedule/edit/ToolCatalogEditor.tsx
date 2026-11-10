@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CostCodeSelect } from "@/components/CostCodeSelect";
+import { BookingForm } from "../BookingForm";
 import {
   Banner,
   btn,
@@ -19,7 +19,6 @@ import {
   tableCls,
   Tabs,
 } from "@/components/ui";
-import type { CostCodeRef } from "@/lib/jobtread";
 import type { RuleMatch, ToolHold } from "@/lib/toolSchedule";
 import {
   sortKinds,
@@ -33,21 +32,20 @@ import {
 
 /**
  * The tool schedule's editor (docs/plans/TOOL_SCHEDULE_PLAN.md), for the office:
- *   Catalogue  — tool types, the cost codes each is needed for, and which
- *                Tools-list tools are which type.
- *   Task codes — map each schedule task name to a cost code once.
- *   Holds      — reserve a tool type for a job by hand.
+ *   Catalogue  — tool types, and which Tools-list tools are which type.
+ *   Tasks      — tick the tools each phase needs (covers every task under it),
+ *                and a task name's own tools where it needs something else.
+ *   Bookings   — book a tool by hand, for a job or a place, with no task.
  *   Jobs       — leave a job's schedule out (a PreCon copy of another Gantt).
  * Companion data only: nothing here writes to JobTread.
  */
 
-export type EditorTab = "catalogue" | "tasks" | "holds" | "jobs";
+export type EditorTab = "catalogue" | "tasks" | "bookings" | "jobs";
 
 interface Kind {
   id: string;
   name: string;
   notes: string;
-  costCodeIds: string[];
 }
 interface SheetTool {
   id: string;
@@ -68,7 +66,6 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   return j as T;
 }
 
-const codeLabel = (c: CostCodeRef | undefined, id: string) => (c ? `${c.number} ${c.name}` : id);
 
 interface Sort<K extends string> {
   key: K;
@@ -134,8 +131,8 @@ export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
   const [unresolved, setUnresolved] = useState<number | null>(null);
   const items: { key: EditorTab; label: React.ReactNode }[] = [
     { key: "catalogue", label: "Catalogue" },
-    { key: "tasks", label: unresolved ? `Task codes (${unresolved})` : "Task codes" },
-    { key: "holds", label: "Holds" },
+    { key: "tasks", label: unresolved ? `Tasks (${unresolved})` : "Tasks" },
+    { key: "bookings", label: "Bookings" },
     { key: "jobs", label: "Jobs" },
   ];
   return (
@@ -153,8 +150,8 @@ export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
         items={items.map((t) => ({ key: t.key, label: t.label, active: tab === t.key, onClick: () => setTab(t.key) }))}
       />
       {tab === "catalogue" && <Catalogue />}
-      {tab === "tasks" && <TaskCodes onCount={setUnresolved} />}
-      {tab === "holds" && <Holds />}
+      {tab === "tasks" && <Tasks onCount={setUnresolved} />}
+      {tab === "bookings" && <Bookings />}
       {tab === "jobs" && <Jobs />}
     </main>
   );
@@ -162,8 +159,17 @@ export function ToolCatalogEditor({ initialTab }: { initialTab: EditorTab }) {
 
 /* --------------------------------------------------------------- Catalogue */
 
+interface CatalogData {
+  kinds: Kind[];
+  members: Record<string, string>;
+  /** How many task rules tick each tool type. */
+  uses: Record<string, number>;
+  tools: SheetTool[];
+  toolsError?: string;
+}
+
 function Catalogue() {
-  const [data, setData] = useState<{ kinds: Kind[]; members: Record<string, string>; costCodes: CostCodeRef[]; tools: SheetTool[]; toolsError?: string } | null>(null);
+  const [data, setData] = useState<CatalogData | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
@@ -176,8 +182,6 @@ function Catalogue() {
       .catch((e) => setError(e.message));
   }, []);
   useEffect(load, [load]);
-
-  const codes = useMemo(() => new Map((data?.costCodes ?? []).map((c) => [c.id, c])), [data]);
 
   async function add() {
     if (!newName.trim()) return;
@@ -197,7 +201,8 @@ function Catalogue() {
   if (error && !data) return <Banner tone="error">{error}</Banner>;
   if (!data) return <Loading />;
   const owned = (kindId: string) => Object.values(data.members).filter((k) => k === kindId).length;
-  const kinds = sortKinds(data.kinds, sort.key, sort.dir, owned);
+  const uses = (kindId: string) => data.uses[kindId] ?? 0;
+  const kinds = sortKinds(data.kinds, sort.key, sort.dir, owned, uses);
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-4">
@@ -224,7 +229,7 @@ function Catalogue() {
             keys={[
               { value: "name", label: "Name" },
               { value: "owned", label: "Owned" },
-              { value: "codes", label: "Cost codes" },
+              { value: "uses", label: "Used by" },
             ]}
           />
         </div>
@@ -250,7 +255,7 @@ function Catalogue() {
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold">{k.name}</span>
                   <span className="block text-[12px] text-neutral-500 dark:text-neutral-400">
-                    {k.costCodeIds.length ? k.costCodeIds.map((id) => codeLabel(codes.get(id), id)).join(" · ") : "No cost codes — holds only"}
+                    {uses(k.id) ? `Ticked on ${uses(k.id)} ${uses(k.id) === 1 ? "phase or task" : "phases or tasks"}` : "Not on any phase or task yet"}
                   </span>
                 </span>
                 <span className={`shrink-0 text-[12px] tabular-nums ${owned(k.id) ? "text-neutral-500" : "font-semibold text-danger"}`}>
@@ -272,17 +277,15 @@ function KindEditor({
   onError,
 }: {
   kind: Kind;
-  data: { kinds: Kind[]; members: Record<string, string>; costCodes: CostCodeRef[]; tools: SheetTool[] };
+  data: CatalogData;
   onDone: () => void;
   onError: (msg: string) => void;
 }) {
   const [name, setName] = useState(kind.name);
-  const [codes, setCodes] = useState<string[]>(kind.costCodeIds);
   const [toolIds, setToolIds] = useState<string[]>(Object.keys(data.members).filter((t) => data.members[t] === kind.id));
   const [filter, setFilter] = useState(toolIds.length ? "" : kind.name);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const byCode = new Map(data.costCodes.map((c) => [c.id, c]));
   const kindName = new Map(data.kinds.map((k) => [k.id, k.name]));
   const q = filter.trim().toLowerCase();
   const shown = data.tools
@@ -292,7 +295,7 @@ function KindEditor({
   async function save() {
     setBusy(true);
     try {
-      await call("/api/tool-schedule/catalog", { method: "PATCH", body: JSON.stringify({ id: kind.id, name, costCodeIds: codes, toolIds }) });
+      await call("/api/tool-schedule/catalog", { method: "PATCH", body: JSON.stringify({ id: kind.id, name, toolIds }) });
       onDone();
     } catch (e) {
       onError(e instanceof Error ? e.message : String(e));
@@ -316,31 +319,6 @@ function KindEditor({
         <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Name</span>
         <Input id={`kind-name-${kind.id}`} value={name} onChange={(e) => setName(e.target.value)} />
       </label>
-
-      <div className="grid gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Needed for these cost codes</span>
-        {codes.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {codes.map((id) => (
-              <span key={id} className="inline-flex items-center gap-1 rounded-md border border-line-strong py-0.5 pl-2 text-[12px]">
-                <span className="font-mono text-[11px] text-neutral-500">{byCode.get(id)?.number}</span>
-                {byCode.get(id)?.name ?? id}
-                <button type="button" aria-label={`Remove ${byCode.get(id)?.name ?? id}`} onClick={() => setCodes(codes.filter((c) => c !== id))} className="min-h-7 min-w-7 text-neutral-500">
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-        <CostCodeSelect
-          inline
-          options={data.costCodes.filter((c) => !codes.includes(c.id))}
-          value=""
-          onChange={(id) => id && setCodes([...codes, id])}
-          placeholder="Add a cost code…"
-          noneLabel="Cancel"
-        />
-      </div>
 
       <div className="grid gap-2">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
@@ -381,7 +359,7 @@ function KindEditor({
         <span className="flex-1" />
         {confirmDelete ? (
           <>
-            <span className="text-[12px] text-danger">Delete it, its codes and its holds?</span>
+            <span className="text-[12px] text-danger">Delete it, its task ticks and its bookings?</span>
             <Button variant="danger" size="sm" onClick={remove} disabled={busy}>
               Delete
             </Button>
@@ -399,37 +377,129 @@ function KindEditor({
   );
 }
 
-/* -------------------------------------------------------------- Task codes */
+/* ------------------------------------------------------------------- Tasks */
 
+interface Rule {
+  match: RuleMatch;
+  key: string;
+  kindIds: string[];
+  label: string;
+  updatedBy: string;
+  updatedAt: string;
+}
+interface PhaseName {
+  key: string;
+  name: string;
+  taskCount: number;
+  via: RuleMatch | null;
+}
+interface PhaseRow {
+  key: string;
+  name: string;
+  taskCount: number;
+  jobNames: string[];
+  names: PhaseName[];
+}
 interface Unresolved {
   key: string;
   name: string;
   phase: string;
   jobNames: string[];
   taskIds: string[];
-  suggestions: CostCodeRef[];
+  suggestions: string[];
 }
-interface Rule {
-  match: RuleMatch;
-  key: string;
-  costCodeId: string | null;
-  label: string;
-  updatedBy: string;
-  updatedAt: string;
+interface TasksData {
+  rules: Rule[];
+  kinds: { id: string; name: string }[];
+  phases: PhaseRow[];
+  taskTypes: { id: string; name: string; taskCount: number }[];
+  unresolved: Unresolved[];
 }
 
 const MATCH_LABEL: Record<RuleMatch, string> = { task: "One task", name: "Task name", taskType: "Task type", phase: "Phase" };
+const VIA_LABEL: Record<RuleMatch, string> = { task: "Own tools (this job)", name: "Own tools", taskType: "From its task type", phase: "From the phase" };
+const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every((x) => b.includes(x));
 
-function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
-  const [data, setData] = useState<{ rules: Rule[]; unresolved: Unresolved[]; costCodes: CostCodeRef[] } | null>(null);
+/**
+ * Tick the tool types a phase, task name or task type needs. The ticks are a
+ * draft until Save. "Needs no tools" covers it with nothing; Clear removes the
+ * rule so it falls back to the next level (a task name to its phase).
+ */
+function ToolTicks({
+  kinds,
+  saved,
+  initial,
+  suggested = false,
+  busy,
+  onSave,
+  onClear,
+}: {
+  kinds: { id: string; name: string }[];
+  /** The rule's tools now; null when there is no rule. */
+  saved: string[] | null;
+  /** The first draft: the saved tools, or suggestions. */
+  initial: string[];
+  suggested?: boolean;
+  busy: boolean;
+  onSave: (kindIds: string[]) => void;
+  onClear?: () => void;
+}) {
+  const [draft, setDraft] = useState<string[]>(initial);
+  const toggle = (id: string) => setDraft(draft.includes(id) ? draft.filter((x) => x !== id) : [...draft, id]);
+  const changed = saved === null ? draft.length > 0 : !sameSet(draft, saved);
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap gap-1.5">
+        {kinds.map((k) => {
+          const on = draft.includes(k.id);
+          return (
+            <button
+              key={k.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => toggle(k.id)}
+              className={`min-h-8 rounded-full border px-3 text-[12px] font-medium transition ${
+                on ? "border-accent bg-accent/15 text-accent dark:text-accent-soft" : "border-line-strong text-neutral-600 hover:border-accent dark:text-neutral-300"
+              }`}
+            >
+              {on ? "✓ " : ""}
+              {k.name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <Button size="xs" disabled={busy || !changed || draft.length === 0} onClick={() => onSave(draft)}>
+          Save
+        </Button>
+        <Button variant="ghost" size="xs" disabled={busy || (saved !== null && saved.length === 0)} onClick={() => onSave([])}>
+          Needs no tools
+        </Button>
+        {saved !== null && onClear && (
+          <Button variant="ghost" size="xs" disabled={busy} onClick={onClear}>
+            Clear
+          </Button>
+        )}
+        {suggested && saved === null && draft.length > 0 && sameSet(draft, initial) && (
+          <span className="text-[11px] text-neutral-500">Suggested from similar tasks</span>
+        )}
+        {saved !== null && saved.length === 0 && <span className="text-[11px] text-neutral-500">Needs no tools</span>}
+      </div>
+    </div>
+  );
+}
+
+function Tasks({ onCount }: { onCount: (n: number) => void }) {
+  const [data, setData] = useState<TasksData | null>(null);
   const [error, setError] = useState("");
   const [busyKey, setBusyKey] = useState("");
-  const [byPhase, setByPhase] = useState<Record<string, boolean>>({});
+  const [openPhase, setOpenPhase] = useState<string | null>(null);
+  const [editName, setEditName] = useState<string | null>(null);
   const [unSort, setUnSort] = useState<Sort<UnresolvedSortKey>>({ key: "tasks", dir: "desc" });
   const [ruleSort, setRuleSort] = useState<Sort<RuleSortKey>>({ key: "name", dir: "asc" });
 
   const load = useCallback(() => {
-    call<NonNullable<typeof data>>("/api/tool-schedule/rules")
+    call<TasksData>("/api/tool-schedule/rules")
       .then((d) => {
         setData(d);
         onCount(d.unresolved.length);
@@ -438,16 +508,16 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
   }, [onCount]);
   useEffect(load, [load]);
 
-  const codes = useMemo(() => new Map((data?.costCodes ?? []).map((c) => [c.id, c])), [data]);
+  const rulesBy = useMemo(() => new Map((data?.rules ?? []).map((r) => [`${r.match}:${r.key}`, r])), [data]);
+  const kindName = useMemo(() => new Map((data?.kinds ?? []).map((k) => [k.id, k.name])), [data]);
+  const toolNames = (ids: string[]) => (ids.length ? ids.map((id) => kindName.get(id) ?? "Deleted tool").join(", ") : "Needs no tools");
 
-  async function map(u: Unresolved, costCodeId: string | null) {
-    const phase = byPhase[u.key] && u.phase;
-    setBusyKey(u.key);
+  async function save(match: RuleMatch, key: string, label: string, kindIds: string[]) {
+    setBusyKey(`${match}:${key}`);
+    setError("");
     try {
-      await call("/api/tool-schedule/rules", {
-        method: "PUT",
-        body: JSON.stringify(phase ? { match: "phase", key: u.phase, label: u.phase, costCodeId } : { match: "name", key: u.name, label: u.name, costCodeId }),
-      });
+      await call("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match, key, label, kindIds }) });
+      setEditName(null);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -455,21 +525,12 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
       setBusyKey("");
     }
   }
-  async function change(r: Rule, costCodeId: string | null) {
-    setBusyKey(`${r.match}:${r.key}`);
+  async function clear(match: RuleMatch, key: string) {
+    setBusyKey(`${match}:${key}`);
+    setError("");
     try {
-      await call("/api/tool-schedule/rules", { method: "PUT", body: JSON.stringify({ match: r.match, key: r.key, label: r.label, costCodeId }) });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusyKey("");
-    }
-  }
-  async function remove(r: Rule) {
-    setBusyKey(`${r.match}:${r.key}`);
-    try {
-      await call(`/api/tool-schedule/rules?match=${r.match}&key=${encodeURIComponent(r.key)}`, { method: "DELETE" });
+      await call(`/api/tool-schedule/rules?match=${match}&key=${encodeURIComponent(key)}`, { method: "DELETE" });
+      setEditName(null);
       load();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -480,14 +541,93 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
 
   if (error && !data) return <Banner tone="error">{error}</Banner>;
   if (!data) return <Loading label="Reading the JobTread schedules…" />;
+  if (data.kinds.length === 0) return <EmptyState>Add tool types in Catalogue first.</EmptyState>;
+
+  const ticks = (match: RuleMatch, key: string, label: string, suggestions: string[] = []) => {
+    const rule = rulesBy.get(`${match}:${key}`);
+    const saved = rule ? rule.kindIds : null;
+    return (
+      <ToolTicks
+        key={`${match}:${key}:${saved?.join(",") ?? "-"}`}
+        kinds={data.kinds}
+        saved={saved}
+        initial={saved ?? suggestions}
+        suggested={suggestions.length > 0}
+        busy={busyKey === `${match}:${key}`}
+        onSave={(ids) => save(match, key, label, ids)}
+        onClear={() => clear(match, key)}
+      />
+    );
+  };
   const unresolved = sortUnresolved(data.unresolved, unSort.key, unSort.dir);
-  const rules = sortRules(data.rules, ruleSort.key, ruleSort.dir, (id) => (id ? codes.get(id)?.number ?? "" : ""));
+  const rules = sortRules(data.rules, ruleSort.key, ruleSort.dir, toolNames);
   const sortRule = (key: RuleSortKey) =>
     setRuleSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
       {error && <Banner tone="error">{error}</Banner>}
+
+      <section>
+        <SectionHeading>Phases</SectionHeading>
+        {data.phases.length === 0 ? (
+          <EmptyState>No phases in the next 6 months.</EmptyState>
+        ) : (
+          <ListCard className="divide-y divide-line-soft">
+            {data.phases.map((p) => {
+              const rule = rulesBy.get(`phase:${p.key}`);
+              const open = openPhase === p.key;
+              return (
+                <div key={p.key} className="grid gap-2 px-3 py-3">
+                  <div>
+                    <span className="text-sm font-semibold">{p.name}</span>
+                    <MetaLine
+                      items={[
+                        p.jobNames.join(", "),
+                        `${p.taskCount} ${p.taskCount === 1 ? "task" : "tasks"}`,
+                        rule ? toolNames(rule.kindIds) : <span className="text-warn">No tools yet</span>,
+                      ]}
+                    />
+                  </div>
+                  {ticks("phase", p.key, p.name)}
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenPhase(open ? null : p.key)}
+                    className="justify-self-start text-[12px] font-semibold text-neutral-500 underline-offset-2 hover:underline"
+                  >
+                    {open ? "Hide" : "Show"} its {p.names.length} task {p.names.length === 1 ? "name" : "names"}
+                  </button>
+                  {open && (
+                    <ul className="grid gap-1 rounded-lg border border-line p-2">
+                      {p.names.map((n) => {
+                        const own = rulesBy.get(`name:${n.key}`);
+                        return (
+                          <li key={n.key} className="grid gap-2 py-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="min-w-0 text-sm">
+                                {n.name}{" "}
+                                <span className="text-[12px] text-neutral-500">
+                                  · {n.via ? (n.via === "name" && own ? `Own tools: ${toolNames(own.kindIds)}` : VIA_LABEL[n.via]) : "No tools yet"}
+                                </span>
+                              </span>
+                              <Button variant="ghost" size="xs" onClick={() => setEditName(editName === n.key ? null : n.key)}>
+                                {editName === n.key ? "Close" : own ? "Change its tools" : "Give it its own tools"}
+                              </Button>
+                            </div>
+                            {editName === n.key && ticks("name", n.key, n.name)}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </ListCard>
+        )}
+      </section>
+
       <section>
         <SectionHeading
           trailing={
@@ -506,57 +646,48 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
             ) : undefined
           }
         >
-          {data.unresolved.length ? `${data.unresolved.length} task ${data.unresolved.length === 1 ? "name needs" : "names need"} a code` : "Every scheduled task has a code"}
+          {data.unresolved.length
+            ? `${data.unresolved.length} task ${data.unresolved.length === 1 ? "name has" : "names have"} no tools yet`
+            : "Every scheduled task is covered"}
         </SectionHeading>
         {data.unresolved.length === 0 ? (
           <EmptyState>All caught up for the next 6 months.</EmptyState>
         ) : (
           <ListCard className="divide-y divide-line-soft">
-            {unresolved.map((u) => {
-              const phase = byPhase[u.key] && u.phase;
-              return (
-                <div key={u.key} className="grid gap-2 px-3 py-3">
-                  <div>
-                    <span className="text-sm font-semibold">{phase ? `Phase: ${u.phase}` : u.name}</span>
-                    <MetaLine items={[!phase && u.phase, u.jobNames.join(", "), `${u.taskIds.length} ${u.taskIds.length === 1 ? "task" : "tasks"}`]} />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {u.suggestions.map((c) => (
-                      <Button key={c.id} variant="secondary" size="xs" disabled={busyKey === u.key} onClick={() => map(u, c.id)} className="max-w-full whitespace-normal text-left">
-                        ✓ <span className="font-mono text-[11px] text-neutral-500">{c.number}</span> {c.name}
-                      </Button>
-                    ))}
-                    <div className="w-full sm:w-80">
-                      <CostCodeSelect
-                        inline
-                        textCls="text-xs"
-                        options={data.costCodes}
-                        value=""
-                        onChange={(id) => id && map(u, id)}
-                        placeholder="Other code…"
-                        noneLabel="Cancel"
-                      />
-                    </div>
-                    <Button variant="ghost" size="xs" disabled={busyKey === u.key} onClick={() => map(u, null)}>
-                      Needs no tools
-                    </Button>
-                    {u.phase && (
-                      <Button variant="ghost" size="xs" onClick={() => setByPhase({ ...byPhase, [u.key]: !byPhase[u.key] })}>
-                        {phase ? "Map this task name instead" : "Map the whole phase instead"}
-                      </Button>
-                    )}
-                  </div>
+            {unresolved.map((u) => (
+              <div key={u.key} className="grid gap-2 px-3 py-3">
+                <div>
+                  <span className="text-sm font-semibold">{u.name}</span>
+                  <MetaLine items={[u.phase, u.jobNames.join(", "), `${u.taskIds.length} ${u.taskIds.length === 1 ? "task" : "tasks"}`]} />
                 </div>
-              );
-            })}
+                {ticks("name", u.key, u.name, u.suggestions)}
+              </div>
+            ))}
           </ListCard>
         )}
       </section>
 
+      {data.taskTypes.length > 0 && (
+        <section>
+          <SectionHeading>Task types</SectionHeading>
+          <ListCard className="divide-y divide-line-soft">
+            {data.taskTypes.map((t) => (
+              <div key={t.id} className="grid gap-2 px-3 py-3">
+                <div>
+                  <span className="text-sm font-semibold">{t.name}</span>
+                  <MetaLine items={[`${t.taskCount} ${t.taskCount === 1 ? "task" : "tasks"}`]} />
+                </div>
+                {ticks("taskType", t.id, t.name)}
+              </div>
+            ))}
+          </ListCard>
+        </section>
+      )}
+
       <section>
-        <SectionHeading>Mapped</SectionHeading>
+        <SectionHeading>All rules</SectionHeading>
         {data.rules.length === 0 ? (
-          <EmptyState>Nothing mapped yet.</EmptyState>
+          <EmptyState>Nothing set yet.</EmptyState>
         ) : (
           <div className="relative overflow-x-auto rounded-xl border border-line">
             <table className={tableCls.root}>
@@ -564,7 +695,7 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
                 <tr>
                   <SortTh label="Matches" k="name" sort={ruleSort} onSort={sortRule} />
                   <SortTh label="Type" k="type" sort={ruleSort} onSort={sortRule} />
-                  <SortTh label="Cost code" k="code" sort={ruleSort} onSort={sortRule} />
+                  <SortTh label="Tools" k="tools" sort={ruleSort} onSort={sortRule} />
                   <th className={tableCls.th}>
                     <span className="sr-only">Remove</span>
                   </th>
@@ -572,30 +703,20 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
               </thead>
               <tbody>
                 {rules.map((r) => {
-                    const k = `${r.match}:${r.key}`;
-                    return (
-                      <tr key={k} className={tableCls.tr}>
-                        <td className={tableCls.td}>{r.label || r.key}</td>
-                        <td className={`${tableCls.td} whitespace-nowrap text-neutral-500`}>{MATCH_LABEL[r.match]}</td>
-                        <td className={`${tableCls.td} min-w-56`}>
-                          <CostCodeSelect
-                            inline
-                            textCls="text-xs"
-                            options={data.costCodes}
-                            value={r.costCodeId ?? ""}
-                            onChange={(id) => change(r, id || null)}
-                            placeholder="Needs no tools"
-                            noneLabel="Needs no tools"
-                          />
-                        </td>
-                        <td className={`${tableCls.td} text-right`}>
-                          <Button variant="ghost" size="xs" disabled={busyKey === k} onClick={() => remove(r)}>
-                            Remove
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  const k = `${r.match}:${r.key}`;
+                  return (
+                    <tr key={k} className={tableCls.tr}>
+                      <td className={tableCls.td}>{r.label || r.key}</td>
+                      <td className={`${tableCls.td} whitespace-nowrap text-neutral-500`}>{MATCH_LABEL[r.match]}</td>
+                      <td className={`${tableCls.td} ${r.kindIds.length ? "" : "text-neutral-500"}`}>{toolNames(r.kindIds)}</td>
+                      <td className={`${tableCls.td} text-right`}>
+                        <Button variant="ghost" size="xs" disabled={busyKey === k} onClick={() => clear(r.match, r.key)}>
+                          Remove
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -605,13 +726,12 @@ function TaskCodes({ onCount }: { onCount: (n: number) => void }) {
   );
 }
 
-/* ------------------------------------------------------------------- Holds */
+/* ---------------------------------------------------------------- Bookings */
 
-function Holds() {
-  const [data, setData] = useState<{ holds: ToolHold[]; kinds: { id: string; name: string }[]; jobs: { id: string; name: string }[] } | null>(null);
+function Bookings() {
+  const [data, setData] = useState<{ holds: ToolHold[]; kinds: { id: string; name: string }[] } | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ kindId: "", jobId: "", startDate: "", endDate: "", qty: "1", note: "" });
 
   const load = useCallback(() => {
     call<NonNullable<typeof data>>("/api/tool-schedule/holds")
@@ -620,20 +740,6 @@ function Holds() {
   }, []);
   useEffect(load, [load]);
 
-  async function add() {
-    setBusy(true);
-    setError("");
-    try {
-      const jobName = data?.jobs.find((j) => j.id === form.jobId)?.name ?? "";
-      await call("/api/tool-schedule/holds", { method: "POST", body: JSON.stringify({ ...form, qty: Number(form.qty) || 1, jobName }) });
-      setForm({ ...form, note: "" });
-      load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
   async function remove(id: string) {
     setBusy(true);
     try {
@@ -650,13 +756,12 @@ function Holds() {
   if (!data) return <Loading />;
   const kindName = new Map(data.kinds.map((k) => [k.id, k.name]));
   const fmt = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
-  const ready = form.kindId && form.jobId && form.startDate && form.endDate && form.endDate >= form.startDate;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       {error && <Banner tone="error">{error}</Banner>}
       {data.holds.length === 0 ? (
-        <EmptyState>No holds.</EmptyState>
+        <EmptyState>No bookings.</EmptyState>
       ) : (
         <ListCard className="divide-y divide-line-soft">
           {data.holds.map((h) => (
@@ -666,7 +771,7 @@ function Holds() {
                   {kindName.get(h.kindId) ?? "Deleted tool type"}
                   {h.qty > 1 ? ` ×${h.qty}` : ""} → {h.jobName || h.jobId}
                 </span>
-                <MetaLine items={[`${fmt(h.startDate)} – ${fmt(h.endDate)}`, h.note]} />
+                <MetaLine items={[`${fmt(h.startDate)} – ${fmt(h.endDate)}`, !h.jobId && "Not a job", h.note]} />
               </span>
               <Button variant="ghost" size="xs" disabled={busy} onClick={() => remove(h.id)}>
                 Remove
@@ -675,58 +780,9 @@ function Holds() {
           ))}
         </ListCard>
       )}
-
       <section className="grid gap-2">
-        <SectionHeading>Add a hold</SectionHeading>
-        {data.kinds.length === 0 ? (
-          <p className="text-sm text-neutral-500">Add a tool type in Catalogue first.</p>
-        ) : (
-          <form
-            className="grid gap-2 sm:grid-cols-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (ready) void add();
-            }}
-          >
-            <Select id="hold-kind" aria-label="Tool type" value={form.kindId} onChange={(e) => setForm({ ...form, kindId: e.target.value })}>
-              <option value="">Tool type…</option>
-              {data.kinds.map((k) => (
-                <option key={k.id} value={k.id}>
-                  {k.name}
-                </option>
-              ))}
-            </Select>
-            <Select id="hold-job" aria-label="Job" value={form.jobId} onChange={(e) => setForm({ ...form, jobId: e.target.value })}>
-              <option value="">Job…</option>
-              {data.jobs.map((j) => (
-                <option key={j.id} value={j.id}>
-                  {j.name}
-                </option>
-              ))}
-            </Select>
-            <label className="grid gap-1 text-[12px] text-neutral-500">
-              From
-              <Input id="hold-start" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-            </label>
-            <label className="grid gap-1 text-[12px] text-neutral-500">
-              To
-              <Input id="hold-end" type="date" value={form.endDate} min={form.startDate || undefined} onChange={(e) => setForm({ ...form, endDate: e.target.value })} />
-            </label>
-            <label className="grid gap-1 text-[12px] text-neutral-500">
-              How many
-              <Input id="hold-qty" type="number" min={1} max={20} value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} />
-            </label>
-            <label className="grid gap-1 text-[12px] text-neutral-500">
-              Note
-              <Input id="hold-note" value={form.note} placeholder="Why" onChange={(e) => setForm({ ...form, note: e.target.value })} />
-            </label>
-            <div className="sm:col-span-2">
-              <Button type="submit" disabled={busy || !ready}>
-                Add hold
-              </Button>
-            </div>
-          </form>
-        )}
+        <SectionHeading>Book a tool</SectionHeading>
+        <BookingForm onSaved={load} />
       </section>
     </div>
   );

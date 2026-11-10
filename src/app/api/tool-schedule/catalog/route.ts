@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
-import { getCostCodes } from "@/lib/jobtread";
-import { getPaveConfig, hasGrant } from "@/lib/config";
+import { hasGrant } from "@/lib/config";
 import { toolScheduleUser } from "@/lib/toolScheduleAccess";
 import { createKind, deleteKind, getSheetTools, loadPlan, updateKind, type KindPatch } from "@/lib/toolScheduleStore";
 
 /**
- * The tool catalogue: tool types, the cost codes each is needed for, and which
- * Tools-sheet tools are which type. Companion data only.
+ * The tool catalogue: tool types, and which Tools-sheet tools are which type.
+ * Companion data only.
  *
- *   GET                          → { kinds, members, costCodes, tools, toolsError? }
+ *   GET                          → { kinds, members, uses, tools, toolsError? }
+ *                                  (`uses`: how many task rules tick each tool type)
  *   POST   { name }              → { id }
- *   PATCH  { id, name?, notes?, costCodeIds?, toolIds? } → { ok }
- *   DELETE ?id=                  → { ok }   (also drops its codes, tool tags and holds)
+ *   PATCH  { id, name?, notes?, toolIds? } → { ok }
+ *   DELETE ?id=                  → { ok }   (also drops its rule ticks, tool tags and bookings)
  *
  * Gated by the "tool-schedule-edit" view (office + admin).
  */
@@ -29,9 +29,8 @@ const fail = (e: unknown, status = 500) =>
 export async function GET() {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   try {
-    const [plan, costCodes, tools] = await Promise.all([
+    const [plan, tools] = await Promise.all([
       loadPlan(),
-      getCostCodes(getPaveConfig()),
       getSheetTools().then(
         (t) => ({ t, error: undefined as string | undefined }),
         (e) => ({ t: [], error: e instanceof Error ? e.message : "Could not read the Tools sheet." }),
@@ -40,7 +39,7 @@ export async function GET() {
     return NextResponse.json({
       kinds: plan.kinds,
       members: plan.members,
-      costCodes,
+      uses: Object.fromEntries(plan.kinds.map((k) => [k.id, plan.rules.filter((r) => r.kindIds.includes(k.id)).length])),
       tools: tools.t,
       ...(tools.error ? { toolsError: tools.error } : {}),
     });
@@ -71,7 +70,6 @@ export async function PATCH(req: Request) {
   const patch: KindPatch = {
     name: typeof body?.name === "string" ? body.name.slice(0, 80) : undefined,
     notes: typeof body?.notes === "string" ? body.notes.slice(0, 500) : undefined,
-    costCodeIds: strs(body?.costCodeIds),
     toolIds: strs(body?.toolIds),
   };
   try {

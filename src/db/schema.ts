@@ -1851,13 +1851,16 @@ export const vendorCoi = sqliteTable("vendor_coi", {
  * the plan lives here and the schedule is only read.
  *
  * tool_kinds         a generic tool type ("Table saw").
- * tool_kind_codes    the cost codes a tool type is needed for.
+ * tool_kind_codes    RETIRED 2026-11-10 (cost codes dropped); kept, unread.
  * tool_kind_members  which physical tool (Tools sheet id) is which tool type.
- * task_code_rules    how a schedule task resolves to a cost code. `match` is
+ * task_code_rules    RETIRED 2026-11-10 (see task_tool_rules); kept, unread.
+ *                    Was: how a schedule task resolved to a cost code. `match` is
  *                    task | name | taskType | phase; `match_key` is the task id,
  *                    the normalized name, the task type id or the normalized
  *                    phase. cost_code_id NULL = "needs no tools".
- * tool_holds         a tool reserved for a job by hand, outside the schedule.
+ * tool_holds         a tool booked by hand, outside the schedule: for a job
+ *                    (job_id), or a place that is not a job (job_id "",
+ *                    job_name "Shop", "Out for repair").
  * tool_job_excludes  a job whose schedule the tool schedule ignores (a PreCon
  *                    copy of another job's Gantt would double its demand).
  */
@@ -1896,6 +1899,27 @@ export const taskCodeRules = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [primaryKey({ columns: [t.match, t.matchKey] })],
+);
+
+/**
+ * Which tool types a schedule task needs (lib/toolSchedule.ts). One row per
+ * tool type; kind_id 0 alone means "needs no tools". `match` is task | name |
+ * taskType | phase and `match_key` the task id, normalized name, task type id
+ * or normalized phase. Replaced task_code_rules + tool_kind_codes on
+ * 2026-11-10, when the owner dropped the cost-code step; those two tables are
+ * kept, unread, so no saved row is destroyed.
+ */
+export const taskToolRules = sqliteTable(
+  "task_tool_rules",
+  {
+    match: text("match").notNull(),
+    matchKey: text("match_key").notNull(),
+    kindId: integer("kind_id").notNull(),
+    label: text("label").notNull().default(""),
+    updatedBy: text("updated_by").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.match, t.matchKey, t.kindId] })],
 );
 
 export const toolHolds = sqliteTable("tool_holds", {

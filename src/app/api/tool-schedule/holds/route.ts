@@ -6,11 +6,12 @@ import { toolScheduleUser } from "@/lib/toolScheduleAccess";
 import { addHold, deleteHold, loadPlan } from "@/lib/toolScheduleStore";
 
 /**
- * Holds: a tool type reserved for a job by hand, outside the schedule — a known
- * need before the job has a Gantt, or a tool kept on site.
+ * Bookings (stored as "holds"): a tool type booked by hand, with no schedule
+ * task — for a job (a need before its Gantt exists, a tool kept on site), or
+ * for a place that is not a job (the Shop, out for repair, loaned out).
  *
  *   GET                                   → { holds, kinds, jobs }
- *   POST { kindId, jobId, startDate, endDate, qty?, note? } → { id }
+ *   POST { kindId, jobId | place, startDate, endDate, qty?, note? } → { id }
  *   DELETE ?id=                           → { ok }
  *
  * Gated by the "tool-schedule-edit" view (office + admin).
@@ -36,11 +37,12 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const u = await toolScheduleUser();
-  if (!u.canEdit) return NextResponse.json({ error: "Only the office can add holds." }, { status: 403 });
+  if (!u.canEdit) return NextResponse.json({ error: "Only the office can book tools." }, { status: 403 });
   const b = await req.json().catch(() => ({}));
   const kindId = String(b?.kindId ?? "");
   const jobId = String(b?.jobId ?? "");
-  if (!kindId || !jobId) return NextResponse.json({ error: "Choose a tool type and a job." }, { status: 400 });
+  const place = String(b?.place ?? "").trim().slice(0, 100);
+  if (!kindId || (!jobId && !place)) return NextResponse.json({ error: "Choose a tool type, and a job or a place." }, { status: 400 });
   if (!isIsoDay(b?.startDate) || !isIsoDay(b?.endDate) || b.endDate < b.startDate) {
     return NextResponse.json({ error: "Give a start date and an end date on or after it." }, { status: 400 });
   }
@@ -51,7 +53,7 @@ export async function POST(req: Request) {
       {
         kindId,
         jobId,
-        jobName: String(b?.jobName ?? "").slice(0, 200),
+        jobName: jobId ? String(b?.jobName ?? "").slice(0, 200) : place,
         startDate: b.startDate,
         endDate: b.endDate,
         qty: Math.min(20, Math.max(1, Number(b?.qty) || 1)),
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const u = await toolScheduleUser();
-  if (!u.canEdit) return NextResponse.json({ error: "Only the office can remove holds." }, { status: 403 });
+  if (!u.canEdit) return NextResponse.json({ error: "Only the office can remove bookings." }, { status: 403 });
   const id = new URL(req.url).searchParams.get("id") ?? "";
   if (!id) return NextResponse.json({ error: "Pass ?id=" }, { status: 400 });
   try {

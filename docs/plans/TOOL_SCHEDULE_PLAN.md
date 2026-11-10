@@ -15,6 +15,10 @@ The owner approved a clickable sample of the layouts the same day.
 - Stage 1 (reads + rules): done — `getUpcomingScheduleTasks`, `getCostCodes`, `src/lib/toolSchedule.ts`.
 - Stages 2–4: done 2026-11-10 — tables, editor, schedule page, moves, left-out jobs, chat tool.
 - Round 2 done 2026-11-10 — help text trimmed, searchable cost-code pickers, a job filter on the schedule page, sortable catalogue and task-code lists.
+- Round 3 done 2026-11-10 — owner dropped the cost-code step: tools map straight to
+  phases, task names and task types (`task_tool_rules`). "Book a tool" (stored as a
+  hold) reserves a tool with no JobTread task, for a job or a place that is not a
+  job. `tool_kind_codes` and `task_code_rules` are kept, unread.
 - Next: the office fills the catalogue and maps task names; then watch whether
   the move list is useful (it depends on Tools-sheet labels matching job names).
 
@@ -34,18 +38,19 @@ No JobTread write. No Apps Script change.
 
 ## 2. The model
 
-- A **tool type** (table saw) is needed for one or more cost codes.
-- A **schedule task** resolves to a cost code by rule, first hit wins:
-  task override → task name → task type → phase name. A rule may say
-  "needs no tools". Owner decision 2026-11-10: the main path is the task name,
-  mapped once and reused on every job. Unmapped names go to a "needs a code"
-  list with suggested codes (`suggestCodes`); a suggestion counts for nothing
-  until confirmed.
+- A **schedule task** gets its tool types from a rule, first level with a rule
+  wins: one task → task name → task type → phase name. A rule may say "needs no
+  tools". Owner decision 2026-11-10 (round 3): no cost codes — the office ticks
+  tools on each phase (covers every task under it) and gives a task name its
+  own tools where it needs something else; that applies on every job. Task
+  names nothing covers go to a list with suggested tools (`suggestTools`,
+  learned from names already mapped); a suggestion counts for nothing until saved.
 - A **physical tool** from the Tools sheet is tagged with its tool type. Supply
   is the usable ones (not broken, in repair or lost).
 - **Demand** per tool type per day is the number of jobs with a task needing
-  it. A job counts once a day. A **hold** reserves a tool for a job by hand, with
-  a quantity.
+  it. A job counts once a day. A **booking** (a "hold" in code) reserves a tool
+  by hand, with a quantity and no task: for a job, or for a place that is not a
+  job ("Shop", "Out for repair"), counted under `placeId(place)`.
 - **Shortfall**: demand > owned. **Missing**: needed and none owned.
 
 ## 3. Decisions for the owner (made 2026-11-10)
@@ -58,7 +63,7 @@ No JobTread write. No Apps Script change.
 ### Stage 1 — reads and rules (no DB, no UI) — done
 - `getUpcomingScheduleTasks(cfg, from, to)` in `jobtread/tasks.ts`: open leaf
   tasks overlapping the range, no nested connection, cached 5 min.
-- `getCostCodes(cfg)` in `jobtread/costCodes.ts`: active codes, cached 1 h.
+- (`getCostCodes` was added here and removed in round 3 with the cost-code step.)
 - `src/lib/toolSchedule.ts` + tests: resolve, suggest, demand, shortfalls.
 
 ### Stage 2 — data and the editing page
@@ -91,7 +96,7 @@ No JobTread write. No Apps Script change.
 
 ## 5. Risks
 
-- A renamed task drops out until re-mapped. The "needs a code" list shows it.
+- A renamed task loses its own tools until re-mapped (its phase still covers it). The "no tools yet" list shows an uncovered one.
 - A 6-month view is only as good as the schedules. Holds cover known needs early.
 - Two jobs can carry the same schedule: "Studio" and "Studio PreCon" both hold
   the full Studio Gantt today. Both count until the office leaves one out on

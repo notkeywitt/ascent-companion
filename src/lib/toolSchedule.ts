@@ -1,33 +1,34 @@
 // The tool schedule's rules — pure functions, no I/O (TOOL_SCHEDULE_PLAN.md).
 //
-// The chain: a schedule task resolves to a cost code; a tool type is needed for
-// a set of cost codes; so a task needs every tool type tied to its code, on
-// every day it runs. JobTread links no task to a cost code, so the link comes
-// from rules the office keeps (a task NAME maps once and then maps on every job).
+// A schedule task needs the tool types its rule names, on every day it runs.
+// JobTread keeps no tool on a task, so the rules live here: the office ticks
+// tools on a PHASE (covers every task under it) and on a TASK NAME where a
+// task needs something else (it then applies on every job). A booking puts a
+// tool on a job, or a place, by hand — no task needed.
 
-import type { CostCodeRef, ScheduleTask } from "@/lib/jobtread";
+import type { ScheduleTask } from "@/lib/jobtread";
 
 /**
- * How a rule matches a task. Tried in this order; the first hit wins.
+ * How a rule matches a task. Tried in this order; the first level with a rule
+ * wins, so a task name overrides its phase.
  * - `task`: one task id (an override for one job).
- * - `name`: the normalized task name — the main path.
- * - `taskType`: a JobTread task type id.
+ * - `name`: the normalized task name.
+ * - `taskType`: a JobTread task type id (only once the office sets types).
  * - `phase`: the normalized name of the task's parent group row.
  */
 export type RuleMatch = "task" | "name" | "taskType" | "phase";
 export const RULE_ORDER: readonly RuleMatch[] = ["task", "name", "taskType", "phase"];
 
-export interface TaskCodeRule {
+export interface TaskToolRule {
   match: RuleMatch;
   key: string;
-  /** null = "needs no tools": resolved, but counts toward no tool type. */
-  costCodeId: string | null;
+  /** The tool types it needs. Empty = "needs no tools": covered, but needs nothing. */
+  kindIds: string[];
 }
 
 export interface ToolKind {
   id: string;
   name: string;
-  costCodeIds: string[];
 }
 
 /** One physical tool from the Tools sheet, tagged with its tool type. */
@@ -42,7 +43,11 @@ export interface OwnedTool {
   jobId?: string | null;
 }
 
-/** A tool reserved for a job by hand, outside the schedule. */
+/**
+ * A tool booked by hand, outside the schedule: for a JobTread job (`jobId`),
+ * or for a place that is not a job (`jobId` "" and `jobName` "Shop",
+ * "Out for repair", "Loaned to …").
+ */
 export interface ToolHold {
   id: string;
   kindId: string;
@@ -54,11 +59,15 @@ export interface ToolHold {
   note: string;
 }
 
+/** The id a booking for a place (not a job) is counted under. */
+export const placeId = (place: string) => `place:${normalizeTaskName(place) || "other"}`;
+export const isPlaceId = (id: string) => id.startsWith("place:");
+
 export type SpanSource =
-  | { type: "task"; taskId: string; taskName: string; costCodeId: string }
+  | { type: "task"; taskId: string; taskName: string; via: RuleMatch }
   | { type: "hold"; holdId: string; note: string };
 
-/** One job needing one tool type over a date span. */
+/** One job (or place) needing one tool type over a date span. */
 export interface DemandSpan {
   kindId: string;
   jobId: string;
@@ -69,7 +78,7 @@ export interface DemandSpan {
   source: SpanSource;
 }
 
-/** Task names that no rule resolves — the editor's "needs a code" list. */
+/** Task names that no rule covers — the editor's "needs tools" list. */
 export interface UnresolvedName {
   key: string; // normalized name
   name: string; // as first seen
@@ -130,30 +139,35 @@ export function ruleKeyFor(task: ScheduleTask, match: RuleMatch): string | null 
   }
 }
 
-export type RuleIndex = Map<string, TaskCodeRule>;
+/** The key a rule is stored and looked up under: names and phases normalized. */
+export function ruleKey(match: RuleMatch, key: string): string {
+  return match === "name" || match === "phase" ? normalizeTaskName(key) : key.trim();
+}
+
+export type RuleIndex = Map<string, TaskToolRule>;
 const indexKey = (match: RuleMatch, key: string) => `${match}:${key}`;
 
-export function buildRuleIndex(rules: TaskCodeRule[]): RuleIndex {
+export function buildRuleIndex(rules: TaskToolRule[]): RuleIndex {
   const idx: RuleIndex = new Map();
   for (const r of rules) {
-    const key = r.match === "name" || r.match === "phase" ? normalizeTaskName(r.key) : r.key;
+    const key = ruleKey(r.match, r.key);
     if (key) idx.set(indexKey(r.match, key), r);
   }
   return idx;
 }
 
 export interface Resolution {
-  costCodeId: string | null;
+  kindIds: string[];
   via: RuleMatch;
 }
 
-/** The code a task resolves to, or null when no rule covers it. */
-export function resolveTaskCode(task: ScheduleTask, idx: RuleIndex): Resolution | null {
+/** The tool types a task needs, or null when no rule covers it. */
+export function resolveTaskTools(task: ScheduleTask, idx: RuleIndex): Resolution | null {
   for (const match of RULE_ORDER) {
     const key = ruleKeyFor(task, match);
     if (!key) continue;
     const r = idx.get(indexKey(match, key));
-    if (r) return { costCodeId: r.costCodeId, via: match };
+    if (r) return { kindIds: r.kindIds, via: match };
   }
   return null;
 }
@@ -186,30 +200,38 @@ function tokens(s: string): Set<string> {
 }
 
 /**
- * Up to `n` cost codes whose names share words with the task name (weight 2)
- * or its phase (weight 1). A suggestion only: nothing counts until a person
- * confirms it as a rule.
+ * Up to `n` tool types to offer for a task name, learned from what is already
+ * mapped: a rule whose name shares words with this one lends its tools (a word
+ * shared with the task name counts 2, with its phase 1), and a tool type whose
+ * own name appears in the task counts too. A suggestion only.
  */
-export function suggestCodes(
+export function suggestTools(
   task: Pick<ScheduleTask, "name" | "phase">,
-  codes: CostCodeRef[],
+  rules: TaskToolRule[],
+  kinds: ToolKind[],
   n = 3,
-): CostCodeRef[] {
+): string[] {
   const nameT = tokens(task.name);
   const phaseT = tokens(task.phase);
   if (nameT.size === 0 && phaseT.size === 0) return [];
-  const scored: { c: CostCodeRef; score: number }[] = [];
-  for (const c of codes) {
-    const ct = tokens(c.name);
-    let score = 0;
-    for (const t of ct) {
-      if (nameT.has(t)) score += 2;
-      else if (phaseT.has(t)) score += 1;
-    }
-    if (score > 0) scored.push({ c, score: score / Math.sqrt(ct.size) });
+  const known = new Set(kinds.map((k) => k.id));
+  const score = new Map<string, number>();
+  const add = (id: string, by: number) => known.has(id) && by > 0 && score.set(id, (score.get(id) ?? 0) + by);
+  for (const r of rules) {
+    if (r.match !== "name" && r.match !== "phase") continue;
+    let shared = 0;
+    for (const t of tokens(r.key)) shared += nameT.has(t) ? 2 : phaseT.has(t) ? 1 : 0;
+    for (const id of r.kindIds) add(id, shared);
   }
-  scored.sort((a, b) => b.score - a.score || a.c.number.localeCompare(b.c.number));
-  return scored.slice(0, n).map((s) => s.c);
+  for (const k of kinds) {
+    let shared = 0;
+    for (const t of tokens(k.name)) shared += nameT.has(t) ? 3 : 0;
+    add(k.id, shared);
+  }
+  return [...score]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, n)
+    .map(([id]) => id);
 }
 
 // ---------------------------------------------------------------------------
@@ -217,25 +239,22 @@ export function suggestCodes(
 // ---------------------------------------------------------------------------
 
 /**
- * Turn tasks + holds into demand spans per tool type, and collect the task
- * names no rule resolves. A task that resolves to "needs no tools", or to a
- * code no tool type lists, adds no span.
+ * Turn tasks + bookings into demand spans per tool type, and collect the task
+ * names no rule covers. A task whose rule says "needs no tools", or names only
+ * tool types since deleted, adds no span.
  */
 export function buildDemand(
   tasks: ScheduleTask[],
-  rules: TaskCodeRule[],
+  rules: TaskToolRule[],
   kinds: ToolKind[],
   holds: ToolHold[] = [],
 ): { spans: DemandSpan[]; unresolved: UnresolvedName[] } {
   const idx = buildRuleIndex(rules);
-  const kindsByCode = new Map<string, string[]>();
-  for (const k of kinds)
-    for (const c of k.costCodeIds) kindsByCode.set(c, [...(kindsByCode.get(c) ?? []), k.id]);
-
+  const kindIds = new Set(kinds.map((k) => k.id));
   const spans: DemandSpan[] = [];
   const unresolved = new Map<string, UnresolvedName>();
   for (const t of tasks) {
-    const res = resolveTaskCode(t, idx);
+    const res = resolveTaskTools(t, idx);
     if (!res) {
       const key = normalizeTaskName(t.name);
       const u = unresolved.get(key) ?? { key, name: t.name, phase: t.phase, jobNames: [], taskIds: [] };
@@ -244,8 +263,8 @@ export function buildDemand(
       unresolved.set(key, u);
       continue;
     }
-    if (!res.costCodeId) continue;
-    for (const kindId of kindsByCode.get(res.costCodeId) ?? []) {
+    for (const kindId of new Set(res.kindIds)) {
+      if (!kindIds.has(kindId)) continue;
       spans.push({
         kindId,
         jobId: t.jobId,
@@ -253,17 +272,16 @@ export function buildDemand(
         startDate: t.startDate,
         endDate: t.endDate,
         qty: 1,
-        source: { type: "task", taskId: t.id, taskName: t.name, costCodeId: res.costCodeId },
+        source: { type: "task", taskId: t.id, taskName: t.name, via: res.via },
       });
     }
   }
-  const kindIds = new Set(kinds.map((k) => k.id));
   for (const h of holds) {
     if (!kindIds.has(h.kindId)) continue;
     spans.push({
       kindId: h.kindId,
-      jobId: h.jobId,
-      jobName: h.jobName,
+      jobId: h.jobId || placeId(h.jobName),
+      jobName: h.jobName || "Not a job",
       startDate: h.startDate,
       endDate: h.endDate,
       qty: Math.max(1, Math.floor(h.qty || 1)),
@@ -405,6 +423,7 @@ export function findMoves(rows: KindSchedule[], tools: OwnedTool[], from: string
     const firstByJob = new Map<string, DemandSpan>();
     for (const s of row.spans) {
       if (s.endDate < from || s.startDate > to) continue;
+      if (isPlaceId(s.jobId)) continue; // a booking for the Shop or a repair is not a move to a job
       const cur = firstByJob.get(s.jobId);
       if (!cur || s.startDate < cur.startDate) firstByJob.set(s.jobId, s);
     }

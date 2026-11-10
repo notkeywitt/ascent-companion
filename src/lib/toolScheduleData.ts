@@ -1,4 +1,4 @@
-import { getCostCodes, getJobs, getUpcomingScheduleTasks, type CostCodeRef } from "@/lib/jobtread";
+import { getJobs, getUpcomingScheduleTasks } from "@/lib/jobtread";
 import { getPaveConfig } from "@/lib/config";
 import { orgDay } from "@/lib/orgTime";
 import {
@@ -11,9 +11,13 @@ import {
   findMoves,
   isUsable,
   matchJobByLabel,
+  buildRuleIndex,
+  normalizeTaskName,
+  resolveTaskTools,
   scheduleByKind,
-  suggestCodes,
+  suggestTools,
   type KindSchedule,
+  type RuleMatch,
   type MoveNeeded,
   type OwnedTool,
   type UnresolvedName,
@@ -131,22 +135,71 @@ export async function buildToolSchedule(from: string, to: string): Promise<ToolS
 }
 
 export interface UnresolvedWithSuggestions extends UnresolvedName {
-  suggestions: CostCodeRef[];
+  /** Up to three tool type ids, learned from what is already mapped. */
+  suggestions: string[];
 }
 
-/** The task names no rule covers yet, each with up to three suggested codes. */
-export async function unresolvedTasks(from: string, to: string): Promise<{
-  unresolved: UnresolvedWithSuggestions[];
-  costCodes: CostCodeRef[];
+/** A task name under a phase, and the level its tools come from (null = none yet). */
+export interface PhaseTaskName {
+  key: string;
+  name: string;
+  taskCount: number;
+  via: RuleMatch | null;
+}
+export interface PhaseRow {
+  key: string; // normalized phase name
+  name: string;
+  taskCount: number;
+  jobNames: string[];
+  names: PhaseTaskName[];
+}
+export interface TaskTypeRow {
+  id: string;
+  name: string;
+  taskCount: number;
+}
+
+/**
+ * What the editor's Tasks tab needs: the phases and task types the schedule
+ * uses in range, every task name under each phase with where its tools come
+ * from, and the task names nothing covers yet (with suggested tool types).
+ */
+export async function taskRules(from: string, to: string): Promise<{
   plan: StoredPlan;
+  phases: PhaseRow[];
+  taskTypes: TaskTypeRow[];
+  unresolved: UnresolvedWithSuggestions[];
 }> {
   const plan = await loadPlan();
-  const [tasks, costCodes] = await Promise.all([readTasks(from, to, plan), getCostCodes(getPaveConfig())]);
+  const tasks = await readTasks(from, to, plan);
+  const idx = buildRuleIndex(plan.rules);
+  const phases = new Map<string, PhaseRow & { jobs: Set<string>; byName: Map<string, PhaseTaskName> }>();
+  const types = new Map<string, TaskTypeRow>();
+  for (const t of tasks) {
+    if (t.taskTypeId) {
+      const ty = types.get(t.taskTypeId) ?? { id: t.taskTypeId, name: t.taskTypeName ?? t.taskTypeId, taskCount: 0 };
+      ty.taskCount++;
+      types.set(t.taskTypeId, ty);
+    }
+    const pk = normalizeTaskName(t.phase);
+    if (!pk) continue;
+    const ph = phases.get(pk) ?? { key: pk, name: t.phase, taskCount: 0, jobNames: [], names: [], jobs: new Set<string>(), byName: new Map() };
+    ph.taskCount++;
+    if (t.jobName) ph.jobs.add(t.jobName);
+    const nk = normalizeTaskName(t.name);
+    const n = ph.byName.get(nk) ?? { key: nk, name: t.name, taskCount: 0, via: resolveTaskTools(t, idx)?.via ?? null };
+    n.taskCount++;
+    ph.byName.set(nk, n);
+    phases.set(pk, ph);
+  }
   const { unresolved } = buildDemand(tasks, plan.rules, plan.kinds);
   return {
-    unresolved: unresolved.map((u) => ({ ...u, suggestions: suggestCodes({ name: u.name, phase: u.phase }, costCodes) })),
-    costCodes,
     plan,
+    phases: [...phases.values()]
+      .map(({ jobs, byName, ...p }) => ({ ...p, jobNames: [...jobs].sort(), names: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name)) }))
+      .sort((a, b) => b.taskCount - a.taskCount || a.name.localeCompare(b.name)),
+    taskTypes: [...types.values()].sort((a, b) => a.name.localeCompare(b.name)),
+    unresolved: unresolved.map((u) => ({ ...u, suggestions: suggestTools({ name: u.name, phase: u.phase }, plan.rules, plan.kinds) })),
   };
 }
 

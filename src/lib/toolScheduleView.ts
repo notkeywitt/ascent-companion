@@ -149,17 +149,18 @@ function sorted<T>(items: T[], main: (a: T, b: T) => number, tie: (a: T, b: T) =
   return [...items].sort((a, b) => (dir === "asc" ? main(a, b) : main(b, a)) || tie(a, b));
 }
 
-export type KindSortKey = "name" | "owned" | "codes";
-export function sortKinds<K extends { id: string; name: string; costCodeIds: string[] }>(
+export type KindSortKey = "name" | "owned" | "uses";
+export function sortKinds<K extends { id: string; name: string }>(
   kinds: K[],
   key: KindSortKey,
   dir: SortDir,
   owned: (kindId: string) => number,
+  uses: (kindId: string) => number,
 ): K[] {
   const by: Record<KindSortKey, (a: K, b: K) => number> = {
     name: (a, b) => compareText(a.name, b.name),
     owned: (a, b) => owned(a.id) - owned(b.id),
-    codes: (a, b) => a.costCodeIds.length - b.costCodeIds.length,
+    uses: (a, b) => uses(a.id) - uses(b.id),
   };
   return sorted(kinds, by[key], (a, b) => compareText(a.name, b.name), dir);
 }
@@ -179,18 +180,18 @@ export function sortUnresolved<U extends { name: string; phase: string; jobNames
   return sorted(list, by[key], (a, b) => compareText(a.name, b.name), dir);
 }
 
-export type RuleSortKey = "name" | "type" | "code";
-export function sortRules<T extends { label: string; key: string; match: string; costCodeId: string | null }>(
+export type RuleSortKey = "name" | "type" | "tools";
+export function sortRules<T extends { label: string; key: string; match: string; kindIds: string[] }>(
   rules: T[],
   key: RuleSortKey,
   dir: SortDir,
-  codeNumber: (costCodeId: string | null) => string,
+  toolNames: (kindIds: string[]) => string,
 ): T[] {
   const name = (r: T) => r.label || r.key;
   const by: Record<RuleSortKey, (a: T, b: T) => number> = {
     name: (a, b) => compareText(name(a), name(b)),
     type: (a, b) => compareText(a.match, b.match),
-    code: (a, b) => compareText(codeNumber(a.costCodeId), codeNumber(b.costCodeId)),
+    tools: (a, b) => compareText(toolNames(a.kindIds), toolNames(b.kindIds)),
   };
   return sorted(rules, by[key], (a, b) => compareText(name(a), name(b)), dir);
 }

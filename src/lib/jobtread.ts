@@ -248,8 +248,6 @@ export {
   deleteToDo,
   getUpcomingScheduleTasks,
 } from "./jobtread/tasks";
-export { getCostCodes } from "./jobtread/costCodes";
-export type { CostCodeRef } from "./jobtread/costCodes";
 export type {
   OpenToDo,
   MemberRef,

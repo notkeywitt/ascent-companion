@@ -7,7 +7,9 @@ import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
 import { dayNum } from "@/lib/toolSchedule";
 import { setUrlParam } from "@/lib/urlParam";
+import type { RuleMatch } from "@/lib/toolSchedule";
 import type { ToolSchedulePayload, ToolScheduleRow } from "@/lib/toolScheduleData";
+import { BookingForm } from "./BookingForm";
 import { assignLanes, filterScheduleByJobs, jobColourIndex, jobsInView, needsOnDay, weeksOfNeed } from "@/lib/toolScheduleView";
 
 /**
@@ -44,6 +46,14 @@ const jobColour = (i: number | undefined) => `var(--viz-${(i ?? 0) + 1})`;
 
 const HIDDEN_KEY = "toolSchedule.hiddenJobs";
 
+/** Where a task's tools came from, under its name in the detail dialog. */
+const VIA_TEXT: Record<RuleMatch, string> = {
+  task: "Tools set for this task",
+  name: "Tools set for this task name",
+  taskType: "Tools from its task type",
+  phase: "Tools from its phase",
+};
+
 function readPref<T extends string>(key: string, ok: readonly T[], fallback: T): T {
   try {
     const v = localStorage.getItem(key) as T | null;
@@ -68,6 +78,9 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const [openKind, setOpenKind] = useState<string | null>(null);
   // Jobs the person hid. Hidden, not chosen, so a job that is new shows by default.
   const [hidden, setHidden] = useState<Set<string>>(new Set());
+  // The booking dialog: null closed, "" open with no tool type chosen, else that type.
+  const [booking, setBooking] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     // A link's ?view (from a notice, or a pasted address) wins over the device's last choice.
@@ -104,9 +117,9 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
     return () => {
       cancelled = true;
     };
-  }, [months]);
+  }, [months, reload]);
 
-  // Every job in the data, so a hold-only job can be hidden too. Colours follow
+  // Every job in the data, so a job or place with only a booking can be hidden too. Colours follow
   // the full list, so hiding a job does not recolour the others.
   const allJobs = useMemo(() => (data ? jobsInView(data.jobs, data.rows) : []), [data]);
   const colours = useMemo(() => jobColourIndex([...(data?.jobs ?? []).map((j) => j.id), ...allJobs.map((j) => j.id)]), [data, allJobs]);
@@ -133,9 +146,14 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
         title="Tool Schedule"
         actions={
           canEdit ? (
-            <Link href="/tool-schedule/edit" className={btn("secondary", "sm")}>
-              Edit catalogue
-            </Link>
+            <>
+              <Button size="sm" onClick={() => setBooking("")}>
+                Book a tool
+              </Button>
+              <Link href="/tool-schedule/edit" className={btn("secondary", "sm")}>
+                Edit catalogue
+              </Link>
+            </>
           ) : undefined
         }
       />
@@ -251,7 +269,30 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
         </>
       )}
 
-      {kind && shown && <KindDialog row={kind} data={shown} colours={colours} canEdit={canEdit} onClose={() => setOpenKind(null)} />}
+      {kind && shown && (
+        <KindDialog
+          row={kind}
+          data={shown}
+          colours={colours}
+          canEdit={canEdit}
+          onClose={() => setOpenKind(null)}
+          onBook={() => {
+            setOpenKind(null);
+            setBooking(kind.kindId);
+          }}
+        />
+      )}
+      {booking !== null && (
+        <Dialog onClose={() => setBooking(null)} title="Book a tool" description="For a job or a place, with no JobTread task." size="md">
+          <BookingForm
+            kindId={booking}
+            onSaved={() => {
+              setBooking(null);
+              setReload((n) => n + 1);
+            }}
+          />
+        </Dialog>
+      )}
     </main>
   );
 }
@@ -412,7 +453,7 @@ function Gantt({
                 {spans.map((s, i) => {
                   const l = clampX(s.startDate);
                   const w = Math.max(4, clampX(addDays(s.endDate, 1)) - l - 1);
-                  const what = s.source.type === "task" ? s.source.taskName : `Hold: ${s.source.note || "reserved"}`;
+                  const what = s.source.type === "task" ? s.source.taskName : `Booked${s.source.note ? `: ${s.source.note}` : ""}`;
                   return (
                     <span
                       key={i}
@@ -633,12 +674,14 @@ function KindDialog({
   colours,
   canEdit,
   onClose,
+  onBook,
 }: {
   row: ToolScheduleRow;
   data: ToolSchedulePayload;
   colours: Map<string, number>;
   canEdit: boolean;
   onClose: () => void;
+  onBook: () => void;
 }) {
   const moves = data.moves.filter((m) => m.kindId === row.kindId);
   return (
@@ -649,9 +692,14 @@ function KindDialog({
       size="lg"
       footer={
         canEdit ? (
-          <Link href="/tool-schedule/edit" className={btn("secondary", "sm")}>
-            Edit catalogue
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={onBook}>
+              Book this tool
+            </Button>
+            <Link href="/tool-schedule/edit" className={btn("secondary", "sm")}>
+              Edit catalogue
+            </Link>
+          </div>
         ) : undefined
       }
     >
@@ -723,7 +771,16 @@ function KindDialog({
                           {s.jobName}
                         </span>
                       </td>
-                      <td className={tableCls.td}>{s.source.type === "task" ? s.source.taskName : `Hold${s.source.note ? `: ${s.source.note}` : ""}${s.qty > 1 ? ` (×${s.qty})` : ""}`}</td>
+                      <td className={tableCls.td}>
+                        {s.source.type === "task" ? (
+                          <>
+                            {s.source.taskName}
+                            <div className="text-[11px] text-neutral-500">{VIA_TEXT[s.source.via]}</div>
+                          </>
+                        ) : (
+                          `Booked${s.source.note ? `: ${s.source.note}` : ""}${s.qty > 1 ? ` (×${s.qty})` : ""}`
+                        )}
+                      </td>
                       <td className={`${tableCls.td} whitespace-nowrap tabular-nums`}>{span(s.startDate, s.endDate)}</td>
                     </tr>
                   ))}

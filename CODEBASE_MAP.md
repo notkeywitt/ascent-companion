@@ -162,7 +162,6 @@ including edge middleware.
 | `jobtread/sunsetStatements.ts` | Sunset statement bills; buyback lines; document file attach/delete; month invoicing reads (`getAllBillsForMonth`, `getUninvoicedBills`, `getInvoiceReconciliation`, open client invoices). |
 | `jobtread/timeEntries.ts` | Time entries: org-timezone conversion, create/update/delete with journal snapshots, and the user/org/export reads. |
 | `jobtread/tasks.ts` | Schedule tasks and to-dos (create/update/delete); members by email; job notes; bought lines and scope lines; `getUpcomingScheduleTasks` (open leaf schedule tasks in a date range, for the tool schedule). |
-| `jobtread/costCodes.ts` | `getCostCodes`: every active org cost code with number and name, cached an hour. |
 | `jobtread/jobAccess.ts` | Job access: the people listed on a job. |
 | `jobtread/documentAccess.ts` | Document access: the people listed on a document. |
 | `jobtread/jobDeposits.ts` | Job deposits (read only): `getJobDepositInputs`. Rules in `deposits.ts`. |
@@ -239,11 +238,11 @@ including edge middleware.
 | `sunsetStatementBill.ts` | The shape of a Sunset statement's bill on the Office job ("Create Bills" on `/payments`): issue date, and two 88 70 00 lines — the total and the prompt discount as a negative line. Pure, unit-tested; the write is `src/app/api/sunset-statement-bills/`. |
 | `sunsetStatementMonth.ts` | The Sunset Statements page's month: which statements Approve all and Print act on, and what a statement's Office-job bill says about payment. Pure. |
 | `sunsetLinks.ts` | **Sunset statement line → bill links** (the "Link" on `/payments`). `sunsetLineKey` must match appscript `_sunreconNormNum` — the reconcile finds a link by it. `rankCandidates` orders the picker: unclaimed first, then closest amount, then same date. The links live in `sunset_statement_links`; the write is `src/app/api/sunset-statement-links/`; the reconcile route passes them to appscript, whose month-wide match (`_sunreconAssignMonth`) applies them before any automatic match. Pure, unit-tested. |
-| `toolSchedule.ts` ⟂ | **The tool schedule's rules** (`docs/plans/TOOL_SCHEDULE_PLAN.md`). A schedule task resolves to a cost code by rule (task override → task name → task type → phase; JobTread links no task to a code), a tool type is needed for a set of codes, and `findShortfalls` finds the days where more jobs need a tool type than the usable tools owned. `suggestCodes` proposes a code from shared words; nothing counts until a person confirms it. Pure, unit-tested. |
+| `toolSchedule.ts` ⟂ | **The tool schedule's rules** (`docs/plans/TOOL_SCHEDULE_PLAN.md`). A schedule task gets its tool types from a rule (one task → task name → task type → phase; JobTread keeps no tool on a task), a booking adds a tool by hand for a job or a place (`placeId`), and `findShortfalls` finds the days where more jobs need a tool type than the usable tools owned. `suggestTools` proposes tools from names already mapped; nothing counts until saved. Pure, unit-tested. |
 | `toolScheduleView.ts` ⟂ | How the tool schedule page lays its answer out: Gantt lanes, a day's needs, weeks of need, job colours, the job filter (`filterScheduleByJobs` finds the shortfalls again for the jobs on view) and the editor's sorts. Client-safe, unit-tested. |
 | `searchWords.ts` ⟂ | `matchesAllWords`: every typed word must appear, in any order. Used by `CostCodeSelect` and the tool schedule's job filter. |
 | `toolScheduleData.ts` | Builds the tool schedule on the server: JobTread tasks (less left-out jobs) + the stored plan + the Tools sheet → `buildToolSchedule`; also the editor's unresolved task names with suggestions, and the scheduled jobs. |
-| `toolScheduleStore.ts` | The tool schedule's tables (tool types, codes, tool tags, task-code rules, holds, left-out jobs) and the Tools-sheet read (cache tag `tools`, shared with `/api/tools`). |
+| `toolScheduleStore.ts` | The tool schedule's tables (tool types, tool tags, task → tool rules, bookings, left-out jobs) and the Tools-sheet read (cache tag `tools`, shared with `/api/tools`). |
 | `toolScheduleAccess.ts` | Who may edit the tool schedule (the `tool-schedule-edit` view), for the page's Edit link and every write. |
 | `taskRunner.ts` | Tiny background scheduler (keyed serialization + parallelism cap) used by the Tracking Sheet page. |
 | `usage.ts` | Activity tracking (login/view/coding) — the data layer behind Admin → Activity. |
@@ -693,8 +692,9 @@ has run — the history the learning layer reads), `invoice_review_finding_state
 `invoice_review_instructions` (how the month is read out),
 `coding_drafts` (unsynced Tracking Sheets coding, per user and per scope — the
 cross-device BACKUP for a staged draft; localStorage is the primary),
-`tool_kinds`, `tool_kind_codes`, `tool_kind_members`, `task_code_rules`,
-`tool_holds`, `tool_job_excludes` (the tool schedule's plan — `lib/toolScheduleStore.ts`),
+`tool_kinds`, `tool_kind_members`, `task_tool_rules`, `tool_holds` (bookings),
+`tool_job_excludes` (the tool schedule's plan — `lib/toolScheduleStore.ts`; `tool_kind_codes`
+and `task_code_rules` are retired and unread),
 `mileage_open_trips` (the started-but-not-ended trip, one row per driver — the
 cross-device backup for the phone's copy; a finished trip goes to the Mileage
 sheet instead, see `src/lib/mileageTrip.ts`),

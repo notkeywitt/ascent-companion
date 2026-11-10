@@ -23,7 +23,7 @@ const span = (jobId: string, startDate: string, endDate: string, qty = 1): Deman
   startDate,
   endDate,
   qty,
-  source: { type: "task", taskId: `${jobId}${startDate}`, taskName: "t", costCodeId: "c" },
+  source: { type: "task", taskId: `${jobId}${startDate}`, taskName: "t", via: "name" },
 });
 const row = (spans: DemandSpan[], owned = 1, name = "Saw"): KindSchedule => ({
   kindId: name,
@@ -151,18 +151,21 @@ describe("sorting", () => {
     expect(["Saw 10", "Saw 2"].sort(compareText)).toEqual(["Saw 2", "Saw 10"]);
     expect(["06 20 13", "06 10 00"].sort(compareText)).toEqual(["06 10 00", "06 20 13"]);
   });
-  it("sorts tool types by name, owned and cost codes, both ways", () => {
+  it("sorts tool types by name, owned and rules using them, both ways", () => {
     const kinds = [
-      { id: "a", name: "Saw", costCodeIds: ["1", "2", "3"] },
-      { id: "b", name: "Mixer", costCodeIds: ["1"] },
-      { id: "c", name: "Lift", costCodeIds: [] },
+      { id: "a", name: "Saw" },
+      { id: "b", name: "Mixer" },
+      { id: "c", name: "Lift" },
     ];
     const own: Record<string, number> = { a: 1, b: 0, c: 1 };
+    const use: Record<string, number> = { a: 3, b: 1, c: 0 };
     const ids = (k: typeof kinds) => k.map((x) => x.id);
-    expect(ids(sortKinds(kinds, "name", "asc", (id) => own[id]))).toEqual(["c", "b", "a"]);
-    expect(ids(sortKinds(kinds, "name", "desc", (id) => own[id]))).toEqual(["a", "b", "c"]);
-    expect(ids(sortKinds(kinds, "owned", "asc", (id) => own[id]))).toEqual(["b", "c", "a"]);
-    expect(ids(sortKinds(kinds, "codes", "desc", (id) => own[id]))).toEqual(["a", "b", "c"]);
+    const o = (id: string) => own[id];
+    const u = (id: string) => use[id];
+    expect(ids(sortKinds(kinds, "name", "asc", o, u))).toEqual(["c", "b", "a"]);
+    expect(ids(sortKinds(kinds, "name", "desc", o, u))).toEqual(["a", "b", "c"]);
+    expect(ids(sortKinds(kinds, "owned", "asc", o, u))).toEqual(["b", "c", "a"]);
+    expect(ids(sortKinds(kinds, "uses", "desc", o, u))).toEqual(["a", "b", "c"]);
   });
   it("sorts unresolved task names by tasks, name, job and phase", () => {
     const list = [
@@ -177,18 +180,18 @@ describe("sorting", () => {
     expect(names(sortUnresolved(list, "job", "asc"))).toEqual(["Anchor", "Burn", "Strip"]);
     expect(names(sortUnresolved(list, "phase", "desc"))).toEqual(["Strip", "Anchor", "Burn"]);
   });
-  it("sorts mapped rules by name, type and cost code number, with no-code rules first", () => {
-    const num: Record<string, string> = { x: "06 10 00", y: "03 30 00" };
+  it("sorts rules by name, type and tools, with no-tool rules first", () => {
+    const names: Record<string, string> = { x: "Table saw", y: "Concrete mixer" };
     const rules = [
-      { match: "name", key: "footings", label: "Footings", costCodeId: "y" },
-      { match: "phase", key: "framing", label: "Framing", costCodeId: "x" },
-      { match: "name", key: "inspection", label: "Inspection", costCodeId: null },
+      { match: "name", key: "footings", label: "Footings", kindIds: ["y"] },
+      { match: "phase", key: "framing", label: "Framing", kindIds: ["x"] },
+      { match: "name", key: "inspection", label: "Inspection", kindIds: [] as string[] },
     ];
     const labels = (r: typeof rules) => r.map((x) => x.label);
-    const code = (id: string | null) => (id ? num[id] : "");
-    expect(labels(sortRules(rules, "name", "asc", code))).toEqual(["Footings", "Framing", "Inspection"]);
-    expect(labels(sortRules(rules, "type", "asc", code))).toEqual(["Footings", "Inspection", "Framing"]);
-    expect(labels(sortRules(rules, "code", "asc", code))).toEqual(["Inspection", "Footings", "Framing"]);
-    expect(labels(sortRules(rules, "code", "desc", code))).toEqual(["Framing", "Footings", "Inspection"]);
+    const tools = (ids: string[]) => ids.map((id) => names[id]).join(", ");
+    expect(labels(sortRules(rules, "name", "asc", tools))).toEqual(["Footings", "Framing", "Inspection"]);
+    expect(labels(sortRules(rules, "type", "asc", tools))).toEqual(["Footings", "Inspection", "Framing"]);
+    expect(labels(sortRules(rules, "tools", "asc", tools))).toEqual(["Inspection", "Footings", "Framing"]);
+    expect(labels(sortRules(rules, "tools", "desc", tools))).toEqual(["Framing", "Footings", "Inspection"]);
   });
 });

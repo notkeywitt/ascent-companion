@@ -2,21 +2,21 @@ import { and, eq, inArray } from "drizzle-orm";
 import { unstable_cache } from "next/cache";
 
 import { db, ensureDb } from "@/db";
-import { taskCodeRules, toolHolds, toolJobExcludes, toolKindCodes, toolKindMembers, toolKinds } from "@/db/schema";
+import { taskToolRules, toolHolds, toolJobExcludes, toolKindMembers, toolKinds } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
-import { normalizeTaskName, RULE_ORDER, type RuleMatch, type TaskCodeRule, type ToolHold, type ToolKind } from "@/lib/toolSchedule";
+import { ruleKey, RULE_ORDER, type RuleMatch, type TaskToolRule, type ToolHold, type ToolKind } from "@/lib/toolSchedule";
 
 /**
- * The tool schedule's stored plan (docs/plans/TOOL_SCHEDULE_PLAN.md): tool types
- * and their cost codes, which sheet tool is which type, the task → code rules,
- * holds and left-out jobs. All companion data — nothing here writes to
+ * The tool schedule's stored plan (docs/plans/TOOL_SCHEDULE_PLAN.md): tool types,
+ * which sheet tool is which type, the task → tool rules, bookings and left-out
+ * jobs. All companion data — nothing here writes to
  * JobTread. The rules that use it are pure, in `toolSchedule.ts`.
  */
 
 export interface StoredKind extends ToolKind {
   notes: string;
 }
-export interface StoredRule extends TaskCodeRule {
+export interface StoredRule extends TaskToolRule {
   /** The task or phase name as a person saw it, for the list of rules. */
   label: string;
   updatedBy: string;
@@ -39,32 +39,19 @@ const now = () => new Date().toISOString();
 
 export async function loadPlan(): Promise<StoredPlan> {
   await ensureDb();
-  const [kinds, codes, members, rules, holds, excludes] = await Promise.all([
+  const [kinds, members, ruleRows, holds, excludes] = await Promise.all([
     db.select().from(toolKinds),
-    db.select().from(toolKindCodes),
     db.select().from(toolKindMembers),
-    db.select().from(taskCodeRules),
+    db.select().from(taskToolRules),
     db.select().from(toolHolds),
     db.select().from(toolJobExcludes),
   ]);
   return {
     kinds: kinds
-      .map((k) => ({
-        id: String(k.id),
-        name: k.name,
-        notes: k.notes,
-        costCodeIds: codes.filter((c) => c.kindId === k.id).map((c) => c.costCodeId),
-      }))
+      .map((k) => ({ id: String(k.id), name: k.name, notes: k.notes }))
       .sort((a, b) => a.name.localeCompare(b.name)),
     members: Object.fromEntries(members.map((m) => [m.toolId, String(m.kindId)])),
-    rules: rules.map((r) => ({
-      match: r.match as RuleMatch,
-      key: r.matchKey,
-      costCodeId: r.costCodeId,
-      label: r.label,
-      updatedBy: r.updatedBy,
-      updatedAt: r.updatedAt,
-    })),
+    rules: groupRules(ruleRows),
     holds: holds
       .map((h) => ({
         id: String(h.id),
@@ -81,6 +68,25 @@ export async function loadPlan(): Promise<StoredPlan> {
   };
 }
 
+/** One rule per (match, key); kind 0 is the "needs no tools" marker, never a tool. */
+function groupRules(rows: (typeof taskToolRules.$inferSelect)[]): StoredRule[] {
+  const by = new Map<string, StoredRule>();
+  for (const r of rows) {
+    const k = `${r.match}:${r.matchKey}`;
+    const rule = by.get(k) ?? {
+      match: r.match as RuleMatch,
+      key: r.matchKey,
+      kindIds: [],
+      label: r.label,
+      updatedBy: r.updatedBy,
+      updatedAt: r.updatedAt,
+    };
+    if (r.kindId !== 0) rule.kindIds.push(String(r.kindId));
+    by.set(k, rule);
+  }
+  return [...by.values()];
+}
+
 // ---------------------------------------------------------------- tool types
 
 export async function createKind(name: string, by: string): Promise<string> {
@@ -95,8 +101,6 @@ export async function createKind(name: string, by: string): Promise<string> {
 export interface KindPatch {
   name?: string;
   notes?: string;
-  /** Replaces the tool type's cost codes. */
-  costCodeIds?: string[];
   /** Replaces which sheet tools are this type. A tool moves here from any other type. */
   toolIds?: string[];
 }
@@ -111,11 +115,6 @@ export async function updateKind(id: string, patch: KindPatch, by: string): Prom
   if (typeof patch.notes === "string") set.notes = patch.notes;
   const hit = await db.update(toolKinds).set(set).where(eq(toolKinds.id, kindId)).returning({ id: toolKinds.id });
   if (hit.length === 0) return false;
-  if (patch.costCodeIds) {
-    const ids = [...new Set(patch.costCodeIds.filter(Boolean))];
-    await db.delete(toolKindCodes).where(eq(toolKindCodes.kindId, kindId));
-    if (ids.length) await db.insert(toolKindCodes).values(ids.map((costCodeId) => ({ kindId, costCodeId })));
-  }
   if (patch.toolIds) {
     const ids = [...new Set(patch.toolIds.filter(Boolean))];
     await db.delete(toolKindMembers).where(eq(toolKindMembers.kindId, kindId));
@@ -127,12 +126,12 @@ export async function updateKind(id: string, patch: KindPatch, by: string): Prom
   return true;
 }
 
-/** Deletes a tool type with its codes, its tool tags and its holds. */
+/** Deletes a tool type with its rule ticks, its tool tags and its bookings. */
 export async function deleteKind(id: string): Promise<void> {
   await ensureDb();
   const kindId = Number(id);
-  if (!Number.isInteger(kindId)) return;
-  await db.delete(toolKindCodes).where(eq(toolKindCodes.kindId, kindId));
+  if (!Number.isInteger(kindId) || kindId === 0) return;
+  await db.delete(taskToolRules).where(eq(taskToolRules.kindId, kindId));
   await db.delete(toolKindMembers).where(eq(toolKindMembers.kindId, kindId));
   await db.delete(toolHolds).where(eq(toolHolds.kindId, kindId));
   await db.delete(toolKinds).where(eq(toolKinds.id, kindId));
@@ -144,40 +143,29 @@ export function isRuleMatch(s: unknown): s is RuleMatch {
   return typeof s === "string" && (RULE_ORDER as readonly string[]).includes(s);
 }
 
-/** The key a rule is stored under: names and phases are stored normalized. */
-export function storedRuleKey(match: RuleMatch, key: string): string {
-  return match === "name" || match === "phase" ? normalizeTaskName(key) : key.trim();
-}
-
+/**
+ * Set the tool types a rule names, replacing what it named before. An empty
+ * list stores "needs no tools" (one kind-0 row), which still covers the task.
+ */
 export async function upsertRule(
-  rule: { match: RuleMatch; key: string; costCodeId: string | null; label?: string },
+  rule: { match: RuleMatch; key: string; kindIds: string[]; label?: string },
   by: string,
 ): Promise<void> {
   await ensureDb();
-  const matchKey = storedRuleKey(rule.match, rule.key);
+  const matchKey = ruleKey(rule.match, rule.key);
   if (!matchKey) throw new Error("A rule needs a task name, task, task type or phase.");
-  const values = {
-    match: rule.match,
-    matchKey,
-    costCodeId: rule.costCodeId || null,
-    label: (rule.label ?? rule.key).trim(),
-    updatedBy: by,
-    updatedAt: now(),
-  };
+  const ids = [...new Set(rule.kindIds.map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+  const at = new Date().toISOString();
+  const label = (rule.label ?? rule.key).trim();
+  await db.delete(taskToolRules).where(and(eq(taskToolRules.match, rule.match), eq(taskToolRules.matchKey, matchKey)));
   await db
-    .insert(taskCodeRules)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [taskCodeRules.match, taskCodeRules.matchKey],
-      set: { costCodeId: values.costCodeId, label: values.label, updatedBy: by, updatedAt: values.updatedAt },
-    });
+    .insert(taskToolRules)
+    .values((ids.length ? ids : [0]).map((kindId) => ({ match: rule.match, matchKey, kindId, label, updatedBy: by, updatedAt: at })));
 }
 
 export async function deleteRule(match: RuleMatch, key: string): Promise<void> {
   await ensureDb();
-  await db
-    .delete(taskCodeRules)
-    .where(and(eq(taskCodeRules.match, match), eq(taskCodeRules.matchKey, storedRuleKey(match, key))));
+  await db.delete(taskToolRules).where(and(eq(taskToolRules.match, match), eq(taskToolRules.matchKey, ruleKey(match, key))));
 }
 
 // --------------------------------------------------------------------- holds

@@ -1,11 +1,11 @@
 import { ToolCatalogEditor, type EditorTab } from "./ToolCatalogEditor";
 
 /**
- * Edit Tool Schedule — the tool catalogue, the task → cost code rules, holds and
+ * Edit Tool Schedule — the tool catalogue, the task → tool rules, bookings and
  * left-out jobs (docs/plans/TOOL_SCHEDULE_PLAN.md). Gated by the
- * "tool-schedule-edit" view (office + admin). `?tab=tasks` opens Task codes.
+ * "tool-schedule-edit" view (office + admin). `?tab=tasks` opens Tasks, `?tab=bookings` Bookings.
  */
-const TABS: EditorTab[] = ["catalogue", "tasks", "holds", "jobs"];
+const TABS: EditorTab[] = ["catalogue", "tasks", "bookings", "jobs"];
 
 export default async function ToolScheduleEditPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams;
