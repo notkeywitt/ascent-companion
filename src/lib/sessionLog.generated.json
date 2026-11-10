@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T00:31:15Z",
+  "generatedAt": "2026-11-10T00:39:05Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "bold-cori",
+      "file": "2026-11-10-bold-cori.md",
+      "branch": "claude/bold-cori-12ehzv",
+      "status": "shipped",
+      "started": "2026-11-10T00:37:18Z",
+      "updated": "2026-11-10T00:39:05Z",
+      "goal": "",
+      "next": "None. Watch that the next push to main turns CI green.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "00:39",
+          "sha": "3f8a9a0",
+          "subject": "companion: fix lint error failing ci, add lint to pre-push hook",
+          "files": ".githooks/pre-push, CLAUDE.md, src/components/PackageEmail.tsx"
+        }
+      ]
+    },
     {
       "slug": "sharp-keller",
       "file": "2026-11-10-sharp-keller.md",

@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
 | [magical-tesla](.claude/sessions/2026-11-09-magical-tesla.md) | 2026-11-10 | 2 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-09 | 236 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [dreamy-cori](.claude/sessions/2026-11-07-dreamy-cori.md) | 2026-11-07 | 1 | — |
 | [blissful-planck](.claude/sessions/2026-11-07-blissful-planck.md) | 2026-11-07 | 1 | — |
 | [zen-albattani](.claude/sessions/2026-11-06-zen-albattani.md) | 2026-11-06 | 1 | — |
-| [practical-newton](.claude/sessions/2026-11-06-practical-newton.md) | 2026-11-06 | 1 | — |
