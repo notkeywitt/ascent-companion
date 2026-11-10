@@ -27,7 +27,7 @@ export interface LinkTool {
   locationLabel: string;
 }
 
-async function putTrailer(toolId: string, trailerId: string): Promise<{ moved: boolean }> {
+export async function putTrailer(toolId: string, trailerId: string): Promise<{ moved: boolean }> {
   const r = await fetch("/api/tools/trailer", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ toolId, trailerId }) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.error || `HTTP ${r.status}`);

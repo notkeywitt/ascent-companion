@@ -7,7 +7,8 @@ import { LopezMap } from "@/components/LopezMap";
 import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
-import { ToolLinks } from "./ToolLinks";
+import { ToolLinks, putTrailer } from "./ToolLinks";
+import { isTrailerType } from "@/lib/toolSchedule";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
 // "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
@@ -425,6 +426,7 @@ export default function ToolsPage() {
   // ---- New tool (scanned a QR that isn't in the inventory yet, or "Add tool") --
   const [newForm, setNewForm] = useState<Tool | null>(null); // creation form (id + fields)
   const [newManual, setNewManual] = useState(false); // opened by "Add tool", not a scan
+  const [newTrailerId, setNewTrailerId] = useState(""); // "In Trailer?" pick; "" = no
   const [createPhoto, setCreatePhoto] = useState(""); // downscaled data URL, if added
   const [creating, setCreating] = useState(false);
   const [createErr, setCreateErr] = useState("");
@@ -767,6 +769,7 @@ export default function ToolsPage() {
     setRelocDone(null);
     setNewForm(null);
     setNewManual(false);
+    setNewTrailerId("");
     setCreatePhoto("");
     setCreateErr("");
     setCreateDone(null);
@@ -984,6 +987,20 @@ export default function ToolsPage() {
           mergeTool(created);
         } catch {
           warn = "Tool added, but the photo didn't upload — add it later from Edit.";
+        }
+      }
+      // 3. Trailer, if one was picked. Non-fatal — the tool is already saved.
+      if (newTrailerId) {
+        try {
+          const r = await putTrailer(toolId, newTrailerId);
+          setLoads((l) => ({ ...l, [toolId]: newTrailerId }));
+          const trailer = tools.find((t) => t.id === newTrailerId);
+          if (r.moved && trailer) {
+            created = { ...created, location: trailer.location, locationLabel: trailer.locationLabel };
+            mergeTool(created);
+          }
+        } catch {
+          warn = (warn ? warn + " " : "") + "Tool added, but it did not go in the trailer — set it from Edit.";
         }
       }
       setCreateDone({ tool: created, warn });
@@ -1415,6 +1432,26 @@ export default function ToolsPage() {
                       ))}
                     </select>
                     {geoMsg && <p className="mt-1.5 text-xs text-neutral-500">{geoMsg}</p>}
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label>In Trailer?</Label>
+                    <select
+                      aria-label="In Trailer?"
+                      value={newTrailerId}
+                      onChange={(ev) => setNewTrailerId(ev.target.value)}
+                      className={inputCls}
+                    >
+                      <option value="">No</option>
+                      {tools
+                        .filter((t) => isTrailerType(t.type))
+                        .map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name || t.id}
+                            {t.locationLabel ? ` · ${t.locationLabel}` : ""}
+                          </option>
+                        ))}
+                    </select>
+                    {newTrailerId && <p className="mt-1.5 text-xs text-neutral-500">It goes where the trailer goes, so the location above is replaced.</p>}
                   </div>
                 </div>
 
