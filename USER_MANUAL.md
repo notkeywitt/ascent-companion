@@ -550,6 +550,28 @@ Tap **New notice** and answer four things:
 | **Starts / Ends** | Leave blank to start now and never expire. Set a start to write it today and have it appear on its own. Times are your own device's clock. |
 | **Who sees it** | **Everyone**, or pick any mix of **groups** (Admins / Office / Leads / Field) and **people** by name. A person on the list gets it whether or not their group is picked. |
 
+**Links.** A message can link to any page in the app. Open the page, set it up the way you
+want people to see it (the tab, the calendar mode, the vendor), copy the address from the
+address bar and paste it into the message. To show a word instead of the address, write
+`[Try it](address)`. **Link a page…** under the message adds a link to any page in the menu.
+A link opens in the app; tapping it in a popup also closes the popup. A desktop alert opens
+the message's first link when clicked.
+
+Views that keep their choice in the address today:
+
+| Page | Address |
+|---|---|
+| Employee Time, Split View calendar | `/employee-time?tab=compare&view=calendar` |
+| Employee Time, Timesheets | `/employee-time?tab=sheets` |
+| Tool Schedule, calendar | `/tool-schedule?view=calendar` (also `gantt`, `list`) |
+| One vendor's bills | `/vendors?accountId=…` — open the vendor, copy the address |
+| One bill | `/bills?docId=…` — open the bill, copy the address |
+
+A page whose address does not change as you click opens in its starting view. Ask for that
+page to keep its view in the address.
+
+A person who lacks access to the linked page is turned away from it, as with any other link.
+
 Each person sees a notice **once**: dismissing it keeps it gone on every device they sign in
 on. To reach someone again, post a new notice.
 

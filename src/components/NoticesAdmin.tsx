@@ -18,7 +18,10 @@ import {
   Textarea,
   Toggle,
 } from "@/components/ui";
+import { NoticeText } from "@/components/NoticeText";
+import { hasNoticeLink } from "@/lib/noticeLinks";
 import { ROLES, type Role } from "@/lib/views";
+import { WORKSPACES } from "@/lib/workspaces";
 import {
   NOTICE_TONES,
   ROLE_PLURAL,
@@ -68,6 +71,11 @@ interface Person {
   email: string;
   role: string;
 }
+
+/** Every page on a workspace, A–Z, for the "Link a page" picker. New pages join it on their own. */
+const LINKABLE = [...new Map(WORKSPACES.flatMap((w) => w.tabs).map((t) => [t.href, t])).values()].sort(
+  (a, b) => a.label.localeCompare(b.label),
+);
 
 const TONE_LABEL: Record<NoticeTone, string> = {
   info: "Info",
@@ -244,6 +252,37 @@ function NoticeForm({
           rows={3}
           placeholder="What you want the team to know…"
         />
+        <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">
+          To link a page, open it, set it up the way you want people to see it, and paste the
+          address here. To name the link, write <code>[Try it](address)</code>.
+        </p>
+        <div className="mt-2">
+          <Select
+            aria-label="Link a page"
+            value=""
+            onChange={(e) => {
+              const tab = LINKABLE.find((t) => t.href === e.target.value);
+              if (!tab) return;
+              const sep = d.body && !/\s$/.test(d.body) ? " " : "";
+              set("body", `${d.body}${sep}[${tab.label}](${tab.href})`);
+            }}
+          >
+            <option value="">Link a page…</option>
+            {LINKABLE.map((t) => (
+              <option key={t.href} value={t.href}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        {hasNoticeLink(d.body, typeof window === "undefined" ? "" : window.location.origin) && (
+          <div className="mt-2 rounded-lg border border-line px-3 py-2 text-sm">
+            <p className="mb-0.5 text-xs text-neutral-500 dark:text-neutral-400">Preview</p>
+            <p className="whitespace-pre-wrap">
+              <NoticeText body={d.body} />
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -519,7 +558,7 @@ export function NoticesAdmin() {
                   </p>
                   {n.body && (
                     <p className="mt-0.5 whitespace-pre-wrap text-xs text-neutral-500 dark:text-neutral-400">
-                      {n.body}
+                      <NoticeText body={n.body} />
                     </p>
                   )}
                   <MetaLine

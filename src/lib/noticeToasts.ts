@@ -23,6 +23,8 @@
  * `toastsSupported()` is false.
  */
 
+import { firstNoticeLink, noticePlainText } from "@/lib/noticeLinks";
+
 export const TOAST_PREF_KEY = "notices.desktopAlerts";
 export const TOASTED_KEY = "notices.toasted";
 
@@ -166,13 +168,15 @@ export function disableToasts(): void {
 /**
  * Draw one toast. `tag` is the notice's own id, so two open tabs (or a tab and
  * the side panel) collapse into ONE toast instead of stacking. Clicking it
- * brings the app forward.
+ * brings the app forward, and opens the message's first link when it has one.
  */
 export function showToast(notice: { id: number | string; title: string; body?: string }): boolean {
   if (!toastsSupported() || window.Notification.permission !== "granted") return false;
   try {
+    const origin = window.location.origin;
+    const link = notice.body ? firstNoticeLink(notice.body, origin) : null;
     const toast = new window.Notification(notice.title, {
-      body: notice.body || undefined,
+      body: notice.body ? noticePlainText(notice.body, origin) : undefined,
       icon: "/icon-192.png",
       tag: `ascent-notice-${notice.id}`,
     });
@@ -180,6 +184,9 @@ export function showToast(notice: { id: number | string; title: string; body?: s
       try {
         window.focus();
         toast.close();
+        // A notice that carries a link opens it: an app link here, an outside one in a new tab.
+        if (link?.internal) window.location.assign(link.href);
+        else if (link) window.open(link.href, "_blank", "noopener");
       } catch {
         /* nothing to do if the browser refuses focus */
       }

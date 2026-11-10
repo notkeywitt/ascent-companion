@@ -17,6 +17,7 @@ import {
   type PayTypeRule,
 } from "@/lib/payTypeMatch";
 import { jtTimeUrl } from "@/lib/jtLinks";
+import { setUrlParam } from "@/lib/urlParam";
 import { fmtHM } from "@/lib/leaveFormat";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import {
@@ -578,9 +579,33 @@ export function EmployeeTimeClient({
   /** The signed-in person's default cost code per job, from /labor-rates. */
   initialCodeDefaults?: CostCodeDefault[];
 }) {
-  const [tab, setTab] = useState<"clock" | "sheets" | "compare">("clock");
+  const [tab, setTabState] = useState<"clock" | "sheets" | "compare">("clock");
   // Split View's calendar mode (beta) — several people on one week calendar.
-  const [calendarBeta, setCalendarBeta] = useState(false);
+  const [calendarBeta, setCalendarBetaState] = useState(false);
+  /* The tab and the calendar mode live in the address bar, so a notice or a
+     pasted link can open a view: /employee-time?tab=compare&view=calendar.
+     Read once on load; every switch rewrites the address in place. Split View
+     needs canCompare, so a link to it opens the clock for anyone else. */
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const t = q.get("tab");
+    if (t === "sheets") setTabState("sheets");
+    if (t === "compare" && canCompare) {
+      setTabState("compare");
+      if (q.get("view") === "calendar") setCalendarBetaState(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const setTab = (t: "clock" | "sheets" | "compare") => {
+    setTabState(t);
+    setUrlParam("tab", t === "clock" ? "" : t);
+    if (t !== "compare") setUrlParam("view", "");
+    else if (calendarBeta) setUrlParam("view", "calendar");
+  };
+  const setCalendarBeta = (on: boolean) => {
+    setCalendarBetaState(on);
+    setUrlParam("view", on ? "calendar" : "");
+  };
   /* The Time Clock tab's two views on a desktop: the clock, or the TSheets-
      style week time card (./TimeCard.tsx). Remembered per device. The card
      needs the width, so a phone or tablet always gets the clock. */

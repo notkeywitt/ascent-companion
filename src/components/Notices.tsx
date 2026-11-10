@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Banner, Button, Dialog, type BannerTone } from "@/components/ui";
+import { NoticeText } from "@/components/NoticeText";
 import { planToasts, readToasted, showToast, toastState, writeToasted } from "@/lib/noticeToasts";
 
 /**
@@ -191,7 +192,11 @@ function NoticeBanners({
             <ToneMark tone={n.tone} className="mt-px h-4 w-4 shrink-0" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold tracking-tight">{n.title}</p>
-              {n.body && <p className="mt-0.5 whitespace-pre-wrap opacity-90">{n.body}</p>}
+              {n.body && (
+                <p className="mt-0.5 whitespace-pre-wrap opacity-90">
+                  <NoticeText body={n.body} />
+                </p>
+              )}
             </div>
             {n.dismissible && (
               <button
@@ -261,7 +266,9 @@ function NoticePopup({
               {current.title}
             </h2>
             {current.body && (
-              <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">{current.body}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-500">
+                <NoticeText body={current.body} onNavigate={dismiss} />
+              </p>
             )}
           </div>
         </div>

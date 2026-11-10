@@ -6,6 +6,7 @@ import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard
 import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
 import { dayNum } from "@/lib/toolSchedule";
+import { setUrlParam } from "@/lib/urlParam";
 import type { ToolSchedulePayload, ToolScheduleRow } from "@/lib/toolScheduleData";
 import { assignLanes, filterScheduleByJobs, jobColourIndex, jobsInView, needsOnDay, weeksOfNeed } from "@/lib/toolScheduleView";
 
@@ -17,6 +18,7 @@ import { assignLanes, filterScheduleByJobs, jobColourIndex, jobsInView, needsOnD
  */
 
 type View = "gantt" | "calendar" | "list";
+const VIEWS: readonly View[] = ["gantt", "calendar", "list"];
 type Months = "1" | "3" | "6";
 
 const VIEW_OPTIONS = [
@@ -68,7 +70,12 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    setView(readPref<View>("toolSchedule.view", ["gantt", "calendar", "list"], "gantt"));
+    // A link's ?view (from a notice, or a pasted address) wins over the device's last choice.
+    const linked = new URLSearchParams(window.location.search).get("view") as View | null;
+    const start = linked && VIEWS.includes(linked) ? linked : readPref<View>("toolSchedule.view", VIEWS, "gantt");
+    setView(start);
+    // Shown in the address bar too, so copying it copies the view on screen.
+    setUrlParam("view", start);
     setMonths(readPref<Months>("toolSchedule.months", ["1", "3", "6"], "6"));
     try {
       const saved = JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? "[]");
@@ -142,6 +149,7 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
             onChange={(v) => {
               setView(v);
               writePref("toolSchedule.view", v);
+              setUrlParam("view", v);
             }}
           />
           {data && allJobs.length > 0 && <JobFilter jobs={allJobs} hidden={hidden} onChange={changeHidden} />}

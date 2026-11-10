@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
 import {
@@ -23,6 +23,7 @@ import {
   btn,
 } from "@/components/ui";
 import { money } from "@/lib/money";
+import { setUrlParam } from "@/lib/urlParam";
 import { coiKey, gmailComposeUrl, type VendorCoiRow } from "@/lib/vendorCoi";
 import { CoiDot } from "@/components/CoiDot";
 
@@ -908,6 +909,9 @@ function Vendors() {
 
   function loadVendorBills(v: VendorRef) {
     setSelected(v);
+    // The open vendor lives in the address bar, so the address is a link to it.
+    setUrlParam("number", "");
+    setUrlParam("accountId", v.id);
     setNumberMatches(null);
     setBills([]);
     setArchive([]);
@@ -929,9 +933,14 @@ function Vendors() {
       .finally(() => setBillsLoading(false));
   }
 
+  /** The bill number last looked up, so writing it to the address does not look it up twice. */
+  const lookedUp = useRef("");
   function runNumberLookup(raw: string) {
     if (!isDigits(raw)) return;
     setSelected(null);
+    setUrlParam("accountId", "");
+    lookedUp.current = raw.trim();
+    setUrlParam("number", raw.trim());
     setBills([]);
     setNumberLoading(true);
     setNumberError("");
@@ -949,15 +958,19 @@ function Vendors() {
   }
 
   // Deep-link from the Home search box (?accountId=… or ?number=…).
+  // The page writes these same params itself as you pick, so each effect acts
+  // only when the param names something not already on screen.
   useEffect(() => {
-    if (!initialAccountId || vendors.length === 0) return;
+    if (!initialAccountId || vendors.length === 0 || selected?.id === initialAccountId) return;
     const v = vendors.find((x) => x.id === initialAccountId);
     if (v) loadVendorBills(v);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAccountId, vendors]);
 
   useEffect(() => {
-    if (initialNumber) runNumberLookup(initialNumber);
+    if (!initialNumber || lookedUp.current === initialNumber) return;
+    lookedUp.current = initialNumber;
+    runNumberLookup(initialNumber);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialNumber]);
 
@@ -975,6 +988,7 @@ function Vendors() {
 
   function closeVendor() {
     setSelected(null);
+    setUrlParam("accountId", "");
     setBills([]);
     setDetail(null);
     setBillsError("");
