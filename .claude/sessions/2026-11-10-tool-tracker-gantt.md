@@ -4,9 +4,9 @@ repo: ascent-companion
 branch: claude/tool-tracker-gantt-x7gelq
 status: shipped
 started: 2026-11-10T06:16:53Z
-updated: 2026-11-10T14:51:58Z
+updated: 2026-11-10T18:49:44Z
 goal: 
-next: Office fills the tool catalogue and maps task names on /tool-schedule/edit; leave out Studio PreCon on the Jobs tab; then check the Moves list matches reality.
+next: Office: in Edit Tool Schedule > Tools, assign tools and types to phases; fix blank ToolTypes with Set its type; leave out Studio PreCon on Jobs; confirm the first requisition prompt files correctly.
 ---
 
 ## Log
@@ -19,5 +19,7 @@ next: Office fills the tool catalogue and maps task names on /tool-schedule/edit
   CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/jobs/route.ts, src/app/api/tool-schedule/route.ts, +20 more
 - 2026-11-10 14:46 · `94a2389` companion: tool schedule job filter, searchable code pickers, sorting
   CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/tool-schedule/ToolSchedule.tsx, src/app/tool-schedule/edit/ToolCatalogEditor.tsx, src/components/CostCodeSelect.tsx, src/lib/searchWords.ts, +2 more
+- 2026-11-10 18:49 · `9940afc` companion: tool schedule catalogue is the tool tracker
+  CODEBASE_MAP.md, docs/plans/TOOL_SCHEDULE_PLAN.md, src/app/api/tool-schedule/availability/route.ts, src/app/api/tool-schedule/catalog/route.ts, src/app/api/tool-schedule/holds/route.ts, src/app/api/tool-schedule/rules/route.ts, +16 more
 
 ## Notes
