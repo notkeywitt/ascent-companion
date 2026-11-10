@@ -10,7 +10,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | Session | Branch | Last active | Commits | Next step |
 |---|---|---|---|---|
 | [main](.claude/sessions/2026-10-11-main.md) | `(detached)` | 29d ago | 2 | — |
-| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 38d ago | 4 | — |
+| [main](.claude/sessions/2026-10-02-main.md) | `(detached)` | 39d ago | 4 | — |
 | [allbills-vendor-collapsed](.claude/sessions/2026-09-14-allbills-vendor-collapsed.md) | `claude/allbills-vendor-collapsed` | 48d ago | 40 | Watch the first monthly review after 77bbb2a: confirm email-bill-amount-mismatc… |
 | [time-entry-jt-sync](.claude/sessions/2026-09-15-time-entry-jt-sync.md) | `claude/time-entry-jt-sync-6q3257` | 55d ago | 5 | Verify view-as-employee live: open /employee-time as admin, tap 'View another e… |
 | [monthly-invoicing-summary](.claude/sessions/2026-09-10-monthly-invoicing-summary.md) | `claude/monthly-invoicing-summary-mfpunx` | 61d ago | 3 | Deploy the appscript side (./deploy.sh), then open /invoicing-summary and confi… |
@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 2 | — |
+| [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 3 | — |
 | [festive-faraday](.claude/sessions/2026-11-10-festive-faraday.md) | 2026-11-10 | 2 | — |
 | [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
