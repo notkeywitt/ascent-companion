@@ -2,9 +2,9 @@
 slug: amazing-ride
 repo: ascent-companion
 branch: claude/amazing-ride-m1veok
-status: in-progress
+status: shipped
 started: 2026-11-10T16:56:03Z
-updated: 2026-11-10T17:16:38Z
+updated: 2026-11-10T17:16:48Z
 goal: 
 next: Check the all-jobs Tracking Sheets view live: labor card loads, Group=Job default, Show=Labor hides bills, a labor row opens its job's board with the entry ticked.
 ---

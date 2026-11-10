@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T16:28:51Z",
+  "generatedAt": "2026-11-10T17:16:48Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "amazing-ride",
+      "file": "2026-11-10-amazing-ride.md",
+      "branch": "claude/amazing-ride-m1veok",
+      "status": "shipped",
+      "started": "2026-11-10T16:56:03Z",
+      "updated": "2026-11-10T17:16:48Z",
+      "goal": "",
+      "next": "Check the all-jobs Tracking Sheets view live: labor card loads, Group=Job default, Show=Labor hides bills, a labor row opens its job's board with the entry ticked.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "17:16",
+          "sha": "74a96c8",
+          "subject": "companion: all-jobs labor list, group by job, shared filters",
+          "files": "CODEBASE_MAP.md, src/app/api/trackingsheet/all-time/route.ts, src/app/trackingsheet/AllBills.tsx, src/app/trackingsheet/AllLabor.tsx, src/components/TimeEntryList.tsx"
+        }
+      ]
+    },
     {
       "slug": "focused-pascal",
       "file": "2026-11-10-focused-pascal.md",
