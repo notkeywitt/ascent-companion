@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import Link from "next/link";
 import { createPortal } from "react-dom";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { DocumentAccess } from "@/components/DocumentAccess";
@@ -128,6 +129,9 @@ function useDriveBackup(docId: string | undefined): DriveBackup | null {
 export interface CodingBill {
   id: string;
   label: string;
+  /** The vendor's name. When the label starts with it, that part links to the
+      vendor's page (/vendors). */
+  vendor?: string;
   cost: number;
   status?: string;
   reviewed?: boolean;
@@ -1033,7 +1037,22 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 {standalone ? (
                   <span className="flex-1" />
                 ) : (
-                  <p className="min-w-0 truncate text-[15px] font-semibold tracking-tight">{bill.label}</p>
+                  <p className="min-w-0 truncate text-[15px] font-semibold tracking-tight">
+                    {bill.vendor && bill.label.startsWith(bill.vendor) ? (
+                      <>
+                        <Link
+                          href={`/vendors?vendor=${encodeURIComponent(bill.vendor)}`}
+                          className="hover:underline"
+                          title="Open this vendor's page"
+                        >
+                          {bill.vendor}
+                        </Link>
+                        {bill.label.slice(bill.vendor.length)}
+                      </>
+                    ) : (
+                      bill.label
+                    )}
+                  </p>
                 )}
                 {/* Same size and weight as the vendor: the two together ARE the
               bill's identity, so neither is the quiet half. */}

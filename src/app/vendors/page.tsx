@@ -810,6 +810,7 @@ function Vendors() {
   const search = useSearchParams();
   const initialAccountId = (search.get("accountId") ?? "").trim();
   const initialNumber = (search.get("number") ?? "").trim();
+  const initialVendorName = (search.get("vendor") ?? "").trim();
 
   const [query, setQuery] = useState("");
   const [vendors, setVendors] = useState<VendorRef[]>([]);
@@ -911,6 +912,7 @@ function Vendors() {
     setSelected(v);
     // The open vendor lives in the address bar, so the address is a link to it.
     setUrlParam("number", "");
+    setUrlParam("vendor", "");
     setUrlParam("accountId", v.id);
     setNumberMatches(null);
     setBills([]);
@@ -966,6 +968,16 @@ function Vendors() {
     if (v) loadVendorBills(v);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAccountId, vendors]);
+
+  // ?vendor=<name> — from the vendor name on a bill card. Exact name, any case.
+  useEffect(() => {
+    if (!initialVendorName || vendors.length === 0) return;
+    const want = initialVendorName.toLowerCase();
+    if (selected?.name.toLowerCase() === want) return;
+    const v = vendors.find((x) => x.name.trim().toLowerCase() === want);
+    if (v) loadVendorBills(v);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialVendorName, vendors]);
 
   useEffect(() => {
     if (!initialNumber || lookedUp.current === initialNumber) return;

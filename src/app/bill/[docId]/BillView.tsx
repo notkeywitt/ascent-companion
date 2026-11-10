@@ -1245,6 +1245,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
       ? {
           id: docId,
           label: title,
+          vendor: header.fromName || header.subject || header.name || undefined,
           cost: total,
           status: header.status,
           reviewed,
