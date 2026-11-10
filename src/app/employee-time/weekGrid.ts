@@ -186,7 +186,8 @@ export function stackStart(
    into one lane per person; entries of one person that overlap share that
    lane side by side. */
 
-const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+/** "07:30" → 450. */
+export const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
 /** Start and stop as minutes after the day's midnight. A stop past midnight clamps to 24:00. */
 export function entrySpan(e: Pick<GridEntry, "startTime" | "endTime" | "minutes">): { start: number; end: number } {

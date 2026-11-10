@@ -2,11 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, Card, ChipScroller, FilterChip, IconButton, Loading, MetaLine } from "@/components/ui";
+import {
+  Banner,
+  Button,
+  Card,
+  ChipScroller,
+  FilterChip,
+  IconButton,
+  Loading,
+  MetaLine,
+  Select,
+} from "@/components/ui";
 import { addDays, shortDay, weekStart } from "@/lib/timeEntryDates";
 import { orgDay } from "@/lib/orgTime";
-import { DEFAULT_OTHER, EntryEditor, ReadEntry, type Entry, type User } from "./WeekCompare";
-import { entrySpan, fmtClock, hourRange, placeBlocks, rowLabel } from "./weekGrid";
+import { JobPicker, type JobRef } from "@/components/JobPicker";
+import { defaultCostCode, matchPayType, type CostCodeDefault, type PayTypeRule } from "@/lib/payTypeMatch";
+import {
+  DEFAULT_OTHER,
+  EntryEditor,
+  NewEntry,
+  ReadEntry,
+  type Entry,
+  type NewEntryCtx,
+  type User,
+} from "./WeekCompare";
+import { entrySpan, fmtClock, hourRange, placeBlocks, rowLabel, toMin } from "./weekGrid";
 
 /**
  * SPLIT VIEW — CALENDAR MODE (beta). The same weeks Split View reads, drawn on
@@ -16,7 +36,9 @@ import { entrySpan, fmtClock, hourRange, placeBlocks, rowLabel } from "./weekGri
  *
  * Tap an entry to open its details below, the way a Split View cell does. Your
  * own entries edit there (the same `op: "edit"` / `op: "delete"` writes);
- * everyone else's only read. Other people's time comes through
+ * everyone else's only read. Tap an empty spot on a day, or "+ Add time", to
+ * log your own time there: pick the job, and the new entry is Split View's
+ * NewEntry — the Log-a-range POST /api/employee-time. Other people's time comes through
  * /api/employee-time/history `actingAs`, which the server allows for admin and
  * office only.
  */
@@ -38,6 +60,16 @@ const HUES = [
 ] as const;
 const MAX_PEOPLE = HUES.length;
 const HOUR_PX = 44;
+const SNAP_MIN = 15;
+
+/** A new entry being placed: the day, the tapped start ("" = after the day's last stop), and its job. */
+interface Draft {
+  day: string;
+  start: string;
+  job: { id: string; label: string } | null;
+}
+
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
 
 const orgToday = () => orgDay(new Date().toISOString());
 const hourLabel = (h: number) => (h === 0 || h === 24 ? "12 AM" : h === 12 ? "12 PM" : h < 12 ? `${h} AM` : `${h - 12} PM`);
@@ -46,11 +78,22 @@ export function WeekCalendar({
   users,
   appUserIds,
   myId,
+  jobs,
+  orgTypes,
+  payRules,
+  codeDefaults,
   onExit,
 }: {
   users: User[];
   appUserIds: string[];
   myId: string;
+  /** Every open job — the new entry's job list, same as Split View's. */
+  jobs: JobRef[];
+  orgTypes: string[];
+  /** Your own job + cost code → pay type rules (/labor-rates). */
+  payRules: PayTypeRule[];
+  /** Your own default cost code per job (/labor-rates). */
+  codeDefaults: CostCodeDefault[];
   /** Back to the grid Split View. */
   onExit: () => void;
 }) {
@@ -72,6 +115,9 @@ export function WeekCalendar({
   const shown = useMemo(() => [myId, ...others], [myId, others]);
   const [sides, setSides] = useState<Record<string, Side>>({});
   const [sel, setSel] = useState<{ who: string; id: string } | null>(null);
+  const [draft, setDraft] = useState<Draft | null>(null);
+  // Sent, not yet read back from JobTread (the create is detached).
+  const [pending, setPending] = useState<Entry[]>([]);
 
   const keyOf = useCallback((id: string) => `${id}|${week}`, [week]);
 
@@ -105,7 +151,17 @@ export function WeekCalendar({
 
   const perPerson = shown.map((id) => {
     const side = sides[keyOf(id)];
-    const entries = (side?.entries ?? []).filter((e) => days.includes(e.date));
+    let entries = (side?.entries ?? []).filter((e) => days.includes(e.date));
+    // A new entry shows at once, then gives way to the real one (job, day, start).
+    if (id === myId)
+      entries = [
+        ...entries,
+        ...pending.filter(
+          (p) =>
+            days.includes(p.date) &&
+            !entries.some((e) => e.jobId === p.jobId && e.date === p.date && e.startTime === p.startTime),
+        ),
+      ];
     return { id, side, entries, total: entries.reduce((s, e) => s + e.minutes, 0) };
   });
 
@@ -117,6 +173,47 @@ export function WeekCalendar({
   const today = orgToday();
 
   const picked = sel ? perPerson.find((p) => p.id === sel.who)?.entries.find((e) => e.id === sel.id) : undefined;
+
+  const mine = perPerson[0]?.entries ?? [];
+  const myTypes = users.find((u) => u.id === myId)?.types?.map((t) => t.name) ?? orgTypes;
+  const lastStop = (day: string) =>
+    mine
+      .filter((e) => e.date === day && e.endTime)
+      .map((e) => e.endTime)
+      .sort()
+      .pop() ?? "07:00";
+  const ctx: NewEntryCtx = {
+    myId,
+    myName: users.find((u) => u.id === myId)?.name ?? "",
+    payTypes: myTypes,
+    payFor: (jobId, costCode) => {
+      const t = matchPayType(payRules, { jtUserId: myId, jobId, costCode });
+      return myTypes.includes(t) ? t : "";
+    },
+    payHint: mine.find((e) => e.payType)?.payType ?? "",
+    codeFor: (jobId) => defaultCostCode(codeDefaults, { jtUserId: myId, jobId }),
+    costHint: (jobId) =>
+      perPerson.flatMap((p) => p.entries).find((e) => e.jobId === jobId && e.costItemId)?.costItemId ?? "",
+    startHint: (day) => (draft?.day === day && draft.start ? draft.start : lastStop(day)),
+    onCreated: (e) => {
+      setPending((p) => [...p, e]);
+      setDraft(null);
+      setSel({ who: myId, id: e.id });
+      // The JobTread write finishes after the answer, so look twice.
+      setTimeout(() => load(myId, true), 5000);
+      setTimeout(() => load(myId, true), 15000);
+    },
+  };
+
+  /** Open a new entry on `day`. The job starts as the one you were on just before. */
+  function startDraft(day: string, start: string) {
+    const before = mine
+      .filter((e) => e.date === day && e.jobId && (!start || e.startTime <= start))
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .pop();
+    setSel(null);
+    setDraft({ day, start, job: before ? { id: before.jobId, label: rowLabel(before) } : null });
+  }
 
   function toggle(id: string) {
     setOthers((o) => (o.includes(id) ? o.filter((x) => x !== id) : o.length + 1 < MAX_PEOPLE ? [...o, id] : o));
@@ -137,6 +234,9 @@ export function WeekCalendar({
         </IconButton>
         <Button variant="secondary" size="sm" onClick={() => setWeek(weekStart(orgToday()))}>
           This week
+        </Button>
+        <Button size="sm" onClick={() => startDraft(days.includes(orgToday()) ? orgToday() : days[0], "")}>
+          + Add time
         </Button>
         <span className="ml-auto flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Beta</span>
@@ -220,7 +320,30 @@ export function WeekCalendar({
             </div>
 
             {days.map((d) => (
-              <div key={d} className="relative border-l border-line-soft" style={{ height }}>
+              <div
+                key={d}
+                className="relative cursor-cell border-l border-line-soft"
+                style={{ height }}
+                title="Tap to add your time here"
+                onClick={(ev) => {
+                  // An empty spot: a new entry of yours, starting where you tapped.
+                  const y = ev.clientY - ev.currentTarget.getBoundingClientRect().top;
+                  const min = range.from * 60 + Math.floor(((y / HOUR_PX) * 60) / SNAP_MIN) * SNAP_MIN;
+                  startDraft(d, hhmm(Math.min(Math.max(min, 0), 24 * 60 - SNAP_MIN)));
+                }}
+              >
+                {draft?.day === d && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute rounded border-2 border-dashed border-accent"
+                    style={{
+                      top: ((toMin(ctx.startHint(d)) - range.from * 60) / 60) * HOUR_PX,
+                      height: HOUR_PX,
+                      left: "1px",
+                      width: `calc(${100 / shown.length}% - 2px)`,
+                    }}
+                  />
+                )}
                 {hours.map((h) => (
                   <div
                     key={h}
@@ -238,7 +361,11 @@ export function WeekCalendar({
                       <button
                         key={`${p.id}-${b.e.id}`}
                         type="button"
-                        onClick={() => setSel(on ? null : { who: p.id, id: b.e.id })}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          setDraft(null);
+                          setSel(on ? null : { who: p.id, id: b.e.id });
+                        }}
                         title={`${nameOf(p.id)} · ${label} · ${b.e.startTime}–${b.e.endTime || "now"} · ${fmtClock(b.e.minutes) || "open"}`}
                         className={`absolute overflow-hidden rounded border-l-[3px] px-1 py-0.5 text-left text-[10px] leading-tight ${
                           hueOf(p.id).block
@@ -278,8 +405,59 @@ export function WeekCalendar({
           )}
         </Card>
       )}
-      {!sel && !loading && (
-        <p className="text-center text-xs text-neutral-500">Tap an entry to see its note and details.</p>
+      {draft && (
+        <Card className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-neutral-500">
+            <span aria-hidden className={`h-2 w-2 rounded-full ${hueOf(myId).dot}`} />
+            New entry for you on
+            <Select
+              aria-label="Day"
+              value={draft.day}
+              onChange={(ev) => setDraft({ ...draft, day: ev.target.value, start: "" })}
+              className="w-auto"
+            >
+              {days.map((d) => (
+                <option key={d} value={d}>
+                  {shortDay(d)}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="max-w-sm">
+            <JobPicker
+              value={draft.job?.id ?? ""}
+              onChange={() => {}}
+              onSelect={(j) =>
+                setDraft({ ...draft, job: j ? { id: j.id, label: rowLabel({ customer: j.customer ?? "", jobName: j.name }) } : null })
+              }
+              jobs={jobs}
+              includeAll={false}
+              placeholder={draft.job?.label ?? "Pick a job…"}
+            />
+          </div>
+          {draft.job ? (
+            <NewEntry
+              key={`${draft.job.id}-${draft.day}-${draft.start}`}
+              jobId={draft.job.id}
+              label={draft.job.label}
+              day={draft.day}
+              open
+              ctx={ctx}
+              onCancel={() => setDraft(null)}
+            />
+          ) : (
+            <div className="flex justify-end">
+              <Button variant="secondary" size="sm" onClick={() => setDraft(null)}>
+                Cancel
+              </Button>
+            </div>
+          )}
+        </Card>
+      )}
+      {!sel && !draft && !loading && (
+        <p className="text-center text-xs text-neutral-500">
+          Tap an entry to see its note and details. Tap an empty spot to add your time.
+        </p>
       )}
     </div>
   );

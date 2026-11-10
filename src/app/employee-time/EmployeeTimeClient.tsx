@@ -2582,6 +2582,10 @@ export function EmployeeTimeClient({
           users={jtUsers}
           appUserIds={appUserIds}
           myId={me?.jtUserId ?? ""}
+          jobs={compareJobs}
+          orgTypes={orgTypes}
+          payRules={initialPayRules}
+          codeDefaults={initialCodeDefaults}
           onExit={() => setCalendarBeta(false)}
         />
       )}

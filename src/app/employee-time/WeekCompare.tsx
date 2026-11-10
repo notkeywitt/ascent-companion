@@ -574,7 +574,7 @@ export function EntryEditor({ e, label, onSaved }: { e: Entry; label: string; on
   );
 }
 
-interface NewEntryCtx {
+export interface NewEntryCtx {
   myId: string;
   myName: string;
   payTypes: string[];
@@ -604,18 +604,21 @@ export function loadCosts(jobId: string): Promise<CostItem[]> {
 }
 
 /** A new entry in one cell of your own side — the Log-a-range write, from the grid. */
-function NewEntry({
+export function NewEntry({
   jobId,
   label,
   day,
   open: startOpen,
   ctx,
+  onCancel,
 }: {
   jobId: string;
   label: string;
   day: string;
   open: boolean;
   ctx: NewEntryCtx;
+  /** Cancel hands control back to the host instead of folding to "+ Add time". */
+  onCancel?: () => void;
 }) {
   const [open, setOpen] = useState(startOpen);
   const [costs, setCosts] = useState<CostItem[] | null>(null);
@@ -789,7 +792,7 @@ function NewEntry({
       <Textarea aria-label="Note" rows={3} placeholder="Note" value={note} onChange={(e) => setNote(e.target.value)} />
       {msg && <p className="text-xs text-danger">{msg}</p>}
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
+        <Button variant="secondary" size="sm" onClick={() => (onCancel ? onCancel() : setOpen(false))}>
           Cancel
         </Button>
         <Button size="sm" disabled={busy} onClick={save}>
