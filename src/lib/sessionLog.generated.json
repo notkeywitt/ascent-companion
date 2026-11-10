@@ -1,25 +1,14 @@
 {
-  "generatedAt": "2026-11-10T16:05:31Z",
+  "generatedAt": "2026-11-10T16:11:43Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "focused-pascal",
-      "file": "2026-11-10-focused-pascal.md",
-      "branch": "claude/focused-pascal-x7opse",
-      "status": "shipped",
-      "started": "2026-11-10T16:03:14Z",
-      "updated": "2026-11-10T16:05:31Z",
-      "goal": "",
-      "next": "Owner to pick a Fable target; recommended: Stage 7 (move Tools, Mileage, EmployeeTime off Apps Script into the companion DB)",
-      "commits": []
-    },
     {
       "slug": "eager-turing",
       "file": "2026-11-10-eager-turing.md",
       "branch": "claude/eager-turing-84swsi",
       "status": "shipped",
       "started": "2026-11-10T15:40:53Z",
-      "updated": "2026-11-10T15:49:17Z",
+      "updated": "2026-11-10T16:11:43Z",
       "goal": "",
       "next": "Check the Tools title menu on a phone after deploy",
       "commits": [
@@ -36,8 +25,26 @@
           "sha": "b4d9401",
           "subject": "companion: drop pill row on phone for tool schedule and requisitions",
           "files": "src/components/WorkspaceTabs.tsx"
+        },
+        {
+          "date": "2026-11-10",
+          "time": "16:11",
+          "sha": "e73e535",
+          "subject": "companion: share the tools title menu with tool schedule and requisitions",
+          "files": "src/app/requisitions/page.tsx, src/app/tool-schedule/ToolSchedule.tsx, src/app/tools/page.tsx, src/components/ToolsTitleMenu.tsx"
         }
       ]
+    },
+    {
+      "slug": "focused-pascal",
+      "file": "2026-11-10-focused-pascal.md",
+      "branch": "claude/focused-pascal-x7opse",
+      "status": "shipped",
+      "started": "2026-11-10T16:03:14Z",
+      "updated": "2026-11-10T16:05:31Z",
+      "goal": "",
+      "next": "Owner to pick a Fable target; recommended: Stage 7 (move Tools, Mileage, EmployeeTime off Apps Script into the companion DB)",
+      "commits": []
     },
     {
       "slug": "charming-brown",
