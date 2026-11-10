@@ -2167,8 +2167,10 @@ export function EmployeeTimeClient({
           follows — their running clock, their timesheet, and any edit saved
           from it. Re-decided server-side on every request, so hiding
           this control is the courtesy, not the gate. */}
+      {/* Phone: the link hides (owner, 2026-11-10); the banner stays, so a
+          person acting as someone else can still get back. */}
       {canActAs && (
-        <div className="mb-3">
+        <div className={`mb-3 ${acting ? "" : "max-pad:hidden"}`}>
           {acting ? (
             <Banner tone="warning" className="flex flex-wrap items-center justify-between gap-2">
               <span>
@@ -2213,8 +2215,9 @@ export function EmployeeTimeClient({
         ]}
       />
 
-      {/* Who + PTO/sick, on one thin line so the clock screen stays clean. */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-neutral-500">
+      {/* Who + PTO/sick, on one thin line so the clock screen stays clean.
+          Hidden on a phone (owner, 2026-11-10); Time Off is in the ☰ menu. */}
+      <div className="mb-3 flex max-pad:hidden flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-neutral-500">
         <span className="truncate">
           {effectiveName ? (
             <>
