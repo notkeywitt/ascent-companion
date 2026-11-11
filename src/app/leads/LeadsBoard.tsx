@@ -1266,7 +1266,7 @@ function LeadDetail({
         draft.nextActionDate !== t.nextActionDate ||
         draft.notes.trim() !== (t.notes ?? "").trim();
       if (changed && (draft.nextAction.trim() || draft.nextActionDate || draft.notes.trim())) {
-        const note = `${draft.nextAction.trim() || "(no action)"}${draft.nextActionDate ? ` — by ${fmtDate(draft.nextActionDate)}` : ""}${draft.notes.trim() ? `\n${draft.notes.trim()}` : ""}`;
+        const note = `${draft.nextAction.trim() || "(no action)"}${draft.nextActionDate ? ` — by ${fmtDate(draft.nextActionDate)}` : ""}${(t.notes ?? "").trim() ? `\n${(t.notes ?? "").trim()}` : ""}`;
         await fetch("/api/leads/activities", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
