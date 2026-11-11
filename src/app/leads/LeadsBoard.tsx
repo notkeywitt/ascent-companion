@@ -1099,7 +1099,7 @@ function LeadCard({
   const quiet = derived.quietDays;
 
   return (
-    <Card className={`p-0 ${open ? "ring-2 ring-accent/40" : ""}`}>
+    <Card className={`p-0 ${open ? "ring-2 ring-inset ring-accent/50" : ""}`}>
       <button
         type="button"
         onClick={onToggle}
