@@ -805,15 +805,6 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
         </Banner>
       )}
 
-      {/* The two follow-up signals, as the page's headline numbers. */}
-      {!archive && (
-        <div className="mb-4 grid grid-cols-3 gap-2">
-          <Stat label="Leads" value={rows.length} />
-        </div>
-      )}
-
-
-
       <SplitView
         onClose={() => setOpenId(null)}
         backLabel="Back to leads"
@@ -1050,33 +1041,6 @@ function QuietThresholdEditor({
         </Card>
       )}
     </section>
-  );
-}
-
-/* ------------------------------------------------------------------- stats */
-
-function Stat({
-  label,
-  value,
-  tone = "ok",
-}: {
-  label: string;
-  value: number;
-  tone?: "ok" | "warning" | "danger";
-}) {
-  const color =
-    tone === "danger"
-      ? "text-danger"
-      : tone === "warning"
-        ? "text-warn"
-        : "text-neutral-800 dark:text-neutral-100";
-  return (
-    <Card className="text-center">
-      <div className={`text-2xl font-bold tabular-nums ${color}`}>{value}</div>
-      <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-        {label}
-      </div>
-    </Card>
   );
 }
 
