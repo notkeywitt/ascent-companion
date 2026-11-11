@@ -335,7 +335,10 @@ export const VIEWS: ViewDef[] = [
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
   { id: "mileage", label: "Miles", group: "Field", paths: ["/mileage-tracker"] },
   { id: "employee-time", label: "Time", group: "Field", paths: ["/employee-time"] },
-  { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer"] },
+  // Batch add (lib/toolBatch.ts): every role captures through /api/tools/batch;
+  // only "tools-batch-analyze" (office + admin) asks the office Mac to analyze.
+  { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer", "/api/tools/batch"] },
+  { id: "tools-batch-analyze", label: "Tools (analyze batch)", group: "Field", paths: ["/api/tools/batch/analyze"] },
   // The tool schedule (docs/plans/TOOL_SCHEDULE_PLAN.md): which tools each job
   // needs when, from the JobTread schedules. Everyone sees it (owner,
   // 2026-11-10); only "tool-schedule-edit" changes what it counts. The edit

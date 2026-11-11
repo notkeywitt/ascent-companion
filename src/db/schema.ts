@@ -2005,6 +2005,50 @@ export const toolTrailerItems = sqliteTable("tool_trailer_items", {
 });
 
 /**
+ * BATCH ADD — tools photographed on a phone in a fast run (QR → tool photo →
+ * serial photo → extras), waiting for Claude Code on the office Mac to read the
+ * photos and fill the details in (lib/toolBatch.ts, skill /tool-batch).
+ *
+ * tool_batch_items   one captured tool. `id` is made on the phone, so a retried
+ *                    upload never makes a second row. `tool_id` is the QR value,
+ *                    or an assigned `noqr-xxxxx` when the scan was skipped.
+ *                    status: capturing → ready → analyzing → added | error.
+ *                    `result` is the JSON Claude filled in.
+ * tool_batch_photos  the photos. role: tool | serial | extra. Kept 30 days after
+ *                    the tool is added (the tool photo also goes to Drive).
+ * tool_batch_events  the analysis log: request (the Analyze button), started,
+ *                    done, error. The office Mac reads it to decide a run is due.
+ */
+export const toolBatchItems = sqliteTable("tool_batch_items", {
+  id: text("id").primaryKey(),
+  toolId: text("tool_id").notNull(),
+  idSource: text("id_source").notNull().default("qr"), // qr | assigned
+  status: text("status").notNull().default("capturing"),
+  result: text("result").notNull().default(""),
+  error: text("error").notNull().default(""),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export const toolBatchPhotos = sqliteTable("tool_batch_photos", {
+  id: text("id").primaryKey(),
+  itemId: text("item_id").notNull(),
+  role: text("role").notNull(), // tool | serial | extra
+  mime: text("mime").notNull().default("image/jpeg"),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  createdAt: text("created_at").notNull(),
+});
+
+export const toolBatchEvents = sqliteTable("tool_batch_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  kind: text("kind").notNull(), // request | started | done | error
+  message: text("message").notNull().default(""),
+  by: text("by").notNull().default(""),
+  at: text("at").notNull(),
+});
+
+/**
  * STAGE 7 — the Tools list, moving off the Project Database "Tools" tab
  * (ARCHITECTURE_REVIEW.md finding 1, docs/plans/STAGE7_TOOLS_MILEAGE.md).
  *

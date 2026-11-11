@@ -375,6 +375,27 @@ export const HELP: HelpSection[] = [
         ],
       },
       {
+        id: "tools-batch",
+        q: "How do I add many tools fast?",
+        view: "tools",
+        href: "/tools",
+        keywords: ["batch add", "many tools", "catalog", "inventory", "photo", "serial", "qr"],
+        steps: [
+          "Open **Tools** on your phone and tap **Batch add**.",
+          "Scan the tool's QR sticker, or tap **Skip — no QR code** if it has none.",
+          "Take a clear picture of the tool, then of its serial number.",
+          "Tap **Yes** to add more pictures, or **No** to start the next tool.",
+          "Tap **Done** when the batch is finished.",
+        ],
+        notes: [
+          "Batch add shows on phones only.",
+          "Photos upload in the background. A weak signal only delays them.",
+          "Claude fills in the name, type and serial later, on the office Mac.",
+          "The office taps **Analyze Tools Batch** to start that at once. Otherwise it starts 30 minutes after the last capture.",
+          "A skipped QR gets an ID that starts with noqr-. Scan the sticker into the tool's **Edit** later.",
+        ],
+      },
+      {
         id: "tools-sticker",
         q: "How do I change a tool's ID or QR sticker?",
         view: "tools",

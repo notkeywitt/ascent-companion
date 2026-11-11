@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "169h-1g3l96n";
+export const SCHEMA_FINGERPRINT = "1752-1ewoo7b";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1528,6 +1528,33 @@ async function applySchema() {
       photo_link TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL DEFAULT ''
     )`,
+    // Batch add (lib/toolBatch.ts): phone captures waiting for Claude Code.
+    `CREATE TABLE IF NOT EXISTS tool_batch_items (
+      id TEXT PRIMARY KEY,
+      tool_id TEXT NOT NULL,
+      id_source TEXT NOT NULL DEFAULT 'qr',
+      status TEXT NOT NULL DEFAULT 'capturing',
+      result TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_batch_photos (
+      id TEXT PRIMARY KEY,
+      item_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      mime TEXT NOT NULL DEFAULT 'image/jpeg',
+      bytes BLOB NOT NULL,
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS tool_batch_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,
+      message TEXT NOT NULL DEFAULT '',
+      by TEXT NOT NULL DEFAULT '',
+      at TEXT NOT NULL
+    )`,
     `CREATE TABLE IF NOT EXISTS mileage_trips (
       trip_id TEXT NOT NULL,
       client_key TEXT NOT NULL DEFAULT '',
@@ -1561,6 +1588,8 @@ async function applySchema() {
     `CREATE UNIQUE INDEX IF NOT EXISTS spec_docs_job_drive_idx ON spec_docs (job_id, drive_id)`,
     `CREATE INDEX IF NOT EXISTS chat_turns_space_idx ON chat_turns (space, at DESC)`,
     `CREATE INDEX IF NOT EXISTS chat_turns_job_idx ON chat_turns (job_id, at DESC)`,
+    `CREATE INDEX IF NOT EXISTS tool_batch_items_status_idx ON tool_batch_items (status, updated_at)`,
+    `CREATE INDEX IF NOT EXISTS tool_batch_photos_item_idx ON tool_batch_photos (item_id)`,
   ]) {
     await getClient().execute(idx);
   }

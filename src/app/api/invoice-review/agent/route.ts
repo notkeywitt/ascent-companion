@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
 
+import { authorizeAgent as authorize } from "@/lib/agentToken";
 import { callAppsScript } from "@/lib/appsScript";
 import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
@@ -64,24 +64,6 @@ export const maxDuration = 300;
 
 const WHO = "claude-code";
 const MAX_TEXT = 2000;
-
-function secretMatches(provided: string, expected: string): boolean {
-  if (!expected || !provided) return false;
-  const a = Buffer.from(provided);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
-function authorize(req: NextRequest): NextResponse | null {
-  const expected = (process.env.REVIEW_AGENT_TOKEN ?? "").trim();
-  if (!expected) {
-    return NextResponse.json({ error: "REVIEW_AGENT_TOKEN is not set on this deployment." }, { status: 503 });
-  }
-  const header = req.headers.get("authorization") ?? "";
-  const bearer = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-  return secretMatches(bearer, expected) ? null : NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-}
 
 function monthOf(raw: unknown): string | null {
   const parsed = parseYm(String(raw ?? "").trim());

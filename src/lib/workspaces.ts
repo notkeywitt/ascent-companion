@@ -207,6 +207,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   "needs-project": "a section of Inbox (/email?section=stuck); /needs-project redirects",
   "vendor-mail": "a section of Inbox (/email?section=mail); /vendor-mail redirects",
   "tool-schedule-edit": "the Edit button on the Tool Schedule page (/tool-schedule/edit)",
+  "tools-batch-analyze": "the Analyze Tools Batch button on the Tools page's batch card",
   "tracking-sheet": "Sheet sync settings, linked from Tracking Sheets' Company tools; Finalize is on each job since 2026-10-18",
   "bill-review": "a section of Checks (/invoice-review?section=flagged); /needs-review redirects",
   "taxable-lines": "a section of Checks (/invoice-review?section=taxable); /taxable-lines redirects",

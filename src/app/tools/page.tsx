@@ -8,6 +8,8 @@ import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
 import { ToolLinks, putTrailer } from "./ToolLinks";
+import { BatchCard } from "./BatchCard";
+import { drainQueue } from "./batchQueue";
 import { isTrailerType } from "@/lib/toolSchedule";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
@@ -16,6 +18,12 @@ import { isTrailerType } from "@/lib/toolSchedule";
 const QrScanner = dynamic(() => import("@/components/QrScanner").then((m) => m.QrScanner), {
   ssr: false,
   loading: () => <Loading label="Starting scanner…" />,
+});
+
+// Batch add: a full-screen camera that also needs jsQR, so it loads on the tap.
+const BatchAdd = dynamic(() => import("./BatchAdd").then((m) => m.BatchAdd), {
+  ssr: false,
+  loading: () => <Loading label="Starting camera…" />,
 });
 
 interface Tool {
@@ -434,6 +442,16 @@ export default function ToolsPage() {
   const createSerialRef = useRef<HTMLInputElement>(null);
   const [createSerialBusy, setCreateSerialBusy] = useState(false);
   const [createSerialMsg, setCreateSerialMsg] = useState("");
+
+  // ---- Batch add (phones only): QR → photos, details filled in later ---------
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchKey, setBatchKey] = useState(0); // bumps to reload the batch card
+  const [batchDone, setBatchDone] = useState("");
+  const knownIds = useMemo(() => new Set(tools.map((t) => t.id.toLowerCase())), [tools]);
+  // Send anything a closed tab left in the phone's upload queue.
+  useEffect(() => {
+    void drainQueue();
+  }, []);
 
   // ---- Tool ID from a QR scan, inside the New tool or Edit dialog -------------
   const [idScan, setIdScan] = useState<"new" | "edit" | null>(null); // which dialog's scanner is open
@@ -1021,6 +1039,19 @@ export default function ToolsPage() {
         description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
         actions={
           <>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="pad:hidden"
+              onClick={() => {
+                setBatchDone("");
+                setBatchOpen(true);
+              }}
+              // Capture needs no inventory; the list only warns about a repeated QR.
+              disabled={loading}
+            >
+              Batch add
+            </Button>
             <Button variant="secondary" size="sm" onClick={startAdd} disabled={loading || !!loadErr}>
               Add tool
             </Button>
@@ -1066,6 +1097,23 @@ export default function ToolsPage() {
           ))}
         </select>
       </div>
+
+      {batchOpen && (
+        <BatchAdd
+          knownIds={knownIds}
+          onClose={(n) => {
+            setBatchOpen(false);
+            setBatchKey((k) => k + 1);
+            if (n) setBatchDone(`${n} tool${n === 1 ? "" : "s"} captured. Details are filled in on the office Mac.`);
+          }}
+        />
+      )}
+      {batchDone && (
+        <Banner tone="success" className="mb-4">
+          {batchDone}
+        </Banner>
+      )}
+      <BatchCard reloadKey={batchKey} />
 
       {loadErr && (
         <Banner tone="error" className="mb-4">

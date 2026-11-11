@@ -13,3 +13,6 @@ data/
 
 # local output of scripts/monthly-check.mjs (billing data)
 .monthly-check/
+
+# working files of the /tool-batch skill (tool photos)
+.tool-batch/
