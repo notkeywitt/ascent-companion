@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   analysisDue,
   assignedToolId,
+  batchPrompt,
   cleanFields,
   isAssignedId,
+  mergeFields,
   toolIdFromQr,
 } from "./toolBatchRules";
 
@@ -68,8 +70,27 @@ describe("analysisDue", () => {
 });
 
 describe("cleanFields", () => {
-  it("trims and refuses a result with no name", () => {
+  it("trims and refuses an empty result", () => {
     expect(cleanFields({ name: "  DeWalt   drill ", serial: 123 })).toMatchObject({ name: "DeWalt drill", serial: "123", type: "" });
-    expect(cleanFields({ type: "Drill" })).toBeNull();
+    expect(cleanFields({ serial: "X1" })).toMatchObject({ name: "", serial: "X1" });
+    expect(cleanFields({ name: "  " })).toBeNull();
+  });
+});
+
+describe("mergeFields", () => {
+  const blank = { name: "", type: "", toolGroup: "", serial: "", accessories: "", condition: "" };
+  it("writes only filled, different values", () => {
+    expect(
+      mergeFields({ name: "Drill", serial: "AB1", type: "drill" }, { ...blank, name: "DeWalt DCD791 Drill", serial: "ab1", type: "Drill", condition: "Good" }),
+    ).toEqual({ name: "DeWalt DCD791 Drill", condition: "Good" });
+  });
+});
+
+describe("batchPrompt", () => {
+  it("names the items and the begin command", () => {
+    const p = batchPrompt(["a1", "b2"], ["tool001"]);
+    expect(p.startsWith("/tool-batch")).toBe(true);
+    expect(p).toContain("agent.mjs begin a1 b2");
+    expect(batchPrompt([])).toContain("All tools waiting");
   });
 });

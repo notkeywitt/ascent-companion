@@ -243,6 +243,10 @@ export interface SheetTool {
   /** The raw Location: a Project Database id. */
   location: string;
   locationLabel: string;
+  serial: string;
+  accessories: string;
+  /** A renderable Drive thumbnail URL ("…sz=w…"), or "". */
+  photoUrl: string;
 }
 
 interface ToolsBootstrap {
@@ -265,6 +269,9 @@ const readSheetTools = unstable_cache(
         condition: String(t.condition ?? ""),
         location: String(t.location ?? ""),
         locationLabel: String(t.locationLabel ?? ""),
+        serial: String(t.serial ?? ""),
+        accessories: String(t.accessories ?? ""),
+        photoUrl: String(t.photoUrl ?? ""),
       }),
     ).filter((t) => t.id);
   },

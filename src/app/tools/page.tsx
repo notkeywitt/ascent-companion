@@ -5,12 +5,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LopezMap } from "@/components/LopezMap";
 import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
-import { Banner, Button, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
+import { Banner, Button, Checkbox, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
 import { ToolLinks, putTrailer } from "./ToolLinks";
 import { BatchCard } from "./BatchCard";
 import { drainQueue } from "./batchQueue";
 import { isTrailerType } from "@/lib/toolSchedule";
+import { haversineKm, isShopLabel, nearestSite } from "@/lib/nearestSite";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
 // "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
@@ -76,27 +77,6 @@ const conditionClass = (c: string) => {
     return "text-danger bg-red-100 dark:bg-red-950/50";
   return "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800";
 };
-
-// Great-circle distance in km between two lat/lng points — used to pre-select the
-// nearest job site after a scan.
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R = 6371;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const s =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(s));
-}
-
-// Several Ascent overhead projects (Shop, Office, Electrical) share the shop's
-// single address (4223 Center Rd), so GPS distance can't tell them apart. When
-// the shop cluster is the nearest location we want the Shop, not whichever
-// project happens to sort first — a tool at the shop lives "at the Shop".
-function isShopLabel(label: string): boolean {
-  return label.trim().toLowerCase().endsWith("shop");
-}
 
 // Downscale a picked image to <= maxDim on its long edge and return a JPEG data
 // URL — keeps phone photos small so the base64 upload through Apps Script is fast.
@@ -448,6 +428,41 @@ export default function ToolsPage() {
   const [batchKey, setBatchKey] = useState(0); // bumps to reload the batch card
   const [batchDone, setBatchDone] = useState("");
   const knownIds = useMemo(() => new Set(tools.map((t) => t.id.toLowerCase())), [tools]);
+  // "Ask Claude to update": pick listed tools; Claude re-reads their photos.
+  const [picking, setPicking] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [askBusy, setAskBusy] = useState(false);
+  const [askMsg, setAskMsg] = useState<{ text: string; tone: "success" | "error" } | null>(null);
+  async function askClaude(toolIds: string[]) {
+    if (!toolIds.length) return;
+    setAskBusy(true);
+    setAskMsg(null);
+    try {
+      const res = await fetch("/api/tools/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "update", toolIds }),
+      });
+      const json = await res.json();
+      if (!res.ok || json.ok === false) throw new Error(json.error || "Could not queue the tools.");
+      const n = Number(json.queued ?? 0);
+      const skipped = toolIds.length - n;
+      setAskMsg({
+        tone: "success",
+        text:
+          `${n} tool${n === 1 ? "" : "s"} queued for Claude to update.` +
+          (skipped ? ` ${skipped} already waiting.` : "") +
+          " See the Batch add card.",
+      });
+      setPicking(false);
+      setPicked(new Set());
+      setBatchKey((k) => k + 1);
+    } catch (e) {
+      setAskMsg({ tone: "error", text: e instanceof Error ? e.message : "Could not queue the tools." });
+    } finally {
+      setAskBusy(false);
+    }
+  }
   // Send anything a closed tab left in the phone's upload queue.
   useEffect(() => {
     void drainQueue();
@@ -846,21 +861,15 @@ export default function ToolsPage() {
   }
 
   function pickNearest(fix: { lat: number; lng: number }) {
-    const scored = projects
-      .filter((p) => p.lat != null && p.lng != null)
-      .map((p) => ({ p, d: haversineKm(fix, { lat: p.lat as number, lng: p.lng as number }) }))
-      .sort((a, b) => a.d - b.d);
-    if (!scored.length) {
+    // Sites tied for nearest (the shop's address hosts Shop, Office and
+    // Electrical at one coordinate) default to the Shop.
+    const chosen = nearestSite(projects, fix);
+    if (!chosen) {
       setGeoMsg("Got your location, but no job site has coordinates — pick one below.");
       return;
     }
-    // If several projects tie for nearest (the shop's address hosts Shop, Office
-    // and Electrical at one coordinate), default to the Shop.
-    const EPS = 0.05; // km
-    const nearest = scored.filter((s) => s.d <= scored[0].d + EPS);
-    const chosen = nearest.find((s) => isShopLabel(s.p.label)) ?? nearest[0];
-    setScanProjectId(chosen.p.id);
-    setGeoMsg(`Nearest job site: ${chosen.p.label} (${chosen.d.toFixed(1)} km away).`);
+    setScanProjectId(chosen.site.id);
+    setGeoMsg(`Nearest job site: ${chosen.site.label} (${chosen.km.toFixed(1)} km away).`);
   }
 
   function onScan(text: string) {
@@ -1101,10 +1110,11 @@ export default function ToolsPage() {
       {batchOpen && (
         <BatchAdd
           knownIds={knownIds}
+          sites={projects}
           onClose={(n) => {
             setBatchOpen(false);
             setBatchKey((k) => k + 1);
-            if (n) setBatchDone(`${n} tool${n === 1 ? "" : "s"} captured. Details are filled in on the office Mac.`);
+            if (n) setBatchDone(`${n} tool${n === 1 ? "" : "s"} captured. Claude fills in the details later.`);
           }}
         />
       )}
@@ -1129,10 +1139,48 @@ export default function ToolsPage() {
 
       {!loading && !loadErr && (
         <>
-          <div className="mb-2 text-xs text-neutral-500">
-            {view.length} of {tools.length} tools
-            {refreshing && " · refreshing…"}
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-neutral-500">
+            <span>
+              {view.length} of {tools.length} tools
+              {refreshing && " · refreshing…"}
+            </span>
+            {picking ? (
+              <>
+                <button type="button" className="font-semibold text-accent" onClick={() => setPicked(new Set(view.map((t) => t.id)))}>
+                  Select all shown
+                </button>
+                <button
+                  type="button"
+                  className="font-semibold"
+                  onClick={() => {
+                    setPicking(false);
+                    setPicked(new Set());
+                  }}
+                >
+                  Cancel
+                </button>
+              </>
+            ) : (
+              <button type="button" className="font-semibold text-accent" onClick={() => setPicking(true)}>
+                Ask Claude to update…
+              </button>
+            )}
           </div>
+          {picking && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm">
+              <span className="flex-1">
+                Pick tools whose details need filling in. Claude reads their photos and fills the blanks.
+              </span>
+              <Button size="sm" disabled={askBusy || !picked.size} onClick={() => askClaude(Array.from(picked))}>
+                {askBusy ? "Queuing…" : `Ask Claude (${picked.size})`}
+              </Button>
+            </div>
+          )}
+          {askMsg && (
+            <Banner tone={askMsg.tone} className="mb-3">
+              {askMsg.text}
+            </Banner>
+          )}
 
           {groups.length === 0 && (
             <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center text-sm text-neutral-500 dark:border-neutral-700">
@@ -1151,11 +1199,31 @@ export default function ToolsPage() {
                   {g.list.map((t, i) => (
                     <div
                       key={t.id}
+                      onClick={
+                        picking
+                          ? () =>
+                              setPicked((p) => {
+                                const next = new Set(p);
+                                if (next.has(t.id)) next.delete(t.id);
+                                else next.add(t.id);
+                                return next;
+                              })
+                          : undefined
+                      }
                       className={
                         "flex items-center gap-3 px-3 py-2.5 " +
+                        (picking ? "cursor-pointer " : "") +
                         (i > 0 ? "border-t border-line-soft/70" : "")
                       }
                     >
+                      {picking && (
+                        <Checkbox
+                          aria-label={`Pick ${t.name || t.id}`}
+                          checked={picked.has(t.id)}
+                          readOnly
+                          className="pointer-events-none"
+                        />
+                      )}
                       <ToolPhoto
                         url={t.photoUrl}
                         width={128}
@@ -1178,12 +1246,14 @@ export default function ToolsPage() {
                           {t.condition}
                         </span>
                       )}
-                      <button
-                        onClick={() => openEdit(t)}
-                        className="rounded-lg border border-line-strong px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent"
-                      >
-                        Edit
-                      </button>
+                      {!picking && (
+                        <button
+                          onClick={() => openEdit(t)}
+                          className="rounded-lg border border-line-strong px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent"
+                        >
+                          Edit
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -1543,6 +1613,18 @@ export default function ToolsPage() {
             <>
               <Button variant="danger" className="mr-auto" onClick={deleteTool} disabled={saving}>
                 Delete
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={saving || askBusy}
+                title="Claude reads this tool's photo and fills in what is missing"
+                onClick={() => {
+                  const id = editing.id;
+                  closeEdit();
+                  void askClaude([id]);
+                }}
+              >
+                Ask Claude
               </Button>
               <Button variant="secondary" onClick={closeEdit} disabled={saving}>
                 Cancel

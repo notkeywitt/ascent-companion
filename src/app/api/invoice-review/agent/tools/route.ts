@@ -1,28 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { authorizeAgent } from "@/lib/agentToken";
-import { addTool, beginRun, dueNow, endRun, readPhoto, skipItem } from "@/lib/toolBatch";
+import { applyResult, beginRun, dueNow, endRun, readPhoto, readToolPhoto, skipItem } from "@/lib/toolBatch";
 import { cleanFields } from "@/lib/toolBatchRules";
 
 /**
- * /api/invoice-review/agent/tools — batch add's door for Claude Code on the
- * office Mac (skill /tool-batch, scripts/tool-batch/agent.mjs).
+ * /api/invoice-review/agent/tools — batch add's door for Claude Code: on the
+ * office Mac, or in a session started from the Tools page's copied prompt
+ * (skill /tool-batch, scripts/tool-batch/agent.mjs).
  *
  * It sits under /api/invoice-review/agent so it shares that door's bearer
  * token (REVIEW_AGENT_TOKEN, lib/agentToken.ts) and its public entry in
  * src/middleware.ts. The token is the only gate; there is no session fallback.
  *
  * GET  ?action=due            is a run due (the Analyze button, or the quiet timer)
- * GET  ?action=photo&id=…     one photo's bytes
- * POST { action: "begin" }    hand every ready tool to this run, with photo ids
- *                             and the Tools list's own types, groups and names
- * POST { action: "add", itemId, fields, note? }   register one tool on the
- *                             Tools list (Apps Script createTool + its photo)
+ * GET  ?action=photo&id=…     one batch photo's bytes
+ * GET  ?action=toolphoto&toolId=…   a listed tool's current Drive photo (update mode)
+ * POST { action: "begin", ids? }    hand the ready tools (or only `ids`) to a new
+ *                             run: its runId, photo ids, each update tool's
+ *                             current fields, and the list's types, groups, names
+ * POST { action: "add", itemId, fields, note? }   write one tool to the Tools
+ *                             list: createTool (+ photo), or updateTool in update mode
  * POST { action: "skip", itemId, reason }         park one tool for the office
- * POST { action: "finish", message? } | { action: "fail", message }
+ * POST { action: "finish", runId, message? } | { action: "fail", runId, message }
  *
- * WRITES. The companion's batch tables, and — on "add" only — one new row and
- * photo on the Tools list, the same writes as the Tools page's "Add tool".
+ * WRITES. The companion's batch tables, and — on "add" only — one Tools-list
+ * row: a new tool and its photo (as the page's "Add tool"), or, in update
+ * mode, the fields Claude filled (as the page's Edit → Save).
  * Nothing here touches JobTread.
  */
 export const dynamic = "force-dynamic";
@@ -41,6 +45,11 @@ export async function GET(req: NextRequest) {
     if (!p) return NextResponse.json({ error: "No such photo." }, { status: 404 });
     return new NextResponse(new Uint8Array(p.bytes), { status: 200, headers: { "content-type": p.mime } });
   }
+  if (action === "toolphoto") {
+    const p = await readToolPhoto(req.nextUrl.searchParams.get("toolId") ?? "");
+    if (!p) return NextResponse.json({ error: "No Drive photo could be read for this tool." }, { status: 404 });
+    return new NextResponse(new Uint8Array(p.bytes), { status: 200, headers: { "content-type": p.mime } });
+  }
   return NextResponse.json({ error: "Unknown action." }, { status: 400 });
 }
 
@@ -54,12 +63,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
   switch (body.action) {
-    case "begin":
-      return NextResponse.json({ ok: true, ...(await beginRun(WHO)) });
+    case "begin": {
+      const ids = (Array.isArray(body.ids) ? body.ids : []).map((x) => text(x, 64)).filter(Boolean);
+      return NextResponse.json({ ok: true, ...(await beginRun(WHO, ids)) });
+    }
     case "add": {
       const fields = cleanFields(body.fields);
-      if (!fields) return NextResponse.json({ error: "fields.name is required." }, { status: 400 });
-      const r = await addTool(text(body.itemId, 64), fields, text(body.note, 1000));
+      if (!fields) return NextResponse.json({ error: "fields is empty." }, { status: 400 });
+      const r = await applyResult(text(body.itemId, 64), fields, text(body.note, 1000), WHO);
       return NextResponse.json(r, { status: r.ok ? 200 : 422 });
     }
     case "skip":
@@ -67,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     case "finish":
     case "fail": {
-      const returned = await endRun(body.action === "finish" ? "done" : "error", text(body.message), WHO);
+      const returned = await endRun(body.action === "finish" ? "done" : "error", text(body.message), WHO, text(body.runId, 64));
       return NextResponse.json({ ok: true, returned });
     }
     default:

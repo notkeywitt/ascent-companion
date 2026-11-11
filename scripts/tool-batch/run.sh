@@ -3,7 +3,7 @@
 #
 # Asks the app whether a batch analysis is due (the Analyze Tools Batch button,
 # or captures that have gone quiet for 30 minutes). If so, it runs the
-# /tool-batch skill once, headless, in Claude Code. One HTTP call when idle.
+# /tool-batch skill once, headless, in Claude Code on Sonnet. One HTTP call when idle.
 #
 #   run.sh         what launchd runs
 #   run.sh --now   run the skill now, whatever the app says
@@ -42,7 +42,7 @@ RUNLOG="$DIR/last-run.log"
 say "tool batch starting ($CLAUDE)"
 cd "$REPO" || exit 1
 "$CLAUDE" -p "/tool-batch" \
-  --model opus \
+  --model sonnet \
   --allowedTools \
     "Bash(node scripts/tool-batch/agent.mjs:*)" \
     "Read" "Glob" \

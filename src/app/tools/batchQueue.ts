@@ -12,7 +12,8 @@
  */
 
 export type BatchOp =
-  | { kind: "item"; id: string; toolId: string; idSource: "qr" | "assigned" }
+  | { kind: "item"; id: string; toolId: string; idSource: "qr" | "assigned"; mode?: "add" | "update"; location?: string }
+  | { kind: "location"; ids: string[]; location: string }
   | { kind: "photo"; itemId: string; id: string; role: "tool" | "serial" | "extra"; blob: Blob }
   | { kind: "done"; id: string }
   | { kind: "cancel"; id: string };
@@ -134,8 +135,10 @@ async function send(op: BatchOp): Promise<Outcome> {
     }
     const body =
       op.kind === "item"
-        ? { action: "item", id: op.id, toolId: op.toolId, idSource: op.idSource }
-        : { action: op.kind, id: op.id };
+        ? { action: "item", id: op.id, toolId: op.toolId, idSource: op.idSource, mode: op.mode ?? "add", location: op.location ?? "" }
+        : op.kind === "location"
+          ? { action: "location", ids: op.ids, location: op.location }
+          : { action: op.kind, id: op.id };
     const res = await fetch("/api/tools/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -3,6 +3,7 @@
 import jsQR from "jsqr";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { nearestSite, type Site } from "@/lib/nearestSite";
 import { assignedToolId, toolIdFromQr } from "@/lib/toolBatchRules";
 import { enqueue, newId, subscribeQueue, type QueueState } from "./batchQueue";
 
@@ -15,9 +16,15 @@ import { enqueue, newId, subscribeQueue, type QueueState } from "./batchQueue";
  *   No: back to Scan QR code.)
  *
  * "Skip" on the QR step assigns a `noqr-…` id; scan the sticker into the tool's
- * Edit dialog later. Every step goes to the upload queue (batchQueue.ts) and the
- * screen moves on at once. Claude Code on the office Mac fills the details in
- * later (lib/toolBatch.ts, skill /tool-batch).
+ * Edit dialog later. A QR already on the Tools list starts an UPDATE of that
+ * tool instead of a new one. Every step goes to the upload queue
+ * (batchQueue.ts) and the screen moves on at once. Claude Code fills the
+ * details in later (lib/toolBatch.ts, skill /tool-batch).
+ *
+ * Location: the phone's GPS is read once, in the background, when the batch
+ * opens. Each tool gets the nearest job site within MAX_SITE_KM (the Shop wins
+ * among the sites at the shop's address); farther than that, none. A tool
+ * started before the fix arrives gets the site when it does.
  *
  * This is a full-screen camera, not a dialog, so it does not use <Dialog>.
  */
@@ -38,8 +45,19 @@ const CAM_BTN = "rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-4
 
 const MAX_EDGE = 1600; // long edge of a saved photo, px
 const QR_EDGE = 640; // long edge of the frame the QR reader looks at, px
+const MAX_SITE_KM = 1; // farther from every job site than this = no location
 
-export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose: (added: number) => void }) {
+type Loc = { state: "finding" } | { state: "none"; why: string } | { state: "found"; id: string; label: string };
+
+export function BatchAdd({
+  knownIds,
+  sites,
+  onClose,
+}: {
+  knownIds: Set<string>;
+  sites: Site[];
+  onClose: (added: number) => void;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const qrCanvas = useRef<HTMLCanvasElement | null>(null);
   const shotCanvas = useRef<HTMLCanvasElement | null>(null);
@@ -48,6 +66,8 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
   const itemRef = useRef<{ id: string; toolId: string; photos: number } | null>(null);
   const seenRef = useRef<Set<string>>(new Set()); // ids saved in this batch
   const lastBadRef = useRef<{ text: string; at: number }>({ text: "", at: 0 });
+  const locRef = useRef<Loc>({ state: "finding" });
+  const noLocIds = useRef<string[]>([]); // tools started before the GPS fix
 
   const [step, setStepState] = useState<Step>("qr");
   const [camErr, setCamErr] = useState("");
@@ -57,6 +77,31 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
   const [added, setAdded] = useState(0);
   const [flash, setFlash] = useState(false);
   const [queue, setQueue] = useState<QueueState>({ pending: 0, problem: "" });
+  const [loc, setLocState] = useState<Loc>({ state: "finding" });
+  const [updating, setUpdating] = useState(false); // the current tool is already on the list
+
+  // ---- the job site, from one GPS fix ------------------------------------------
+  useEffect(() => {
+    const settle = (l: Loc) => {
+      locRef.current = l;
+      setLocState(l);
+      if (l.state === "found" && noLocIds.current.length) {
+        void enqueue({ kind: "location", ids: noLocIds.current, location: l.id });
+      }
+      noLocIds.current = [];
+    };
+    if (!navigator.geolocation) return settle({ state: "none", why: "this phone can't share location" });
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const hit = nearestSite(sites, { lat: pos.coords.latitude, lng: pos.coords.longitude }, MAX_SITE_KM);
+        settle(hit ? { state: "found", id: hit.site.id, label: hit.site.label } : { state: "none", why: "no job site within 1 km" });
+      },
+      () => settle({ state: "none", why: "location is off" }),
+      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 120_000 },
+    );
+    // One fix per batch; the sites list does not change while it is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const setStep = (s: Step) => {
     stepRef.current = s;
@@ -72,15 +117,18 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
 
   // ---- starting a tool ---------------------------------------------------------
   const startItem = useCallback(
-    (id: string, source: "qr" | "assigned") => {
+    (id: string, source: "qr" | "assigned", mode: "add" | "update" = "add") => {
       const itemId = newId();
       itemRef.current = { id: itemId, toolId: id, photos: 0 };
       seenRef.current.add(id.toLowerCase());
       setToolId(id);
+      setUpdating(mode === "update");
       setStep("tool");
       navigator.vibrate?.(40);
-      say(source === "qr" ? `${id} saved` : `No QR — assigned ${id}`);
-      void enqueue({ kind: "item", id: itemId, toolId: id, idSource: source });
+      say(mode === "update" ? `${id} is on the list — updating it` : source === "qr" ? `${id} saved` : `No QR — assigned ${id}`);
+      const l = locRef.current;
+      if (l.state === "finding") noLocIds.current.push(itemId);
+      void enqueue({ kind: "item", id: itemId, toolId: id, idSource: source, mode, location: l.state === "found" ? l.id : "" });
     },
     [say],
   );
@@ -91,7 +139,6 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
       const key = id.toLowerCase();
       let bad = "";
       if (!id) bad = "That QR code holds no tool id.";
-      else if (knownIds.has(key)) bad = `${id} is already on the Tools list.`;
       else if (seenRef.current.has(key)) bad = `${id} is already in this batch.`;
       if (bad) {
         // The same sticker stays in view: say so once, not every frame.
@@ -100,7 +147,7 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
         lastBadRef.current = { text, at: now };
         return;
       }
-      startItem(id, "qr");
+      startItem(id, "qr", knownIds.has(key) ? "update" : "add");
     },
     [knownIds, say, startItem],
   );
@@ -251,6 +298,9 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
           <div className="text-xs text-white/70">
             {queue.problem || (queue.pending ? `Uploading ${queue.pending}…` : "All uploaded")}
           </div>
+          <div className="text-xs text-white/70">
+            {loc.state === "finding" ? "Finding the job site…" : loc.state === "found" ? `At ${loc.label}` : `No location: ${loc.why}`}
+          </div>
         </div>
         <button type="button" onClick={close} className={CAM_BTN + " bg-white text-black"}>
           Done
@@ -268,7 +318,9 @@ export function BatchAdd({ knownIds, onClose }: { knownIds: Set<string>; onClose
 
       {/* Bottom: prompt + the step's controls */}
       <div className="relative bg-black/60 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3">
-        {toolId && step !== "qr" && <p className="text-center text-xs text-white/70">{toolId}</p>}
+        {toolId && step !== "qr" && (
+          <p className="text-center text-xs text-white/70">{updating ? `${toolId} · updating a listed tool` : toolId}</p>
+        )}
         <p className="text-center text-lg font-semibold">{PROMPT[step]}</p>
         <p className={`h-5 text-center text-sm ${msg?.tone === "bad" ? "text-red-300" : "text-green-300"}`}>{msg?.text ?? ""}</p>
 

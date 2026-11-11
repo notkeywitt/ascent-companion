@@ -105,10 +105,47 @@ export interface BatchToolFields {
 
 const FIELD_KEYS: (keyof BatchToolFields)[] = ["name", "type", "toolGroup", "serial", "accessories", "condition"];
 
-/** Trim, cap and fill a result Claude posted. A result with no name is refused. */
+/**
+ * Trim, cap and fill a result Claude posted. A result with nothing in it is
+ * refused. (A new tool also needs a name; `applyResult` checks that, since an
+ * update may fill only a serial.)
+ */
 export function cleanFields(raw: unknown): BatchToolFields | null {
   const r = (raw ?? {}) as Record<string, unknown>;
   const out = {} as BatchToolFields;
   for (const k of FIELD_KEYS) out[k] = String(r[k] ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
-  return out.name ? out : null;
+  return FIELD_KEYS.some((k) => out[k]) ? out : null;
+}
+
+/**
+ * Update mode: the fields to write. Only a value Claude filled in that differs
+ * from the list's (ignoring case and spacing) — a blank answer never clears one.
+ */
+export function mergeFields(current: Partial<BatchToolFields>, next: BatchToolFields): Partial<Record<keyof BatchToolFields, string>> {
+  const norm = (s: string | undefined) => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  const out: Partial<Record<keyof BatchToolFields, string>> = {};
+  for (const k of FIELD_KEYS) {
+    if (next[k] && norm(next[k]) !== norm(current[k])) out[k] = next[k];
+  }
+  return out;
+}
+
+/**
+ * The prompt the Tools page copies for a Claude Code session (phone or
+ * computer). The /tool-batch skill in the repo does the work; the prompt only
+ * says which tools. No ids = every tool waiting.
+ */
+export function batchPrompt(itemIds: string[], toolIds: string[] = []): string {
+  const which = itemIds.length
+    ? `Only these batch items: ${itemIds.join(" ")}` +
+      (toolIds.length ? `\n(tools ${toolIds.join(", ")})` : "")
+    : "All tools waiting in the batch.";
+  return [
+    "/tool-batch",
+    "",
+    which,
+    "",
+    "Read each tool's photos and fill in its details, as the skill says.",
+    itemIds.length ? `Start with: node scripts/tool-batch/agent.mjs begin ${itemIds.join(" ")}` : "Start with: node scripts/tool-batch/agent.mjs begin",
+  ].join("\n");
 }

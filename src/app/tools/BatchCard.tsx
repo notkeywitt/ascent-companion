@@ -2,21 +2,26 @@
 
 import { useCallback, useEffect, useState } from "react";
 
-import { Banner, Button, Card, MetaLine, SectionHeading } from "@/components/ui";
+import { Banner, Button, Card, Checkbox, MetaLine, SectionHeading, inputCls } from "@/components/ui";
+import { batchPrompt } from "@/lib/toolBatchRules";
 import { subscribeQueue } from "./batchQueue";
 
 /**
  * The Tools page's batch card: tools captured with Batch add that wait for
  * Claude Code on the office Mac, what it added lately, and what it could not
- * do. Office and admin also get "Analyze Tools Batch" and Retry / Discard.
+ * do. Office and admin also get "Analyze Tools Batch", Retry / Discard, and
+ * "Copy Claude prompt": pick waiting tools (or none = all), paste the prompt
+ * into any Claude Code session on this repo — the phone app included — and the
+ * /tool-batch skill does the rest.
  * Hidden when the batch is empty and nothing happened this week.
  */
 
 interface Summary {
   canAnalyze: boolean;
   counts: Record<string, number>;
-  problems: { id: string; toolId: string; error: string; updatedAt: string }[];
-  recentlyAdded: { id: string; toolId: string; name: string; updatedAt: string }[];
+  waiting: { id: string; toolId: string; mode: string; status: string; createdBy: string; createdAt: string; photos: number }[];
+  problems: { id: string; toolId: string; mode: string; error: string; updatedAt: string }[];
+  recentlyAdded: { id: string; toolId: string; mode: string; name: string; updatedAt: string }[];
   events: { kind: string; message: string; by: string; at: string }[];
   due: { due: boolean; reason: string; why: string };
 }
@@ -36,6 +41,9 @@ export function BatchCard({ reloadKey }: { reloadKey: number }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState("");
   const [err, setErr] = useState("");
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [copied, setCopied] = useState("");
+  const [promptText, setPromptText] = useState(""); // shown when the clipboard is blocked
 
   const load = useCallback(async () => {
     try {
@@ -96,8 +104,36 @@ export function BatchCard({ reloadKey }: { reloadKey: number }) {
   }
 
   async function act(action: "retry" | "discard", id: string) {
-    if (action === "discard" && !window.confirm("Discard this tool and its photos?")) return;
+    if (action === "discard" && !window.confirm("Remove this tool and its photos from the batch?")) return;
     if (await post("/api/tools/batch", { action, id })) void load();
+  }
+
+  async function copyPrompt() {
+    const ids = s ? s.waiting.filter((w) => sel.has(w.id)) : [];
+    const text = batchPrompt(
+      ids.map((w) => w.id),
+      ids.map((w) => w.toolId),
+    );
+    setPromptText("");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(
+        `Copied${ids.length ? ` for ${ids.length} tool${ids.length === 1 ? "" : "s"}` : " for every waiting tool"}. ` +
+          "Open the Claude app → Code, start a session on ascent-companion, and paste.",
+      );
+    } catch {
+      setCopied("");
+      setPromptText(text);
+    }
+  }
+
+  function toggle(id: string) {
+    setSel((p) => {
+      const n = new Set(p);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
   }
 
   const last = s.events[0];
@@ -127,8 +163,54 @@ export function BatchCard({ reloadKey }: { reloadKey: number }) {
           <Button size="sm" onClick={analyze} disabled={busy || !waiting}>
             Analyze Tools Batch
           </Button>
+          <Button size="sm" variant="secondary" onClick={copyPrompt} disabled={!s.waiting.some((w) => w.status === "ready")}>
+            {sel.size ? `Copy Claude prompt (${sel.size})` : "Copy Claude prompt"}
+          </Button>
           {note && <span className="text-xs text-ok">{note}</span>}
         </div>
+      )}
+      {copied && <p className="mt-2 text-xs text-ok">{copied}</p>}
+      {promptText && (
+        <div className="mt-2">
+          <p className="mb-1 text-xs text-neutral-500">Copying is blocked here. Select this text and copy it:</p>
+          <textarea readOnly value={promptText} rows={6} className={inputCls + " font-mono text-xs"} onFocus={(e) => e.target.select()} />
+        </div>
+      )}
+
+      {s.waiting.length > 0 && (
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer text-xs text-neutral-500">
+            Waiting ({s.waiting.length}){s.canAnalyze ? " — tick tools for the prompt, or none for all" : ""}
+          </summary>
+          <div className="mt-1 divide-y divide-line-soft">
+            {s.waiting.map((w) => {
+              const row = (
+                <span className="min-w-0">
+                  <span className="font-medium">{w.toolId}</span>
+                  <span className="text-xs text-neutral-500">
+                    {" "}
+                    · {w.mode === "update" ? "update" : "new"} · {w.photos} photo{w.photos === 1 ? "" : "s"}
+                    {w.status === "capturing" ? " · still capturing" : ""} · {when(w.createdAt)}
+                  </span>
+                </span>
+              );
+              return (
+                <div key={w.id} className="flex min-h-11 items-center gap-2 py-1.5">
+                  {s.canAnalyze && w.status === "ready" ? (
+                    <Checkbox label={row} checked={sel.has(w.id)} onChange={() => toggle(w.id)} />
+                  ) : (
+                    row
+                  )}
+                  {s.canAnalyze && (
+                    <Button size="xs" variant="secondary" className="ml-auto" disabled={busy || w.status !== "ready"} onClick={() => act("discard", w.id)}>
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </details>
       )}
       {err && (
         <Banner tone="error" className="mt-3">
@@ -162,12 +244,12 @@ export function BatchCard({ reloadKey }: { reloadKey: number }) {
       {s.recentlyAdded.length > 0 && (
         <details className="mt-3 text-sm">
           <summary className="cursor-pointer text-xs text-neutral-500">
-            Added from batches this week ({s.recentlyAdded.length})
+            Done from batches this week ({s.recentlyAdded.length})
           </summary>
           <div className="mt-1 divide-y divide-line-soft">
             {s.recentlyAdded.map((a) => (
               <div key={a.id} className="py-1.5">
-                <span className="font-medium">{a.toolId}</span> · {a.name || "—"}
+                <span className="font-medium">{a.toolId}</span> · {a.mode === "update" ? "updated" : "added"} · {a.name || "—"}
               </div>
             ))}
           </div>

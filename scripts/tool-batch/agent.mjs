@@ -3,20 +3,24 @@
  * Talks to /api/invoice-review/agent/tools for the /tool-batch skill.
  *
  *   node scripts/tool-batch/agent.mjs due
- *   node scripts/tool-batch/agent.mjs begin
+ *   node scripts/tool-batch/agent.mjs begin [itemId …]
  *   node scripts/tool-batch/agent.mjs submit .tool-batch/results.json
  *   node scripts/tool-batch/agent.mjs finish "message"
  *   node scripts/tool-batch/agent.mjs fail "reason"
  *
- * `begin` hands every waiting tool to this run. It empties .tool-batch/, saves
- * the run to .tool-batch/run.json, downloads each photo to
- * .tool-batch/<toolId>/<n>-<role>.jpg and prints what to read.
+ * `begin` hands every waiting tool (or only the item ids given) to this run.
+ * It empties .tool-batch/, saves the run to .tool-batch/run.json, downloads
+ * each photo to .tool-batch/<toolId>/<n>-<role>.jpg (an update tool's current
+ * Drive photo is 0-current.jpg) and prints what to read. `finish` and `fail`
+ * close this run only, by the runId in run.json.
  * `submit` posts each result in the file, one tool at a time (each one is two
  * Apps Script writes), and prints how each went.
  *
- * The token is the monthly check's: ~/.ascent-monthly-check/token (run
- * scripts/tool-batch/install.sh). It is read here so it never appears on a
- * command line or in a transcript. TOOL_BATCH_URL overrides the app's address.
+ * The token: env REVIEW_AGENT_TOKEN (a Claude Code cloud session — set it as an
+ * environment secret), else the monthly check's ~/.ascent-monthly-check/token
+ * (the office Mac — run scripts/tool-batch/install.sh). It is read here so it
+ * never appears on a command line or in a transcript. TOOL_BATCH_URL overrides
+ * the app's address.
  */
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import http from "node:http";
@@ -32,10 +36,15 @@ const ROUTE = "/api/invoice-review/agent/tools";
 const TOKEN_FILE = path.join(os.homedir(), ".ascent-monthly-check", "token");
 
 function token() {
+  const env = (process.env.REVIEW_AGENT_TOKEN || "").trim();
+  if (env) return env;
   try {
     return readFileSync(TOKEN_FILE, "utf8").trim();
   } catch {
-    console.error(`No token at ${TOKEN_FILE}. Run scripts/tool-batch/install.sh first.`);
+    console.error(
+      `No token. In a Claude Code cloud session, add REVIEW_AGENT_TOKEN as an environment secret and start a new session. ` +
+        `On the office Mac, run scripts/tool-batch/install.sh (it reads ${TOKEN_FILE}).`,
+    );
     process.exit(3);
   }
 }
@@ -83,8 +92,19 @@ function call(method, query, body, raw = false) {
 
 const safe = (s) => String(s).replace(/[^A-Za-z0-9._-]/g, "_");
 
-async function begin() {
-  const r = await call("POST", "", { action: "begin" });
+const fieldLine = (c) =>
+  `name="${c.name}" type="${c.type}" toolGroup="${c.toolGroup}" serial="${c.serial}" accessories="${c.accessories}" condition="${c.condition}" location="${c.location}"`;
+
+function runId() {
+  try {
+    return JSON.parse(readFileSync(path.join(OUT_DIR, "run.json"), "utf8")).runId || "";
+  } catch {
+    return "";
+  }
+}
+
+async function begin(ids) {
+  const r = await call("POST", "", { action: "begin", ids });
   rmSync(OUT_DIR, { recursive: true, force: true });
   mkdirSync(OUT_DIR, { recursive: true });
   writeFileSync(path.join(OUT_DIR, "run.json"), JSON.stringify(r, null, 2));
@@ -92,8 +112,22 @@ async function begin() {
   for (const item of r.items) {
     const dir = path.join(OUT_DIR, safe(item.toolId));
     mkdirSync(dir, { recursive: true });
-    lines.push(`## itemId ${item.id} — toolId ${item.toolId}${item.idSource === "assigned" ? " (no QR; assigned id)" : ""} — by ${item.createdBy || "?"}, ${item.createdAt.slice(0, 16)}`);
-    if (!item.photos.length) lines.push("  (no photos)");
+    const mode = item.mode === "update" ? "UPDATE an existing tool" : "ADD a new tool";
+    lines.push(`## itemId ${item.id} — toolId ${item.toolId} — ${mode}${item.idSource === "assigned" ? " (no QR; assigned id)" : ""} — by ${item.createdBy || "?"}, ${item.createdAt.slice(0, 16)}`);
+    if (item.location) lines.push(`  GPS job site: ${item.location} (the app sets it; do not write a location)`);
+    if (item.mode === "update") {
+      lines.push(item.current ? `  now on the list: ${fieldLine(item.current)}` : "  (not found on the Tools list)");
+      if (item.current?.hasDrivePhoto) {
+        const file = path.join(dir, "0-current.jpg");
+        try {
+          writeFileSync(file, await call("GET", `action=toolphoto&toolId=${encodeURIComponent(item.toolId)}`, undefined, true));
+          lines.push(`  current Drive photo: ${path.relative(ROOT, file)}`);
+        } catch (e) {
+          lines.push(`  current Drive photo: could not be read — ${e instanceof Error ? e.message : e}`);
+        }
+      }
+    }
+    if (!item.photos.length) lines.push("  (no new photos)");
     let n = 0;
     for (const p of item.photos) {
       const file = path.join(dir, `${++n}-${p.role}.jpg`);
@@ -108,6 +142,7 @@ async function begin() {
   const c = r.catalog;
   lines.push(
     "",
+    `runId: ${r.runId}`,
     `Types in use (${c.types.length}): ${c.types.join(" | ") || "none"}`,
     `Tool groups in use (${c.toolGroups.length}): ${c.toolGroups.join(" | ") || "none"}`,
     `Conditions in use: ${c.conditions.join(" | ") || "none"}`,
@@ -132,7 +167,7 @@ async function submit(file) {
     const out = await call("POST", "", { action: "add", itemId: r.itemId, fields: r.fields, note: r.note ?? "" });
     if (out.ok) {
       added++;
-      console.log(`- ${r.itemId}: added as ${out.toolId}${out.warn ? ` (${out.warn})` : ""}`);
+      console.log(`- ${r.itemId}: ${out.toolId} written (${(out.changed || []).join(", ") || "no field changed"})${out.warn ? ` — ${out.warn}` : ""}`);
     } else {
       parked++;
       console.log(`- ${r.itemId}: NOT added — ${out.error}`);
@@ -148,15 +183,15 @@ async function main() {
       console.log(JSON.stringify(await call("GET", "action=due")));
       return;
     case "begin":
-      return begin();
+      return begin(process.argv.slice(3));
     case "submit":
       return submit(a);
     case "finish":
     case "fail":
-      console.log(JSON.stringify(await call("POST", "", { action: cmd, message: a ?? "" })));
+      console.log(JSON.stringify(await call("POST", "", { action: cmd, runId: runId(), message: a ?? "" })));
       return;
     default:
-      console.error("usage: agent.mjs due | begin | submit FILE.json | finish [message] | fail reason");
+      console.error("usage: agent.mjs due | begin [itemId …] | submit FILE.json | finish [message] | fail reason");
       process.exit(2);
   }
 }

@@ -393,6 +393,27 @@ export const HELP: HelpSection[] = [
           "Claude fills in the name, type and serial later, on the office Mac.",
           "The office taps **Analyze Tools Batch** to start that at once. Otherwise it starts 30 minutes after the last capture.",
           "A skipped QR gets an ID that starts with noqr-. Scan the sticker into the tool's **Edit** later.",
+          "Scan a tool that is already on the list to update it. Claude fills in only what is missing or wrong.",
+          "Each tool gets the nearest job site from your phone's location. Farther than 1 km from every site, it gets none.",
+        ],
+      },
+      {
+        id: "tools-ask-claude",
+        q: "How do I get Claude to fill in tools that are already on the list?",
+        view: "tools",
+        href: "/tools",
+        keywords: ["update", "fill in", "missing serial", "claude", "photo", "prompt", "copy prompt"],
+        steps: [
+          "Open **Tools** and tap **Ask Claude to update…** above the list.",
+          "Tap the tools that need details, then tap **Ask Claude**.",
+          "Wait for the office Mac, or tap **Copy Claude prompt** on the **Batch add** card.",
+          "Paste the prompt into a new Claude Code session on ascent-companion.",
+        ],
+        notes: [
+          "One tool at a time: open its **Edit** and tap **Ask Claude**.",
+          "Claude reads the tool's photo and fills in only what is missing or better.",
+          "**Copy Claude prompt** is for the office and admins.",
+          "In the Claude app the session needs the REVIEW_AGENT_TOKEN secret, and must allow ascent-companion.vercel.app.",
         ],
       },
       {

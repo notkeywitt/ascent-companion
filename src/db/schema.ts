@@ -2013,6 +2013,8 @@ export const toolTrailerItems = sqliteTable("tool_trailer_items", {
  *                    upload never makes a second row. `tool_id` is the QR value,
  *                    or an assigned `noqr-xxxxx` when the scan was skipped.
  *                    status: capturing → ready → analyzing → added | error.
+ *                    mode "update" fills in a tool already on the list (a known
+ *                    QR scanned in Batch add, or "Ask Claude" in Edit).
  *                    `result` is the JSON Claude filled in.
  * tool_batch_photos  the photos. role: tool | serial | extra. Kept 30 days after
  *                    the tool is added (the tool photo also goes to Drive).
@@ -2022,7 +2024,11 @@ export const toolTrailerItems = sqliteTable("tool_trailer_items", {
 export const toolBatchItems = sqliteTable("tool_batch_items", {
   id: text("id").primaryKey(),
   toolId: text("tool_id").notNull(),
-  idSource: text("id_source").notNull().default("qr"), // qr | assigned
+  idSource: text("id_source").notNull().default("qr"), // qr | assigned | existing
+  // add = a new tool for the Tools list; update = fill in a tool already on it.
+  mode: text("mode").notNull().default("add"),
+  location: text("location").notNull().default(""), // nearest job site (Project id) from the phone's GPS
+  runId: text("run_id").notNull().default(""), // the analysis run that holds it
   status: text("status").notNull().default("capturing"),
   result: text("result").notNull().default(""),
   error: text("error").notNull().default(""),

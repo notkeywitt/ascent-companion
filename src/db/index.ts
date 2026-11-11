@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1752-1ewoo7b";
+export const SCHEMA_FINGERPRINT = "17fw-oudevg";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1568,6 +1568,18 @@ async function applySchema() {
     )`,
   ]) {
     await getClient().execute(ddl);
+  }
+  // Batch add, 2026-11-11: update mode, the GPS job site, and the run that holds a tool.
+  for (const col of [
+    "mode TEXT NOT NULL DEFAULT 'add'",
+    "location TEXT NOT NULL DEFAULT ''",
+    "run_id TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(`ALTER TABLE tool_batch_items ADD COLUMN ${col}`);
+    } catch {
+      /* column already exists */
+    }
   }
   // A booking names a specific Tools-list tool ("tool:<id>") or a tool type
   // ("type:<key>"); "" on rows made before 2026-11-10 means "use kind_id".
