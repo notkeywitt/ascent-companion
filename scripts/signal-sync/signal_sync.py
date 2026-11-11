@@ -207,7 +207,8 @@ def new_messages(db, by_conv, by_sid, me, rules):
 
 # --- talking to the Companion -----------------------------------------------
 
-def post(url, secret, payload):
+def post(url, secret, payload, quiet=False):
+    """quiet: the one-minute poll. No internet logs nothing; a refusal logs once per change."""
     body = json.dumps(payload).encode()
     req = urllib.request.Request(url, data=body, method="POST", headers={
         "Content-Type": "application/json", "Authorization": f"Bearer {secret}"})
@@ -215,11 +216,23 @@ def post(url, secret, payload):
         with urllib.request.urlopen(req, timeout=60) as r:
             return json.loads(r.read() or b"{}")
     except urllib.error.HTTPError as e:
-        log(f"import refused: HTTP {e.code} {e.read()[:200]!r}. Nothing more sent this run.")
+        msg = f"import refused: HTTP {e.code} {e.read()[:200]!r}. Nothing more sent this run."
+        if not quiet or _new_poll_error(msg):
+            log(msg)
         sys.exit(1)
     except urllib.error.URLError as e:
-        log(f"import unreachable: {e.reason}. Nothing more sent this run.")
+        if not quiet:
+            log(f"import unreachable: {e.reason}. Nothing more sent this run.")
         sys.exit(1)
+
+
+def _new_poll_error(msg):
+    """True the first time the poll sees this error, so a 401 logs once, not every minute."""
+    f = STATE_DIR / "last-poll-error"
+    if f.exists() and f.read_text() == msg:
+        return False
+    f.write_text(msg)
+    return True
 
 
 def archive(batch):
@@ -297,7 +310,8 @@ def main():
         if not secret_file.exists():
             return
         secret = secret_file.read_text().strip()
-        asked = post(url, secret, {"poll": True}).get("requestedAt") or ""
+        asked = post(url, secret, {"poll": True}, quiet=True).get("requestedAt") or ""
+        (STATE_DIR / "last-poll-error").unlink(missing_ok=True)
         handled_file = STATE_DIR / "last-request"
         handled = handled_file.read_text().strip() if handled_file.exists() else ""
         if not asked or asked <= handled:
