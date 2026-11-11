@@ -1262,8 +1262,10 @@ function LeadDetail({
         return;
       }
       const changed =
-        draft.nextAction.trim() !== t.nextAction || draft.nextActionDate !== t.nextActionDate;
-      if (changed && (draft.nextAction.trim() || draft.nextActionDate)) {
+        draft.nextAction.trim() !== t.nextAction ||
+        draft.nextActionDate !== t.nextActionDate ||
+        draft.notes.trim() !== (t.notes ?? "").trim();
+      if (changed && (draft.nextAction.trim() || draft.nextActionDate || draft.notes.trim())) {
         const note = `${draft.nextAction.trim() || "(no action)"}${draft.nextActionDate ? ` — by ${fmtDate(draft.nextActionDate)}` : ""}${draft.notes.trim() ? `\n${draft.notes.trim()}` : ""}`;
         await fetch("/api/leads/activities", {
           method: "POST",
