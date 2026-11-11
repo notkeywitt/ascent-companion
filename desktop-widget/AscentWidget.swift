@@ -81,6 +81,13 @@ final class Controller: NSObject, NSApplicationDelegate, WKNavigationDelegate, W
         }
     }
 
+    // ascentwidget://show — Home's "Open desktop widget" button. A closed app
+    // starts and shows itself anyway; an open one comes back if it was hidden.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        window.orderFront(nil)
+        if web.url?.path != "/widget" { load() }
+    }
+
     func load() { web.load(URLRequest(url: widgetURL)) }
 
     var keepOnTop: Bool {

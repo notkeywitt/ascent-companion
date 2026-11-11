@@ -39,9 +39,12 @@ export function WidgetView() {
   return (
     <div
       ref={root}
-      className="fixed inset-0 z-[1000] overflow-y-auto px-3 pb-6 pt-3"
+      className="no-scrollbar fixed inset-0 z-[1000] overflow-y-auto px-3 pb-6 pt-3"
       style={{ background: "rgb(var(--page))", color: "rgb(var(--page-fg))" }}
     >
+      {/* No scroll bars, on the page behind the cover too. The panel still
+          scrolls by trackpad or wheel. */}
+      <style>{`html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}`}</style>
       <HomeMasthead />
       <TodayQueue />
       <HomeJobBoard />

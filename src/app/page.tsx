@@ -12,6 +12,7 @@ import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead } from "@/components/HomeMasthead";
 import { HomeActions } from "@/components/HomeActions";
+import { HomeWidgetButton } from "@/components/HomeWidgetButton";
 import { TodayQueue } from "@/components/TodayQueue";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { JobsHub } from "@/app/jobs-hub/JobsHub";
@@ -82,6 +83,7 @@ function Home() {
         <div className="w-full px-4 pt-3 pad:px-7 pad:pt-5">
           <HomeMasthead notices={notices} />
           <HomeActions />
+          <HomeWidgetButton />
         </div>
         <JobsHub />
       </>
@@ -102,6 +104,7 @@ function Home() {
           checks first). Hidden on a desktop. Self-hiding: each button rides its own view, and the
           deposit view is admin-only by default. */}
       <HomeActions />
+      <HomeWidgetButton />
 
       {/* What needs this person — one row per queue, each with its count. */}
       <TodayQueue />

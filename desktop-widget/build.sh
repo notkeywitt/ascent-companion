@@ -26,6 +26,10 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
   <key>LSUIElement</key><true/>
+  <key>CFBundleURLTypes</key><array><dict>
+    <key>CFBundleURLName</key><string>Ascent Widget</string>
+    <key>CFBundleURLSchemes</key><array><string>ascentwidget</string></array>
+  </dict></array>
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST

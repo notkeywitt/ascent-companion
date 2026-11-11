@@ -9,6 +9,8 @@ the billing month, the queue counts, the job board and the Office to-dos.
 - It reloads every 5 minutes.
 - A tap on a link opens that page in the default browser. The panel stays on
   the widget.
+- Home has an **Open desktop widget** button (desktop only). It starts the
+  panel or brings it forward. It needs the app installed on that Mac.
 - Drag it by any empty spot. Resize from an edge. It remembers both.
 
 ## Install
