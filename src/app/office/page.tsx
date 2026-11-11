@@ -61,10 +61,7 @@ export default async function OfficePage({
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader
-        title="Office Dashboard"
-        description="The Office job's bills and files. Its to-dos are on Home."
-      />
+      <PageHeader title="Office Dashboard" />
 
       {!hasGrant() ? (
         <Banner tone="error">JT_GRANT_KEY is not set. Add it to .env.local and restart.</Banner>
