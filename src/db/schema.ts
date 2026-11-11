@@ -2003,3 +2003,57 @@ export const toolTrailerItems = sqliteTable("tool_trailer_items", {
   updatedBy: text("updated_by").notNull().default(""),
   updatedAt: text("updated_at").notNull(),
 });
+
+/**
+ * STAGE 7 — the Tools list, moving off the Project Database "Tools" tab
+ * (ARCHITECTURE_REVIEW.md finding 1, docs/plans/STAGE7_TOOLS_MILEAGE.md).
+ *
+ * One row per tool, keyed by the sheet's ToolId. The columns are the fields
+ * Apps Script's tool object carries; `locationLabel` and `photoUrl` are derived
+ * (from the Projects tab and from `photoLink`), so they are not stored. Until
+ * reads flip, NOTHING reads this table: the sheet is still the record, and
+ * `lib/sheetTables.ts` copies each write here only when
+ * COMPANION_TOOLS_DB_WRITES is "true".
+ */
+export const tools = sqliteTable("tools", {
+  id: text("id").primaryKey(), // ToolId
+  name: text("name").notNull().default(""),
+  type: text("type").notNull().default(""),
+  condition: text("condition").notNull().default(""),
+  toolGroup: text("tool_group").notNull().default(""),
+  serial: text("serial").notNull().default(""),
+  accessories: text("accessories").notNull().default(""),
+  location: text("location").notNull().default(""), // ProjectID
+  lastscan: text("lastscan").notNull().default(""), // as the sheet shows it
+  lastScanEmail: text("last_scan_email").notNull().default(""),
+  photoLink: text("photo_link").notNull().default(""), // Drive share URL
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+/**
+ * STAGE 7 — logged mileage trips, moving off the "Mileage" tab. Same status as
+ * `tools` above: written only when COMPANION_MILEAGE_DB_WRITES is "true", read
+ * by nothing yet.
+ *
+ * Key = TripID + Client Key, because TripID is a to-the-second timestamp and
+ * two drivers can share one. `row` is the whole sheet row as JSON ({header:
+ * value}, exactly what `listMileage` answers), so a read can return the shape
+ * the page already takes. The named columns are only what a read filters on.
+ * ponytail: a keyless legacy row that shares its TripID with another keyless
+ * row collapses into one here; split the columns out if a report ever needs SQL
+ * over the rest.
+ */
+export const mileageTrips = sqliteTable(
+  "mileage_trips",
+  {
+    tripId: text("trip_id").notNull(),
+    clientKey: text("client_key").notNull().default(""),
+    date: text("date").notNull().default(""), // YYYY-MM-DD
+    driver: text("driver").notNull().default(""),
+    loggedBy: text("logged_by").notNull().default(""), // lowercased email
+    miles: real("miles").notNull().default(0),
+    row: text("row").notNull().default("{}"),
+    updatedAt: text("updated_at").notNull().default(""),
+  },
+  (t) => [primaryKey({ columns: [t.tripId, t.clientKey] })],
+);

@@ -1,6 +1,7 @@
 import { revalidateTag } from "next/cache";
 
 import { callAppsScript } from "@/lib/appsScript";
+import { mirrorToolWrite } from "@/lib/sheetTables";
 import { trailerLoads } from "@/lib/toolScheduleStore";
 
 /**
@@ -32,7 +33,10 @@ export async function moveLoadWith(trailerId: string, projectId: string, email: 
   for (const toolId of ids) {
     const r = await callAppsScript({ action: "updateToolLocation", toolId, projectId, lastScanEmail: email }, { timeoutMs: 20_000 });
     if (r.error) failed.push(toolId);
-    else moved++;
+    else {
+      moved++;
+      await mirrorToolWrite(r.data); // Stage 7 copy; off by default
+    }
   }
   if (moved) revalidateTag("tools");
   return { moved, failed };

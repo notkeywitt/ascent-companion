@@ -3,6 +3,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import { callAppsScript, callAppsScriptOrThrow } from "@/lib/appsScript";
+import { mirrorToolWrite } from "@/lib/sheetTables";
 import { moveLoadWith } from "@/lib/toolTrailers";
 
 // Stay just under this route's maxDuration (60s) so a stall returns a readable
@@ -92,6 +93,7 @@ export async function PATCH(req: NextRequest) {
   const result = await callAppsScript({ ...body, action: "updateTool" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   revalidateTag(TOOLS_TAG); // the edit must show on the next bootstrap, not after the TTL
+  await mirrorToolWrite(result.data, String(body.toolId ?? "").trim()); // Stage 7 copy; off by default
   // A trailer whose Location changed takes its load with it (lib/toolTrailers.ts).
   const fields = (body.fields ?? {}) as Record<string, unknown>;
   if (typeof fields.location === "string" && fields.location) {
@@ -113,6 +115,7 @@ export async function POST(req: NextRequest) {
   const result = await callAppsScript({ ...body, action: "updateToolPhoto" }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   revalidateTag(TOOLS_TAG);
+  await mirrorToolWrite(result.data);
   return NextResponse.json(result.data, { status: 200 });
 }
 
@@ -131,6 +134,7 @@ export async function PUT(req: NextRequest) {
   const result = await callAppsScript({ ...body, action: "createTool", lastScanEmail }, TIMEOUT);
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   revalidateTag(TOOLS_TAG);
+  await mirrorToolWrite(result.data);
   return NextResponse.json(result.data, { status: 200 });
 }
 
@@ -150,5 +154,6 @@ export async function DELETE(req: NextRequest) {
   );
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
   revalidateTag(TOOLS_TAG);
+  await mirrorToolWrite(result.data, String(body.toolId ?? "").trim());
   return NextResponse.json(result.data, { status: 200 });
 }

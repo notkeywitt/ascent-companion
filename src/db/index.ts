@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "15ex-13spvnj";
+export const SCHEMA_FINGERPRINT = "169h-1g3l96n";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1511,6 +1511,33 @@ async function applySchema() {
       trailer_id TEXT NOT NULL,
       updated_by TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL
+    )`,
+    // Stage 7 (docs/plans/STAGE7_TOOLS_MILEAGE.md): the Tools and Mileage tabs,
+    // copied here behind COMPANION_TOOLS_DB_WRITES / COMPANION_MILEAGE_DB_WRITES.
+    `CREATE TABLE IF NOT EXISTS tools (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL DEFAULT '',
+      type TEXT NOT NULL DEFAULT '',
+      condition TEXT NOT NULL DEFAULT '',
+      tool_group TEXT NOT NULL DEFAULT '',
+      serial TEXT NOT NULL DEFAULT '',
+      accessories TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      lastscan TEXT NOT NULL DEFAULT '',
+      last_scan_email TEXT NOT NULL DEFAULT '',
+      photo_link TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )`,
+    `CREATE TABLE IF NOT EXISTS mileage_trips (
+      trip_id TEXT NOT NULL,
+      client_key TEXT NOT NULL DEFAULT '',
+      date TEXT NOT NULL DEFAULT '',
+      driver TEXT NOT NULL DEFAULT '',
+      logged_by TEXT NOT NULL DEFAULT '',
+      miles REAL NOT NULL DEFAULT 0,
+      row TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY (trip_id, client_key)
     )`,
   ]) {
     await getClient().execute(ddl);

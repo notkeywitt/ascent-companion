@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
 import { reverseGeocode } from "@/lib/mileageRoute";
 import { readJtUserLink } from "@/lib/jtUserLink";
+import { mileageDbWrites, mirrorMileageWrite } from "@/lib/sheetTables";
 import { scopeMileageList, seesAllMileage, type MileageList } from "@/lib/mileageScope";
 
 // Proxy to the Apps Script web app's mileage actions. The one-tap flow captures
@@ -124,6 +125,13 @@ function manualRoute(body: Record<string, unknown>) {
   return { startAddress: from, endAddress: to };
 }
 
+// Stage 7 copy, off by default (lib/sheetTables.ts). After the reply, because
+// it re-reads the sheet: `logMileage` does not answer with the row it wrote.
+function copyToDb(data: unknown, requesterEmail: string) {
+  if (!mileageDbWrites() || (data as { ok?: boolean } | null)?.ok === false) return;
+  after(() => mirrorMileageWrite(requesterEmail));
+}
+
 export async function GET(req: NextRequest) {
   // The requester's identity is taken from the session server-side; the client
   // cannot spoof it. Apps Script scopes by its own admin email list; the
@@ -186,6 +194,7 @@ export async function PATCH(req: NextRequest) {
     fields,
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  copyToDb(result.data, requesterEmail);
   return NextResponse.json(result.data, { status: 200 });
 }
 
@@ -221,6 +230,7 @@ export async function POST(req: NextRequest) {
       clientKey: String(body.clientKey ?? ""),
     });
     if (manual.error) return NextResponse.json({ error: manual.error }, { status: manual.status });
+    copyToDb(manual.data, loggedBy);
     return NextResponse.json(manual.data, { status: 200 });
   }
 
@@ -275,6 +285,7 @@ export async function POST(req: NextRequest) {
     clientKey: String(body.clientKey ?? ""),
   });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  copyToDb(result.data, loggedBy);
 
   // Merge the computed address/miles/stops + any warning into the reply so the
   // summary screen can show them (and its map) without a second round-trip.

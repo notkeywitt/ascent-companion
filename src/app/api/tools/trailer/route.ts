@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
+import { mirrorToolWrite } from "@/lib/sheetTables";
 import { isTrailerType } from "@/lib/toolSchedule";
 import { getSheetTools, setToolTrailer, trailerLoads } from "@/lib/toolScheduleStore";
 
@@ -51,7 +52,10 @@ export async function PUT(req: NextRequest) {
     if (trailer.location) {
       const r = await callAppsScript({ action: "updateToolLocation", toolId, projectId: trailer.location, lastScanEmail: email }, { timeoutMs: 30_000 });
       moved = !r.error;
-      if (moved) revalidateTag("tools");
+      if (moved) {
+        revalidateTag("tools");
+        await mirrorToolWrite(r.data); // Stage 7 copy; off by default
+      }
     }
     return NextResponse.json({ ok: true, moved });
   } catch (e) {

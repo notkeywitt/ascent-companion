@@ -409,3 +409,7 @@ once and eyeball the range → commit.
   (the only user-visible moment)** → delete the old path after a clean week. **Each
   needs the DB→Sheet mirror** (finding 1). Drive/Docs dependencies — safety roster PDF,
   mileage report PDF, tool and time photos — stay on Apps Script as narrow calls.
+  **Tools and Mileage: phases 1–3 built 2026-11-10, both flags off** (table, backfill,
+  dual-write, sheet-against-table check). Reads are not flipped. The mirror needs no
+  Apps Script change: after the flip the existing write actions keep the tab current.
+  Steps and the read-flip plan: `docs/plans/STAGE7_TOOLS_MILEAGE.md`.

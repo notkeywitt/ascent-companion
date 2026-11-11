@@ -3,6 +3,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
+import { mirrorToolWrite } from "@/lib/sheetTables";
 import { moveLoadWith } from "@/lib/toolTrailers";
 
 // Proxy to the Apps Script web app's tool-tracker actions. Apps Script holds the
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
   // A scan moves a tool, so drop /api/tools' shared cache entry — otherwise the
   // relocation would not show on the next page load until that TTL expired.
   revalidateTag("tools");
+  await mirrorToolWrite(result.data); // Stage 7 copy; off by default
   // A scanned trailer takes its load with it. After the reply, so the scan is not kept waiting.
   const toolId = String(body.toolId ?? "");
   const projectId = String(body.projectId ?? "");
