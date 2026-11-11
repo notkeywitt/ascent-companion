@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/brave-gates-kl5pbc
 status: shipped
 started: 2026-11-11T06:08:40Z
-updated: 2026-11-11T14:41:03Z
+updated: 2026-11-11T14:41:10Z
 goal: 
 next: Add REVIEW_AGENT_TOKEN as an environment secret and allow ascent-companion.vercel.app in the cloud environment, then test Copy Claude prompt from a phone session; install scripts/tool-batch on the office Mac.
 ---
