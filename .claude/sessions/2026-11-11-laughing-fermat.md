@@ -4,7 +4,7 @@ repo: ascent-companion
 branch: claude/laughing-fermat-jmggha
 status: shipped
 started: 2026-11-11T19:58:08Z
-updated: 2026-11-11T20:19:54Z
+updated: 2026-11-11T20:23:42Z
 goal: 
 next: Owner approves the connect-to-existing-customer write, then ship to main (npm run ship)
 ---

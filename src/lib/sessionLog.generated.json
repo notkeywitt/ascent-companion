@@ -1,7 +1,33 @@
 {
-  "generatedAt": "2026-11-11T20:23:41Z",
+  "generatedAt": "2026-11-11T20:23:42Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "laughing-fermat",
+      "file": "2026-11-11-laughing-fermat.md",
+      "branch": "claude/laughing-fermat-jmggha",
+      "status": "shipped",
+      "started": "2026-11-11T19:58:08Z",
+      "updated": "2026-11-11T20:23:42Z",
+      "goal": "",
+      "next": "Owner approves the connect-to-existing-customer write, then ship to main (npm run ship)",
+      "commits": [
+        {
+          "date": "2026-11-11",
+          "time": "20:06",
+          "sha": "de32a64",
+          "subject": "companion: leads push asks for an existing customer, add not converted, buttons to card bottom",
+          "files": "CODEBASE_MAP.md, src/app/api/leads/customers/route.ts, src/app/api/leads/push/route.ts, src/app/api/leads/route.ts, src/app/leads/LeadsBoard.tsx, src/db/schema.ts, +1 more"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "20:06",
+          "sha": "c2e6588",
+          "subject": "companion: session ledger for leads push work",
+          "files": ""
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
@@ -1789,32 +1815,6 @@
           "sha": "77c8a2f",
           "subject": "companion: add Ascent Details card to the Office Dashboard",
           "files": "src/app/office/page.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "laughing-fermat",
-      "file": "2026-11-11-laughing-fermat.md",
-      "branch": "claude/laughing-fermat-jmggha",
-      "status": "shipped",
-      "started": "2026-11-11T19:58:08Z",
-      "updated": "2026-11-11T20:19:54Z",
-      "goal": "",
-      "next": "Owner approves the connect-to-existing-customer write, then ship to main (npm run ship)",
-      "commits": [
-        {
-          "date": "2026-11-11",
-          "time": "20:06",
-          "sha": "de32a64",
-          "subject": "companion: leads push asks for an existing customer, add not converted, buttons to card bottom",
-          "files": "CODEBASE_MAP.md, src/app/api/leads/customers/route.ts, src/app/api/leads/push/route.ts, src/app/api/leads/route.ts, src/app/leads/LeadsBoard.tsx, src/db/schema.ts, +1 more"
-        },
-        {
-          "date": "2026-11-11",
-          "time": "20:06",
-          "sha": "c2e6588",
-          "subject": "companion: session ledger for leads push work",
-          "files": ""
         }
       ]
     },
