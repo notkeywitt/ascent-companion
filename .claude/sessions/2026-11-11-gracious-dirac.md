@@ -12,5 +12,6 @@ next: Add REVIEW_AGENT_TOKEN secret and allow ascent-companion.vercel.app, then 
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+- 2026-11-11 14:39 · `7f4e853` companion: log tool-batch session blocked on missing token
 
 ## Notes
