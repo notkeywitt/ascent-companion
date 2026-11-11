@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [intelligent-ride](.claude/sessions/2026-11-11-intelligent-ride.md) | 2026-11-11 | 1 | — |
 | [brave-gates](.claude/sessions/2026-11-11-brave-gates.md) | 2026-11-11 | 3 | — |
 | [stage7-tools](.claude/sessions/2026-11-10-stage7-tools.md) | 2026-11-11 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 252 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [focused-cerf](.claude/sessions/2026-11-10-focused-cerf.md) | 2026-11-10 | 1 | — |
 | [bold-cori](.claude/sessions/2026-11-10-bold-cori.md) | 2026-11-10 | 1 | — |
 | [sharp-keller](.claude/sessions/2026-11-10-sharp-keller.md) | 2026-11-10 | 1 | — |
-| [magical-tesla](.claude/sessions/2026-11-09-magical-tesla.md) | 2026-11-10 | 2 | — |
