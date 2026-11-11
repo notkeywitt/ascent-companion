@@ -5,6 +5,8 @@ import { HomeMasthead } from "@/components/HomeMasthead";
 import { TodayQueue } from "@/components/TodayQueue";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
+import { NewVersionNotice } from "@/components/NewVersionNotice";
+import { useAccess } from "@/components/AccessProvider";
 
 /**
  * The widget's body. It covers the whole window (z-[1000]), so the header, the
@@ -18,6 +20,7 @@ import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 export function WidgetView() {
   const root = useRef<HTMLDivElement>(null);
   const [stamp, setStamp] = useState("");
+  const { role } = useAccess();
 
   useEffect(() => {
     setStamp(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
@@ -45,6 +48,8 @@ export function WidgetView() {
       {/* No scroll bars, on the page behind the cover too. The panel still
           scrolls by trackpad or wheel. */}
       <style>{`html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}`}</style>
+      {/* The root layout's banner sits under this cover, so the widget draws its own. */}
+      {role === "admin" && <NewVersionNotice inWidget />}
       <HomeMasthead />
       <TodayQueue />
       <HomeJobBoard />

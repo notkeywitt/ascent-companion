@@ -1,6 +1,9 @@
 import { execSync } from "node:child_process";
+import { readdirSync } from "node:fs";
 
 import { withSentryConfig } from "@sentry/nextjs";
+
+import { CHANGE_DEPTH, buildChangeList, pageRoutesFrom } from "./src/lib/buildChanges.mjs";
 
 /**
  * Which commit this bundle came from. Vercel sets the VERCEL_GIT_* system vars
@@ -18,6 +21,25 @@ function git(args) {
   }
 }
 
+/**
+ * The last few commits, each with the lines it changed per page (newest first),
+ * so the "new version live" banner can open the most-edited page. Vercel clones
+ * a shallow history, so this may hold fewer commits than asked; an empty list
+ * only means the banner reloads in place. Never throws.
+ */
+function recentPageChanges() {
+  try {
+    const pageFiles = readdirSync("src/app", { recursive: true })
+      .map(String)
+      .filter((f) => /(^|[\\/])page\.(tsx|ts|jsx|js)$/.test(f))
+      .map((f) => f.split("\\").join("/"));
+    const log = git(`log -n ${CHANGE_DEPTH} --no-renames --format=@%H --numstat`);
+    return JSON.stringify(buildChangeList(log, pageRoutesFrom(pageFiles)));
+  } catch {
+    return "[]";
+  }
+}
+
 // Read once, at config load, so the value is frozen into the bundle. `env`
 // entries are string substitutions made at build time — they are what lets the
 // footer render the build with no API call.
@@ -27,6 +49,7 @@ const BUILD = {
   APP_BUILD_MESSAGE: (process.env.VERCEL_GIT_COMMIT_MESSAGE || git("log -1 --pretty=%s")).split("\n")[0],
   APP_BUILD_TIME: new Date().toISOString(),
   APP_BUILD_ENV: process.env.VERCEL_ENV || "local",
+  APP_BUILD_CHANGES: recentPageChanges(),
 };
 
 /** @type {import('next').NextConfig} */

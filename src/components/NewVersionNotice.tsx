@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { Banner, Button } from "@/components/ui";
+import { useAccess } from "@/components/AccessProvider";
 import { isNewBuildLive } from "@/lib/versionCheck";
 
 /**
@@ -13,6 +14,11 @@ import { isNewBuildLive } from "@/lib/versionCheck";
  * one is on screen. This tab knows its own build (frozen in by next.config.mjs);
  * it asks /api/version what the server runs now, and says so when they differ.
  *
+ * REFRESH: opens the page with the most edited lines in the deploy (`page` from
+ * /api/version), so the change is on screen. With no such page (the deploy only
+ * touched shared components) it reloads in place. In the desktop widget the
+ * button reloads the widget and a link opens that page in the browser.
+ *
  * HOW: one check on mount, every 45 s while the tab is visible, and when the tab
  * returns to the front. Errors stay silent — a missed poll only delays the banner.
  * Static `process.env.X` read, as in BuildFooter.tsx: a computed key is not replaced.
@@ -20,8 +26,8 @@ import { isNewBuildLive } from "@/lib/versionCheck";
 const RUNNING = process.env.APP_BUILD_SHA || "";
 const POLL_MS = 45_000;
 
-export function NewVersionNotice() {
-  const [live, setLive] = useState<{ sha: string; message: string } | null>(null);
+export function NewVersionNotice({ inWidget = false }: { inWidget?: boolean }) {
+  const [live, setLive] = useState<{ sha: string; message: string; page: string } | null>(null);
 
   useEffect(() => {
     if (!RUNNING) return;
@@ -30,14 +36,16 @@ export function NewVersionNotice() {
     async function check() {
       if (document.visibilityState !== "visible") return;
       try {
-        const res = await fetch("/api/version", { cache: "no-store" });
+        const res = await fetch(`/api/version?since=${encodeURIComponent(RUNNING)}`, { cache: "no-store" });
         if (!res.ok) return;
-        const body = (await res.json()) as { sha?: unknown; message?: unknown };
+        const body = (await res.json()) as { sha?: unknown; message?: unknown; page?: unknown };
         if (stopped) return;
         if (isNewBuildLive(RUNNING, body.sha)) {
           setLive({
             sha: String(body.sha),
             message: typeof body.message === "string" ? body.message : "",
+            // Only a same-site path: it goes straight into location.assign.
+            page: typeof body.page === "string" && /^\/[\w\-/]*$/.test(body.page) ? body.page : "",
           });
         } else {
           setLive(null);
@@ -58,16 +66,30 @@ export function NewVersionNotice() {
   }, []);
 
   if (!live) return null;
+  // In the widget, links open in the browser (WidgetView's click handler).
+  const openPage = live.page && live.page !== "/";
   return (
-    <div className="px-3 pt-2">
+    <div className={inWidget ? "pb-2" : "px-3 pt-2"}>
       <Banner tone="info" className="flex items-center justify-between gap-3">
         <span className="min-w-0">
           <strong>New version live</strong> —{" "}
           <span className="font-mono">{live.sha.slice(0, 7)}</span>
           {live.message ? ` ${live.message}` : ""}. This tab runs{" "}
           <span className="font-mono">{RUNNING.slice(0, 7)}</span>.
+          {live.page && inWidget && openPage ? (
+            <>
+              {" "}
+              Most edited: <a href={live.page} className="underline">{live.page}</a>.
+            </>
+          ) : null}
+          {live.page && !inWidget ? ` Refresh opens ${live.page}, the most edited page.` : ""}
         </span>
-        <Button size="sm" onClick={() => window.location.reload()}>
+        <Button
+          size="sm"
+          onClick={() =>
+            live.page && !inWidget ? window.location.assign(live.page) : window.location.reload()
+          }
+        >
           Refresh
         </Button>
       </Banner>
