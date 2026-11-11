@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
+import { toggleKloi, useKloi } from "@/lib/kloi";
 import { AppMenu } from "@/components/AppMenu";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
@@ -158,6 +159,10 @@ const ShieldIcon = () => (
   </IconBase>
 );
 /** A pinned page, which has no icon of its own. */
+/** KLOI — play triangle, or pause bars while it plays. */
+const RadioIcon = ({ playing }: { playing: boolean }) => (
+  <IconBase>{playing ? <path d="M9 5v14M15 5v14" /> : <path d="M7 5l12 7-12 7z" />}</IconBase>
+);
 /** LopezRocks — the island's rocks. */
 const RocksIcon = () => (
   <IconBase>
@@ -300,6 +305,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
 };
 
 export function TabBar() {
+  const kloi = useKloi();
   const pathname = usePathname();
   const search = useSearchParams();
   const access = useAccess();
@@ -601,6 +607,20 @@ export function TabBar() {
         <div className="mt-auto pt-2">
           {/* LopezRocks, above Account (owner, 2026-11-02): it left the home
               page when Admin and Office moved to the Jobs page. */}
+          <button
+            type="button"
+            onClick={toggleKloi}
+            aria-pressed={kloi.playing}
+            title={kloi.failed ? "The stream did not start. Try again." : "Lopez Island's radio station, live"}
+            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
+              kloi.playing
+                ? "bg-accent/10 text-accent dark:text-accent-soft"
+                : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+            }`}
+          >
+            <RadioIcon playing={kloi.playing} />
+            <span className="min-w-0">{kloi.playing ? "Pause KLOI" : "Listen to KLOI"}</span>
+          </button>
           {access.can("lopezrocks") && (
             <Link
               href="/lopezrocks"
