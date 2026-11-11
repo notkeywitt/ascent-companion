@@ -1264,7 +1264,7 @@ function LeadDetail({
       const changed =
         draft.nextAction.trim() !== t.nextAction || draft.nextActionDate !== t.nextActionDate;
       if (changed && (draft.nextAction.trim() || draft.nextActionDate)) {
-        const note = `${draft.nextAction.trim() || "(no action)"}${draft.nextActionDate ? ` — by ${fmtDate(draft.nextActionDate)}` : ""}`;
+        const note = `${draft.nextAction.trim() || "(no action)"}${draft.nextActionDate ? ` — by ${fmtDate(draft.nextActionDate)}` : ""}${draft.notes.trim() ? `\n${draft.notes.trim()}` : ""}`;
         await fetch("/api/leads/activities", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1320,25 +1320,34 @@ function LeadDetail({
       <section className="space-y-2">
         <SectionHeading>Next steps</SectionHeading>
         <div className="rounded-lg bg-neutral-50 px-3 py-2.5 text-xs dark:bg-white/5">
-          <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-            <div className="col-span-2">
-              <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Next action</dt>
-              <dd className="text-neutral-800 dark:text-neutral-200">
-                {lead.tracking.nextAction || <span className="italic text-neutral-500">No next step set</span>}
-              </dd>
+          {lead.tracking.nextAction ? (
+            <details className="group">
+              <summary className="cursor-pointer list-none">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Next action</span>
+                <span className="ml-1 text-[10px] text-neutral-400 group-open:hidden">▸ details</span>
+                <span className="ml-1 hidden text-[10px] text-neutral-400 group-open:inline">▾</span>
+                <div className="text-neutral-800 dark:text-neutral-200">{lead.tracking.nextAction}</div>
+              </summary>
+              <dl className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-1.5">
+                <Field label="By" value={lead.tracking.nextActionDate ? fmtDate(lead.tracking.nextActionDate) : "—"} />
+                <Field
+                  label="Last contact"
+                  value={lead.tracking.lastContactDate ? fmtDate(lead.tracking.lastContactDate) : "—"}
+                />
+                <div className="col-span-2">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Our notes</dt>
+                  <dd className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">
+                    {lead.tracking.notes || "—"}
+                  </dd>
+                </div>
+              </dl>
+            </details>
+          ) : (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Next action</div>
+              <div className="italic text-neutral-500">No next step set</div>
             </div>
-            <Field label="By" value={lead.tracking.nextActionDate ? fmtDate(lead.tracking.nextActionDate) : "—"} />
-            <Field
-              label="Last contact"
-              value={lead.tracking.lastContactDate ? fmtDate(lead.tracking.lastContactDate) : "—"}
-            />
-            {lead.tracking.notes && (
-              <div className="col-span-2">
-                <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Our notes</dt>
-                <dd className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{lead.tracking.notes}</dd>
-              </div>
-            )}
-          </dl>
+          )}
           <div className="mt-2.5">
             <Button size="sm" variant="outline" onClick={openNextSteps}>
               Update
@@ -1352,15 +1361,27 @@ function LeadDetail({
               Next step history ({nextHistory.length})
             </summary>
             <ul className="mt-1.5 space-y-1.5">
-              {nextHistory.map((a) => (
-                <li key={a.id} className="border-l-2 border-line pl-2.5">
-                  <div className="text-neutral-700 dark:text-neutral-300">{a.note}</div>
-                  <div className="text-[11px] text-neutral-500">
-                    Set {fmtDate(a.occurredAt)}
-                    {a.createdBy && ` · ${a.createdBy}`}
-                  </div>
-                </li>
-              ))}
+              {nextHistory.map((a) => {
+                const [title, ...rest] = a.note.split("\n");
+                const notes = rest.join("\n").trim();
+                return (
+                  <li key={a.id} className="border-l-2 border-line pl-2.5">
+                    <details>
+                      <summary className="cursor-pointer text-neutral-700 dark:text-neutral-300">{title}</summary>
+                      <div className="mt-1 space-y-0.5 text-[11px] text-neutral-600 dark:text-neutral-400">
+                        <div>
+                          Set {fmtDate(a.occurredAt)}
+                          {a.createdBy && ` · ${a.createdBy}`}
+                        </div>
+                        <div className="whitespace-pre-wrap">
+                          <span className="font-semibold uppercase tracking-wide text-neutral-500">Our notes: </span>
+                          {notes || "—"}
+                        </div>
+                      </div>
+                    </details>
+                  </li>
+                );
+              })}
             </ul>
           </details>
         )}
