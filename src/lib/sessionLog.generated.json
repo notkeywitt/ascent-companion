@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-11T00:44:48Z",
-  "repo": "ascent-companion-stage7",
+  "generatedAt": "2026-11-11T06:30:20Z",
+  "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "brave-gates",
+      "file": "2026-11-11-brave-gates.md",
+      "branch": "claude/brave-gates-kl5pbc",
+      "status": "shipped",
+      "started": "2026-11-11T06:08:40Z",
+      "updated": "2026-11-11T06:30:20Z",
+      "goal": "",
+      "next": "Run scripts/tool-batch/install.sh on the office Mac, then capture 2-3 test tools on a phone and tap Analyze Tools Batch to confirm the first run adds them.",
+      "commits": [
+        {
+          "date": "2026-11-11",
+          "time": "06:30",
+          "sha": "f5d5d96",
+          "subject": "companion: add tools batch add and office-mac analysis",
+          "files": ".claude/skills/tool-batch/SKILL.md, .gitignore, CODEBASE_MAP.md, scripts/tool-batch/agent.mjs, scripts/tool-batch/install.sh, scripts/tool-batch/run.sh, +19 more"
+        }
+      ]
+    },
     {
       "slug": "stage7-tools",
       "file": "2026-11-10-stage7-tools.md",

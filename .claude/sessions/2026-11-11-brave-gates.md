@@ -2,9 +2,9 @@
 slug: brave-gates
 repo: ascent-companion
 branch: claude/brave-gates-kl5pbc
-status: in-progress
+status: shipped
 started: 2026-11-11T06:08:40Z
-updated: 2026-11-11T06:30:15Z
+updated: 2026-11-11T06:30:20Z
 goal: 
 next: Run scripts/tool-batch/install.sh on the office Mac, then capture 2-3 test tools on a phone and tap Analyze Tools Batch to confirm the first run adds them.
 ---
