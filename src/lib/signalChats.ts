@@ -1,7 +1,7 @@
 import { eq, inArray, sql } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { chatTurns, signalChats } from "@/db/schema";
+import { chatTurns, companyDetails, signalChats } from "@/db/schema";
 
 /**
  * The Signal chats on the office Mac mini, and what AscentBot may do with
@@ -131,4 +131,55 @@ export async function setSignalChatRule(
   } else {
     await db.delete(chatTurns).where(eq(chatTurns.space, space(chat)));
   }
+}
+
+// --- "Run now" ---------------------------------------------------------------
+// The scraper runs on the Mac, which a Vercel page cannot start. The page
+// stores a request time; a one-minute launchd job on the Mac asks for it
+// (`signal_sync.py --poll`), runs the sync when it is newer than the last one
+// it handled, and reports back. Both facts live in company_details, so no
+// schema change.
+
+const REQUEST_KEY = "signal_sync_requested_at";
+const RUN_KEY = "signal_sync_last_run";
+
+export interface SignalRunStatus {
+  /** ISO time of the newest "Run now" click, "" when never. */
+  requestedAt: string;
+  /** ISO time the Mac last finished a run that was asked for, "" when never. */
+  ranAt: string;
+  /** One line: what that run did. */
+  summary: string;
+}
+
+async function detail(key: string): Promise<{ value: string; updatedAt: string }> {
+  await ensureDb();
+  const [row] = await db.select().from(companyDetails).where(eq(companyDetails.key, key));
+  return { value: row?.value ?? "", updatedAt: row?.updatedAt ?? "" };
+}
+
+async function putDetail(key: string, value: string, by: string): Promise<void> {
+  await ensureDb();
+  const row = { value, updatedAt: new Date().toISOString(), updatedBy: by };
+  await db
+    .insert(companyDetails)
+    .values({ key, ...row })
+    .onConflictDoUpdate({ target: companyDetails.key, set: row });
+}
+
+export async function signalRunStatus(): Promise<SignalRunStatus> {
+  const [req, run] = await Promise.all([detail(REQUEST_KEY), detail(RUN_KEY)]);
+  return { requestedAt: req.value, ranAt: run.updatedAt, summary: run.value };
+}
+
+/** A person pressed "Run now". Returns the new request time. */
+export async function requestSignalRun(by: string): Promise<string> {
+  const at = new Date().toISOString();
+  await putDetail(REQUEST_KEY, at, by);
+  return at;
+}
+
+/** The Mac finished the run it was asked for. */
+export async function recordSignalRun(summary: string): Promise<void> {
+  await putDetail(RUN_KEY, summary.slice(0, 300), "mac");
 }

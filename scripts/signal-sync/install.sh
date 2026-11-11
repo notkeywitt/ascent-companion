@@ -8,6 +8,7 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 DIR="$HOME/.ascent-signal"
 PLIST="$HOME/Library/LaunchAgents/com.ascent.signal-sync.plist"
+POLL_PLIST="$HOME/Library/LaunchAgents/com.ascent.signal-poll.plist"
 LOG="$HOME/Library/Logs/ascent-signal-sync.log"
 
 mkdir -p "$DIR/archive" "$HOME/Library/LaunchAgents" "$HOME/Library/Logs"
@@ -42,8 +43,31 @@ cat > "$PLIST" <<PLIST
 </plist>
 PLIST
 
-launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
+# Every minute: asks the Companion whether "Run now" was pressed on the
+# AscentBot page, and runs the sync only if it was.
+cat > "$POLL_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.ascent.signal-poll</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$DIR/venv/bin/python</string>
+    <string>$DIR/signal_sync.py</string>
+    <string>--poll</string>
+  </array>
+  <key>StartInterval</key><integer>60</integer>
+  <key>StandardOutPath</key><string>$LOG</string>
+  <key>StandardErrorPath</key><string>$LOG</string>
+</dict>
+</plist>
+PLIST
 
-echo "Installed. Runs at login and every hour. Log: $LOG"
+for P in "$PLIST" "$POLL_PLIST"; do
+  launchctl bootout "gui/$(id -u)" "$P" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$P"
+done
+
+echo "Installed. Runs at login and every hour; checks for Run now every minute. Log: $LOG"
 [ -f "$DIR/secret" ] || echo "Still to do: put SIGNAL_IMPORT_SECRET in $DIR/secret (see README.md)."

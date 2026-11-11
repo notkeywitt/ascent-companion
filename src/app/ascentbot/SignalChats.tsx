@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { JobPicker, jobLabel } from "@/components/JobPicker";
 import { Banner, Button, Chip, EmptyState, Label, ListCard, Loading, MetaLine, SectionHeading, Select } from "@/components/ui";
-import type { SignalChat, SignalRule } from "@/lib/signalChats";
+import type { SignalChat, SignalRule, SignalRunStatus } from "@/lib/signalChats";
 
 const day = (iso: string) =>
   iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "";
@@ -29,6 +29,7 @@ export function SignalChats() {
   const [chats, setChats] = useState<SignalChat[] | null>(null);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
+  const [run, setRun] = useState<SignalRunStatus | null>(null);
 
   async function call(init?: RequestInit) {
     setBusy(true);
@@ -38,6 +39,7 @@ export function SignalChats() {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || `Request failed (${res.status}).`);
       setChats((body.chats as SignalChat[]).sort(order));
+      if (body.run) setRun(body.run as SignalRunStatus);
       return true;
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -51,6 +53,16 @@ export function SignalChats() {
     void call();
   }, []);
 
+  // A request is waiting until the Mac reports a run finished after it.
+  const waiting = !!run?.requestedAt && run.requestedAt > (run.ranAt || "");
+
+  // While a request waits, look again every 15 seconds for the Mac's report.
+  useEffect(() => {
+    if (!waiting) return;
+    const t = setInterval(() => void call(), 15000);
+    return () => clearInterval(t);
+  }, [waiting]);
+
   const notSet = chats?.filter((c) => c.rule === "").length ?? 0;
 
   return (
@@ -61,6 +73,22 @@ export function SignalChats() {
         office group is searchable from any job. Not set and Don&apos;t send chats stay on the Mac. A new chat shows up
         here within the hour.
       </p>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <span className="min-w-0 text-xs text-neutral-500">
+          {waiting
+            ? "Asked the Mac mini to run. It starts within about a minute."
+            : run?.ranAt
+              ? `Last asked run: ${new Date(run.ranAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}. ${run.summary}`
+              : "Runs every hour on its own."}
+        </span>
+        <Button
+          size="sm"
+          disabled={busy || waiting}
+          onClick={() => call({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "run" }) })}
+        >
+          {waiting ? "Waiting…" : "Run now"}
+        </Button>
+      </div>
       {err && <Banner tone="error">{err}</Banner>}
       {!chats ? (
         err ? null : <Loading />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { reportSignalChats } from "@/lib/signalChats";
+import { recordSignalRun, reportSignalChats, signalRunStatus } from "@/lib/signalChats";
 import { cleanChatReport, cleanSignalBatch, importSignalMessages, signalSecretOk } from "@/lib/signalImport";
 
 // Signal messages into AscentBot's memory (src/lib/signalImport.ts). The
@@ -17,6 +17,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  // The Mac's one-minute poll: has someone pressed "Run now" on the AscentBot page?
+  if (body && "poll" in body) return NextResponse.json({ ok: true, requestedAt: (await signalRunStatus()).requestedAt });
+  // The Mac finished a requested run.
+  if (body && "ran" in body) {
+    await recordSignalRun(String(body.ran ?? ""));
+    return NextResponse.json({ ok: true });
+  }
   if (body && "chats" in body) {
     const report = cleanChatReport(body.chats);
     if ("error" in report) return NextResponse.json({ error: report.error }, { status: 400 });

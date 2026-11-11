@@ -17,6 +17,7 @@ Companion's /api/google-chat/signal-import twice:
     signal_sync.py --list-chats   every chat on this Mac; sends nothing
     signal_sync.py --dry-run      reports the chats, prints what it would send
     signal_sync.py                send
+    signal_sync.py --poll         one-minute job: send only if "Run now" was pressed
     signal_sync.py --search tile smith [--chat NAME] [--since YYYY-MM-DD]
                                   search the archive; reads no Signal data
 
@@ -30,6 +31,7 @@ the secret.
 """
 
 import argparse
+import fcntl
 import csv
 import hashlib
 import json
@@ -269,6 +271,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--list-chats", action="store_true", help="print every chat on this Mac; send nothing")
     ap.add_argument("--dry-run", action="store_true", help="report the chats, print what would be sent")
+    ap.add_argument("--poll", action="store_true", help="send only when Run now was pressed on the AscentBot page")
     ap.add_argument("--search", nargs="*", metavar="WORD", help="search the archive for messages holding every word")
     ap.add_argument("--chat", default="", help="with --search: only chats whose name contains this")
     ap.add_argument("--since", default="", help="with --search: only messages on or after YYYY-MM-DD")
@@ -281,6 +284,35 @@ def main():
 
     url = read_json(STATE_DIR / "config.json", {}).get("url") or DEFAULT_URL
 
+    # One run at a time: the hourly job and the one-minute poll share this lock.
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    lock = (STATE_DIR / "run.lock").open("w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | (fcntl.LOCK_NB if args.poll else 0))
+    except BlockingIOError:
+        return
+
+    if args.poll:
+        secret_file = STATE_DIR / "secret"
+        if not secret_file.exists():
+            return
+        secret = secret_file.read_text().strip()
+        asked = post(url, secret, {"poll": True}).get("requestedAt") or ""
+        handled_file = STATE_DIR / "last-request"
+        handled = handled_file.read_text().strip() if handled_file.exists() else ""
+        if not asked or asked <= handled:
+            return
+        log(f"Run now pressed ({asked})")
+        summary = sync(args, url)
+        handled_file.write_text(asked)
+        post(url, secret, {"ran": summary})
+        return
+
+    sync(args, url)
+
+
+def sync(args, url):
+    """One full run. Returns a one-line summary of what it did."""
     with tempfile.TemporaryDirectory() as tmp:
         db = open_copy(tmp)
         by_conv, by_sid = load_people(db)
@@ -289,7 +321,7 @@ def main():
         if args.list_chats:
             for label, (ctype, n, last) in sorted(counts.items(), key=lambda kv: -kv[1][2]):
                 print(f"{ctype:8} {n:6} msgs  last {datetime.fromtimestamp(last / 1000):%Y-%m-%d}  {label}")
-            return
+            return "listed chats"
 
         secret_file = STATE_DIR / "secret"
         if not secret_file.exists():
@@ -307,14 +339,14 @@ def main():
         log(f"{not_set} chats not set: assign them on the Ascent app's AscentBot page")
     if not msgs:
         log("no new messages")
-        return
+        return "No new messages."
 
     if args.dry_run:
         for m in msgs[-50:]:
             where = f"job {m['_job']}" if m["_job"] else "office"
             print(f"{m['at'][:16]}  [{m['chat']} / {where}]  {m['author']}: {m['text'][:120]}")
         log(f"dry run: {len(msgs)} messages would be sent (last 50 shown)")
-        return
+        return f"Dry run: {len(msgs)} messages would be sent."
 
     stored = skipped = refused = 0
     for i in range(0, len(msgs), BATCH):
@@ -326,6 +358,7 @@ def main():
         archive(batch)
 
     log(f"sent {len(msgs)}: {stored} stored, {skipped} already kept, {refused} refused")
+    return f"Sent {len(msgs)}: {stored} stored, {skipped} already kept, {refused} refused."
 
 
 if __name__ == "__main__":

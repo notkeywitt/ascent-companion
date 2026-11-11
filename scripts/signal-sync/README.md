@@ -48,7 +48,9 @@ moves the messages already sent.
 - Search the backup: `~/.ascent-signal/venv/bin/python ~/.ascent-signal/signal_sync.py --search tile smith`.
   Add `--chat NAME`, `--since YYYY-MM-DD` or `--limit N`. `--search` with no words lists the newest
   messages. It reads only the backup, so it finds only chats set to a job or the office.
-- Run now: `launchctl kickstart gui/$(id -u)/com.ascent.signal-sync`.
+- Run now: press **Run now** on the AscentBot page (starts within about a minute), or
+  `launchctl kickstart gui/$(id -u)/com.ascent.signal-sync`. A second launchd job,
+  `com.ascent.signal-poll`, asks the Companion every minute whether the button was pressed.
 - Stop: `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.ascent.signal-sync.plist`.
 - After a change to `signal_sync.py` in the repo, run `install.sh` again. It keeps the secret.
 

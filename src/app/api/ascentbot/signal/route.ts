@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { requireBotAdmin } from "@/lib/botAdmin";
-import { listSignalChats, setSignalChatRule, type SignalRule } from "@/lib/signalChats";
+import { listSignalChats, requestSignalRun, setSignalChatRule, signalRunStatus, type SignalRule } from "@/lib/signalChats";
 
 /**
  * The AscentBot page's Signal chats: every chat the office Mac mini reported,
@@ -14,7 +14,7 @@ const bad = (error: string) => NextResponse.json({ error }, { status: 400 });
 
 export async function GET() {
   if (!(await requireBotAdmin()).ok) return FORBIDDEN();
-  return NextResponse.json({ chats: await listSignalChats() });
+  return NextResponse.json({ chats: await listSignalChats(), run: await signalRunStatus() });
 }
 
 /** { chat, rule: "" | "job" | "office" | "skip", jobId?, jobName? }  assign one chat. */
@@ -22,6 +22,11 @@ export async function POST(req: NextRequest) {
   const me = await requireBotAdmin();
   if (!me.ok) return FORBIDDEN();
   const body = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  // "Run now": ask the Mac to run the scraper. It starts within about a minute.
+  if (body?.action === "run") {
+    await requestSignalRun(me.email);
+    return NextResponse.json({ chats: await listSignalChats(), run: await signalRunStatus() });
+  }
   const chat = String(body?.chat ?? "").trim();
   const rule = String(body?.rule ?? "") as SignalRule;
   if (!chat) return bad("Name the chat.");
@@ -33,5 +38,5 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     return bad(e instanceof Error ? e.message : String(e));
   }
-  return NextResponse.json({ chats: await listSignalChats() });
+  return NextResponse.json({ chats: await listSignalChats(), run: await signalRunStatus() });
 }
