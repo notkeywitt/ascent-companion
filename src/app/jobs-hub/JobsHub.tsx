@@ -12,6 +12,7 @@ import type { Note, NoteBill } from "@/lib/notes";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
+import { Donut } from "@/components/Donut";
 import { LopezMap } from "@/components/LopezMap";
 import { Card, Loading, Segmented, Select, Skeleton, btn } from "@/components/ui";
 import { Board } from "@/app/trackingsheet/Board";
@@ -24,7 +25,8 @@ import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { BudgetImport } from "@/app/budget-import/BudgetImport";
 import { Specs } from "@/app/specs/Specs";
 import { HouseManualPage } from "@/app/house-manual/HouseManual";
-import { monthJobRows, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
+import { monthJobRows, monthWarrantyRow, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
+import { WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { billingMonths } from "@/lib/billingMonths";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import type { MapJob } from "@/lib/lopezMap";
@@ -43,7 +45,7 @@ import { PunchList } from "./PunchList";
  *     by phase, "Customer - Job" A–Z by last name, each with its month total,
  *     under the month picker. Beside it, the picked job's Job Board card with
  *     the Lopez Island map in its top right — or, with no job picked, the
- *     person's own to-dos and the 5 newest leads (owner, 2026-11-11). Under them, a row of a picked job's tabs.
+ *     month's totals beside the map. Under them, a row of a picked job's tabs.
  *   • Under the header: no job → Home's "Needs you" queue and to-dos; a job →
  *     the picked tab: Tracking sheet (the job's /trackingsheet, embedded whole
  *     but for its tabs and header), Schedule (the job's overview),
@@ -82,7 +84,13 @@ const LIST_PHASES = ["Active", "PreCon Budget", "PreCon"];
 const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
 
-export function JobsHub() {
+/**
+ * `home` is Home's copy of this screen (Admin and Office land on it). With no
+ * job picked it shows the person's own to-dos and the 5 newest leads where the
+ * Jobs page shows the month rings and notes (owner, 2026-11-11). The Jobs page
+ * itself passes nothing and is unchanged.
+ */
+export function JobsHub({ home = false }: { home?: boolean } = {}) {
   const { can } = useAccess();
   const canTrackingSheet = can("recode");
   const [jobs, setJobs] = useState<HubJob[] | null>(null);
@@ -179,6 +187,13 @@ export function JobsHub() {
     [monthJobs],
   );
   const byJob = useMemo(() => new Map((ranked ?? []).map((r) => [r.key, r])), [ranked]);
+  // The all-jobs rings: every client job, plus the month's warranty work on
+  // those jobs as one grey slice — in the month's total, on no job.
+  const ringItems = useMemo(() => {
+    if (!ranked || !monthJobs) return ranked;
+    const w = monthWarrantyRow(monthJobs.filter((j) => !isAscentOwn(j.customerName)));
+    return w ? [...ranked, { ...w, laborColor: w.color }] : ranked;
+  }, [ranked, monthJobs]);
   // The list: every working client job, and any other with cost this month.
   const listed = useMemo(
     () =>
@@ -360,7 +375,7 @@ export function JobsHub() {
       <div className="min-w-0 space-y-6">
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the
-            person's own to-dos and the 5 newest leads while no job is picked). */}
+            month's totals beside the map while no job is picked). */}
         <div className="grid gap-6 max-2xl:landscape:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] max-2xl:landscape:grid-rows-[360px_auto] 2xl:h-[360px] 2xl:grid-cols-[320px_minmax(0,1fr)_280px] 2xl:grid-rows-[minmax(0,1fr)]">
           {/* The row is 360px (owner, 2026-11-01); the list scrolls inside it.
               From 2xl the list, card and map share it. Below 2xl, held
@@ -457,29 +472,59 @@ export function JobsHub() {
                 <Skeleton className="h-40 w-full rounded-xl" />
               )
             ) : (
-              // No job picked (owner, 2026-11-11): the person's own to-dos and
-              // the newest leads, in the list's height. The month's actions and
-              // picker sit in a row above them. Each card scrolls on its own.
-              <div className="flex h-full min-h-0 flex-col gap-3">
-                <div className="flex shrink-0 flex-wrap items-start justify-between gap-2">
-                  <div className="flex flex-wrap items-start gap-2">
-                    <DraftInvoicingEmail ym={ym} />
-                    <SyncAllTrackingSheetsFor ym={ym} />
-                    {can("invoice-review") && (
-                      <Link
-                        href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
-                        className={btn("secondary", "md", "min-h-11")}
-                      >
-                        Check All Jobs
-                      </Link>
-                    )}
+              home ? (
+                <div className="flex h-full min-h-0 flex-col gap-3">
+                  <div className="flex shrink-0 justify-end">{monthControls}</div>
+                  <div className="grid min-h-0 flex-1 gap-6 pad:grid-cols-2">
+                    <HubMyTodos className="max-pad:max-h-80" />
+                    <HubLeadsCard className="max-pad:max-h-80" />
                   </div>
-                  {monthControls}
                 </div>
-                <div className="grid min-h-0 flex-1 gap-6 pad:grid-cols-2">
-                  <HubMyTodos className="max-pad:max-h-80" />
-                  <HubLeadsCard className="max-pad:max-h-80" />
+              ) : (
+              // The list's height, with the tabs on their own row at the foot.
+              <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+                <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
+                  {ringItems ? (
+                    // The rings, then the month's notes in the space beside
+                    // them (owner, 2026-11-06). The notes scroll on their own.
+                    <div className="flex h-full min-h-0 flex-col gap-6 pad:flex-row">
+                      <MonthRings
+                        items={ringItems}
+                        onSelect={(id) => id !== WARRANTY_SLICE_KEY && pick(id)}
+                        onHover={(id) => setHoverId(id === WARRANTY_SLICE_KEY ? null : id)}
+                      />
+                      <NotesPanel
+                        jobId={null}
+                        ym={ym}
+                        jobs={noteJobs}
+                        onOpenBill={openBill}
+                        className="min-h-48 pad:h-full pad:min-w-[280px] pad:flex-1 pad:pt-10"
+                      />
+                    </div>
+                  ) : (
+                    <Skeleton className="h-48 w-full rounded-xl" />
+                  )}
                 </div>
+                <div className="flex shrink-0 flex-wrap items-start justify-center gap-2 border-t border-line-soft pt-3">
+                  {/* The month's actions, for the month picked above. */}
+                  <DraftInvoicingEmail ym={ym} />
+                  <SyncAllTrackingSheetsFor ym={ym} />
+                  {can("invoice-review") && (
+                    <Link
+                      href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
+                      className={btn("secondary", "md", "min-h-11")}
+                    >
+                      Check All Jobs
+                    </Link>
+                  )}
+                </div>
+              </Card>
+              )
+            )}
+            {/* A picked job's card carries these in its head row (owner, 2026-11-06). */}
+            {!selected && !home && (
+              <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
+                {monthControls}
               </div>
             )}
           </div>
@@ -621,4 +666,83 @@ function twoFamilies<T extends { color: string }>(rows: T[]): (T & { laborColor:
     color: BILL_COLORS[i % BILL_COLORS.length],
     laborColor: LABOR_COLORS[i % LABOR_COLORS.length],
   }));
+}
+
+/**
+ * No job picked: the month's Bills ring and Labor ring, a slice per job, with
+ * the Total and then Bills · Labor beside them. A slice names its job with its
+ * bills and labor on hover, and opens it on a click.
+ */
+function MonthRings({
+  items,
+  onSelect,
+  onHover,
+}: {
+  items: {
+    key: string;
+    label: string;
+    bills: number;
+    labor: number;
+    color: string;
+    laborColor: string;
+  }[];
+  onSelect: (key: string) => void;
+  /** The lifted slice's job, lit in the list and on the map meanwhile. */
+  onHover: (key: string | null) => void;
+}) {
+  const detail = (key: string) => {
+    const r = items.find((x) => x.key === key);
+    return r
+      ? [
+          { key: "bills", label: "Bills", value: r.bills },
+          { key: "labor", label: "Labor", value: r.labor },
+        ]
+      : [];
+  };
+  const bills = items.reduce((n, r) => n + r.bills, 0);
+  const labor = items.reduce((n, r) => n + r.labor, 0);
+  const slices = (field: "bills" | "labor") =>
+    items
+      .filter((r) => r[field] > 0)
+      .map((r) => ({
+        key: r.key,
+        label: r.label,
+        value: r[field],
+        color: field === "labor" ? r.laborColor : r.color,
+      }));
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-8 pad:self-start">
+      <div className="tabular-nums">
+        <div className={caption}>All jobs · month</div>
+        <div className="mt-1 text-[28px] font-bold leading-tight tracking-tight">
+          {money0(bills + labor)}
+        </div>
+        <div className="text-[13px] text-neutral-500 dark:text-neutral-400">
+          Bills {money0(bills)} · Labor {money0(labor)}
+        </div>
+      </div>
+      <div className="flex gap-8">
+        <Donut
+          title="Bills"
+          slices={slices("bills")}
+          emptyLabel="No bills"
+          size={150}
+          legend={false}
+          onSelect={onSelect}
+          detail={detail}
+          onHover={onHover}
+        />
+        <Donut
+          title="Labor"
+          slices={slices("labor")}
+          emptyLabel="No labor"
+          size={150}
+          legend={false}
+          onSelect={onSelect}
+          detail={detail}
+          onHover={onHover}
+        />
+      </div>
+    </div>
+  );
 }

@@ -83,7 +83,7 @@ function Home() {
           <HomeMasthead notices={notices} />
           <HomeActions />
         </div>
-        <JobsHub />
+        <JobsHub home />
       </>
     );
   }
