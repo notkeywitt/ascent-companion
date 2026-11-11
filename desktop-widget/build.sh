@@ -11,8 +11,12 @@ APP="build/Ascent Widget.app"
 rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-swiftc -O -o "$APP/Contents/MacOS/AscentWidget" AscentWidget.swift \
-  -framework AppKit -framework WebKit
+# One build per chip, joined, so the zip runs on Apple silicon and Intel Macs.
+for arch in arm64 x86_64; do
+  swiftc -O -target "$arch-apple-macos13.0" -o "build/AscentWidget-$arch" AscentWidget.swift \
+    -framework AppKit -framework WebKit
+done
+lipo -create build/AscentWidget-arm64 build/AscentWidget-x86_64 -output "$APP/Contents/MacOS/AscentWidget"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -47,6 +51,11 @@ fi
 
 # Ad-hoc signature (signed by this Mac, not by Apple) so macOS will run it.
 codesign --force --sign - "$APP"
+
+# The copy the Home button's installer downloads (public/widget-install.sh).
+# Commit it after a rebuild; it is the only way a Mac without a compiler gets
+# the app.
+ditto -c -k --keepParent "$APP" ../public/AscentWidget.zip
 
 mkdir -p ~/Applications
 pkill -x AscentWidget 2>/dev/null || true

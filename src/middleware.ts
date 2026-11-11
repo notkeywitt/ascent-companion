@@ -111,8 +111,12 @@ export default auth(async (req) => {
 // Android fetch them WITHOUT the session cookie when a page is added to the home
 // screen, so the sign-in redirect handed back the /login HTML instead of a PNG
 // and the home screen showed a blank tile. They hold the logo and app name only.
+// widget-install.sh and AscentWidget.zip (2026-11-11, owner) are the Mac desktop
+// widget's installer, fetched by `curl` in Terminal, which carries no session.
+// They hold a web-view shell for /widget and no data or secret; the page it
+// shows still needs a Google sign-in.
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png|icon-192.png|icon-512.png|manifest.webmanifest).*)",
+    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png|icon-192.png|icon-512.png|manifest.webmanifest|widget-install.sh|AscentWidget.zip).*)",
   ],
 };

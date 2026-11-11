@@ -10,7 +10,10 @@ the billing month, the queue counts, the job board and the Office to-dos.
 - A tap on a link opens that page in the default browser. The panel stays on
   the widget.
 - Home has an **Open desktop widget** button (desktop only). It starts the
-  panel or brings it forward. It needs the app installed on that Mac.
+  panel or brings it forward. On a Mac without it, the button shows a line to
+  paste into Terminal (`public/widget-install.sh`). `./build.sh` rebuilds
+  `public/AscentWidget.zip`, which that line downloads. Commit the zip after
+  each rebuild.
 - Drag it by any empty spot. Resize from an edge. It remembers both.
 
 ## Install
