@@ -52,7 +52,10 @@ interface Tracking {
   updatedAt: string;
 }
 
-const QUALIFICATIONS = ["", "qualified", "not_qualified"] as const;
+const QUALIFICATIONS = ["", "qualified", "not_qualified", "not_converted"] as const;
+
+/** Both of these leave the board and sit in the archive. */
+const ARCHIVED = new Set<string>(["not_qualified", "not_converted"]);
 
 const BLANK: Tracking = {
   stage: "new",
@@ -141,7 +144,7 @@ function asLead(row: LeadInquiry): LeadJt {
 // panel needs them to colour its very first paint, and a second round trip there
 // would flash the default bands before correcting itself.
 export async function GET(req: NextRequest) {
-  // ?archived=1 returns ONLY the not-qualified leads (the archive). Without it
+  // ?archived=1 returns ONLY the archived leads (not qualified, not converted). Without it
   // they are left out, so the board and the home panel never show them.
   const archived = req.nextUrl.searchParams.get("archived") === "1";
   if (!hasGrant()) {
@@ -204,7 +207,7 @@ export async function GET(req: NextRequest) {
         tracking: trackingFor(i.id),
       })),
     ];
-    const shown = out.filter((l) => (l.tracking.qualification === "not_qualified") === archived);
+    const shown = out.filter((l) => ARCHIVED.has(l.tracking.qualification) === archived);
     return NextResponse.json({ leads: shown, quiet });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";

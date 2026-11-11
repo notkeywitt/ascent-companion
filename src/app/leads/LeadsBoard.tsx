@@ -40,6 +40,7 @@ import {
   type ChipTone,
 } from "@/components/ui";
 import { BLANK_INQUIRY, INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
+import type { CustomerHit } from "@/lib/leadPush";
 import {
   LEAD_QUIET_DEFAULTS,
   LEAD_QUIET_MAX,
@@ -72,7 +73,7 @@ interface Tracking {
   /** What the job is, in our words — the one scope line every lead can have. */
   projectScope: string;
   notes: string;
-  /** "" = undecided, "qualified", or "not_qualified" (the archive). */
+  /** "" = undecided, "qualified", or "not_qualified" / "not_converted" (both go to the archive). */
   qualification: string;
   updatedAt: string;
 }
@@ -125,6 +126,8 @@ const STAGES: { id: string; label: string }[] = [
   { id: "estimating", label: "Estimating" },
   { id: "proposal_sent", label: "Proposal sent" },
 ];
+/** Qualifications that move a lead to the archive. */
+const isArchived = (q: string) => q === "not_qualified" || q === "not_converted";
 const stageLabel = (id: string) => STAGES.find((s) => s.id === id)?.label ?? id;
 
 const KINDS: { id: string; label: string }[] = [
@@ -737,7 +740,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
             <Button
               variant="outline"
               size="sm"
-              title={archive ? "Back to the leads list" : "Leads marked Not qualified, kept for our records"}
+              title={archive ? "Back to the leads list" : "Leads marked Not qualified or Not converted, kept for our records"}
               onClick={() => {
                 setOpenId(null);
                 setArchive((v) => !v);
@@ -849,7 +852,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
       ) : visible.length === 0 ? (
         <EmptyState>
           {archive
-            ? "No leads in the archive. A lead marked Not qualified lands here."
+            ? "No leads in the archive. A lead marked Not qualified or Not converted lands here."
             : leads.length === 0
             ? 'No customers are marked "New Lead" in JobTread, and nothing has been logged here — use “New lead” to add one.'
             : "No leads."}
@@ -1240,8 +1243,8 @@ function LeadDetail({
     }
   }
 
-  /** Mark the lead Qualified / Not qualified, or clear it (""). Not qualified
-   *  moves it to the archive, so the board reloads and the card leaves the list. */
+  /** Mark the lead Qualified / Not qualified / Not converted, or clear it (""). The
+   *  last two move it to the archive, so the board reloads and the card leaves the list. */
   async function setQualification(qualification: string) {
     setSaving(true);
     setErr("");
@@ -1256,7 +1259,7 @@ function LeadDetail({
         setErr(json.error ?? "Save failed");
         return;
       }
-      if (qualification === "not_qualified" || lead.tracking.qualification === "not_qualified") onChanged();
+      if (isArchived(qualification) || isArchived(lead.tracking.qualification)) onChanged();
       else onTracking(json.tracking);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Network error");
@@ -1385,44 +1388,6 @@ function LeadDetail({
         )}
       </section>
 
-      {/* ------------------------------------------------------ qualification */}
-      <section className="space-y-2">
-        <SectionHeading>Qualified?</SectionHeading>
-        <div className="flex flex-wrap items-center gap-2">
-          {lead.tracking.qualification === "not_qualified" ? (
-            <>
-              <span className="text-xs text-neutral-600 dark:text-neutral-400">
-                Not qualified — kept in the archive.
-              </span>
-              <Button size="sm" variant="outline" onClick={() => void setQualification("")} disabled={saving}>
-                Restore to leads
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                size="sm"
-                variant={lead.tracking.qualification === "qualified" ? "primary" : "outline"}
-                onClick={() => void setQualification(lead.tracking.qualification === "qualified" ? "" : "qualified")}
-                disabled={saving}
-                aria-pressed={lead.tracking.qualification === "qualified"}
-              >
-                Qualified
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                title="Moves this lead to the archive and off the leads list"
-                onClick={() => void setQualification("not_qualified")}
-                disabled={saving}
-              >
-                Not qualified
-              </Button>
-            </>
-          )}
-        </div>
-      </section>
-
       {/* ------------------------------ where the customer lives in JobTread */}
       {!lead.local && (
       <section className="space-y-2">
@@ -1536,6 +1501,64 @@ function LeadDetail({
 
       {/* ----------------------------------------- the intake answers, if any */}
       {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
+
+      {/* ------------------------------------------------------ qualification */}
+      <section className="space-y-2 border-t border-line pt-3">
+        <SectionHeading>Qualified?</SectionHeading>
+        <div className="flex flex-wrap items-center gap-2">
+          {isArchived(lead.tracking.qualification) ? (
+            <>
+              <span className="text-xs text-neutral-600 dark:text-neutral-400">
+                {lead.tracking.qualification === "not_converted" ? "Not converted" : "Not qualified"}
+                {" — kept in the archive."}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                // A lead that was qualified and did not convert goes back as qualified.
+                onClick={() =>
+                  void setQualification(lead.tracking.qualification === "not_converted" ? "qualified" : "")
+                }
+                disabled={saving}
+              >
+                Restore to leads
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant={lead.tracking.qualification === "qualified" ? "primary" : "outline"}
+                onClick={() => void setQualification(lead.tracking.qualification === "qualified" ? "" : "qualified")}
+                disabled={saving}
+                aria-pressed={lead.tracking.qualification === "qualified"}
+              >
+                Qualified
+              </Button>
+              {lead.tracking.qualification === "qualified" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  title="Moves this lead to the archive and off the leads list"
+                  onClick={() => void setQualification("not_converted")}
+                  disabled={saving}
+                >
+                  Not converted
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                title="Moves this lead to the archive and off the leads list"
+                onClick={() => void setQualification("not_qualified")}
+                disabled={saving}
+              >
+                Not qualified
+              </Button>
+            </>
+          )}
+        </div>
+      </section>
 
       {/* ------------------------- what a local lead can do that a JT one can't */}
       {lead.local && lead.inquiry && (
@@ -1684,17 +1707,58 @@ function LocalLeadPanel({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [duplicates, setDuplicates] = useState<{ id: string; name: string }[]>([]);
   const [plan, setPlan] = useState<{ label: string; query: unknown }[] | null>(null);
-  const [confirming, setConfirming] = useState(false);
+  /* The push asks first: is this person already a customer? "ask" → "pick" (search
+     and choose one) → "connect" (confirm), or "ask" → "create" (confirm a new one). */
+  const [step, setStep] = useState<"" | "ask" | "pick" | "connect" | "create">("");
+  const [q, setQ] = useState("");
+  const [hits, setHits] = useState<CustomerHit[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchErr, setSearchErr] = useState("");
+  const [picked, setPicked] = useState<CustomerHit | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editing, setEditing] = useState(false);
 
-  async function push(opts: { dryRun?: boolean; force?: boolean } = {}) {
+  // Search the org's customers while the picker is open. Debounced; a stale
+  // answer (the box moved on while it was in flight) is dropped.
+  useEffect(() => {
+    if (step !== "pick") return;
+    const text = q.trim();
+    if (text.length < 2) {
+      setHits([]);
+      setSearchErr("");
+      return;
+    }
+    let live = true;
+    const id = setTimeout(async () => {
+      setSearching(true);
+      setSearchErr("");
+      try {
+        const res = await fetch(`/api/leads/customers?q=${encodeURIComponent(text)}`);
+        const json = await res.json();
+        if (!live) return;
+        if (!res.ok) setSearchErr(json.error ?? "Search failed");
+        else setHits(json.customers ?? []);
+      } catch (e) {
+        if (live) setSearchErr(e instanceof Error ? e.message : "Network error");
+      } finally {
+        if (live) setSearching(false);
+      }
+    }, 300);
+    return () => {
+      live = false;
+      clearTimeout(id);
+    };
+  }, [q, step]);
+
+  async function push(
+    opts: { dryRun?: boolean; force?: boolean; existingAccountId?: string } = {},
+  ) {
     setBusy(true);
     setErr("");
     setOk("");
     setPlan(null);
     setWarnings([]);
-    if (!opts.dryRun) setConfirming(false);
+    if (!opts.dryRun) setStep("");
     try {
       const res = await fetch("/api/leads/push", {
         method: "POST",
@@ -1718,7 +1782,11 @@ function LocalLeadPanel({
         return;
       }
       setWarnings(json.warnings ?? []);
-      setOk("Customer created in JobTread.");
+      setOk(
+        json.connected
+          ? `Connected to ${picked?.name ?? "the customer"} in JobTread.`
+          : "Customer created in JobTread.",
+      );
       onChanged();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Network error");
@@ -1839,7 +1907,103 @@ function LocalLeadPanel({
         </details>
       )}
 
-      {confirming ? (
+      {step === "ask" ? (
+        <div className="space-y-2">
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            Is <span className="font-semibold">{inquiry.name}</span> already a customer in
+            JobTread?
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => {
+                setQ(inquiry.name);
+                setPicked(null);
+                setStep("pick");
+              }}
+            >
+              Yes, pick the customer
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setStep("create")}>
+              No, create a new one
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setStep("")}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : step === "pick" ? (
+        <div className="space-y-2">
+          <Label htmlFor={`cust-${inquiry.id}`}>Find the existing customer</Label>
+          <Input
+            id={`cust-${inquiry.id}`}
+            placeholder="Start typing a customer name"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          {searchErr && <Banner tone="error">{searchErr}</Banner>}
+          {searching ? (
+            <p className="text-xs text-neutral-500">Searching…</p>
+          ) : q.trim().length < 2 ? null : hits.length === 0 && !searchErr ? (
+            <p className="text-xs italic text-neutral-500">No customer matches that name.</p>
+          ) : (
+            <ul className="max-h-60 space-y-1 overflow-y-auto">
+              {hits.map((h) => (
+                <li key={h.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPicked(h);
+                      setStep("connect");
+                    }}
+                    className="w-full rounded-lg bg-neutral-50 px-2.5 py-2 text-left text-xs hover:bg-neutral-100 dark:bg-white/5 dark:hover:bg-white/10"
+                  >
+                    <div className="font-semibold">{h.name}</div>
+                    {h.address && <div className="text-neutral-500">{h.address}</div>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => setStep("create")}>
+              Not here — create a new one
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setStep("")}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : step === "connect" && picked ? (
+        <div className="space-y-2">
+          <p className="text-xs text-neutral-600 dark:text-neutral-400">
+            This connects <span className="font-semibold">{inquiry.name}</span> to the existing
+            customer <span className="font-semibold">{picked.name}</span> in JobTread. It sets
+            that customer&apos;s status to “New Lead” and adds these answers to the end of its
+            Notes. It creates no new customer. There&apos;s no undo from here.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              onClick={() => void push({ existingAccountId: picked.id })}
+              disabled={busy}
+            >
+              {busy ? "Connecting…" : "Yes, connect to this customer"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void push({ existingAccountId: picked.id, dryRun: true })}
+              disabled={busy}
+            >
+              Preview
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setStep("pick")} disabled={busy}>
+              Back
+            </Button>
+          </div>
+        </div>
+      ) : step === "create" ? (
         <div className="space-y-2">
           <p className="text-xs text-neutral-600 dark:text-neutral-400">
             This creates <span className="font-semibold">{inquiry.name}</span> as a customer in
@@ -1850,7 +2014,7 @@ function LocalLeadPanel({
             <Button size="sm" onClick={() => void push()} disabled={busy}>
               {busy ? "Creating…" : "Yes, create the customer"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={busy}>
+            <Button size="sm" variant="ghost" onClick={() => setStep("")} disabled={busy}>
               Cancel
             </Button>
           </div>
@@ -1859,7 +2023,7 @@ function LocalLeadPanel({
         <div className="flex flex-wrap items-center gap-2">
           {qualified && (
             <>
-              <Button size="sm" onClick={() => setConfirming(true)} disabled={busy}>
+              <Button size="sm" onClick={() => setStep("ask")} disabled={busy}>
                 Push to JobTread
               </Button>
               <Button size="sm" variant="outline" onClick={() => void push({ dryRun: true })} disabled={busy}>

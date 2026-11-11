@@ -85,6 +85,48 @@ export async function findCustomersByName(cfg: PaveConfig, name: string): Promis
     .map((n) => ({ id: n.id as string, name: n.name ?? "", type: n.type ?? "" }));
 }
 
+/** A customer the lead could be connected to — enough to tell two apart. */
+export interface CustomerHit {
+  id: string;
+  name: string;
+  address: string;
+}
+
+/**
+ * Customers whose name holds `text`, for the "connect to an existing customer"
+ * picker. Read-only. `like` is case-insensitive (probed live 2026-10-28, see
+ * `findContacts`). Vendors and archived accounts are dropped; the address is the
+ * one extra line that tells two "Jack Warner" customers apart.
+ */
+export async function searchCustomers(cfg: PaveConfig, text: string): Promise<CustomerHit[]> {
+  const t = text.trim().replace(/[%_]/g, "");
+  if (t.length < 2) return [];
+  const r = await pave(cfg, {
+    organization: {
+      $: { id: cfg.orgId },
+      id: {},
+      accounts: {
+        $: { size: 25, where: { and: [["type", "customer"], ["name", "like", `%${t}%`]] } },
+        nodes: {
+          id: {},
+          name: {},
+          type: {},
+          archivedAt: {},
+          primaryLocation: { id: {}, name: {}, formattedAddress: {} },
+        },
+      },
+    },
+  });
+  const nodes: any[] = r?.organization?.accounts?.nodes ?? [];
+  return nodes
+    .filter((n) => n?.id && n.type === "customer" && !n.archivedAt)
+    .map((n) => ({
+      id: String(n.id),
+      name: String(n.name ?? ""),
+      address: String(n.primaryLocation?.formattedAddress ?? n.primaryLocation?.name ?? ""),
+    }));
+}
+
 /* ------------------------------------------------------------- query builders */
 
 /** Drop empty values — writing "" into an option field is not the same as
@@ -255,4 +297,104 @@ export async function pushLeadToJobTread(
   }
 
   return { accountId, contactId, locationId, warnings };
+}
+
+/* ------------------------------------------------- connect to an existing customer */
+
+export interface ConnectBefore {
+  name: string;
+  status: string;
+  notes: string;
+}
+
+/** What the connect would write, given the customer as it stands now. */
+function connectValues(
+  ids: CustomerFieldIds,
+  before: ConnectBefore,
+  fields: InquiryFields,
+  meta: { loggedAt?: string; loggedBy?: string },
+): Record<string, string> {
+  const summary = inquirySummary(fields, meta);
+  // Append, never replace: an existing customer's Notes are somebody's history.
+  const notes = before.notes.trim() ? `${before.notes.trim()}\n\n---\n${summary}` : summary;
+  return definedOnly({ [ids.status]: LEAD_STATUS, [ids.notes]: notes });
+}
+
+/** Read the customer the lead would join. Throws when it is not a live customer. */
+export async function readConnectTarget(
+  cfg: PaveConfig,
+  accountId: string,
+): Promise<ConnectBefore> {
+  const r = await pave(cfg, {
+    account: {
+      $: { id: accountId },
+      id: {},
+      name: {},
+      type: {},
+      archivedAt: {},
+      customFieldValues: { $: { size: 25 }, nodes: { value: {}, customField: { id: {}, name: {} } } },
+    },
+  });
+  const a = r?.account;
+  if (!a?.id) throw new Error("That customer was not found in JobTread.");
+  if (a.type !== "customer") throw new Error("That account is not a customer.");
+  if (a.archivedAt) throw new Error("That customer is archived in JobTread.");
+  const nodes: any[] = a.customFieldValues?.nodes ?? [];
+  const val = (name: string) =>
+    String(nodes.find((n) => n?.customField?.name === name)?.value ?? "");
+  return { name: String(a.name ?? ""), status: val("Status"), notes: val("Notes") };
+}
+
+/** Exactly what a connect would send, without sending it (dry run / gate closed). */
+export async function buildConnectPlan(
+  cfg: PaveConfig,
+  accountId: string,
+  fields: InquiryFields,
+  meta: { loggedAt?: string; loggedBy?: string } = {},
+): Promise<{ label: string; query: Record<string, unknown> }[]> {
+  const ids = await getCustomerFieldIds(cfg);
+  const before = await readConnectTarget(cfg, accountId);
+  return [
+    {
+      label: `updateAccount (${before.name}: Status → ${LEAD_STATUS}, add intake to Notes)`,
+      query: connectQuery(accountId, connectValues(ids, before, fields, meta)),
+    },
+  ];
+}
+
+function connectQuery(accountId: string, values: Record<string, string>): Record<string, unknown> {
+  return {
+    updateAccount: {
+      // notify:false — updateAccount mails the customer by default.
+      $: { id: accountId, notify: false, customFieldValues: values },
+      account: { $: { id: accountId }, id: {} },
+    },
+  };
+}
+
+/**
+ * Connect the lead to a customer JobTread already has, instead of creating one.
+ * One write: Status → "New Lead" (that is what keeps the card on the board) and
+ * the intake answers appended to Notes. Contacts and addresses are left alone.
+ * Returns the customer as it was, for the journal.
+ */
+export async function connectLeadToCustomer(
+  cfg: PaveConfig,
+  accountId: string,
+  fields: InquiryFields,
+  meta: { loggedAt?: string; loggedBy?: string } = {},
+): Promise<{ before: ConnectBefore; after: ConnectBefore }> {
+  const ids = await getCustomerFieldIds(cfg);
+  if (!ids.status) {
+    throw new Error(
+      'JobTread has no customer "Status" custom field — without it the customer would not appear as a lead.',
+    );
+  }
+  const before = await readConnectTarget(cfg, accountId);
+  const values = connectValues(ids, before, fields, meta);
+  await pave(cfg, connectQuery(accountId, values));
+  return {
+    before,
+    after: { name: before.name, status: LEAD_STATUS, notes: values[ids.notes] ?? before.notes },
+  };
 }
