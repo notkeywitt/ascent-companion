@@ -2,9 +2,9 @@
 slug: stage7-tools
 repo: ascent-companion-stage7
 branch: claude/stage7-tools-mileage
-status: in-progress
+status: shipped
 started: 2026-11-11T00:44:40Z
-updated: 2026-11-11T00:44:40Z
+updated: 2026-11-11T00:44:48Z
 goal: 
 next: Owner: review docs/plans/STAGE7_TOOLS_MILEAGE.md. To start the Tools week: set COMPANION_TOOLS_DB_WRITES=true in Vercel, redeploy, open /api/admin/sheet-tables?dataset=tools&backfill=1. Then build the Tools read flip behind COMPANION_TOOLS_DB_READS.
 ---

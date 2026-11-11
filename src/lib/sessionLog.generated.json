@@ -1,7 +1,26 @@
 {
-  "generatedAt": "2026-11-10T22:39:56Z",
-  "repo": "ascent-companion",
+  "generatedAt": "2026-11-11T00:44:48Z",
+  "repo": "ascent-companion-stage7",
   "sessions": [
+    {
+      "slug": "stage7-tools",
+      "file": "2026-11-10-stage7-tools.md",
+      "branch": "claude/stage7-tools-mileage",
+      "status": "shipped",
+      "started": "2026-11-11T00:44:40Z",
+      "updated": "2026-11-11T00:44:48Z",
+      "goal": "",
+      "next": "Owner: review docs/plans/STAGE7_TOOLS_MILEAGE.md. To start the Tools week: set COMPANION_TOOLS_DB_WRITES=true in Vercel, redeploy, open /api/admin/sheet-tables?dataset=tools&backfill=1. Then build the Tools read flip behind COMPANION_TOOLS_DB_READS.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "16:44",
+          "sha": "607341a",
+          "subject": "companion: stage 7 tools and mileage tables, backfill, flag-off dual-write",
+          "files": ".env.example, ARCHITECTURE_REVIEW.md, CODEBASE_MAP.md, docs/plans/STAGE7_TOOLS_MILEAGE.md, src/app/api/admin/sheet-tables/route.ts, src/app/api/mileage/route.ts, +8 more"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
