@@ -11,6 +11,7 @@ import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendor
 import { LswddPayReminder } from "@/components/LswddPayReminder";
 import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
+import { NewVersionNotice } from "@/components/NewVersionNotice";
 import { UsageBeacon } from "@/components/UsageBeacon";
 import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
@@ -190,6 +191,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   page's own content; the popup surface it also owns is fixed,
                   so it does not care where it is mounted. */}
               {session?.user && <NoticeCenter />}
+              {/* Admin: says when a newer build is live, so a refresh is not a guess. */}
+              {isAdmin && <NewVersionNotice />}
               {/* A box-less wrapper, kept from the retired refresh boundary:
                   admin-written page guides (src/lib/pageGuide.ts) locate an
                   element by its tag path under #app-shell, and removing this
