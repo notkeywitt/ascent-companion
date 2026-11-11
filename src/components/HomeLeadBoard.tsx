@@ -66,7 +66,7 @@ const QUIET_COLOR: Record<QuietBand, string> = {
   alert: "text-danger",
 };
 
-const STAGE_LABELS: Record<string, string> = {
+export const STAGE_LABELS: Record<string, string> = {
   new: "New",
   contacted: "Contacted",
   site_visit: "Site visit",

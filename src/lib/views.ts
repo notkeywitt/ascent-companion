@@ -586,7 +586,7 @@ export const VIEWS: ViewDef[] = [
     id: "jobs-hub",
     label: "Jobs",
     group: "Office",
-    paths: ["/jobs-hub", "/api/jobs/files", "/api/punch-list", "/api/notes"],
+    paths: ["/jobs-hub", "/api/jobs-hub", "/api/jobs/files", "/api/punch-list", "/api/notes"],
   },
 ];
 
