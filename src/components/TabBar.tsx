@@ -1,5 +1,6 @@
 "use client";
 
+import { RailWidgetButton } from "@/components/RailWidgetButton";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -617,15 +618,20 @@ export function TabBar() {
             </Link>
           )}
           <AppMenu account />
-          <button
-            type="button"
-            onClick={toggleRail}
-            aria-label="Hide the menu"
-            title="Hide the menu"
-            className="mt-1 flex w-full items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 2xl:justify-start 2xl:px-3"
-          >
-            ‹
-          </button>
+          {/* The desktop widget's launcher sits beside the Hide arrow (owner,
+              2026-11-11). Narrow rail: two small buttons in a row. */}
+          <div className="mt-1 flex items-center justify-center gap-0.5 2xl:justify-start">
+            <RailWidgetButton />
+            <button
+              type="button"
+              onClick={toggleRail}
+              aria-label="Hide the menu"
+              title="Hide the menu"
+              className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 2xl:justify-start 2xl:px-3"
+            >
+              ‹
+            </button>
+          </div>
         </div>
       </nav>
       {/* The rail's way back: a tab on the left edge while it is away. */}

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 
 /**
- * "Open desktop widget" — Home's button for the Mac panel in `desktop-widget/`.
+ * "Open desktop widget" — the side rail's button, next to the Hide arrow, for the Mac panel in `desktop-widget/`.
  *
  * The tap opens `ascentwidget://show`, which the panel app registers with
  * macOS. The app starts if it is closed, or comes forward if it is open.
@@ -17,10 +17,12 @@ import { useRef, useState } from "react";
  * made in a browser. Files: public/widget-install.sh, public/AscentWidget.zip.
  *
  * Desktop only (a mouse as the main pointer): a phone cannot run the panel.
+ * The install steps open as a card beside the rail, not inside it: the rail is
+ * 88px wide.
  */
 const INSTALL = "curl -fsSL https://ascent-companion.vercel.app/widget-install.sh | zsh";
 
-export function HomeWidgetButton() {
+export function RailWidgetButton() {
   const [missing, setMissing] = useState(false);
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
@@ -64,22 +66,33 @@ export function HomeWidgetButton() {
   }
 
   return (
-    <section className="mt-4 hidden [@media(pointer:fine)]:block">
+    <>
       <button
         type="button"
         onClick={open}
-        className="inline-flex items-center gap-2 rounded-xl border border-line bg-white px-3 py-2 text-sm font-semibold transition hover:border-line-strong dark:bg-ink-raised"
+        aria-label="Open desktop widget"
+        title="Open desktop widget"
+        className="flex items-center justify-center rounded-xl px-3 py-2 text-neutral-500 hover:text-accent dark:text-neutral-400 [@media(pointer:coarse)]:hidden"
       >
-        <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5 text-accent" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="3" width="16" height="18" rx="2.5" />
           <path d="M8 8h8M8 12h8M8 16h5" />
         </svg>
-        Open desktop widget
       </button>
 
       {missing && (
-        <div className="mt-3 max-w-xl rounded-xl border border-line bg-white p-3 text-sm dark:bg-ink-raised">
-          <p className="font-semibold">The widget is not on this Mac yet. Install it:</p>
+        <div
+          role="dialog"
+          aria-label="Install the desktop widget"
+          className="fixed bottom-4 z-40 w-[22rem] max-w-[calc(100vw-6rem)] rounded-xl border border-line bg-white p-3 text-sm shadow-lg dark:bg-ink-raised print:hidden"
+          style={{ left: "calc(var(--rail-w) + 0.5rem)" }}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <p className="font-semibold">The widget is not on this Mac yet. Install it:</p>
+            <button type="button" onClick={() => setMissing(false)} aria-label="Close" className="text-neutral-500 hover:text-accent">
+              ×
+            </button>
+          </div>
           <ol className="mt-2 list-decimal space-y-1 pl-5">
             <li>Press ⌘ Space. Type Terminal. Press Return.</li>
             <li>
@@ -100,6 +113,6 @@ export function HomeWidgetButton() {
           </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
