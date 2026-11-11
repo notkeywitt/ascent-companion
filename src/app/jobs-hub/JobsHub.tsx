@@ -155,11 +155,13 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
 
   // The month: the billing month until someone picks another.
   const [pickedYm, setPickedYm] = useState<string | null>(null);
-  const ym = pickedYm ?? defaultYm;
+  // Home has no picker of its own: it follows the masthead's billing month, which
+  // /api/jobs/to-be-invoiced reports. The Jobs page keeps its own picker.
+  const ym = home ? defaultYm : (pickedYm ?? defaultYm);
   const months = useMemo(() => billingMonths(), []);
   // No outline: it sits in the card's top right corner, a word you can change
   // (owner, 2026-11-01).
-  const monthSelect = (
+  const monthSelect = home ? null : (
     <select
       aria-label="Month"
       value={ym}
@@ -473,12 +475,9 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
               )
             ) : (
               home ? (
-                <div className="flex h-full min-h-0 flex-col gap-3">
-                  <div className="flex shrink-0 justify-end">{monthControls}</div>
-                  <div className="grid min-h-0 flex-1 gap-6 pad:grid-cols-2">
-                    <HubMyTodos className="max-pad:max-h-80" />
-                    <HubLeadsCard className="max-pad:max-h-80" />
-                  </div>
+                <div className="grid h-full min-h-0 gap-6 pad:grid-cols-2">
+                  <HubMyTodos className="max-pad:max-h-80 pad:min-h-[360px]" />
+                  <HubLeadsCard className="max-pad:max-h-80 pad:min-h-[360px]" />
                 </div>
               ) : (
               // The list's height, with the tabs on their own row at the foot.
