@@ -156,7 +156,7 @@ function accountQuery(
           [ids.status]: LEAD_STATUS,
           [ids.leadSource]: fields.leadSource,
           [ids.type]: fields.customerType,
-          [ids.notes]: inquirySummary(fields, meta),
+          [ids.notes]: clipTo(inquirySummary(fields, meta), NOTES_MAX),
         }),
       },
       createdAccount: { id: {}, name: {} },
@@ -307,6 +307,15 @@ export interface ConnectBefore {
   notes: string;
 }
 
+/** JobTread rejects a custom field value over 1024 characters (HTTP 400). */
+export const NOTES_MAX = 1024;
+const NOTES_MIN_ROOM = 120;
+
+/** Cut text to `max` characters, ending in an ellipsis. */
+function clipTo(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+}
+
 /** What the connect would write, given the customer as it stands now. */
 function connectValues(
   ids: CustomerFieldIds,
@@ -316,7 +325,19 @@ function connectValues(
 ): Record<string, string> {
   const summary = inquirySummary(fields, meta);
   // Append, never replace: an existing customer's Notes are somebody's history.
-  const notes = before.notes.trim() ? `${before.notes.trim()}\n\n---\n${summary}` : summary;
+  const history = before.notes.trim();
+  let notes = summary;
+  if (history) {
+    const sep = "\n\n---\n";
+    const room = NOTES_MAX - history.length - sep.length;
+    // History is never cut. The new summary shrinks to fit; with no room, stop.
+    if (room < NOTES_MIN_ROOM && history.length + sep.length + summary.length > NOTES_MAX) {
+      throw new Error(
+        `This customer's Notes in JobTread are ${history.length} characters. JobTread allows ${NOTES_MAX}, so the intake summary does not fit. Trim the Notes in JobTread, then connect again.`,
+      );
+    }
+    notes = `${history}${sep}${clipTo(summary, room)}`;
+  }
   return definedOnly({ [ids.status]: LEAD_STATUS, [ids.notes]: notes });
 }
 
