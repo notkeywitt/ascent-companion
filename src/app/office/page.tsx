@@ -12,6 +12,7 @@ import {
   SectionHeading,
 } from "@/components/ui";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { monthLabel } from "@/lib/billingMonths";
 import { currentBillingPeriod } from "@/lib/billingMonth";
 import { money } from "@/lib/invoiceReview/types";
@@ -72,6 +73,13 @@ export default async function OfficePage({
           {/* The to-do list left 2026-10-18 (CONSOLIDATION_PLAN.md stage 6):
               Home shows the same list, editable, under the same view. */}
           <section className="mb-6">
+            <SectionHeading>Ascent Details</SectionHeading>
+            <Suspense fallback={<Loading label="Loading details…" />}>
+              <AscentDetails />
+            </Suspense>
+          </section>
+
+          <section className="mb-6">
             <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
             <Suspense fallback={<Loading label="Loading bills…" />}>
               <Bills year={billingYear} month={billingMonthNum} />
@@ -87,6 +95,51 @@ export default async function OfficePage({
         </>
       )}
     </main>
+  );
+}
+
+/** "0.0835" → "8.35%". Anything that is not a plain number shows as typed. */
+function percent(raw: string): string {
+  const n = Number(raw);
+  return Number.isFinite(n) && raw.trim() !== "" ? `${+(n * 100).toFixed(2)}%` : raw;
+}
+
+/**
+ * The company's tax rate, P&O and license numbers, off the Project Database's
+ * "Details" tab (read through the `chatRecords` action, record "details").
+ */
+async function AscentDetails() {
+  let row: Record<string, string> | undefined;
+  try {
+    const r = await callAppsScriptOrThrow<{ rows?: Record<string, string>[] }>({
+      action: "chatRecords",
+      record: "details",
+    });
+    row = r.rows?.[0];
+  } catch (e) {
+    return <Banner tone="error">{e instanceof Error ? e.message : "Could not read details."}</Banner>;
+  }
+  if (!row) return <EmptyState>No details on the Details tab.</EmptyState>;
+
+  const items: [string, string | undefined][] = [
+    ["Tax", row["Tax"] && percent(row["Tax"])],
+    ["P&O", row["P&O"] && percent(row["P&O"])],
+    ["UBI", row["UBI"]],
+    ["Reseller Permit", row["Reseller Permit"]],
+    ["Contractor License", row["Contractor License"]],
+  ];
+  return (
+    <ListCard>
+      {items
+        .filter(([, v]) => v)
+        .map(([label, v]) => (
+          <ListRow
+            key={label}
+            label={label}
+            trailing={<span className="shrink-0 text-sm font-semibold tabular-nums">{v}</span>}
+          />
+        ))}
+    </ListCard>
   );
 }
 
