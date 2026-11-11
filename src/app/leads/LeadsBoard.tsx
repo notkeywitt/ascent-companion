@@ -628,15 +628,6 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     return withD;
   }, [leads, sortMode]);
 
-  const counts = useMemo(() => {
-    let attention = 0;
-    let stale = 0;
-    for (const { d } of rows) {
-      if (d.urgency === "overdue" || d.urgency === "unset") attention++;
-      if (quietBand(d.quietDays, thresholds) === "alert") stale++;
-    }
-    return { total: rows.length, attention, stale };
-  }, [rows, thresholds]);
 
   const visible = rows;
 
@@ -795,15 +786,9 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
 
       {/* The two follow-up signals, as the page's headline numbers. */}
       {!archive && (
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <Stat label="Leads" value={counts.total} />
-        <Stat label="Need action" value={counts.attention} tone={counts.attention ? "danger" : "ok"} />
-        <Stat
-          label={`Quiet ${thresholds.alertDays}d+`}
-          value={counts.stale}
-          tone={counts.stale ? "warning" : "ok"}
-        />
-      </div>
+        <div className="mb-4 grid grid-cols-3 gap-2">
+          <Stat label="Leads" value={rows.length} />
+        </div>
       )}
 
 
