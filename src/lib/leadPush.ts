@@ -311,9 +311,20 @@ export interface ConnectBefore {
 export const NOTES_MAX = 1024;
 const NOTES_MIN_ROOM = 120;
 
-/** Cut text to `max` characters, ending in an ellipsis. */
+/**
+ * Size as JobTread might count it. Unverified: it may count UTF-8 bytes or a
+ * line break as two characters, so this takes the larger reading of both.
+ */
+function notesSize(text: string): number {
+  return Buffer.byteLength(text, "utf8") + (text.match(/\n/g)?.length ?? 0);
+}
+
+/** Cut text to `max` (by notesSize), ending in an ellipsis. */
 function clipTo(text: string, max: number): string {
-  return text.length <= max ? text : `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
+  if (notesSize(text) <= max) return text;
+  let out = text;
+  while (out.length > 0 && notesSize(out) + 3 > max) out = out.slice(0, -1);
+  return `${out.trimEnd()}…`;
 }
 
 /** What the connect would write, given the customer as it stands now. */
@@ -329,11 +340,11 @@ function connectValues(
   let notes = summary;
   if (history) {
     const sep = "\n\n---\n";
-    const room = NOTES_MAX - history.length - sep.length;
+    const room = NOTES_MAX - notesSize(history) - notesSize(sep);
     // History is never cut. The new summary shrinks to fit; with no room, stop.
-    if (room < NOTES_MIN_ROOM && history.length + sep.length + summary.length > NOTES_MAX) {
+    if (room < NOTES_MIN_ROOM && notesSize(history) + notesSize(sep) + notesSize(summary) > NOTES_MAX) {
       throw new Error(
-        `This customer's Notes in JobTread are ${history.length} characters. JobTread allows ${NOTES_MAX}, so the intake summary does not fit. Trim the Notes in JobTread, then connect again.`,
+        `This customer's Notes in JobTread are ${notesSize(history)} characters long. JobTread allows ${NOTES_MAX}, so the intake summary does not fit. Trim the Notes in JobTread, then connect again.`,
       );
     }
     notes = `${history}${sep}${clipTo(summary, room)}`;
