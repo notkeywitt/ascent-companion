@@ -48,8 +48,11 @@ interface Tracking {
   estValue: string;
   projectScope: string;
   notes: string;
+  qualification: string;
   updatedAt: string;
 }
+
+const QUALIFICATIONS = ["", "qualified", "not_qualified"] as const;
 
 const BLANK: Tracking = {
   stage: "new",
@@ -59,6 +62,7 @@ const BLANK: Tracking = {
   estValue: "",
   projectScope: "",
   notes: "",
+  qualification: "",
   updatedAt: "",
 };
 
@@ -136,7 +140,10 @@ function asLead(row: LeadInquiry): LeadJt {
 // The thresholds ride along rather than sitting behind their own fetch: the home
 // panel needs them to colour its very first paint, and a second round trip there
 // would flash the default bands before correcting itself.
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ?archived=1 returns ONLY the not-qualified leads (the archive). Without it
+  // they are left out, so the board and the home panel never show them.
+  const archived = req.nextUrl.searchParams.get("archived") === "1";
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   }
@@ -174,6 +181,7 @@ export async function GET() {
             estValue: t.estValue,
             projectScope: t.projectScope,
             notes: t.notes,
+            qualification: t.qualification,
             updatedAt: t.updatedAt,
           }
         : BLANK;
@@ -196,7 +204,8 @@ export async function GET() {
         tracking: trackingFor(i.id),
       })),
     ];
-    return NextResponse.json({ leads: out, quiet });
+    const shown = out.filter((l) => (l.tracking.qualification === "not_qualified") === archived);
+    return NextResponse.json({ leads: shown, quiet });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: message }, { status: 502 });
@@ -205,7 +214,7 @@ export async function GET() {
 
 // PATCH /api/leads — upsert one lead's tracking row.
 // Body: { accountId, stage?, nextAction?, nextActionDate?, lastContactDate?,
-//         estValue?, projectScope?, notes? }
+//         estValue?, projectScope?, notes?, qualification? }
 // Only the keys PRESENT in the body are written, so a partial save from one
 // control can't blank the fields it didn't touch.
 export async function PATCH(req: NextRequest) {
@@ -229,6 +238,13 @@ export async function PATCH(req: NextRequest) {
   str("estValue", body.estValue);
   str("projectScope", body.projectScope);
   str("notes", body.notes);
+  str("qualification", body.qualification);
+  if (
+    patch.qualification !== undefined &&
+    !(QUALIFICATIONS as readonly string[]).includes(patch.qualification)
+  ) {
+    return NextResponse.json({ error: `Unknown qualification "${patch.qualification}"` }, { status: 400 });
+  }
   if (patch.stage && !(STAGES as readonly string[]).includes(patch.stage)) {
     return NextResponse.json({ error: `Unknown stage "${patch.stage}"` }, { status: 400 });
   }

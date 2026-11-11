@@ -291,7 +291,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   bills: InboxIcon,
   email: MailIcon,
   "bill-search": SearchIcon,
-  leads: UsersIcon,
+  leads: UserPlusIcon,
   requests: MessageIcon,
   chat: MessageIcon,
   lopezrocks: MapPinIcon,

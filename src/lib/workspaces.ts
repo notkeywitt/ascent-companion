@@ -393,6 +393,9 @@ const DESK_TOP: BarSlot[] = [
   { kind: "workspace", id: "close" },
   { kind: "workspace", id: "employees" },
   { kind: "workspace", id: "clients" },
+  // Customers on the rail (owner, 2026-11-11): the tab strip is gone, so this is
+  // the way in to the leads board and the customer list.
+  { kind: "tab", view: "leads" },
   // Vendors under Jobs at the owner's ask (2026-10-26).
   { kind: "tab", view: "vendors" },
   { kind: "workspace", id: "time" },

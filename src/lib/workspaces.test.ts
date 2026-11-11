@@ -122,11 +122,11 @@ describe("the iPad rail", () => {
     const views = resolveAllowedViews(role);
     return (v: string) => views.has(v);
   };
-  it("starts the office's rail with the owner's eight, then a space, then every other workspace once", () => {
+  it("starts the office's rail with the owner's nine, then a space, then every other workspace once", () => {
     const items = railFor("office", can("office"));
     const rail = items.map((i) => i.key);
-    expect(rail.slice(0, 8)).toEqual(["today", "close", "employees", "clients", "vendors", "time", "time-sync", "tools"]);
-    expect(items[8].gap).toBe(true);
+    expect(rail.slice(0, 9)).toEqual(["today", "close", "employees", "clients", "leads", "vendors", "time", "time-sync", "tools"]);
+    expect(items[9].gap).toBe(true);
     expect(items.filter((i) => i.gap)).toHaveLength(1);
     expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "help", "office", "mywork"]));
     expect(rail).not.toContain("admin");
@@ -169,12 +169,12 @@ describe("a role's side-menu edit", () => {
     const keys = railFor("office", can("office"), "", { add: [], hide: ["page:vendors", "ws:help"] }).map((i) => i.key);
     expect(keys).not.toContain("vendors");
     expect(keys).not.toContain("help");
-    expect(keys.slice(0, 7)).toEqual(["today", "close", "employees", "clients", "time", "time-sync", "tools"]);
+    expect(keys.slice(0, 8)).toEqual(["today", "close", "employees", "clients", "leads", "time", "time-sync", "tools"]);
   });
   it("puts an added item at the end of the top group, before the space", () => {
     const items = railFor("office", can("office"), "", { add: ["page:bills"], hide: [] });
-    expect(items[8].key).toBe("bills");
-    expect(items[9].gap).toBe(true);
+    expect(items[9].key).toBe("bills");
+    expect(items[10].gap).toBe(true);
   });
   it("skips an added item the role cannot open", () => {
     const keys = railFor("field", can("field"), "", { add: ["ws:admin"], hide: [] }).map((i) => i.key);
@@ -189,9 +189,9 @@ describe("a role's side-menu edit", () => {
     const items = railFor("office", can("office"), "", { add: [], hide: [], order: ["ws:time", "today", "ws:close"] });
     const keys = items.map((i) => i.key);
     expect(keys.slice(0, 3)).toEqual(["time", "today", "employees"]);
-    expect(keys[5]).toBe("close");
+    expect(keys[6]).toBe("close");
     expect(new Set(keys)).toEqual(new Set(base));
-    expect(items[8].gap).toBe(true);
+    expect(items[9].gap).toBe(true);
   });
   it("keeps only known keys", () => {
     expect(cleanMenuKeys(["today", "ws:clients", "page:bills", "ws:nope", 3, "today"])).toEqual([
@@ -228,7 +228,7 @@ describe("the phone bar's drawer", () => {
   it("fills the office's grid, workspaces first", () => {
     const keys = drawerFor("office", can("office")).map((i) => i.key);
     expect(keys).toHaveLength(DRAWER_SIZE);
-    expect(keys.slice(0, 4)).toEqual(["employees", "clients", "vendors", "time-sync"]);
+    expect(keys.slice(0, 5)).toEqual(["employees", "clients", "leads", "vendors", "time-sync"]);
     expect(keys).toEqual(expect.arrayContaining(["incoming", "search"]));
   });
 });

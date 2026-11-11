@@ -470,6 +470,9 @@ export const leads = sqliteTable("leads", {
   // so this is the one field that reads the same for every lead on the board.
   projectScope: text("project_scope").notNull().default(""),
   notes: text("notes").notNull().default(""), // our working notes (JT's Notes field stays read-only)
+  // "" = not decided | "qualified" | "not_qualified". Not qualified is the lead
+  // archive: the row leaves the board and the home panel, and stays for our records.
+  qualification: text("qualification").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

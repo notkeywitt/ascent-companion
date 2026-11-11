@@ -33,7 +33,7 @@ export function Customers() {
 
   return (
     <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader title="Customers" description="Leads to follow up, and every customer and job in JobTread." />
+      <PageHeader title="Customers" />
       <Tabs
         label="Customer sections"
         items={sections.map((x) => ({

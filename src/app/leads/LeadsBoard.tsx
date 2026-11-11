@@ -30,9 +30,7 @@ import {
   Card,
   CardSkeletonList,
   Chip,
-  ChipScroller,
   EmptyState,
-  FilterChip,
   Input,
   Label,
   PageHeader,
@@ -74,6 +72,8 @@ interface Tracking {
   /** What the job is, in our words — the one scope line every lead can have. */
   projectScope: string;
   notes: string;
+  /** "" = undecided, "qualified", or "not_qualified" (the archive). */
+  qualification: string;
   updatedAt: string;
 }
 /** The intake answers, as logged here. Present on a local lead, and on a
@@ -491,8 +491,9 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
-  const [filter, setFilter] = useState<"all" | "attention" | "stale" | "local" | "review">("all");
-  const [stageFilter, setStageFilter] = useState<string>("");
+  /* The lead archive: leads marked "Not qualified". They leave the board and the
+     home panel, and stay here for our records. */
+  const [archive, setArchive] = useState(false);
   const [sortMode, setSortMode] = useState<SortMode>("attention");
   const [adding, setAdding] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -514,7 +515,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/leads");
+      const res = await fetch(archive ? "/api/leads?archived=1" : "/api/leads");
       const json = await res.json();
       if (!res.ok) setError(json.error ?? "Failed to load leads");
       else {
@@ -526,7 +527,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [archive]);
 
   /**
    * File any website form submission that isn't on the board yet.
@@ -571,8 +572,10 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
 
   useEffect(() => {
     void load();
+  }, [load]);
+  useEffect(() => {
     void scan();
-  }, [load, scan]);
+  }, [scan]);
 
   /* Open the lead named in the URL fragment — the home page's Leads panel links
      each card to /leads#<id>. Read from location.hash rather than a query
@@ -624,25 +627,14 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
   const counts = useMemo(() => {
     let attention = 0;
     let stale = 0;
-    let local = 0;
-    let review = 0;
-    for (const { lead, d } of rows) {
+    for (const { d } of rows) {
       if (d.urgency === "overdue" || d.urgency === "unset") attention++;
       if (quietBand(d.quietDays, thresholds) === "alert") stale++;
-      if (lead.local) local++;
-      if (needsReview(lead)) review++;
     }
-    return { total: rows.length, attention, stale, local, review };
+    return { total: rows.length, attention, stale };
   }, [rows, thresholds]);
 
-  const visible = rows.filter(({ lead, d }) => {
-    if (filter === "attention" && d.urgency !== "overdue" && d.urgency !== "unset") return false;
-    if (filter === "stale" && quietBand(d.quietDays, thresholds) !== "alert") return false;
-    if (filter === "local" && !lead.local) return false;
-    if (filter === "review" && !needsReview(lead)) return false;
-    if (stageFilter && lead.tracking.stage !== stageFilter) return false;
-    return true;
-  });
+  const visible = rows;
 
   /**
    * Copy the leads on screen as formatted text, ready to paste into an email.
@@ -722,7 +714,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
   return (
     <Wrap embedded={embedded}>
       <PageHeader
-        title="Leads"
+        title={archive ? "Lead archive" : "Leads"}
         titleSlot={embedded ? <span className="sr-only">Leads</span> : undefined}
         description={embedded ? undefined : 'Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'}
         actions={
@@ -741,6 +733,17 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
               disabled={loading || scanning}
             >
               {scanning ? "Checking…" : "Refresh"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              title={archive ? "Back to the leads list" : "Leads marked Not qualified, kept for our records"}
+              onClick={() => {
+                setOpenId(null);
+                setArchive((v) => !v);
+              }}
+            >
+              {archive ? "Back to leads" : "Archive"}
             </Button>
           </div>
         }
@@ -787,6 +790,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
       )}
 
       {/* The two follow-up signals, as the page's headline numbers. */}
+      {!archive && (
       <div className="mb-4 grid grid-cols-3 gap-2">
         <Stat label="Leads" value={counts.total} />
         <Stat label="Need action" value={counts.attention} tone={counts.attention ? "danger" : "ok"} />
@@ -796,57 +800,9 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
           tone={counts.stale ? "warning" : "ok"}
         />
       </div>
+      )}
 
-      <ChipScroller className="mb-4">
-        <FilterChip on={filter === "all"} onClick={() => setFilter("all")}>
-          All
-        </FilterChip>
-        <FilterChip
-          on={filter === "attention"}
-          onClick={() => setFilter("attention")}
-          title="Overdue next action, or no next action set"
-        >
-          Need action
-        </FilterChip>
-        <FilterChip
-          on={filter === "stale"}
-          onClick={() => setFilter("stale")}
-          title={`No contact logged in ${thresholds.alertDays}+ days`}
-        >
-          Gone quiet
-        </FilterChip>
-        {counts.review > 0 && (
-          <FilterChip
-            on={filter === "review"}
-            onClick={() => setFilter("review")}
-            title="Came in from the website and nobody has marked it reviewed"
-          >
-            Needs review ({counts.review})
-          </FilterChip>
-        )}
-        {counts.local > 0 && (
-          <FilterChip
-            on={filter === "local"}
-            onClick={() => setFilter("local")}
-            title="Logged here, not yet a customer in JobTread"
-          >
-            Not in JobTread
-          </FilterChip>
-        )}
-        {STAGES.map((s) => (
-          <FilterChip
-            key={s.id}
-            on={stageFilter === s.id}
-            onClick={() => setStageFilter(stageFilter === s.id ? "" : s.id)}
-          >
-            {s.label}
-          </FilterChip>
-        ))}
-      </ChipScroller>
 
-      {/* The one place the amber/red bands are set — org-wide, and read by the
-          home page's Leads panel too. Folded away by default. */}
-      <QuietThresholdEditor thresholds={thresholds} onSaved={setThresholds} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -892,9 +848,11 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
         <CardSkeletonList rows={4} />
       ) : visible.length === 0 ? (
         <EmptyState>
-          {leads.length === 0
+          {archive
+            ? "No leads in the archive. A lead marked Not qualified lands here."
+            : leads.length === 0
             ? 'No customers are marked "New Lead" in JobTread, and nothing has been logged here — use “New lead” to add one.'
-            : "No leads match this filter."}
+            : "No leads."}
         </EmptyState>
       ) : (
         <ul className="space-y-2">
@@ -920,8 +878,6 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     </Wrap>
   );
 }
-
-/* -------------------------------------------------------- quiet thresholds */
 
 /**
  * The two numbers behind every amber and red mark on a lead — here, and on the
@@ -1126,12 +1082,6 @@ function LeadCard({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="truncate font-semibold">{lead.name}</div>
-            <div className="mt-0.5 truncate text-xs text-neutral-500">
-              {[lead.source && `via ${lead.source}`, lead.customerType, lead.address]
-                .filter(Boolean)
-                .join(" · ") ||
-                (lead.local ? "No source or address logged" : "No source or address in JobTread")}
-            </div>
           </div>
           <div className="flex shrink-0 flex-col items-end gap-1">
             {needsReview(lead) && (
@@ -1290,6 +1240,31 @@ function LeadDetail({
     }
   }
 
+  /** Mark the lead Qualified / Not qualified, or clear it (""). Not qualified
+   *  moves it to the archive, so the board reloads and the card leaves the list. */
+  async function setQualification(qualification: string) {
+    setSaving(true);
+    setErr("");
+    try {
+      const res = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: lead.id, qualification }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "Save failed");
+        return;
+      }
+      if (qualification === "not_qualified" || lead.tracking.qualification === "not_qualified") onChanged();
+      else onTracking(json.tracking);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const contacts = lead.contacts.length ? lead.contacts : lead.primaryContact ? [lead.primaryContact] : [];
   const openTasks = lead.tasks.filter((t) => !t.completed);
 
@@ -1297,125 +1272,13 @@ function LeadDetail({
     <div className="space-y-4 border-t border-line px-3 pb-4 pt-3">
       {err && <Banner tone="error">{err}</Banner>}
 
-      {/* --------------------------------------- where the lead lives today */}
-      <section className="space-y-2">
-        <SectionHeading>{lead.local ? "Logged here" : "Customer Details"}</SectionHeading>
-
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-          <Field label={lead.local ? "Logged" : "Created"} value={fmtDate(lead.createdAt)} />
-          <Field label="Lead source" value={lead.source || "—"} />
-          <Field label="Type" value={lead.customerType || "—"} />
-          <Field label="Address" value={lead.address || "—"} />
-          {lead.inquiry?.loggedBy && <Field label="Logged by" value={lead.inquiry.loggedBy} />}
-          {!lead.local && lead.inquiry?.pushedAt && (
-            <Field label="Pushed to JT" value={fmtDate(lead.inquiry.pushedAt)} />
-          )}
-        </dl>
-
-        {contacts.length > 0 && (
-          <ul className="space-y-1">
-            {contacts.map((c) => (
-              <li key={c.id} className="rounded-lg bg-neutral-50 px-2.5 py-2 text-xs dark:bg-white/5">
-                <div className="font-semibold">
-                  {c.name}
-                  {c.title && <span className="ml-1 font-normal text-neutral-500">{c.title}</span>}
-                </div>
-                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                  {c.phone && (
-                    <a href={`tel:${c.phone}`} className="font-medium text-accent hover:underline">
-                      {c.phone}
-                    </a>
-                  )}
-                  {c.email && (
-                    <a href={`mailto:${c.email}`} className="font-medium text-accent hover:underline">
-                      {c.email}
-                    </a>
-                  )}
-                  {!c.phone && !c.email && <span className="text-neutral-500">No phone or email</span>}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        {lead.notes && (
-          <details className="text-xs">
-            <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
-              Notes
-            </summary>
-            <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{lead.notes}</p>
-          </details>
-        )}
-
-        {openTasks.length > 0 && (
-          <div className="text-xs">
-            <span className="font-semibold text-neutral-600 dark:text-neutral-300">Open JT tasks: </span>
-            <span className="text-neutral-600 dark:text-neutral-400">
-              {openTasks.map((t) => `${t.name}${t.endDate ? ` (${fmtDate(t.endDate)})` : ""}`).join(", ")}
-            </span>
-          </div>
-        )}
-      </section>
-
-      {/* ------------------------------------------------------- job details */}
+      {/* ---------------------------------------------------------- next steps */}
       <section className="space-y-2">
         <SectionHeading
           trailing={saving ? <span className="text-[11px] text-neutral-500">Saving…</span> : undefined}
         >
-          Job Details
+          Next steps
         </SectionHeading>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2">
-            <Label htmlFor={`scope-${lead.id}`}>Project scope</Label>
-            <Textarea
-              id={`scope-${lead.id}`}
-              rows={2}
-              placeholder="e.g. Re-side the house and rebuild the south deck"
-              value={form.projectScope}
-              onChange={(e) => setForm({ ...form, projectScope: e.target.value })}
-            />
-            <p className="mt-1 text-[11px] text-neutral-500">
-              What the job is, in our words. Shows on the home page&apos;s Leads panel.
-            </p>
-          </div>
-          <div>
-            <Label htmlFor={`stage-${lead.id}`}>Stage</Label>
-            <Select
-              id={`stage-${lead.id}`}
-              value={form.stage}
-              onChange={(e) => setForm({ ...form, stage: e.target.value })}
-            >
-              {STAGES.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div>
-            <Label htmlFor={`value-${lead.id}`}>Est. value</Label>
-            <Input
-              id={`value-${lead.id}`}
-              inputMode="decimal"
-              placeholder="e.g. 85000"
-              value={form.estValue}
-              onChange={(e) => setForm({ ...form, estValue: e.target.value })}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* ----------------------------------------- the intake answers, if any */}
-      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
-
-      {/* ------------------------- what a local lead can do that a JT one can't */}
-      {lead.local && lead.inquiry && (
-        <LocalLeadPanel inquiry={lead.inquiry} onChanged={onChanged} />
-      )}
-
-      {/* ------------------------------------------------------- contact log */}
-      <section className="space-y-2">
-        <SectionHeading>Contact log</SectionHeading>
         <div className="grid grid-cols-2 gap-2">
           <div className="col-span-2">
             <Label htmlFor={`next-${lead.id}`}>Next action</Label>
@@ -1453,6 +1316,13 @@ function LeadDetail({
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
+        </div>
+      </section>
+
+      {/* ------------------------------------------------------- contact log */}
+      <section className="space-y-2">
+        <SectionHeading>Log contact</SectionHeading>
+        <div className="grid grid-cols-2 gap-2">
           <div>
             <Label htmlFor={`kind-${lead.id}`}>What happened</Label>
             <Select
@@ -1514,6 +1384,167 @@ function LeadDetail({
           </ul>
         )}
       </section>
+
+      {/* ------------------------------------------------------ qualification */}
+      <section className="space-y-2">
+        <SectionHeading>Qualified?</SectionHeading>
+        <div className="flex flex-wrap items-center gap-2">
+          {lead.tracking.qualification === "not_qualified" ? (
+            <>
+              <span className="text-xs text-neutral-600 dark:text-neutral-400">
+                Not qualified — kept in the archive.
+              </span>
+              <Button size="sm" variant="outline" onClick={() => void setQualification("")} disabled={saving}>
+                Restore to leads
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant={lead.tracking.qualification === "qualified" ? "primary" : "outline"}
+                onClick={() => void setQualification(lead.tracking.qualification === "qualified" ? "" : "qualified")}
+                disabled={saving}
+                aria-pressed={lead.tracking.qualification === "qualified"}
+              >
+                Qualified
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                title="Moves this lead to the archive and off the leads list"
+                onClick={() => void setQualification("not_qualified")}
+                disabled={saving}
+              >
+                Not qualified
+              </Button>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ------------------------------ where the customer lives in JobTread */}
+      {!lead.local && (
+      <section className="space-y-2">
+        <SectionHeading>Customer Details</SectionHeading>
+
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+          <Field label={lead.local ? "Logged" : "Created"} value={fmtDate(lead.createdAt)} />
+          <Field label="Lead source" value={lead.source || "—"} />
+          <Field label="Type" value={lead.customerType || "—"} />
+          <Field label="Address" value={lead.address || "—"} />
+          {lead.inquiry?.loggedBy && <Field label="Logged by" value={lead.inquiry.loggedBy} />}
+          {!lead.local && lead.inquiry?.pushedAt && (
+            <Field label="Pushed to JT" value={fmtDate(lead.inquiry.pushedAt)} />
+          )}
+        </dl>
+
+        {contacts.length > 0 && (
+          <ul className="space-y-1">
+            {contacts.map((c) => (
+              <li key={c.id} className="rounded-lg bg-neutral-50 px-2.5 py-2 text-xs dark:bg-white/5">
+                <div className="font-semibold">
+                  {c.name}
+                  {c.title && <span className="ml-1 font-normal text-neutral-500">{c.title}</span>}
+                </div>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  {c.phone && (
+                    <a href={`tel:${c.phone}`} className="font-medium text-accent hover:underline">
+                      {c.phone}
+                    </a>
+                  )}
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} className="font-medium text-accent hover:underline">
+                      {c.email}
+                    </a>
+                  )}
+                  {!c.phone && !c.email && <span className="text-neutral-500">No phone or email</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {lead.notes && (
+          <details className="text-xs">
+            <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
+              Notes
+            </summary>
+            <p className="mt-1 whitespace-pre-wrap text-neutral-600 dark:text-neutral-400">{lead.notes}</p>
+          </details>
+        )}
+
+        {openTasks.length > 0 && (
+          <div className="text-xs">
+            <span className="font-semibold text-neutral-600 dark:text-neutral-300">Open JT tasks: </span>
+            <span className="text-neutral-600 dark:text-neutral-400">
+              {openTasks.map((t) => `${t.name}${t.endDate ? ` (${fmtDate(t.endDate)})` : ""}`).join(", ")}
+            </span>
+          </div>
+        )}
+      </section>
+
+      )}
+
+      {/* ------------------------------------------------------- job details */}
+      <section className="space-y-2">
+        <SectionHeading
+          trailing={saving ? <span className="text-[11px] text-neutral-500">Saving…</span> : undefined}
+        >
+          Job Details
+        </SectionHeading>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="col-span-2">
+            <Label htmlFor={`scope-${lead.id}`}>Project scope</Label>
+            <Textarea
+              id={`scope-${lead.id}`}
+              rows={2}
+              placeholder="e.g. Re-side the house and rebuild the south deck"
+              value={form.projectScope}
+              onChange={(e) => setForm({ ...form, projectScope: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-neutral-500">
+              What the job is, in our words. Shows on the home page&apos;s Leads panel.
+            </p>
+          </div>
+          <div>
+            <Label htmlFor={`stage-${lead.id}`}>Stage</Label>
+            <Select
+              id={`stage-${lead.id}`}
+              value={form.stage}
+              onChange={(e) => setForm({ ...form, stage: e.target.value })}
+            >
+              {STAGES.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor={`value-${lead.id}`}>Est. value</Label>
+            <Input
+              id={`value-${lead.id}`}
+              inputMode="decimal"
+              placeholder="e.g. 85000"
+              value={form.estValue}
+              onChange={(e) => setForm({ ...form, estValue: e.target.value })}
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ----------------------------------------- the intake answers, if any */}
+      {lead.inquiry && <InquiryPanel inquiry={lead.inquiry} onChanged={onChanged} />}
+
+      {/* ------------------------- what a local lead can do that a JT one can't */}
+      {lead.local && lead.inquiry && (
+        <LocalLeadPanel
+          inquiry={lead.inquiry}
+          qualified={lead.tracking.qualification === "qualified"}
+          onChanged={onChanged}
+        />
+      )}
 
       {!lead.local && (
         <JtLink
@@ -1637,7 +1668,16 @@ function InquiryPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: () 
  *  • a preview (a dry run, or the write gate being closed) — shown as the list
  *    of calls it WOULD make, with nothing sent.
  */
-function LocalLeadPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: () => void }) {
+function LocalLeadPanel({
+  inquiry,
+  qualified,
+  onChanged,
+}: {
+  inquiry: Inquiry;
+  /** Push to JobTread shows only once the lead is marked Qualified. */
+  qualified: boolean;
+  onChanged: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
@@ -1817,12 +1857,16 @@ function LocalLeadPanel({ inquiry, onChanged }: { inquiry: Inquiry; onChanged: (
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={() => setConfirming(true)} disabled={busy}>
-            Push to JobTread
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => void push({ dryRun: true })} disabled={busy}>
-            Preview
-          </Button>
+          {qualified && (
+            <>
+              <Button size="sm" onClick={() => setConfirming(true)} disabled={busy}>
+                Push to JobTread
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => void push({ dryRun: true })} disabled={busy}>
+                Preview
+              </Button>
+            </>
+          )}
           <Button size="sm" variant="outline" onClick={() => setEditing(true)} disabled={busy}>
             Edit
           </Button>

@@ -4,7 +4,6 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
-import { WorkspaceTabs } from "@/components/WorkspaceTabs";
 import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
 import { CopyInPlace } from "@/components/CopyInPlace";
@@ -184,10 +183,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div id="app-shell">
               <Suspense fallback={null}>
                 <AppHeader />
-              </Suspense>
-              {/* The current workspace's tabs, carrying jobId and ym. */}
-              <Suspense fallback={null}>
-                <WorkspaceTabs />
               </Suspense>
               {/* Notices — announcements office/admin push to the team. The
                   banner stack sits here, in the flow under the header, so it

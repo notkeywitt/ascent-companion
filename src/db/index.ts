@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "17fw-oudevg";
+export const SCHEMA_FINGERPRINT = "17mg-drhf62";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -514,6 +514,12 @@ async function applySchema() {
   // — same pattern as labor_rate_catalog.group_id).
   try {
     await getClient().execute("ALTER TABLE leads ADD COLUMN project_scope TEXT NOT NULL DEFAULT ''");
+  } catch {
+    /* column already exists */
+  }
+  // Qualified / not qualified, for a table created before the field existed.
+  try {
+    await getClient().execute("ALTER TABLE leads ADD COLUMN qualification TEXT NOT NULL DEFAULT ''");
   } catch {
     /* column already exists */
   }
