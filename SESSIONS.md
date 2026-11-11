@@ -32,8 +32,8 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-11 | 255 | — |
 | [laughing-fermat](.claude/sessions/2026-11-11-laughing-fermat.md) | 2026-11-11 | 2 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-11 | 254 | — |
 | [tools-migration-sql](.claude/sessions/2026-11-11-tools-migration-sql.md) | 2026-11-11 | 0 | — |
 | [intelligent-ride](.claude/sessions/2026-11-11-intelligent-ride.md) | 2026-11-11 | 1 | — |
 | [brave-gates](.claude/sessions/2026-11-11-brave-gates.md) | 2026-11-11 | 3 | — |
