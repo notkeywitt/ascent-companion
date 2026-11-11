@@ -10,6 +10,7 @@ import { AppMenu } from "@/components/AppMenu";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import {
+  CUSTOMER_SECTIONS,
   BAR_PIN_EVENT,
   BAR_PIN_KEY,
   MENU_SINGLE_WORKSPACES,
@@ -526,6 +527,11 @@ export function TabBar() {
           // repeated under its workspace; one page left needs no second level.
           const own = ws ? reachableTabs(ws, access.can).filter((tab) => !rail.some((r) => !r.workspace && r.view === tab.view)) : [];
           const pages = own.length > 1 ? own : [];
+          // Customers is one page with two sections: list them under it once it
+          // is open (/leads?section=). The first section is the page's default.
+          const sections = on && !t.workspace && t.view === "leads" ? CUSTOMER_SECTIONS.filter((x) => access.can(x.view)) : [];
+          const sectionNow = search.get("section") ?? "";
+          const sectionOn = (id: string) => (sectionNow ? sectionNow === id : id === sections[0]?.id);
           // From 2xl the fill moves down to the page itself, so one row is lit.
           const childLit = pages.some((tab) => isHere(tab.href));
           return (
@@ -544,6 +550,25 @@ export function TabBar() {
                 <span className="min-w-0">{labelOf(t)}</span>
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
               </Link>
+              {sections.length > 1 && (
+                <div className="hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
+                  {sections.map((x, i) => (
+                    <Link
+                      key={x.id}
+                      href={i === 0 ? t.href : `${t.href}?section=${x.id}`}
+                      onClick={guard}
+                      aria-current={sectionOn(x.id) ? "page" : undefined}
+                      className={`block truncate rounded-lg px-2 py-1.5 text-[13px] transition ${
+                        sectionOn(x.id)
+                          ? "bg-accent/10 font-semibold text-accent dark:text-accent-soft"
+                          : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+                      }`}
+                    >
+                      {x.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
               {/* The sidebar's second level: the current workspace's pages. */}
               {pages.length > 0 && (
                 <div className="hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">

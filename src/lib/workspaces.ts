@@ -323,6 +323,16 @@ export interface BarItem {
   gap?: boolean;
 }
 
+/**
+ * The Customers page's sections (/leads?section=). The page shows them as a tab
+ * strip below 2xl, and the sidebar lists them under Customers from 2xl. Each
+ * shows only to someone who holds its view. The first is the page's default.
+ */
+export const CUSTOMER_SECTIONS = [
+  { id: "leads", label: "Leads", view: "leads" },
+  { id: "all", label: "All customers", view: "clients" },
+] as const;
+
 const TAB_BY_VIEW = new Map(WORKSPACES.flatMap((w) => w.tabs.map((t) => [t.view, t] as const)));
 
 /** Where the device's pinned page is kept (a view id). Per device, like the old drawer's pins. */
