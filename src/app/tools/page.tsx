@@ -1045,7 +1045,6 @@ export default function ToolsPage() {
       <div className="min-w-0">
       <PageHeader
         titleSlot={<ToolsTitleMenu current="tools" />}
-        description="The tool inventory — search, edit, or scan a QR sticker to relocate a tool (or add a new one)."
         actions={
           <>
             <Button

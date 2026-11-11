@@ -154,9 +154,6 @@ export function BatchCard({ reloadKey }: { reloadKey: number }) {
           {last.message && last.kind !== "request" ? ` · ${last.message}` : ""}
         </p>
       )}
-      {!s.due.due && waiting > 0 && s.due.why && (
-        <p className="mt-1 text-xs text-neutral-500">Timer: {s.due.why}.</p>
-      )}
 
       {s.canAnalyze && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
