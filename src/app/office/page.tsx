@@ -12,7 +12,7 @@ import {
   SectionHeading,
 } from "@/components/ui";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import { listDocuments, readDetails } from "@/lib/companyDetails";
 import { monthLabel } from "@/lib/billingMonths";
 import { currentBillingPeriod } from "@/lib/billingMonth";
 import { money } from "@/lib/invoiceReview/types";
@@ -27,6 +27,7 @@ import {
 import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
+import { AscentDetails } from "./AscentDetails";
 import { OfficeImages } from "./OfficeImages";
 import { CoiDot } from "@/components/CoiDot";
 
@@ -72,7 +73,7 @@ export default async function OfficePage({
           <section className="mb-6">
             <SectionHeading>Ascent Details</SectionHeading>
             <Suspense fallback={<Loading label="Loading details…" />}>
-              <AscentDetails />
+              <AscentDetailsSection />
             </Suspense>
           </section>
 
@@ -95,49 +96,14 @@ export default async function OfficePage({
   );
 }
 
-/** "0.0835" → "8.35%". Anything that is not a plain number shows as typed. */
-function percent(raw: string): string {
-  const n = Number(raw);
-  return Number.isFinite(n) && raw.trim() !== "" ? `${+(n * 100).toFixed(2)}%` : raw;
-}
-
-/**
- * The company's tax rate, P&O and license numbers, off the Project Database's
- * "Details" tab (read through the `chatRecords` action, record "details").
- */
-async function AscentDetails() {
-  let row: Record<string, string> | undefined;
+/** The company's details and documents, read from the companion database. */
+async function AscentDetailsSection() {
   try {
-    const r = await callAppsScriptOrThrow<{ rows?: Record<string, string>[] }>({
-      action: "chatRecords",
-      record: "details",
-    });
-    row = r.rows?.[0];
+    const [state, documents] = await Promise.all([readDetails(), listDocuments()]);
+    return <AscentDetails values={state.values} documents={documents} />;
   } catch (e) {
     return <Banner tone="error">{e instanceof Error ? e.message : "Could not read details."}</Banner>;
   }
-  if (!row) return <EmptyState>No details on the Details tab.</EmptyState>;
-
-  const items: [string, string | undefined][] = [
-    ["Tax", row["Tax"] && percent(row["Tax"])],
-    ["P&O", row["P&O"] && percent(row["P&O"])],
-    ["UBI", row["UBI"]],
-    ["Reseller Permit", row["Reseller Permit"]],
-    ["Contractor License", row["Contractor License"]],
-  ];
-  return (
-    <ListCard>
-      {items
-        .filter(([, v]) => v)
-        .map(([label, v]) => (
-          <ListRow
-            key={label}
-            label={label}
-            trailing={<span className="shrink-0 text-sm font-semibold tabular-nums">{v}</span>}
-          />
-        ))}
-    </ListCard>
-  );
 }
 
 function JtLink({ href }: { href: string }) {

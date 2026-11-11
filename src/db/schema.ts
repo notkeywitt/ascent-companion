@@ -1452,6 +1452,37 @@ export const BILLING_MONTH_SETTING_ID = "default";
 export type BillingMonthSettingRow = typeof billingMonthSetting.$inferSelect;
 
 /**
+ * ASCENT'S OWN DETAILS and the documents that back them (Office Dashboard).
+ *
+ * `company_details` is key → value, one row per fact: the sales tax rate, P&O,
+ * UBI, reseller permit and contractor license numbers. Rates are stored as
+ * decimals ("0.0835"). These began as the Project Database's "Details" tab,
+ * copied in ONCE (src/lib/companyDetails.ts); this table is now the source of
+ * truth and nothing writes the sheet back.
+ *
+ * `company_documents` holds the files themselves (the reseller permit, the
+ * contractor license, insurance certificates…), in the row as a BLOB, the same
+ * way `onboarding_forms` keeps a PDF. Nothing trims either table.
+ */
+export const companyDetails = sqliteTable("company_details", {
+  key: text("key").primaryKey(), // "tax", "po", "ubi", "reseller_permit", "contractor_license"
+  value: text("value").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+export const companyDocuments = sqliteTable("company_documents", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(), // what the office calls it: "Reseller permit"
+  fileName: text("file_name").notNull().default(""),
+  mime: text("mime").notNull().default("application/pdf"),
+  size: integer("size").notNull().default(0),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  uploadedAt: text("uploaded_at").notNull(),
+  uploadedBy: text("uploaded_by").notNull().default(""),
+});
+
+/**
  * The PAGE GUIDES — per-element help an admin writes from inside the app.
  *
  * One row per page (`path` = the folded pathname, see src/lib/pageGuide.ts),
