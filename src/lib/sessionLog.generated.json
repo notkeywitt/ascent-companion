@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-11T20:31:46Z",
+  "generatedAt": "2026-11-11T20:37:20Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-11T20:31:46Z",
+      "updated": "2026-11-11T20:37:20Z",
       "goal": "",
       "next": "Office: add a tool with In Trailer? set and check it takes the trailer's location",
       "commits": [
@@ -1796,6 +1796,13 @@
           "sha": "931e02b",
           "subject": "companion: drop the Office Dashboard subtitle",
           "files": "src/app/office/page.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "12:37",
+          "sha": "4f65f23",
+          "subject": "companion: move Ascent Details to the database; edit them and upload company documents",
+          "files": "CODEBASE_MAP.md, src/app/api/office/details/route.ts, src/app/api/office/documents/file/route.ts, src/app/api/office/documents/route.ts, src/app/office/AscentDetails.tsx, src/app/office/page.tsx, +6 more"
         }
       ]
     },
