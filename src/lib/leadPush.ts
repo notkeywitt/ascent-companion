@@ -337,7 +337,7 @@ function connectValues(
   const summary = inquirySummary(fields, meta);
   // Append, never replace: an existing customer's Notes are somebody's history.
   const history = before.notes.trim();
-  let notes = summary;
+  let notes = clipTo(summary, NOTES_MAX);
   if (history) {
     const sep = "\n\n---\n";
     const room = NOTES_MAX - notesSize(history) - notesSize(sep);
