@@ -11,9 +11,12 @@ import { leadActivities, leads as leadsTable } from "@/db/schema";
  * Logging a touch also stamps `leads.last_contact_date`, which is what the
  * board's staleness aging reads — so "days since last contact" can never drift
  * away from the timeline the office actually sees.
+ *
+ * kind "next_step" is the next-action HISTORY: one row each time the next step is
+ * changed. Like a note, it never counts as a touch.
  */
 
-const ACTIVITY_KINDS = ["call", "email", "meeting", "site_visit", "note"] as const;
+const ACTIVITY_KINDS = ["call", "email", "meeting", "site_visit", "note", "next_step"] as const;
 
 // GET /api/leads/activities?accountId=... — newest first.
 export async function GET(req: NextRequest) {
@@ -59,7 +62,7 @@ export async function POST(req: NextRequest) {
   // Stamp last contact — a bare "note" is bookkeeping, not a touch, so it does
   // not count as having contacted the lead. Never move the date backwards: a
   // back-dated entry logged after a newer one must not un-freshen the lead.
-  if (kind !== "note") {
+  if (kind !== "note" && kind !== "next_step") {
     const [existing] = await db
       .select()
       .from(leadsTable)

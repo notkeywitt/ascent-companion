@@ -23,6 +23,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { Dialog } from "@/components/Dialog";
 import { JtLink } from "@/components/JtLink";
 import {
   Banner,
@@ -1163,6 +1164,9 @@ function LeadDetail({
   const [loadingLog, setLoadingLog] = useState(true);
   const [log, setLog] = useState({ kind: "call", note: "", occurredAt: today() });
   const [logging, setLogging] = useState(false);
+  const [editingNext, setEditingNext] = useState(false);
+  const [draft, setDraft] = useState({ nextAction: "", nextActionDate: "", lastContactDate: "", notes: "" });
+  const [savingNext, setSavingNext] = useState(false);
 
   // Keep the form in step with a tracking row changed elsewhere (a logged touch
   // stamps last contact server-side).
@@ -1243,6 +1247,54 @@ function LeadDetail({
     }
   }
 
+  function openNextSteps() {
+    const t = lead.tracking;
+    setDraft({
+      nextAction: t.nextAction,
+      nextActionDate: t.nextActionDate,
+      lastContactDate: t.lastContactDate,
+      notes: t.notes,
+    });
+    setErr("");
+    setEditingNext(true);
+  }
+
+  /** Save the dialog. A changed next action or date also lands in the history. */
+  async function saveNextSteps() {
+    setSavingNext(true);
+    setErr("");
+    try {
+      const t = lead.tracking;
+      const res = await fetch("/api/leads", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountId: lead.id, ...draft }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setErr(json.error ?? "Save failed");
+        return;
+      }
+      const changed =
+        draft.nextAction.trim() !== t.nextAction || draft.nextActionDate !== t.nextActionDate;
+      if (changed && (draft.nextAction.trim() || draft.nextActionDate)) {
+        const note = `${draft.nextAction.trim() || "(no action)"}${draft.nextActionDate ? ` — by ${fmtDate(draft.nextActionDate)}` : ""}`;
+        await fetch("/api/leads/activities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountId: lead.id, kind: "next_step", note, occurredAt: today() }),
+        });
+        await loadLog();
+      }
+      onTracking(json.tracking);
+      setEditingNext(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Network error");
+    } finally {
+      setSavingNext(false);
+    }
+  }
+
   /** Mark the lead Qualified / Not qualified / Not converted, or clear it (""). The
    *  last two move it to the archive, so the board reloads and the card leaves the list. */
   async function setQualification(qualification: string) {
@@ -1268,6 +1320,9 @@ function LeadDetail({
     }
   }
 
+  const nextHistory = activities.filter((a) => a.kind === "next_step");
+  const logEntries = activities.filter((a) => a.kind !== "next_step");
+
   const contacts = lead.contacts.length ? lead.contacts : lead.primaryContact ? [lead.primaryContact] : [];
   const openTasks = lead.tasks.filter((t) => !t.completed);
 
@@ -1277,50 +1332,116 @@ function LeadDetail({
 
       {/* ---------------------------------------------------------- next steps */}
       <section className="space-y-2">
-        <SectionHeading
-          trailing={saving ? <span className="text-[11px] text-neutral-500">Saving…</span> : undefined}
-        >
-          Next steps
-        </SectionHeading>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="col-span-2">
-            <Label htmlFor={`next-${lead.id}`}>Next action</Label>
-            <Input
-              id={`next-${lead.id}`}
-              placeholder="e.g. Send siding scope + ballpark"
-              value={form.nextAction}
-              onChange={(e) => setForm({ ...form, nextAction: e.target.value })}
+        <SectionHeading>Next steps</SectionHeading>
+        <div className="rounded-lg bg-neutral-50 px-3 py-2.5 text-xs dark:bg-white/5">
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            <div className="col-span-2">
+              <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Next action</dt>
+              <dd className="text-neutral-800 dark:text-neutral-200">
+                {lead.tracking.nextAction || <span className="italic text-neutral-500">No next step set</span>}
+              </dd>
+            </div>
+            <Field label="By" value={lead.tracking.nextActionDate ? fmtDate(lead.tracking.nextActionDate) : "—"} />
+            <Field
+              label="Last contact"
+              value={lead.tracking.lastContactDate ? fmtDate(lead.tracking.lastContactDate) : "—"}
             />
-          </div>
-          <div>
-            <Label htmlFor={`nextdate-${lead.id}`}>By</Label>
-            <Input
-              id={`nextdate-${lead.id}`}
-              type="date"
-              value={form.nextActionDate}
-              onChange={(e) => setForm({ ...form, nextActionDate: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label htmlFor={`lastc-${lead.id}`}>Last contact</Label>
-            <Input
-              id={`lastc-${lead.id}`}
-              type="date"
-              value={form.lastContactDate}
-              onChange={(e) => setForm({ ...form, lastContactDate: e.target.value })}
-            />
-          </div>
-          <div className="col-span-2">
-            <Label htmlFor={`ournotes-${lead.id}`}>Our notes</Label>
-            <Textarea
-              id={`ournotes-${lead.id}`}
-              rows={2}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-            />
+            {lead.tracking.notes && (
+              <div className="col-span-2">
+                <dt className="text-[10px] font-semibold uppercase tracking-wide text-neutral-500">Our notes</dt>
+                <dd className="whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{lead.tracking.notes}</dd>
+              </div>
+            )}
+          </dl>
+          <div className="mt-2.5">
+            <Button size="sm" variant="outline" onClick={openNextSteps}>
+              Update
+            </Button>
           </div>
         </div>
+
+        {nextHistory.length > 0 && (
+          <details className="text-xs">
+            <summary className="cursor-pointer font-semibold text-neutral-600 dark:text-neutral-300">
+              Next step history ({nextHistory.length})
+            </summary>
+            <ul className="mt-1.5 space-y-1.5">
+              {nextHistory.map((a) => (
+                <li key={a.id} className="border-l-2 border-line pl-2.5">
+                  <div className="text-neutral-700 dark:text-neutral-300">{a.note}</div>
+                  <div className="text-[11px] text-neutral-500">
+                    Set {fmtDate(a.occurredAt)}
+                    {a.createdBy && ` · ${a.createdBy}`}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
       </section>
+
+      {editingNext && (
+        <Dialog
+          onClose={() => setEditingNext(false)}
+          title="Update next steps"
+          busy={savingNext}
+          footer={
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditingNext(false)} disabled={savingNext}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={() => void saveNextSteps()} disabled={savingNext}>
+                {savingNext ? "Saving…" : "Save"}
+              </Button>
+            </div>
+          }
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {err && (
+              <div className="col-span-2">
+                <Banner tone="error">{err}</Banner>
+              </div>
+            )}
+            <div className="col-span-2">
+              <Label htmlFor={`next-${lead.id}`}>Next action</Label>
+              <Input
+                id={`next-${lead.id}`}
+                autoFocus
+                placeholder="e.g. Send siding scope + ballpark"
+                value={draft.nextAction}
+                onChange={(e) => setDraft({ ...draft, nextAction: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor={`nextdate-${lead.id}`}>By</Label>
+              <Input
+                id={`nextdate-${lead.id}`}
+                type="date"
+                value={draft.nextActionDate}
+                onChange={(e) => setDraft({ ...draft, nextActionDate: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor={`lastc-${lead.id}`}>Last contact</Label>
+              <Input
+                id={`lastc-${lead.id}`}
+                type="date"
+                value={draft.lastContactDate}
+                onChange={(e) => setDraft({ ...draft, lastContactDate: e.target.value })}
+              />
+            </div>
+            <div className="col-span-2">
+              <Label htmlFor={`ournotes-${lead.id}`}>Our notes</Label>
+              <Textarea
+                id={`ournotes-${lead.id}`}
+                rows={3}
+                value={draft.notes}
+                onChange={(e) => setDraft({ ...draft, notes: e.target.value })}
+              />
+            </div>
+          </div>
+        </Dialog>
+      )}
 
       {/* ------------------------------------------------------- contact log */}
       <section className="space-y-2">
@@ -1366,11 +1487,11 @@ function LeadDetail({
 
         {loadingLog ? (
           <p className="text-xs text-neutral-500">Loading log…</p>
-        ) : activities.length === 0 ? (
+        ) : logEntries.length === 0 ? (
           <p className="text-xs italic text-neutral-500">Nothing logged yet.</p>
         ) : (
           <ul className="space-y-1.5">
-            {activities.map((a) => (
+            {logEntries.map((a) => (
               <li key={a.id} className="border-l-2 border-line pl-2.5 text-xs">
                 <div className="font-semibold">
                   {kindLabel(a.kind)}
