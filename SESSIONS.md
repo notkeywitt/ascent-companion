@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [brave-gates](.claude/sessions/2026-11-11-brave-gates.md) | 2026-11-11 | 1 | — |
+| [brave-gates](.claude/sessions/2026-11-11-brave-gates.md) | 2026-11-11 | 2 | — |
 | [stage7-tools](.claude/sessions/2026-11-10-stage7-tools.md) | 2026-11-11 | 1 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 252 | — |
 | [festive-davinci](.claude/sessions/2026-11-10-festive-davinci.md) | 2026-11-10 | 1 | — |
