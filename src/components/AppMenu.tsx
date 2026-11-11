@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 
 import { useAccess } from "@/components/AccessProvider";
@@ -45,6 +45,10 @@ import {
  * the containing block for every `position: fixed` descendant, so the overlay
  * would size itself to the header instead of the window.
  */
+
+/** KLOI 88.1 FM Lopez Island — the MP3 feed behind StreamGuys' own player
+ *  (player.streamguys.com/kloi/sgplayer/config.json). */
+const KLOI_STREAM = "https://kloi.streamguys1.com/live";
 
 const MenuIcon = () => (
   <svg
@@ -91,6 +95,33 @@ export function AppMenu({
   const copyEdit = useCopyEdit();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  // KLOI plays from here, not from the drawer: the drawer unmounts when it
+  // closes, and the radio should keep going.
+  const kloi = useRef<HTMLAudioElement | null>(null);
+  const [kloiOn, setKloiOn] = useState(false);
+  const [kloiErr, setKloiErr] = useState(false);
+  useEffect(() => () => kloi.current?.pause(), []);
+  const toggleKloi = () => {
+    if (kloiOn) {
+      kloi.current?.pause();
+      setKloiOn(false);
+      return;
+    }
+    if (!kloi.current) {
+      const a = new Audio();
+      a.onerror = () => {
+        setKloiOn(false);
+        setKloiErr(true);
+      };
+      kloi.current = a;
+    }
+    setKloiErr(false);
+    kloi.current.src = KLOI_STREAM; // a live feed: reconnect fresh, never resume stale audio
+    kloi.current.play().then(
+      () => setKloiOn(true),
+      () => setKloiErr(true),
+    );
+  };
   const [pinning, setPinning] = useState(false);
   const [pin, setPinState] = useState("");
 
@@ -271,10 +302,32 @@ export function AppMenu({
                   </div>
                 )}
 
-                {extras.length > 0 && (
+                {(!pinning || extras.length > 0) && (
                   <div className="space-y-1.5">
                     <SectionLabel>More</SectionLabel>
-                    <ListCard>{extras.map(row)}</ListCard>
+                    <ListCard>
+                      {!pinning && (
+                        <ListRow
+                          onClick={toggleKloi}
+                          label={kloiOn ? "Pause KLOI" : "Listen to KLOI"}
+                          desc={
+                            kloiErr
+                              ? "The stream did not start. Try again."
+                              : "Lopez Island's radio station, live"
+                          }
+                          chevron={false}
+                          trailing={
+                            <span
+                              aria-hidden
+                              className="shrink-0 text-base text-accent dark:text-accent-soft"
+                            >
+                              {kloiOn ? "❚❚" : "▶"}
+                            </span>
+                          }
+                        />
+                      )}
+                      {extras.map(row)}
+                    </ListCard>
                   </div>
                 )}
 
