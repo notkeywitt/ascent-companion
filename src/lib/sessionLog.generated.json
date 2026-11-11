@@ -1,96 +1,14 @@
 {
-  "generatedAt": "2026-11-11T15:18:15Z",
+  "generatedAt": "2026-11-11T20:20:32Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "tools-migration-sql",
-      "file": "2026-11-11-tools-migration-sql.md",
-      "branch": "claude/tools-migration-sql-ikexrx",
-      "status": "shipped",
-      "started": "2026-11-11T15:16:48Z",
-      "updated": "2026-11-11T15:18:15Z",
-      "goal": "",
-      "next": "Owner sets COMPANION_TOOLS_DB_WRITES=true in Vercel, runs the Tools backfill and check; then build phase 4 (COMPANION_TOOLS_DB_READS) per docs/plans/STAGE7_TOOLS_MILEAGE.md",
-      "commits": []
-    },
-    {
-      "slug": "intelligent-ride",
-      "file": "2026-11-11-intelligent-ride.md",
-      "branch": "claude/intelligent-ride-4zvk06",
-      "status": "shipped",
-      "started": "2026-11-11T15:07:04Z",
-      "updated": "2026-11-11T15:09:31Z",
-      "goal": "",
-      "next": "Confirm the Tools page shows no blurb or Timer line in production.",
-      "commits": [
-        {
-          "date": "2026-11-11",
-          "time": "15:09",
-          "sha": "f32c35b",
-          "subject": "companion: remove tools page blurb and batch timer line",
-          "files": "src/app/tools/BatchCard.tsx, src/app/tools/page.tsx"
-        }
-      ]
-    },
-    {
-      "slug": "brave-gates",
-      "file": "2026-11-11-brave-gates.md",
-      "branch": "claude/brave-gates-kl5pbc",
-      "status": "shipped",
-      "started": "2026-11-11T06:08:40Z",
-      "updated": "2026-11-11T14:46:01Z",
-      "goal": "",
-      "next": "Add REVIEW_AGENT_TOKEN as an environment secret and allow ascent-companion.vercel.app in the cloud environment, then test Copy Claude prompt from a phone session; install scripts/tool-batch on the office Mac.",
-      "commits": [
-        {
-          "date": "2026-11-11",
-          "time": "06:30",
-          "sha": "f5d5d96",
-          "subject": "companion: add tools batch add and office-mac analysis",
-          "files": ".claude/skills/tool-batch/SKILL.md, .gitignore, CODEBASE_MAP.md, scripts/tool-batch/agent.mjs, scripts/tool-batch/install.sh, scripts/tool-batch/run.sh, +19 more"
-        },
-        {
-          "date": "2026-11-11",
-          "time": "06:33",
-          "sha": "72d5b1a",
-          "subject": "companion: update session ledger 2026-11-11-brave-gates",
-          "files": ""
-        },
-        {
-          "date": "2026-11-11",
-          "time": "14:29",
-          "sha": "befebea",
-          "subject": "companion: tool batch gps site, update mode, copy prompt, sonnet",
-          "files": ".claude/skills/tool-batch/SKILL.md, CODEBASE_MAP.md, scripts/tool-batch/agent.mjs, scripts/tool-batch/run.sh, src/app/api/invoice-review/agent/tools/route.ts, src/app/api/tools/batch/route.ts, +13 more"
-        }
-      ]
-    },
-    {
-      "slug": "stage7-tools",
-      "file": "2026-11-10-stage7-tools.md",
-      "branch": "claude/stage7-tools-mileage",
-      "status": "shipped",
-      "started": "2026-11-11T00:44:40Z",
-      "updated": "2026-11-11T00:44:48Z",
-      "goal": "",
-      "next": "Owner: review docs/plans/STAGE7_TOOLS_MILEAGE.md. To start the Tools week: set COMPANION_TOOLS_DB_WRITES=true in Vercel, redeploy, open /api/admin/sheet-tables?dataset=tools&backfill=1. Then build the Tools read flip behind COMPANION_TOOLS_DB_READS.",
-      "commits": [
-        {
-          "date": "2026-11-10",
-          "time": "16:44",
-          "sha": "607341a",
-          "subject": "companion: stage 7 tools and mileage tables, backfill, flag-off dual-write",
-          "files": ".env.example, ARCHITECTURE_REVIEW.md, CODEBASE_MAP.md, docs/plans/STAGE7_TOOLS_MILEAGE.md, src/app/api/admin/sheet-tables/route.ts, src/app/api/mileage/route.ts, +8 more"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-10T22:39:56Z",
+      "updated": "2026-11-11T20:20:32Z",
       "goal": "",
       "next": "Office: add a tool with In Trailer? set and check it takes the trailer's location",
       "commits": [
@@ -1857,6 +1775,102 @@
           "sha": "a8396ad",
           "subject": "companion: checks page folds customer groups, Office last and folded; report links both sides",
           "files": ".claude/skills/monthly-check/SKILL.md, src/app/invoice-review/InvoiceReview.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "11:36",
+          "sha": "5c77dea",
+          "subject": "companion: leads qualified/not qualified with archive, slimmer lead card, Customers on the rail, drop the tab strip",
+          "files": "src/app/api/leads/route.ts, src/app/layout.tsx, src/app/leads/Customers.tsx, src/app/leads/LeadsBoard.tsx, src/components/TabBar.tsx, src/components/WorkspaceTabs.tsx, +4 more"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "12:20",
+          "sha": "77c8a2f",
+          "subject": "companion: add Ascent Details card to the Office Dashboard",
+          "files": "src/app/office/page.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "tools-migration-sql",
+      "file": "2026-11-11-tools-migration-sql.md",
+      "branch": "claude/tools-migration-sql-ikexrx",
+      "status": "shipped",
+      "started": "2026-11-11T15:16:48Z",
+      "updated": "2026-11-11T15:18:15Z",
+      "goal": "",
+      "next": "Owner sets COMPANION_TOOLS_DB_WRITES=true in Vercel, runs the Tools backfill and check; then build phase 4 (COMPANION_TOOLS_DB_READS) per docs/plans/STAGE7_TOOLS_MILEAGE.md",
+      "commits": []
+    },
+    {
+      "slug": "intelligent-ride",
+      "file": "2026-11-11-intelligent-ride.md",
+      "branch": "claude/intelligent-ride-4zvk06",
+      "status": "shipped",
+      "started": "2026-11-11T15:07:04Z",
+      "updated": "2026-11-11T15:09:31Z",
+      "goal": "",
+      "next": "Confirm the Tools page shows no blurb or Timer line in production.",
+      "commits": [
+        {
+          "date": "2026-11-11",
+          "time": "15:09",
+          "sha": "f32c35b",
+          "subject": "companion: remove tools page blurb and batch timer line",
+          "files": "src/app/tools/BatchCard.tsx, src/app/tools/page.tsx"
+        }
+      ]
+    },
+    {
+      "slug": "brave-gates",
+      "file": "2026-11-11-brave-gates.md",
+      "branch": "claude/brave-gates-kl5pbc",
+      "status": "shipped",
+      "started": "2026-11-11T06:08:40Z",
+      "updated": "2026-11-11T14:46:01Z",
+      "goal": "",
+      "next": "Add REVIEW_AGENT_TOKEN as an environment secret and allow ascent-companion.vercel.app in the cloud environment, then test Copy Claude prompt from a phone session; install scripts/tool-batch on the office Mac.",
+      "commits": [
+        {
+          "date": "2026-11-11",
+          "time": "06:30",
+          "sha": "f5d5d96",
+          "subject": "companion: add tools batch add and office-mac analysis",
+          "files": ".claude/skills/tool-batch/SKILL.md, .gitignore, CODEBASE_MAP.md, scripts/tool-batch/agent.mjs, scripts/tool-batch/install.sh, scripts/tool-batch/run.sh, +19 more"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "06:33",
+          "sha": "72d5b1a",
+          "subject": "companion: update session ledger 2026-11-11-brave-gates",
+          "files": ""
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:29",
+          "sha": "befebea",
+          "subject": "companion: tool batch gps site, update mode, copy prompt, sonnet",
+          "files": ".claude/skills/tool-batch/SKILL.md, CODEBASE_MAP.md, scripts/tool-batch/agent.mjs, scripts/tool-batch/run.sh, src/app/api/invoice-review/agent/tools/route.ts, src/app/api/tools/batch/route.ts, +13 more"
+        }
+      ]
+    },
+    {
+      "slug": "stage7-tools",
+      "file": "2026-11-10-stage7-tools.md",
+      "branch": "claude/stage7-tools-mileage",
+      "status": "shipped",
+      "started": "2026-11-11T00:44:40Z",
+      "updated": "2026-11-11T00:44:48Z",
+      "goal": "",
+      "next": "Owner: review docs/plans/STAGE7_TOOLS_MILEAGE.md. To start the Tools week: set COMPANION_TOOLS_DB_WRITES=true in Vercel, redeploy, open /api/admin/sheet-tables?dataset=tools&backfill=1. Then build the Tools read flip behind COMPANION_TOOLS_DB_READS.",
+      "commits": [
+        {
+          "date": "2026-11-10",
+          "time": "16:44",
+          "sha": "607341a",
+          "subject": "companion: stage 7 tools and mileage tables, backfill, flag-off dual-write",
+          "files": ".env.example, ARCHITECTURE_REVIEW.md, CODEBASE_MAP.md, docs/plans/STAGE7_TOOLS_MILEAGE.md, src/app/api/admin/sheet-tables/route.ts, src/app/api/mileage/route.ts, +8 more"
         }
       ]
     },

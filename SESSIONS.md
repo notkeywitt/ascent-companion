@@ -26,17 +26,17 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 58d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 59d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-11 | 254 | — |
 | [tools-migration-sql](.claude/sessions/2026-11-11-tools-migration-sql.md) | 2026-11-11 | 0 | — |
 | [intelligent-ride](.claude/sessions/2026-11-11-intelligent-ride.md) | 2026-11-11 | 1 | — |
 | [brave-gates](.claude/sessions/2026-11-11-brave-gates.md) | 2026-11-11 | 3 | — |
 | [stage7-tools](.claude/sessions/2026-11-10-stage7-tools.md) | 2026-11-11 | 1 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-10 | 252 | — |
 | [festive-davinci](.claude/sessions/2026-11-10-festive-davinci.md) | 2026-11-10 | 1 | — |
 | [tool-tracker-gantt](.claude/sessions/2026-11-10-tool-tracker-gantt.md) | 2026-11-10 | 5 | — |
 | [focused-pascal](.claude/sessions/2026-11-10-focused-pascal.md) | 2026-11-10 | 0 | — |
