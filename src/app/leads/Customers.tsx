@@ -28,8 +28,9 @@ export function Customers() {
   const section = sections.some((x) => x.id === want) ? want : (sections[0]?.id ?? "leads");
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader title="Customers" />
+    <main className="w-full max-w-4xl px-4 pad:px-7 lg:max-w-6xl pb-24 pt-6">
+      {/* The leads board draws its New lead / Refresh / Archive buttons into this slot. */}
+      <PageHeader title="Customers" actions={section === "leads" ? <div id="customers-actions" /> : undefined} />
       <div className="2xl:hidden">
         <Tabs
           label="Customer sections"

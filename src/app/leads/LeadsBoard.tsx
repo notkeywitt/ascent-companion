@@ -22,6 +22,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Dialog } from "@/components/Dialog";
 import { JtLink } from "@/components/JtLink";
@@ -39,6 +40,7 @@ import {
   Select,
   Textarea,
   type ChipTone,
+  SplitView,
 } from "@/components/ui";
 import { BLANK_INQUIRY, INQUIRY_ROWS, type InquiryFields } from "@/lib/leadInquiry";
 import type { CustomerHit } from "@/lib/leadPush";
@@ -706,43 +708,62 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     [load],
   );
 
+  const openLead = openId ? visible.find(({ lead }) => lead.id === openId) : undefined;
+
+  // Where Customers.tsx wants the buttons. Found after mount: the slot is
+  // drawn by the parent's header.
+  const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    if (embedded) setActionSlot(document.getElementById("customers-actions"));
+  }, [embedded]);
+
+  const actionButtons = (
+<div className="flex items-center gap-2">
+      <Button size="sm" onClick={() => setAdding((v) => !v)}>
+        {adding ? "Close" : "New lead"}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        title="Reload the board and check the office inbox for new website inquiries"
+        onClick={() => {
+          void load();
+          void scan(true);
+        }}
+        disabled={loading || scanning}
+      >
+        {scanning ? "Checking…" : "Refresh"}
+      </Button>
+      <Button
+        variant="outline"
+        size="sm"
+        title={archive ? "Back to the leads list" : "Leads marked Not qualified or Not converted, kept for our records"}
+        onClick={() => {
+          setOpenId(null);
+          setArchive((v) => !v);
+        }}
+      >
+        {archive ? "Back to leads" : "Archive"}
+      </Button>
+    </div>
+  );
+
   return (
     <Wrap embedded={embedded}>
-      <PageHeader
-        title={archive ? "Lead archive" : "Leads"}
-        titleSlot={embedded ? <span className="sr-only">Leads</span> : undefined}
-        description={embedded ? undefined : 'Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button size="sm" onClick={() => setAdding((v) => !v)}>
-              {adding ? "Close" : "New lead"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              title="Reload the board and check the office inbox for new website inquiries"
-              onClick={() => {
-                void load();
-                void scan(true);
-              }}
-              disabled={loading || scanning}
-            >
-              {scanning ? "Checking…" : "Refresh"}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              title={archive ? "Back to the leads list" : "Leads marked Not qualified or Not converted, kept for our records"}
-              onClick={() => {
-                setOpenId(null);
-                setArchive((v) => !v);
-              }}
-            >
-              {archive ? "Back to leads" : "Archive"}
-            </Button>
-          </div>
-        }
-      />
+      {embedded ? (
+        // The page header (Customers.tsx) owns the top right corner; the
+        // buttons are drawn there.
+        <>
+          <span className="sr-only">{archive ? "Lead archive" : "Leads"}</span>
+          {actionSlot && createPortal(actionButtons, actionSlot)}
+        </>
+      ) : (
+        <PageHeader
+          title={archive ? "Lead archive" : "Leads"}
+          description='Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'
+          actions={actionButtons}
+        />
+      )}
 
       {scanNote && (
         <Banner tone="info" className="mb-4">
@@ -793,6 +814,27 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
 
 
 
+      <SplitView
+        onClose={() => setOpenId(null)}
+        backLabel="Back to leads"
+        empty="Pick a lead to see its details."
+        detail={
+          openLead && (
+            <div className="space-y-4">
+              <SectionHeading>{openLead.lead.name}</SectionHeading>
+              <Card className="p-0">
+                <LeadDetail
+                  key={openLead.lead.id}
+                  lead={openLead.lead}
+                  onTracking={(t) => applyTracking(openLead.lead.id, t)}
+                  onChanged={() => void load()}
+                />
+              </Card>
+            </div>
+          )
+        }
+        list={
+          <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Label htmlFor="lead-sort" className="mb-0 whitespace-nowrap">
@@ -857,13 +899,14 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
                 thresholds={thresholds}
                 open={openId === lead.id}
                 onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
-                onTracking={(t) => applyTracking(lead.id, t)}
-                onChanged={() => void load()}
               />
             </li>
           ))}
         </ul>
       )}
+          </div>
+        }
+      />
     </Wrap>
   );
 }
@@ -1045,8 +1088,6 @@ function LeadCard({
   thresholds,
   open,
   onToggle,
-  onTracking,
-  onChanged,
 }: {
   lead: Lead;
   derived: Derived;
@@ -1054,14 +1095,11 @@ function LeadCard({
   thresholds: LeadQuietThresholds;
   open: boolean;
   onToggle: () => void;
-  onTracking: (t: Tracking) => void;
-  /** Reload the board — a push, edit or delete changes more than one card. */
-  onChanged: () => void;
 }) {
   const quiet = derived.quietDays;
 
   return (
-    <Card className="p-0">
+    <Card className={`p-0 ${open ? "ring-2 ring-accent/40" : ""}`}>
       <button
         type="button"
         onClick={onToggle}
@@ -1125,7 +1163,6 @@ function LeadCard({
         </div>
       </button>
 
-      {open && <LeadDetail lead={lead} onTracking={onTracking} onChanged={onChanged} />}
     </Card>
   );
 }
