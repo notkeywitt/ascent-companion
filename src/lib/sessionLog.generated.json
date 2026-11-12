@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T21:40:28Z",
+  "generatedAt": "2026-11-12T21:52:11Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-12T21:40:28Z",
+      "updated": "2026-11-12T21:52:11Z",
       "goal": "",
       "next": "Owner reviews Invoice preview on localhost (Tracking Sheets > Summary); ship on 'ship it'",
       "commits": [
@@ -2020,6 +2020,13 @@
           "sha": "f0f5af3",
           "subject": "companion: invoicing email files both pdfs per job, job-in-app link, summary never missing",
           "files": "src/app/api/invoicing-summary/email/route.ts, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "13:52",
+          "sha": "8b38c35",
+          "subject": "companion: email out of date notice when the month changes after the draft",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/app/invoicing-summary/page.tsx, src/components/PackageEmail.tsx, src/lib/invoicingEmailBuild.ts, src/lib/monthActions.ts"
         }
       ]
     },
