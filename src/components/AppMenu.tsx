@@ -175,7 +175,7 @@ export function AppMenu({
           className="flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px]"
         >
           <AccountIcon />
-          <span className="min-w-0">Account</span>
+          <span className="rail-label min-w-0">Account</span>
         </button>
       ) : (
         <button

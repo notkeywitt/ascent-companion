@@ -519,8 +519,7 @@ export function TabBar() {
           --rail-w in globals.css, which is what the page moves right by. */}
       <nav
         aria-label="Workspaces"
-        aria-hidden={railHidden || undefined}
-        className={`fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-transform duration-200 ease-out dark:bg-ink/95 print:hidden pad:flex 2xl:w-[232px] 2xl:px-3 ${railHidden ? "-translate-x-full" : ""}`}
+        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-transform duration-200 ease-out dark:bg-ink/95 print:hidden pad:flex 2xl:w-[232px] 2xl:px-3`}
       >
         {rail.map((t) => {
           const on = t.key === railActive;
@@ -554,11 +553,11 @@ export function TabBar() {
                 }`}
               >
                 <Icon />
-                <span className="min-w-0">{labelOf(t)}</span>
+                <span className="rail-label min-w-0">{labelOf(t)}</span>
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
               </Link>
               {sections.length > 1 && (
-                <div className="hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
+                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
                   {sections.map((x, i) => (
                     <Link
                       key={x.id}
@@ -578,7 +577,7 @@ export function TabBar() {
               )}
               {/* The sidebar's second level: the current workspace's pages. */}
               {pages.length > 0 && (
-                <div className="hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
+                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
                   {pages.map((tab) => {
                     const here = isHere(tab.href);
                     return (
@@ -619,7 +618,7 @@ export function TabBar() {
             }`}
           >
             <RadioIcon playing={kloi.playing} />
-            <span className="min-w-0">{kloi.playing ? "Pause KLOI" : "Listen to KLOI"}</span>
+            <span className="rail-label min-w-0">{kloi.playing ? "Pause KLOI" : "Listen to KLOI"}</span>
           </button>
           {access.can("lopezrocks") && (
             <Link
@@ -633,39 +632,27 @@ export function TabBar() {
               }`}
             >
               <RocksIcon />
-              <span className="min-w-0">LopezRocks</span>
+              <span className="rail-label min-w-0">LopezRocks</span>
               <LinkPendingOverlay spinnerClassName="h-5 w-5" />
             </Link>
           )}
           <AppMenu account />
           {/* The desktop widget's launcher sits beside the Hide arrow (owner,
               2026-11-11). Narrow rail: two small buttons in a row. */}
-          <div className="mt-1 flex items-center justify-center gap-0.5 2xl:justify-start">
+          <div className="rail-foot mt-1 flex items-center justify-center gap-0.5 2xl:justify-start">
             <RailWidgetButton />
             <button
               type="button"
               onClick={toggleRail}
-              aria-label="Hide the menu"
-              title="Hide the menu"
+              aria-label={railHidden ? "Show the labels" : "Hide the labels"}
+              title={railHidden ? "Show the labels" : "Hide the labels"}
               className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 2xl:justify-start 2xl:px-3"
             >
-              ‹
+              {railHidden ? "›" : "‹"}
             </button>
           </div>
         </div>
       </nav>
-      {/* The rail's way back: a tab on the left edge while it is away. */}
-      {railHidden && (
-        <button
-          type="button"
-          onClick={toggleRail}
-          aria-label="Show the menu"
-          title="Show the menu"
-          className="fixed bottom-4 left-0 z-30 hidden h-10 w-6 items-center justify-center rounded-r-lg border border-l-0 border-line bg-cream/95 text-[15px] text-neutral-500 shadow-sm backdrop-blur hover:text-accent dark:bg-ink/95 dark:text-neutral-400 print:hidden pad:flex"
-        >
-          ›
-        </button>
-      )}
     </>
   );
 }
