@@ -370,6 +370,8 @@ export interface BoardEmbed {
   /** Open this bill and scroll to it, once the month has loaded (a linked bill
    *  clicked in a Jobs-page note). A new `nonce` asks again for the same bill. */
   focusBill?: { docId: string; label: string; nonce: number } | null;
+  /** Told which bill is open (null = none), so the Jobs page can put it in the address bar. */
+  onOpenBill?: (docId: string | null) => void;
   /** Bills that have a note: bill id → the newest note's id. A row shows "Note"
    *  for these and "Add Note" for the rest. */
   noteDocs?: Map<string, number>;
@@ -1498,6 +1500,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // with no job the render returns before openFindingBill is defined.
   const focusBill = embed?.focusBill;
   const focusDone = useRef(0);
+  const onOpenBill = embed?.onOpenBill;
+  useEffect(() => onOpenBill?.(openDocId), [openDocId, onOpenBill]);
   useEffect(() => {
     if (!jobId || !focusBill || loading || !data || focusDone.current === focusBill.nonce) return;
     focusDone.current = focusBill.nonce;

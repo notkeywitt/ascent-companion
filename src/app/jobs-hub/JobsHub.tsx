@@ -1,5 +1,6 @@
 "use client";
 
+import { hubPath, parseHubPath } from "@/lib/hubUrl";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
@@ -295,6 +296,27 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
     setTab("sheet");
     setFocusBill({ docId: linkedBill.docId, label: linkedBill.label, nonce: Date.now() });
   }, [linkedBill, jobs, canTrackingSheet]);
+  // Direct links: /jobs-hub/<job>/<Month>/<billId> opens that job, month and bill;
+  // the address bar follows the page so any state can be copied (src/lib/hubUrl.ts).
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
+  const urlRead = useRef(false);
+  useEffect(() => {
+    if (home || !jobs || urlRead.current) return;
+    urlRead.current = true;
+    const { jobId, ym: pathYm, docId } = parseHubPath(window.location.pathname, jobs);
+    if (!jobId) return;
+    if (pathYm) setPickedYm(pathYm);
+    setSelectedId(jobId);
+    if (docId && canTrackingSheet) {
+      setTab("sheet");
+      setFocusBill({ docId, label: "Bill", nonce: Date.now() });
+    }
+  }, [home, jobs, canTrackingSheet]);
+  useEffect(() => {
+    if (home || !jobs || !urlRead.current || new URLSearchParams(window.location.search).has("bill")) return;
+    const path = hubPath(selected, jobs, ym, tab === "sheet" ? openDocId : null);
+    if (path !== decodeURI(window.location.pathname)) window.history.replaceState(null, "", path);
+  }, [home, jobs, selected, ym, tab, openDocId]);
   // A new job or tab unmounts the view under the header, so an embedded page's
   // unsaved edits (the House Manual) would go without a word. Ask first.
   const pick = (id: string) => {
@@ -593,7 +615,7 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, noteDocs, onBillNote }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, noteDocs, onBillNote, onOpenBill: setOpenDocId }} />
             </Suspense>
           )
         ) : tab === "plans" ? (
