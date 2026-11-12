@@ -17,6 +17,7 @@ describe("composeInvoicingEmail", () => {
   const out = composeInvoicingEmail({
     docTitle: "October '26 Invoicing Package",
     summaryJobIds: ["j1", "moon"],
+    ym: "2026-10",
     jobs: [
       job({ jtJobId: "shack", jobLabel: "Beach Shack", invoiceNumber: "", trackingSheetUrl: "", note: "Keillor will send a progress invoice." }),
       job({ note: "First point.\n\nSecond point.\r\n  Third & last.  " , billingFolderUrl: "https://drive.google.com/drive/folders/f1" }),
@@ -47,11 +48,17 @@ describe("composeInvoicingEmail", () => {
     expect(out.html).toContain('href="sheetpdf:1">Google Tracking Sheet PDF</a>');
     expect(out.html).toContain('href="https://drive.google.com/drive/folders/f1">Google Drive</a>');
     expect(out.html).toContain('href="summarypdf:j1">Invoicing Summary PDF</a>');
-    expect(out.sheetPdfLinks).toEqual([
-      { url: "https://docs.google.com/spreadsheets/d/abc/edit", tab: "Tracking Sheet" },
-      { url: "https://docs.google.com/spreadsheets/d/abc/edit", tab: "Pre-con" },
+    expect(out.sheetPdfLinks.map((l) => [l.tab, l.jobId, l.name])).toEqual([
+      ["Tracking Sheet", "j1", "Kevin Berger & Alexis Takacs - Berger Addition - Tracking Sheet 2026-10.pdf"],
+      ["Pre-con", "moon", "Kevin Berger & Alexis Takacs - Main House-Precon - Pre-con 2026-10.pdf"],
     ]);
     expect(out.html).toContain("Google Tracking Sheet (Pre-con tab)");
+  });
+
+  it("links each job in the app, by the Jobs Hub path", () => {
+    expect(out.html).toContain(
+      'href="https://ascent-companion.vercel.app/jobs-hub/kevin-berger-alexis-takacs-berger-addition/October">Job in app</a>',
+    );
   });
 
   it("makes one bullet per paragraph of the note, under an amber customer - job heading", () => {
@@ -70,7 +77,7 @@ describe("composeInvoicingEmail", () => {
   });
 
   it("leaves the summary link out of a job with no summary PDF", () => {
-    const none = composeInvoicingEmail({ docTitle: "t", summaryJobIds: [], jobs: [job({})], invoices: {}, phases: {} });
+    const none = composeInvoicingEmail({ docTitle: "t", summaryJobIds: [], ym: "2026-10", jobs: [job({})], invoices: {}, phases: {} });
     expect(none.html).not.toContain("Invoicing Summary PDF</a>");
   });
 });
@@ -78,6 +85,7 @@ describe("composeInvoicingEmail", () => {
 describe("composeInvoicingEmail — two invoices in one month (Seely, October 2026)", () => {
   const out = composeInvoicingEmail({
     docTitle: "November '26 Invoicing Package",
+    ym: "2026-10",
     summaryJobIds: ["j1", "moon"],
     jobs: [
       job({

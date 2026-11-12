@@ -58,15 +58,12 @@ export async function POST(req: NextRequest) {
     const [invoices, phases] = await Promise.all([getInvoiceRefs(cfg, invoiced), getJobPhaseMap(cfg)]);
     // One Invoicing Summary per invoiced job: the same preview the Summary view
     // prints, read with the Board's own flags (invoiced and draft bills included).
-    // Apps Script renders each to a PDF in the job's billing folder.
+    // Apps Script renders each to a PDF in the job's billing folder (or attaches it).
     const warnings: string[] = [];
+    const folderOf = new Map(pkg.jobs.map((j) => [j.jtJobId, j.billingFolderUrl ?? ""]));
     const summaryPdfs: { jobId: string; name: string; html: string; folderUrl: string }[] = [];
-    const wanted = pkg.jobs.filter((j) => j.include && jobInvoices(j).length > 0 && j.billingFolderUrl);
-    for (const j of pkg.jobs) {
-      if (j.include && jobInvoices(j).length > 0 && !j.billingFolderUrl) {
-        warnings.push(`${j.customerLabel} - ${j.jobLabel}: no billing folder on Drive, so no Invoicing Summary PDF.`);
-      }
-    }
+    // Every invoiced job gets a summary. No billing folder: Apps Script attaches the PDF.
+    const wanted = pkg.jobs.filter((j) => j.include && jobInvoices(j).length > 0);
     for (let i = 0; i < wanted.length; i += 4) {
       await Promise.all(
         wanted.slice(i, i + 4).map(async (j) => {
@@ -87,6 +84,7 @@ export async function POST(req: NextRequest) {
     const email = composeInvoicingEmail({
       docTitle: pkg.docTitle,
       summaryJobIds: summaryPdfs.map((x) => x.jobId),
+      ym,
       jobs: pkg.jobs,
       invoices,
       phases,
@@ -98,7 +96,7 @@ export async function POST(req: NextRequest) {
       draftUrl: string;
       updated: boolean;
       warnings: string[];
-    }>({ action: "draftInvoicingEmail", ym, to: PACKAGE_EMAIL_TO, ...email, summaryPdfs }, { timeoutMs: 110_000 });
+    }>({ action: "draftInvoicingEmail", ym, to: PACKAGE_EMAIL_TO, ...email, sheetPdfLinks: email.sheetPdfLinks.map((l) => ({ ...l, folderUrl: folderOf.get(l.jobId) ?? "" })), summaryPdfs }, { timeoutMs: 110_000 });
     if (res.error) return NextResponse.json({ error: `Saving the draft: ${res.error}` }, { status: res.status });
     if (res.data?.ok !== true) {
       return NextResponse.json(

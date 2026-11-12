@@ -13,7 +13,11 @@
  * its billing folder) into the real URL and saves the Gmail draft. The office reads and sends the draft by hand.
  */
 import type { PackageInvoice } from "./jobtread";
+import { hubPath } from "./hubUrl";
 import { jobInvoices, jtDocumentUrl } from "./packageInvoices";
+
+/** The live app: the email's "Job in app" links open there. */
+export const APP_ORIGIN = "https://ascent-companion.vercel.app";
 
 export const PACKAGE_EMAIL_TO = [
   "casey@ascentbuildingco.com",
@@ -67,6 +71,7 @@ export const noteBullets = (note: string) =>
 
 export function composeInvoicingEmail({
   docTitle,
+  ym,
   summaryJobIds,
   jobs,
   invoices,
@@ -76,6 +81,8 @@ export function composeInvoicingEmail({
   docTitle: string;
   /** Jobs whose Invoicing Summary PDF the route is rendering: each gets its link. */
   summaryJobIds: string[];
+  /** The billing month, "2026-10": the month the "Job in app" links open on. */
+  ym: string;
   jobs: PackageJob[];
   /** `${jobId}:${invoiceNumber}` → the invoice (getInvoiceRefs). */
   invoices: Record<string, PackageInvoice>;
@@ -84,15 +91,17 @@ export function composeInvoicingEmail({
 }): {
   subject: string;
   html: string;
-  /** One per `sheetpdf:N` link in the html, N = index. Apps Script resolves each. */
-  sheetPdfLinks: { url: string; tab: string }[];
+  /** One per `sheetpdf:N` link in the html, N = index. Apps Script files each PDF
+   *  in the job's billing folder (`jobId` finds the folder) and links the file. */
+  sheetPdfLinks: { url: string; tab: string; name: string; jobId: string }[];
 } {
   // Invoiced jobs first, the rest after with their notes — the October order.
   const included = jobs.filter((j) => j.include);
   const invoiced = (j: PackageJob) => jobInvoices(j).length > 0;
   const ordered = [...included.filter(invoiced), ...included.filter((j) => !invoiced(j))];
 
-  const sheetPdfLinks: { url: string; tab: string }[] = [];
+  const sheetPdfLinks: { url: string; tab: string; name: string; jobId: string }[] = [];
+  const hubJobs = included.map((j) => ({ id: j.jtJobId, name: j.jobLabel, customer: j.customerLabel }));
   const blocks = ordered.map((j) => {
     const precon = PRECON_PHASES.includes(phases[j.jtJobId] ?? "");
     const tab = precon ? "Pre-con" : "Tracking Sheet";
@@ -100,11 +109,18 @@ export function composeInvoicingEmail({
     const ivs = jobInvoices(j);
     if (!bullets.length && !ivs.length) bullets.push("No client invoice yet.");
 
-    const links: string[] = [];
+    const links: string[] = [
+      a(APP_ORIGIN + hubPath({ id: j.jtJobId, name: j.jobLabel, customer: j.customerLabel }, hubJobs, ym), "Job in app"),
+    ];
     if (j.trackingSheetUrl) {
       links.push(a(j.trackingSheetUrl, precon ? "Google Tracking Sheet (Pre-con tab)" : "Google Tracking Sheet"));
       links.push(a(`sheetpdf:${sheetPdfLinks.length}`, "Google Tracking Sheet PDF"));
-      sheetPdfLinks.push({ url: j.trackingSheetUrl, tab });
+      sheetPdfLinks.push({
+        url: j.trackingSheetUrl,
+        tab,
+        name: `${j.customerLabel} - ${j.jobLabel} - ${tab} ${ym}.pdf`.replace(/[\\/]/g, "-"),
+        jobId: j.jtJobId,
+      });
     }
     if (j.billingFolderUrl) links.push(a(j.billingFolderUrl, "Google Drive"));
     if (summaryJobIds.includes(j.jtJobId)) links.push(a(`summarypdf:${j.jtJobId}`, "Invoicing Summary PDF"));
