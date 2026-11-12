@@ -1,42 +1,16 @@
 {
-  "generatedAt": "2026-11-12T16:04:49Z",
+  "generatedAt": "2026-11-12T18:13:04Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "focused-bell",
-      "file": "2026-11-12-focused-bell.md",
-      "branch": "claude/focused-bell-3fhk92",
-      "status": "shipped",
-      "started": "2026-11-12T15:13:31Z",
-      "updated": "2026-11-12T16:04:49Z",
-      "goal": "",
-      "next": "Watch the next invoice review: confirm no email-* findings and nothing on the Electrical job. Re-enable mail-capture in settings.ts if wanted.",
-      "commits": [
-        {
-          "date": "2026-11-12",
-          "time": "15:14",
-          "sha": "0fe4b42",
-          "subject": "companion: add session ledger for invoice check review",
-          "files": ""
-        },
-        {
-          "date": "2026-11-12",
-          "time": "16:04",
-          "sha": "aae6393",
-          "subject": "companion: turn off mail-capture check and skip Electrical in invoice review",
-          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/registry.test.ts, src/lib/invoiceReview/registry.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts"
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-11T22:36:26Z",
+      "updated": "2026-11-12T18:13:04Z",
       "goal": "",
-      "next": "Office: add a tool with In Trailer? set and check it takes the trailer's location",
+      "next": "Owner reviews Invoice preview on localhost (Tracking Sheets > Summary); ship on 'ship it'",
       "commits": [
         {
           "date": "2026-09-03",
@@ -1997,6 +1971,60 @@
           "sha": "c656bb3",
           "subject": "log a next-step history entry when Our notes change too",
           "files": "src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "09:11",
+          "sha": "50d5827",
+          "subject": "companion: hide help mark on desktop (lg and up)",
+          "files": "src/components/PageGuide.tsx"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "09:17",
+          "sha": "453cfb9",
+          "subject": "companion: collapse hidden rail to icon strip",
+          "files": "src/app/globals.css, src/components/AppMenu.tsx, src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "09:56",
+          "sha": "066ca15",
+          "subject": "companion: add invoice preview to billing summary",
+          "files": "src/app/trackingsheet/BillingSummaryView.tsx, src/app/trackingsheet/Board.tsx, src/components/BillingSummary.tsx, src/lib/jobtread.ts, src/lib/jobtread/invoiceStaging.ts, src/lib/jobtread/sunsetStatements.ts"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "10:13",
+          "sha": "99c94ba",
+          "subject": "companion: invoicing email as inline links, per-job summary pdf",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/components/BillingSummary.tsx, src/components/PackageEmail.tsx, src/lib/invoicePreview.test.ts, src/lib/invoicePreview.ts, src/lib/invoicingEmail.test.ts, +1 more"
+        }
+      ]
+    },
+    {
+      "slug": "focused-bell",
+      "file": "2026-11-12-focused-bell.md",
+      "branch": "claude/focused-bell-3fhk92",
+      "status": "shipped",
+      "started": "2026-11-12T15:13:31Z",
+      "updated": "2026-11-12T16:04:49Z",
+      "goal": "",
+      "next": "Watch the next invoice review: confirm no email-* findings and nothing on the Electrical job. Re-enable mail-capture in settings.ts if wanted.",
+      "commits": [
+        {
+          "date": "2026-11-12",
+          "time": "15:14",
+          "sha": "0fe4b42",
+          "subject": "companion: add session ledger for invoice check review",
+          "files": ""
+        },
+        {
+          "date": "2026-11-12",
+          "time": "16:04",
+          "sha": "aae6393",
+          "subject": "companion: turn off mail-capture check and skip Electrical in invoice review",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/registry.test.ts, src/lib/invoiceReview/registry.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts"
         }
       ]
     },

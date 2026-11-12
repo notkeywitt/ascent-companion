@@ -26,14 +26,14 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Branch | Parked | Picks up at |
 |---|---|---|---|
-| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 59d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
+| [ascent-security-analysis](.claude/sessions/2026-09-14-ascent-security-analysis.md) | `claude/ascent-security-analysis-m8fjif` | 60d ago | Owner merges PR #7 (git push origin origin/claude/ascent-security-analysis-m8fj… |
 
 ## Shipped
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-12 | 284 | — |
 | [focused-bell](.claude/sessions/2026-11-12-focused-bell.md) | 2026-11-12 | 2 | — |
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-11 | 280 | — |
 | [laughing-fermat](.claude/sessions/2026-11-11-laughing-fermat.md) | 2026-11-11 | 2 | — |
 | [tools-migration-sql](.claude/sessions/2026-11-11-tools-migration-sql.md) | 2026-11-11 | 0 | — |
 | [intelligent-ride](.claude/sessions/2026-11-11-intelligent-ride.md) | 2026-11-11 | 1 | — |
