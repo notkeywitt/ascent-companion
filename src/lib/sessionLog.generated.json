@@ -1,40 +1,14 @@
 {
-  "generatedAt": "2026-11-12T20:59:59Z",
+  "generatedAt": "2026-11-12T21:31:32Z",
   "repo": "ascent-companion",
   "sessions": [
-    {
-      "slug": "quirky-pascal",
-      "file": "2026-11-12-quirky-pascal.md",
-      "branch": "claude/quirky-pascal-q42dhq",
-      "status": "shipped",
-      "started": "2026-11-12T20:43:44Z",
-      "updated": "2026-11-12T20:59:59Z",
-      "goal": "",
-      "next": "Owner approves push; then paste the Berger folder link in Add Bill and check the draft bill + PDF in JobTread",
-      "commits": [
-        {
-          "date": "2026-11-12",
-          "time": "20:54",
-          "sha": "bb21a95",
-          "subject": "companion: add bill from a drive folder link",
-          "files": "CODEBASE_MAP.md, src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/billPdf.test.ts, src/lib/billPdf.ts, src/lib/folderBill.test.ts, +1 more"
-        },
-        {
-          "date": "2026-11-12",
-          "time": "20:54",
-          "sha": "9fbdc81",
-          "subject": "companion: update session ledger",
-          "files": ""
-        }
-      ]
-    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-12T18:51:51Z",
+      "updated": "2026-11-12T21:31:32Z",
       "goal": "",
       "next": "Owner reviews Invoice preview on localhost (Tracking Sheets > Summary); ship on 'ship it'",
       "commits": [
@@ -2032,6 +2006,39 @@
           "sha": "69bd4fb",
           "subject": "companion: invoicing email intro is the package title, for review",
           "files": "src/app/api/invoicing-summary/email/route.ts, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "13:31",
+          "sha": "3e66276",
+          "subject": "companion: direct links for jobs hub job, month and bill",
+          "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx, src/app/jobs-hub/[...path]/page.tsx, src/app/trackingsheet/Board.tsx, src/lib/hubUrl.test.ts, src/lib/hubUrl.ts"
+        }
+      ]
+    },
+    {
+      "slug": "quirky-pascal",
+      "file": "2026-11-12-quirky-pascal.md",
+      "branch": "claude/quirky-pascal-q42dhq",
+      "status": "shipped",
+      "started": "2026-11-12T20:43:44Z",
+      "updated": "2026-11-12T20:59:59Z",
+      "goal": "",
+      "next": "Owner approves push; then paste the Berger folder link in Add Bill and check the draft bill + PDF in JobTread",
+      "commits": [
+        {
+          "date": "2026-11-12",
+          "time": "20:54",
+          "sha": "bb21a95",
+          "subject": "companion: add bill from a drive folder link",
+          "files": "CODEBASE_MAP.md, src/app/add-bill/page.tsx, src/app/api/add-bill/route.ts, src/lib/billPdf.test.ts, src/lib/billPdf.ts, src/lib/folderBill.test.ts, +1 more"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "20:54",
+          "sha": "9fbdc81",
+          "subject": "companion: update session ledger",
+          "files": ""
         }
       ]
     },
