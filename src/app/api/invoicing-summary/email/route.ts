@@ -86,7 +86,6 @@ export async function POST(req: NextRequest) {
     }
     const email = composeInvoicingEmail({
       docTitle: pkg.docTitle,
-      monthName: pkg.invoiceMonthLabel,
       summaryJobIds: summaryPdfs.map((x) => x.jobId),
       jobs: pkg.jobs,
       invoices,

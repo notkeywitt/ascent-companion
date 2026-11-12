@@ -67,7 +67,6 @@ export const noteBullets = (note: string) =>
 
 export function composeInvoicingEmail({
   docTitle,
-  monthName,
   summaryJobIds,
   jobs,
   invoices,
@@ -75,8 +74,6 @@ export function composeInvoicingEmail({
 }: {
   /** "October '26 Invoicing Package" — the subject, same name as the doc. */
   docTitle: string;
-  /** "October" — the month the invoices go out in. */
-  monthName: string;
   /** Jobs whose Invoicing Summary PDF the route is rendering: each gets its link. */
   summaryJobIds: string[];
   jobs: PackageJob[];
@@ -133,10 +130,7 @@ export function composeInvoicingEmail({
   });
 
   const html =
-    `<div>Hello,</div><br>` +
-    `<div>Below are links to the customer invoices in QBO for ${esc(monthName)}, along with the ` +
-    `JobTread invoice, the Invoicing Summary PDF and each job's tracking sheet and its PDF.</div><br>` +
-    `<div>Thanks!</div><br>` +
+    `<div>${esc(docTitle)} - For Review</div><br>` +
     blocks.join("") +
     `<div>-Keillor</div><br>` +
     `<div><i>Office &amp; Administration</i></div><div><b>Ascent Building Co. LLC</b></div>` +

@@ -16,7 +16,6 @@ const job = (over: Partial<PackageJob>): PackageJob => ({
 describe("composeInvoicingEmail", () => {
   const out = composeInvoicingEmail({
     docTitle: "October '26 Invoicing Package",
-    monthName: "October '26",
     summaryJobIds: ["j1", "moon"],
     jobs: [
       job({ jtJobId: "shack", jobLabel: "Beach Shack", invoiceNumber: "", trackingSheetUrl: "", note: "Keillor will send a progress invoice." }),
@@ -66,10 +65,12 @@ describe("composeInvoicingEmail", () => {
     expect(out.html).toContain("<li>Keillor will send a progress invoice.</li>");
     expect(out.html).not.toContain("Office</span>");
     expect(out.subject).toBe("October '26 Invoicing Package");
+    expect(out.html.startsWith("<div>October '26 Invoicing Package - For Review</div>")).toBe(true);
+    expect(out.html).not.toContain("Hello,");
   });
 
   it("leaves the summary link out of a job with no summary PDF", () => {
-    const none = composeInvoicingEmail({ docTitle: "t", monthName: "m", summaryJobIds: [], jobs: [job({})], invoices: {}, phases: {} });
+    const none = composeInvoicingEmail({ docTitle: "t", summaryJobIds: [], jobs: [job({})], invoices: {}, phases: {} });
     expect(none.html).not.toContain("Invoicing Summary PDF</a>");
   });
 });
@@ -77,7 +78,6 @@ describe("composeInvoicingEmail", () => {
 describe("composeInvoicingEmail — two invoices in one month (Seely, October 2026)", () => {
   const out = composeInvoicingEmail({
     docTitle: "November '26 Invoicing Package",
-    monthName: "November '26",
     summaryJobIds: ["j1", "moon"],
     jobs: [
       job({
