@@ -1,14 +1,40 @@
 {
-  "generatedAt": "2026-11-11T20:37:20Z",
+  "generatedAt": "2026-11-12T16:04:49Z",
   "repo": "ascent-companion",
   "sessions": [
+    {
+      "slug": "focused-bell",
+      "file": "2026-11-12-focused-bell.md",
+      "branch": "claude/focused-bell-3fhk92",
+      "status": "shipped",
+      "started": "2026-11-12T15:13:31Z",
+      "updated": "2026-11-12T16:04:49Z",
+      "goal": "",
+      "next": "Watch the next invoice review: confirm no email-* findings and nothing on the Electrical job. Re-enable mail-capture in settings.ts if wanted.",
+      "commits": [
+        {
+          "date": "2026-11-12",
+          "time": "15:14",
+          "sha": "0fe4b42",
+          "subject": "companion: add session ledger for invoice check review",
+          "files": ""
+        },
+        {
+          "date": "2026-11-12",
+          "time": "16:04",
+          "sha": "aae6393",
+          "subject": "companion: turn off mail-capture check and skip Electrical in invoice review",
+          "files": "src/lib/invoiceReview/checks.test.ts, src/lib/invoiceReview/registry.test.ts, src/lib/invoiceReview/registry.ts, src/lib/invoiceReview/settings.ts, src/lib/invoiceReview/types.ts"
+        }
+      ]
+    },
     {
       "slug": "main",
       "file": "2026-09-03-main.md",
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-11T20:37:20Z",
+      "updated": "2026-11-11T22:36:26Z",
       "goal": "",
       "next": "Office: add a tool with In Trailer? set and check it takes the trailer's location",
       "commits": [
@@ -1803,6 +1829,174 @@
           "sha": "4f65f23",
           "subject": "companion: move Ascent Details to the database; edit them and upload company documents",
           "files": "CODEBASE_MAP.md, src/app/api/office/details/route.ts, src/app/api/office/documents/file/route.ts, src/app/api/office/documents/route.ts, src/app/office/AscentDetails.tsx, src/app/office/page.tsx, +6 more"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "12:39",
+          "sha": "613d170",
+          "subject": "cap lead Notes at JT's 1024-char limit; shrink the new intake, never the history",
+          "files": "src/lib/leadPush.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "12:39",
+          "sha": "6d3442f",
+          "subject": "companion: next steps is a static notice with an Update dialog and a kept history",
+          "files": "src/app/api/leads/activities/route.ts, src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "12:42",
+          "sha": "88c07ae",
+          "subject": "companion: drop the Need action and Quiet cards from the leads board",
+          "files": "src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "12:50",
+          "sha": "ee61b45",
+          "subject": "measure Notes by bytes and double line breaks so the 1024 cap holds under JT's count",
+          "files": "src/lib/leadPush.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:03",
+          "sha": "87095b2",
+          "subject": "clip the intake summary on connect when the customer has no Notes yet",
+          "files": "src/lib/leadPush.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:11",
+          "sha": "9aa6aa3",
+          "subject": "companion: add /widget page and a Mac desktop panel that shows it",
+          "files": "desktop-widget/.gitignore, desktop-widget/AscentWidget.swift, desktop-widget/README.md, desktop-widget/build.sh, src/app/widget/WidgetView.tsx, src/app/widget/page.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:29",
+          "sha": "a734753",
+          "subject": "companion: add Run now button to AscentBot that triggers the Signal sync on the Mac",
+          "files": "scripts/signal-sync/README.md, scripts/signal-sync/install.sh, scripts/signal-sync/signal_sync.py, src/app/api/ascentbot/signal/route.ts, src/app/api/google-chat/signal-import/route.ts, src/app/ascentbot/SignalChats.tsx, +1 more"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:34",
+          "sha": "ce66882",
+          "subject": "companion: hide the widget's scroll bars; add Home button that opens the desktop widget",
+          "files": "desktop-widget/AscentWidget.swift, desktop-widget/README.md, desktop-widget/build.sh, src/app/page.tsx, src/app/widget/WidgetView.tsx, src/components/HomeWidgetButton.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:35",
+          "sha": "b03f52d",
+          "subject": "companion: list Customers sections in the sidebar, drop the tab strip from 2xl",
+          "files": "src/app/leads/Customers.tsx, src/components/TabBar.tsx, src/lib/workspaces.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:37",
+          "sha": "103485b",
+          "subject": "companion: Customers leads open in a side card like Vendors; buttons move to the header's top right",
+          "files": "src/app/leads/Customers.tsx, src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:43",
+          "sha": "8ebc26b",
+          "subject": "companion: Home widget button shows an install line when the widget is missing",
+          "files": "desktop-widget/README.md, desktop-widget/build.sh, public/AscentWidget.zip, public/widget-install.sh, src/components/HomeWidgetButton.tsx, src/middleware.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:44",
+          "sha": "8a53455",
+          "subject": "companion: draw the selected lead's ring inside the card so the list scroll does not clip it",
+          "files": "src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "13:57",
+          "sha": "8311600",
+          "subject": "companion: add a Listen to KLOI play/pause row above LopezRocks in the menu",
+          "files": "src/components/AppMenu.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:00",
+          "sha": "a86636f",
+          "subject": "companion: move the widget button into the side rail beside the Hide arrow",
+          "files": "desktop-widget/README.md, src/app/page.tsx, src/components/RailWidgetButton.tsx, src/components/TabBar.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:01",
+          "sha": "995eeca",
+          "subject": "companion: keep the Signal poll quiet when the Mac is offline",
+          "files": "scripts/signal-sync/signal_sync.py"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:02",
+          "sha": "a14037d",
+          "subject": "companion: Jobs page with no job shows My to-dos and Newest leads cards in place of the month rings",
+          "files": "CODEBASE_MAP.md, src/app/api/jobs-hub/my-todos/route.ts, src/app/jobs-hub/JobsHub.tsx, src/components/HomeLeadBoard.tsx, src/components/HubLeadsCard.tsx, src/components/HubMyTodos.tsx, +1 more"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:07",
+          "sha": "09ef99d",
+          "subject": "companion: add admin 'new version live' banner that polls the server's build",
+          "files": "CODEBASE_MAP.md, src/app/api/version/route.ts, src/app/layout.tsx, src/components/NewVersionNotice.tsx, src/lib/versionCheck.test.ts, src/lib/versionCheck.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:10",
+          "sha": "0a069de",
+          "subject": "companion: KLOI play/pause button in the desktop rail above LopezRocks; one shared stream",
+          "files": "src/components/AppMenu.tsx, src/components/TabBar.tsx, src/lib/kloi.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:13",
+          "sha": "81d15a1",
+          "subject": "companion: remove the Leads count card from the top of Customers",
+          "files": "src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:15",
+          "sha": "af7ce3e",
+          "subject": "companion: show My to-dos and Newest leads on Home only; the Jobs page keeps its rings and notes",
+          "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx, src/app/page.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:18",
+          "sha": "aef1efc",
+          "subject": "companion: banner Refresh opens the most-edited page; show the banner in the desktop widget",
+          "files": "next.config.mjs, src/app/api/version/route.ts, src/app/widget/WidgetView.tsx, src/components/NewVersionNotice.tsx, src/lib/buildChanges.mjs, src/lib/buildChanges.test.ts"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:26",
+          "sha": "9b64e98",
+          "subject": "companion: Home follows the masthead's billing month, drops its own picker, and the new cards match the jobs list height",
+          "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:31",
+          "sha": "e1dffba",
+          "subject": "collapse lead next-step notes behind a click; history entries expand to show details",
+          "files": "src/app/leads/LeadsBoard.tsx"
+        },
+        {
+          "date": "2026-11-11",
+          "time": "14:36",
+          "sha": "c656bb3",
+          "subject": "log a next-step history entry when Our notes change too",
+          "files": "src/app/leads/LeadsBoard.tsx"
         }
       ]
     },

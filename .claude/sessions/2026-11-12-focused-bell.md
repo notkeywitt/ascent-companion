@@ -2,9 +2,9 @@
 slug: focused-bell
 repo: ascent-companion
 branch: claude/focused-bell-3fhk92
-status: in-progress
+status: shipped
 started: 2026-11-12T15:13:31Z
-updated: 2026-11-12T16:04:41Z
+updated: 2026-11-12T16:04:49Z
 goal: 
 next: Watch the next invoice review: confirm no email-* findings and nothing on the Electrical job. Re-enable mail-capture in settings.ts if wanted.
 ---
