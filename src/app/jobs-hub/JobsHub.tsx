@@ -457,7 +457,7 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
                     ym && !allTimeOn ? (
                       <div className="flex flex-wrap items-start justify-center gap-2">
                         <DraftInvoicingEmail ym={ym} />
-                        <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
+                        <SyncAllTrackingSheetsFor ym={ym} jtJobId={selected.id} className="text-center" />
                         {can("jobs-hub") && <CheckForBills />}
                         {can("invoice-review") && (
                           <Link

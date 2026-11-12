@@ -277,10 +277,13 @@ export function TrackingSheetSyncFor({
  */
 export function SyncAllTrackingSheetsFor({
   ym,
+  jtJobId,
   className,
   onDone,
 }: {
   ym: string;
+  /** Sync only this job's sheet. Omit to sync every job. */
+  jtJobId?: string;
   className?: string;
   /** Called as each sheet and the Labor Report finish — the all-jobs cards re-read their stamps. */
   onDone?: () => void;
@@ -303,7 +306,7 @@ export function SyncAllTrackingSheetsFor({
         if (!alive) return;
         setTargets(
           ((b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[])
-            .filter((j) => j.jtJobId)
+            .filter((j) => (jtJobId ? j.jtJobId === jtJobId : j.jtJobId))
             .map((j) => ({ projectId: j.id, label: j.label, url: j.url })),
         );
       } catch {
@@ -313,7 +316,7 @@ export function SyncAllTrackingSheetsFor({
     return () => {
       alive = false;
     };
-  }, [canTrack]);
+  }, [canTrack, jtJobId]);
 
   // A month change invalidates every result on screen — they describe another
   // billing period.
