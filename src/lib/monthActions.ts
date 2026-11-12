@@ -7,12 +7,12 @@
  * /api/tracking-sheet (op "sync"). Read by /api/month-actions for the Tracking
  * Sheets all-jobs cards.
  */
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
 import { monthActionRuns, type MonthActionRunRow } from "@/db/schema";
 
-export type MonthAction = "document-access" | "labor-report" | "tracking-sync";
+export type MonthAction = "document-access" | "labor-report" | "tracking-sync" | "invoicing-email";
 
 /**
  * Stamp one run, replacing the last stamp for the same action, scope and month.
@@ -45,4 +45,18 @@ export async function recordMonthAction(
 export async function listMonthActions(ym: string): Promise<MonthActionRunRow[]> {
   await ensureDb();
   return db.select().from(monthActionRuns).where(eq(monthActionRuns.ym, ym));
+}
+
+/** One stamp, or undefined. */
+export async function getMonthAction(
+  action: MonthAction,
+  scope: string,
+  ym: string,
+): Promise<MonthActionRunRow | undefined> {
+  await ensureDb();
+  const [row] = await db
+    .select()
+    .from(monthActionRuns)
+    .where(and(eq(monthActionRuns.action, action), eq(monthActionRuns.scope, scope), eq(monthActionRuns.ym, ym)));
+  return row;
 }

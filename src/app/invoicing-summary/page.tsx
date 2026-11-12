@@ -193,6 +193,13 @@ export default function InvoicingSummaryPage() {
   const [savingField, setSavingField] = useState("");
   const [saveError, setSaveError] = useState("");
   const [notesOpen, setNotesOpen] = useState(false);
+  // A note edit changes the email: ask again when the notes card closes.
+  const { recheck: recheckEmail } = email;
+  const notesWereOpen = useRef(false);
+  useEffect(() => {
+    if (!notesOpen && notesWereOpen.current) recheckEmail();
+    notesWereOpen.current = notesOpen;
+  }, [notesOpen, recheckEmail]);
 
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 

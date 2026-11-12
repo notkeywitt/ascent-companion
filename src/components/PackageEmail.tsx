@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccess } from "@/components/AccessProvider";
 import { Banner, Button, Dialog, Textarea } from "@/components/ui";
 
@@ -10,6 +10,10 @@ import { Banner, Button, Dialog, Textarea } from "@/components/ui";
  * sheet and JobTread invoice linked. A second run replaces that month's draft with the latest,
  * overwriting edits made in Gmail. One run at a time; the result stays until
  * the next run.
+ *
+ * `stale`: GET on the same route says the email would now read differently from
+ * the draft (a bill, amount, coding, note or invoice changed). Checked when the
+ * month opens, when the tab comes back after three minutes, and by `recheck()`.
  */
 export function usePackageEmail(ym: string) {
   const [running, setRunning] = useState(false);
@@ -19,6 +23,31 @@ export function usePackageEmail(ym: string) {
     updated: boolean;
     warnings: string[];
   } | null>(null);
+
+  const [stale, setStale] = useState(false);
+  const lastCheck = useRef(0);
+  const recheck = useCallback(async () => {
+    if (!ym) return;
+    lastCheck.current = Date.now();
+    try {
+      const res = await fetch(`/api/invoicing-summary/email?ym=${encodeURIComponent(ym)}`);
+      const j = await res.json();
+      if (res.ok) setStale(j.stale === true);
+    } catch {
+      /* a failed check says nothing: leave the notice as it was */
+    }
+  }, [ym]);
+  useEffect(() => {
+    setStale(false);
+    recheck();
+  }, [recheck]);
+  useEffect(() => {
+    const back = () => {
+      if (document.visibilityState === "visible" && Date.now() - lastCheck.current > 180_000) recheck();
+    };
+    document.addEventListener("visibilitychange", back);
+    return () => document.removeEventListener("visibilitychange", back);
+  }, [recheck]);
 
   const run = async () => {
     setRunning(true);
@@ -32,7 +61,10 @@ export function usePackageEmail(ym: string) {
       });
       const j = await res.json();
       if (!res.ok || j.error) setError(j.error || `HTTP ${res.status}`);
-      else setDone(j);
+      else {
+        setDone(j);
+        setStale(false);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed");
     } finally {
@@ -40,7 +72,7 @@ export function usePackageEmail(ym: string) {
     }
   };
 
-  return { run, running, error, done };
+  return { run, running, error, done, stale, recheck };
 }
 
 /** The button, on the Package tab's action bar (moved from Tracking Sheets'
@@ -68,9 +100,19 @@ export function PackageEmailButton({
 }
 
 export function PackageEmailResult({ email }: { email: ReturnType<typeof usePackageEmail> }) {
-  if (!email.error && !email.done) return null;
+  const outOfDate = email.stale && !email.running;
+  if (!email.error && !email.done && !outOfDate) return null;
   return (
     <div className="mb-3">
+      {outOfDate && (
+        <Banner tone="warning" className="">
+          <b>Email Out Of Date - Recreate</b> · A bill, amount, coding, note or invoice has changed since the draft
+          was made.{" "}
+          <button type="button" onClick={email.run} className="font-semibold underline">
+            Recreate the draft
+          </button>
+        </Banner>
+      )}
       {email.error && (
         <Banner tone="error" className="">
           Invoicing email: {email.error}
