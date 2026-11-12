@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T18:13:04Z",
+  "generatedAt": "2026-11-12T18:51:51Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-12T18:13:04Z",
+      "updated": "2026-11-12T18:51:51Z",
       "goal": "",
       "next": "Owner reviews Invoice preview on localhost (Tracking Sheets > Summary); ship on 'ship it'",
       "commits": [
@@ -1999,6 +1999,13 @@
           "sha": "99c94ba",
           "subject": "companion: invoicing email as inline links, per-job summary pdf",
           "files": "src/app/api/invoicing-summary/email/route.ts, src/components/BillingSummary.tsx, src/components/PackageEmail.tsx, src/lib/invoicePreview.test.ts, src/lib/invoicePreview.ts, src/lib/invoicingEmail.test.ts, +1 more"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "10:32",
+          "sha": "69bd4fb",
+          "subject": "companion: invoicing email intro is the package title, for review",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts"
         }
       ]
     },
