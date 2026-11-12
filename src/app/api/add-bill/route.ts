@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { buildBillPdf } from "@/lib/billPdf";
+import { buildBillPdf, buildItemizedPdf } from "@/lib/billPdf";
+import { buildFolderBill, shortDate } from "@/lib/folderBill";
+import { driveIdFromLink, type DriveItem } from "@/lib/houseManual";
 import { SALES_TAX_CSI, splitSalesTax } from "@/lib/salesTax";
 import {
   attachFileToDocument,
@@ -39,7 +41,7 @@ import {
 import { readBillingMonthOverride } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
-import { kickJtSync } from "@/lib/appsScript";
+import { callAppsScriptOrThrow, kickJtSync } from "@/lib/appsScript";
 import { setVendorBillType } from "@/lib/clientDirectory";
 
 /**
@@ -72,6 +74,10 @@ import { setVendorBillType } from "@/lib/clientDirectory";
  *   billType    "Bill" | "Expense" (already paid) — omitted = the vendor's
  *               "Bill Type" custom field, else Bill. Sunset is always an Expense
  *               (a Sunset credit is a Credit), whatever this says.
+ *   folderLink  a Google Drive FOLDER link in place of `file`: the folder's
+ *               files, named "<CSI> - <amount> - <what>.pdf", become ONE bill
+ *               with a line per file, and one itemized PDF is attached. The
+ *               vendor must be picked. No model call.
  *   replaceDocId  the operator's "replace the original" answer to a dedup hit
  *                 whose amount had changed — the doc id they were shown
  */
@@ -188,8 +194,21 @@ export async function POST(req: NextRequest) {
   const description = String(form.get("description") ?? "").trim();
   const typedNumber = String(form.get("billNumber") ?? "").trim();
   const typedCsi = String(form.get("csi") ?? "").trim();
+  const folderLink = String(form.get("folderLink") ?? "").trim();
+  const folderId = folderLink ? driveIdFromLink(folderLink) : "";
+  // A picked file wins over a link; "no invoice" wins over both.
+  const fromFolder = Boolean(folderLink) && !noFile && !(file instanceof File);
 
-  if (!noFile && !(file instanceof File)) {
+  if (fromFolder && !folderId) {
+    return NextResponse.json({ error: "That is not a Google Drive folder link." }, { status: 400 });
+  }
+  if (fromFolder && !vendorOverride) {
+    return NextResponse.json(
+      { error: "Pick the vendor — a folder of invoices has no single vendor to read." },
+      { status: 400 },
+    );
+  }
+  if (!noFile && !fromFolder && !(file instanceof File)) {
     return NextResponse.json({ error: "No file uploaded." }, { status: 400 });
   }
   if (noFile) {
@@ -214,7 +233,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-  } else if (!process.env.ANTHROPIC_API_KEY) {
+  } else if (!fromFolder && !process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY is not set." }, { status: 400 });
   }
   if (!jobId) return NextResponse.json({ error: "Pick a job first." }, { status: 400 });
@@ -271,12 +290,70 @@ export async function POST(req: NextRequest) {
       name: v.name,
     }));
 
+    // ---- 2a. a Drive folder, read as one bill -------------------------------
+    // The file names carry code, amount and description. Fail closed on a
+    // listing that was cut short: a bill missing files is a wrong bill.
+    let folder: { name: string; total: number; lines: ReturnType<typeof buildFolderBill>["lines"] } | null =
+      null;
+    if (fromFolder) {
+      const listing = await callAppsScriptOrThrow<{
+        item: DriveItem;
+        children?: DriveItem[];
+        truncated?: boolean;
+      }>({ action: "listDriveFolder", id: folderId }, { timeoutMs: 60_000 });
+      if (!listing.item?.isFolder) {
+        return NextResponse.json(
+          { error: "That link is a file, not a folder. Paste the folder's link." },
+          { status: 400 },
+        );
+      }
+      if (listing.truncated) {
+        return NextResponse.json(
+          { error: "The folder has more files than the listing returned. Nothing was created." },
+          { status: 422 },
+        );
+      }
+      const built = buildFolderBill((listing.children ?? []).filter((c) => !c.isFolder));
+      if (built.lines.length === 0) {
+        return NextResponse.json(
+          {
+            error:
+              'No file in the folder is named like "26 20 00 - 86.16 - what it was.pdf" ' +
+              "(cost code - amount - description). Nothing was created.",
+          },
+          { status: 422 },
+        );
+      }
+      if (built.skipped.length) {
+        warnings.push(
+          `${built.skipped.length} file(s) in the folder were left off because the name is not ` +
+            `"cost code - amount - description": ${built.skipped.slice(0, 5).join("; ")}` +
+            `${built.skipped.length > 5 ? "; …" : ""}`,
+        );
+      }
+      folder = { name: listing.item.name, total: built.total, lines: built.lines };
+    }
+
     // ---- 2. Claude extraction (job comes from the picker, not AI) ----------
     // With no document there is nothing to read: the typed facts ARE the
     // extraction, in the same shape, so everything downstream is unchanged.
     // One line at the typed total, coded to the typed cost code when one was
     // picked; no tax, because there is no printed tax to reconcile against.
-    const extracted: ExtractedBill | null = noFile
+    const extracted: ExtractedBill | null = folder
+      ? {
+          Vendor: vendorOverride,
+          InvoiceNumber: typedNumber,
+          Amount: folder.total,
+          Tax: 0,
+          items: folder.lines.map((l) => ({
+            description: l.description,
+            price: l.amount,
+            quantity: 1,
+            line_total: l.amount,
+            csi: l.csi,
+          })),
+        }
+      : noFile
       ? {
           Vendor: vendorOverride,
           InvoiceNumber: typedNumber,
@@ -607,7 +684,25 @@ export async function POST(req: NextRequest) {
        office just gets it at capture time instead of having to notice the "No
        file" chip later. */
     const session = noFile ? await auth().catch(() => null) : null;
-    const madeFile = noFile
+    const madeFile = folder
+      ? {
+          bytes: buildItemizedPdf({
+            title: `${folder.name} - ${shortDate(dates.issueDate)}`,
+            lines: lines.map((l) => ({
+              name: l.name,
+              quantity: l.quantity ?? 1,
+              rate: l.unitCost ?? 0,
+              amount: (l.unitCost ?? 0) * (l.quantity ?? 1),
+            })),
+            total: summary.amount,
+          }),
+          mime: "application/pdf",
+          name:
+            `${folder.lines[0].csi} - ` + // the lines are sorted, so this is the lowest code
+            `${summary.amount.toFixed(2)} - ` +
+            `${folder.name.replace(/[^A-Za-z0-9 .-]/g, "").trim() || "Folder"}.pdf`,
+        }
+      : noFile
       ? {
           bytes: buildBillPdf({
             vendor: vendor.name,
@@ -960,7 +1055,7 @@ export async function POST(req: NextRequest) {
         amount: typeof summary.amount === "number" ? summary.amount : null,
         meta: {
           fileName: madeFile ? madeFile.name : (upload?.name ?? ""),
-          source: madeFile ? "add-bill-no-invoice" : "add-bill",
+          source: folder ? "add-bill-folder" : madeFile ? "add-bill-no-invoice" : "add-bill",
         },
       },
     ]);

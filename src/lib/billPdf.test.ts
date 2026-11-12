@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildBillPdf } from "./billPdf";
+import { buildBillPdf, buildItemizedPdf } from "./billPdf";
 
 /** The one thing that breaks silently: a PDF whose xref offsets don't point at
  *  their objects still "renders" as a blank or refuses to open at all. So parse
@@ -58,6 +58,22 @@ describe("buildBillPdf", () => {
     expect(xrefOffsetsAreSound(pdf)).toBe(true);
     expect(s).toMatch(/\/Count [2-9]/);
     expect(s).toContain("Page 1 of ");
+  });
+
+  it("draws the itemized folder document with its Pre-Tax Total", () => {
+    const lines = Array.from({ length: 80 }, (_, i) => ({
+      name: `Item ${i + 1}`,
+      quantity: 1,
+      rate: 10,
+      amount: 10,
+    }));
+    const pdf = buildItemizedPdf({ title: "Moon Spring New Electrical Service - 8/1/26", lines, total: 800 });
+    const s = pdf.toString("latin1");
+    expect(xrefOffsetsAreSound(pdf)).toBe(true);
+    expect(s).toContain("Moon Spring New Electrical Service - 8/1/26");
+    expect(s).toContain("Pre-Tax Total");
+    expect(s).toContain("$800.00");
+    expect(s).toMatch(/\/Count [2-9]/);
   });
 
   it("keeps non-Latin-1 text out of the stream", () => {

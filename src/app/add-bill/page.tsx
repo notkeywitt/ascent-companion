@@ -152,6 +152,10 @@ function AddBill() {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [billNumber, setBillNumber] = useState("");
+  /** A Drive FOLDER of invoices named "26 20 00 - 86.16 - what it was.pdf": it
+   *  becomes ONE bill with a line per file (lib/folderBill). Used only when no
+   *  file is picked. */
+  const [folderLink, setFolderLink] = useState("");
 
   useEffect(() => {
     fetch("/api/vendors")
@@ -220,7 +224,18 @@ function AddBill() {
     if (noFile) setExternalId("INV-" + crypto.randomUUID().slice(0, 8));
   }, [noFile]);
 
+  function onFolderLink(v: string) {
+    setFolderLink(v);
+    setResult(null);
+    setError("");
+    setNeedVendor("");
+    // Same one-key-per-bill rule as a picked file.
+    if (v.trim() && !externalId) setExternalId("INV-" + crypto.randomUUID().slice(0, 8));
+    else if (!v.trim() && !file && !noFile) setExternalId("");
+  }
+
   function onPickFile(f: File | null) {
+    if (f) setFolderLink("");
     setFile(f);
     setResult(null);
     setError("");
@@ -237,6 +252,7 @@ function AddBill() {
 
   function reset() {
     onPickFile(null);
+    setFolderLink("");
     setVendorId("");
     if (fileRef.current) fileRef.current.value = "";
   }
@@ -246,7 +262,8 @@ function AddBill() {
     forceSingleLine?: boolean;
     replaceDocId?: string;
   }) {
-    if ((!file && !noFile) || !jobId || busy) return;
+    const useFolder = !file && !noFile && Boolean(folderLink.trim());
+    if ((!file && !noFile && !useFolder) || !jobId || busy) return;
     setBusy(true);
     setError("");
     setResult(null);
@@ -258,6 +275,10 @@ function AddBill() {
         fd.set("noFile", "1");
         fd.set("amount", amount);
         fd.set("description", description);
+        if (billNumber.trim()) fd.set("billNumber", billNumber.trim());
+      }
+      if (useFolder) {
+        fd.set("folderLink", folderLink.trim());
         if (billNumber.trim()) fd.set("billNumber", billNumber.trim());
       }
       fd.set("jobId", jobId);
@@ -513,6 +534,25 @@ function AddBill() {
               {file && previewUrl && !mismatch && !error && (
                 <BillPreview file={file} url={previewUrl} className="mt-2 h-64" />
               )}
+              {!file && (
+                <div className="mt-3">
+                  <Label htmlFor="ab-folder">Or a Drive folder of invoices</Label>
+                  <Input
+                    id="ab-folder"
+                    inputMode="url"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    placeholder="https://drive.google.com/drive/folders/…"
+                    value={folderLink}
+                    disabled={busy}
+                    onChange={(e) => onFolderLink(e.target.value)}
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Files named &ldquo;26 20 00 - 86.16 - what it was.pdf&rdquo; become ONE bill, a
+                    line per file, with one itemized PDF filed to it. Pick the vendor below.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -538,11 +578,11 @@ function AddBill() {
           <div>
             <Label>
               Vendor{" "}
-              {noFile || needVendor ? "(required)" : ""}
+              {noFile || needVendor || (!file && folderLink.trim()) ? "(required)" : ""}
             </Label>
             <Select value={vendorId} disabled={busy} onChange={(e) => setVendorId(e.target.value)}>
               <option value="">
-                {noFile ? "Pick the vendor…" : "Match the vendor from the invoice"}
+                {noFile || folderLink.trim() ? "Pick the vendor…" : "Match the vendor from the invoice"}
               </option>
               {vendors.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -620,7 +660,7 @@ function AddBill() {
             </Select>
           </div>
 
-          <label className={`flex items-start gap-2 text-sm ${noFile ? "hidden" : ""}`}>
+          <label className={`flex items-start gap-2 text-sm ${noFile || (!file && folderLink.trim()) ? "hidden" : ""}`}>
             <Checkbox
               checked={singleLine}
               disabled={busy}
@@ -641,13 +681,17 @@ function AddBill() {
               busy ||
               (noFile
                 ? !vendorId || !amount.trim() || !description.trim()
-                : !file || (Boolean(needVendor) && !vendorId))
+                : file
+                  ? Boolean(needVendor) && !vendorId
+                  : !folderLink.trim() || !vendorId)
             }
           >
             {busy
               ? noFile
                 ? "Creating the bill…"
-                : "Extracting with Claude…"
+                : !file && folderLink.trim()
+                  ? "Reading the folder…"
+                  : "Extracting with Claude…"
               : noFile
                 ? "Log Bill — no invoice"
                 : "Log Bill"}

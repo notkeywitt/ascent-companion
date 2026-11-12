@@ -272,6 +272,75 @@ export function buildBillPdf(input: BillPdfInput): Buffer {
   return assemble(pages);
 }
 
+export interface ItemizedLine {
+  name: string;
+  quantity: number;
+  rate: number;
+  amount: number;
+}
+
+/**
+ * The plain itemized document the office files beside a bill: a centred title,
+ * then Description / Quantity / Rate / Amount, then a Pre-Tax Total. No logo, no
+ * header facts. Built for a Drive folder read as one bill (lib/folderBill).
+ */
+export function buildItemizedPdf(input: {
+  title: string;
+  lines: ItemizedLine[];
+  total: number;
+}): Buffer {
+  const QTY_X = 400;
+  const RATE_X = 470;
+  const DESC_W = QTY_X - MARGIN - 50;
+  const pages: Page[] = [];
+  let p = new Page();
+  pages.push(p);
+  let y = PAGE_H - MARGIN;
+
+  const title = (pg: Page) => {
+    const t = clip(input.title, 11, RIGHT - MARGIN);
+    pg.text((PAGE_W - textWidth(t, 11, true)) / 2, y, t, 11, "F2");
+    y -= 28;
+  };
+  const head = (pg: Page) => {
+    pg.text(MARGIN, y, "Description", 9.5, "F2");
+    pg.right(QTY_X, y, "Quantity", 9.5, "F2");
+    pg.right(RATE_X, y, "Rate", 9.5, "F2");
+    pg.right(RIGHT, y, "Amount", 9.5, "F2");
+    y -= 6;
+    pg.rule(MARGIN, y, RIGHT);
+    y -= 14;
+  };
+  title(p);
+  head(p);
+
+  for (const l of input.lines) {
+    if (y < BOTTOM) {
+      p = new Page();
+      pages.push(p);
+      y = PAGE_H - MARGIN;
+      title(p);
+      head(p);
+    }
+    p.text(MARGIN, y, clip(l.name, 9.5, DESC_W), 9.5);
+    p.right(QTY_X, y, String(l.quantity), 9, "F3");
+    p.right(RATE_X, y, money(l.rate), 9, "F3");
+    p.right(RIGHT, y, money(l.amount), 9, "F3");
+    y -= 17;
+  }
+
+  if (y < BOTTOM) {
+    p = new Page();
+    pages.push(p);
+    y = PAGE_H - MARGIN;
+  }
+  p.rule(MARGIN, y + 8, RIGHT, 1);
+  p.text(RATE_X - 70, y - 6, "Pre-Tax Total", 9.5, "F2");
+  p.right(RIGHT, y - 6, money(input.total), 9.5, "F3");
+
+  return assemble(pages);
+}
+
 /** Objects, xref table, trailer. The only part that is PDF plumbing. */
 function assemble(pages: Page[]): Buffer {
   const objs: string[] = [];
