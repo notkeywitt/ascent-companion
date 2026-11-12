@@ -17,9 +17,10 @@ describe("composeInvoicingEmail", () => {
   const out = composeInvoicingEmail({
     docTitle: "October '26 Invoicing Package",
     monthName: "October '26",
+    summaryJobIds: ["j1", "moon"],
     jobs: [
       job({ jtJobId: "shack", jobLabel: "Beach Shack", invoiceNumber: "", trackingSheetUrl: "", note: "Keillor will send a progress invoice." }),
-      job({}),
+      job({ note: "First point.\n\nSecond point.\r\n  Third & last.  " , billingFolderUrl: "https://drive.google.com/drive/folders/f1" }),
       job({ jtJobId: "moon", jobLabel: "Main House/Precon", invoiceNumber: "22" }),
       job({ jtJobId: "office", jobLabel: "Office", include: false }),
     ],
@@ -31,33 +32,45 @@ describe("composeInvoicingEmail", () => {
   });
 
   it("links QBO by txnId, and says so when the invoice is not in QuickBooks", () => {
-    expect(out.html).toContain('href="https://qbo.intuit.com/app/invoice?txnId=46097"');
-    expect(out.html).toContain("QBO — not pushed to QuickBooks yet");
+    expect(out.html).toContain('href="https://qbo.intuit.com/app/invoice?txnId=46097">QBO Invoice #379</a>');
+    expect(out.html).toContain("QBO Invoice #22 — not pushed to QuickBooks yet");
   });
 
-  it("links each JobTread invoice and attaches its PDF", () => {
-    expect(out.invoices).toEqual([
-      { id: "d379", name: "Monthly Invoice 002-379.pdf" },
-      { id: "d22", name: "Monthly Invoice 22-22.pdf" },
-    ]);
-    expect(out.html).toContain("Monthly Invoice 002-379.pdf (attached)");
+  it("links each JobTread invoice, and attaches nothing", () => {
     expect(out.html).toContain('href="https://app.jobtread.com/jobs/j1/documents/d1">JobTread invoice #379</a>');
+    expect(out.html).not.toContain("(attached)");
+    expect(out).not.toHaveProperty("invoices");
   });
 
-  it("attaches the Pre-con tab for a precon job and the Tracking Sheet tab otherwise", () => {
-    expect(out.sheets).toEqual([
-      { url: "https://docs.google.com/spreadsheets/d/abc/edit", tab: "Tracking Sheet", name: "Kevin Berger & Alexis Takacs - Berger Addition - Tracking Sheet.pdf" },
-      { url: "https://docs.google.com/spreadsheets/d/abc/edit", tab: "Pre-con", name: "Kevin Berger & Alexis Takacs - Main House-Precon - Pre-con.pdf" },
+  it("links the tracking sheet, its PDF (resolved by Apps Script), the Drive folder and the summary PDF", () => {
+    expect(out.html).toContain('href="https://docs.google.com/spreadsheets/d/abc/edit">Google Tracking Sheet</a>');
+    expect(out.html).toContain('href="sheetpdf:0">Google Tracking Sheet PDF</a>');
+    expect(out.html).toContain('href="sheetpdf:1">Google Tracking Sheet PDF</a>');
+    expect(out.html).toContain('href="https://drive.google.com/drive/folders/f1">Google Drive</a>');
+    expect(out.html).toContain('href="summarypdf:j1">Invoicing Summary PDF</a>');
+    expect(out.sheetPdfLinks).toEqual([
+      { url: "https://docs.google.com/spreadsheets/d/abc/edit", tab: "Tracking Sheet" },
+      { url: "https://docs.google.com/spreadsheets/d/abc/edit", tab: "Pre-con" },
     ]);
-    expect(out.html).toContain("(PRE-CON tab)");
+    expect(out.html).toContain("Google Tracking Sheet (Pre-con tab)");
   });
 
-  it("puts invoiced jobs first, keeps a note, drops excluded jobs, escapes labels", () => {
+  it("makes one bullet per paragraph of the note, under an amber customer - job heading", () => {
+    expect(out.html).toContain("<ul><li>First point.</li><li>Second point.</li><li>Third &amp; last.</li></ul>");
+    expect(out.html).toContain("Kevin Berger &amp; Alexis Takacs - Berger Addition</span></b>");
+    expect(out.html).toContain("LINKS");
+  });
+
+  it("puts invoiced jobs first, keeps a note, drops excluded jobs", () => {
     expect(out.html.indexOf("Berger Addition")).toBeLessThan(out.html.indexOf("Beach Shack"));
-    expect(out.html).toContain("Keillor will send a progress invoice.");
-    expect(out.html).not.toContain(">Office<");
-    expect(out.html).toContain("Kevin Berger &amp; Alexis Takacs");
+    expect(out.html).toContain("<li>Keillor will send a progress invoice.</li>");
+    expect(out.html).not.toContain("Office</span>");
     expect(out.subject).toBe("October '26 Invoicing Package");
+  });
+
+  it("leaves the summary link out of a job with no summary PDF", () => {
+    const none = composeInvoicingEmail({ docTitle: "t", monthName: "m", summaryJobIds: [], jobs: [job({})], invoices: {}, phases: {} });
+    expect(none.html).not.toContain("Invoicing Summary PDF</a>");
   });
 });
 
@@ -65,6 +78,7 @@ describe("composeInvoicingEmail — two invoices in one month (Seely, October 20
   const out = composeInvoicingEmail({
     docTitle: "November '26 Invoicing Package",
     monthName: "November '26",
+    summaryJobIds: ["j1", "moon"],
     jobs: [
       job({
         jtJobId: "seely",
@@ -84,17 +98,11 @@ describe("composeInvoicingEmail — two invoices in one month (Seely, October 20
     phases: {},
   });
 
-  it("attaches both PDFs, the normal invoice first", () => {
-    expect(out.invoices).toEqual([
-      { id: "d134", name: "Monthly Invoice 009-134.pdf" },
-      { id: "d130", name: "Monthly Invoice 009-130.pdf" },
-    ]);
-  });
-
-  it("links each invoice and marks the warranty record", () => {
+  it("links each invoice, the normal one first, and marks the warranty record", () => {
+    expect(out.html.indexOf("#134")).toBeLessThan(out.html.indexOf("#130"));
     expect(out.html).toContain('href="https://app.jobtread.com/jobs/seely/documents/d134">JobTread invoice #134</a>');
     expect(out.html).toContain('href="https://app.jobtread.com/jobs/seely/documents/d130">JobTread invoice #130</a> (warranty record, $0)');
     expect(out.html).toContain('txnId=50001');
-    expect(out.html).toContain("QBO — warranty — not pushed to QuickBooks yet");
+    expect(out.html).toContain("QBO Invoice #130 — not pushed to QuickBooks yet");
   });
 });

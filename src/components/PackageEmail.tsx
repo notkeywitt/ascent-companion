@@ -7,7 +7,7 @@ import { Banner, Button, Dialog, Textarea } from "@/components/ui";
 /**
  * "Draft invoicing email" — POST /api/invoicing-summary/email, which saves the
  * month's Invoicing Package email as a Gmail draft with each job's tracking
- * sheet and JobTread invoice attached. A second run replaces that month's draft with the latest,
+ * sheet and JobTread invoice linked. A second run replaces that month's draft with the latest,
  * overwriting edits made in Gmail. One run at a time; the result stays until
  * the next run.
  */
@@ -17,8 +17,6 @@ export function usePackageEmail(ym: string) {
   const [done, setDone] = useState<{
     draftUrl: string;
     updated: boolean;
-    attached: number;
-    expected: number;
     warnings: string[];
   } | null>(null);
 
@@ -62,7 +60,7 @@ export function PackageEmailButton({
       variant="secondary"
       onClick={onOpen}
       disabled={email.running || !ym}
-      title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs. A new draft replaces this month's draft."
+      title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links. A new draft replaces this month's draft."
     >
       {email.running ? "Drafting email…" : "Invoicing email"}
     </Button>
@@ -83,8 +81,7 @@ export function PackageEmailResult({ email }: { email: ReturnType<typeof usePack
           <a href={email.done.draftUrl} target="_blank" rel="noreferrer" className="font-semibold underline">
             Open the draft in Gmail ↗
           </a>{" "}
-          · {email.done.updated ? "Updated this month's draft with the latest" : "New draft"} ·{" "}
-          {email.done.attached} of {email.done.expected} PDFs attached (tracking sheets and JobTread invoices).
+          · {email.done.updated ? "Updated this month's draft with the latest" : "New draft"} · Every PDF is a link.
           Nothing is sent until you send it.
           {email.done.warnings.map((w) => (
             <div key={w} className="mt-1 text-[12px]">
@@ -283,7 +280,7 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
         className="min-h-11"
         onClick={() => void show()}
         disabled={email.running || !ym}
-        title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet and JobTread invoice attached as PDFs."
+        title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links."
       >
         {email.running ? "Drafting email…" : "Invoicing Email"}
       </Button>
