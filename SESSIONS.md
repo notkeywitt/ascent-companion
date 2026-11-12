@@ -32,7 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
-| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-12 | 289 | — |
+| [main](.claude/sessions/2026-09-03-main.md) | 2026-11-12 | 290 | — |
 | [quirky-pascal](.claude/sessions/2026-11-12-quirky-pascal.md) | 2026-11-12 | 2 | — |
 | [focused-bell](.claude/sessions/2026-11-12-focused-bell.md) | 2026-11-12 | 2 | — |
 | [laughing-fermat](.claude/sessions/2026-11-11-laughing-fermat.md) | 2026-11-11 | 2 | — |

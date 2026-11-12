@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T21:56:17Z",
+  "generatedAt": "2026-11-12T22:41:53Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,9 +8,9 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-12T21:56:17Z",
+      "updated": "2026-11-12T22:41:53Z",
       "goal": "",
-      "next": "Owner reviews Invoice preview on localhost (Tracking Sheets > Summary); ship on 'ship it'",
+      "next": "Owner checks job card Sync button on localhost: selected job syncs one sheet, no selection syncs all",
       "commits": [
         {
           "date": "2026-09-03",
@@ -2034,6 +2034,13 @@
           "sha": "44916a6",
           "subject": "companion: check for bills button on jobs hub",
           "files": "CODEBASE_MAP.md, src/app/api/jobs-hub/scan-bills/route.ts, src/app/jobs-hub/JobsHub.tsx, src/components/CheckForBills.tsx"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "14:41",
+          "sha": "7bd785c",
+          "subject": "companion: job card sync button syncs only the selected job's sheet",
+          "files": "src/app/jobs-hub/JobsHub.tsx, src/components/TrackingSheetSync.tsx"
         }
       ]
     },
