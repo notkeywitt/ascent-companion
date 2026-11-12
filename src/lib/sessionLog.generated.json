@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-12T21:31:32Z",
+  "generatedAt": "2026-11-12T21:40:28Z",
   "repo": "ascent-companion",
   "sessions": [
     {
@@ -8,7 +8,7 @@
       "branch": "main",
       "status": "shipped",
       "started": "2026-09-03T18:22:54Z",
-      "updated": "2026-11-12T21:31:32Z",
+      "updated": "2026-11-12T21:40:28Z",
       "goal": "",
       "next": "Owner reviews Invoice preview on localhost (Tracking Sheets > Summary); ship on 'ship it'",
       "commits": [
@@ -2013,6 +2013,13 @@
           "sha": "3e66276",
           "subject": "companion: direct links for jobs hub job, month and bill",
           "files": "CODEBASE_MAP.md, src/app/jobs-hub/JobsHub.tsx, src/app/jobs-hub/[...path]/page.tsx, src/app/trackingsheet/Board.tsx, src/lib/hubUrl.test.ts, src/lib/hubUrl.ts"
+        },
+        {
+          "date": "2026-11-12",
+          "time": "13:40",
+          "sha": "f0f5af3",
+          "subject": "companion: invoicing email files both pdfs per job, job-in-app link, summary never missing",
+          "files": "src/app/api/invoicing-summary/email/route.ts, src/lib/invoicingEmail.test.ts, src/lib/invoicingEmail.ts"
         }
       ]
     },
