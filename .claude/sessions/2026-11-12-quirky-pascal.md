@@ -2,9 +2,9 @@
 slug: quirky-pascal
 repo: ascent-companion
 branch: claude/quirky-pascal-q42dhq
-status: in-progress
+status: shipped
 started: 2026-11-12T20:43:44Z
-updated: 2026-11-12T20:54:36Z
+updated: 2026-11-12T20:59:59Z
 goal: 
 next: Owner approves push; then paste the Berger folder link in Add Bill and check the draft bill + PDF in JobTread
 ---

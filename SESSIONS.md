@@ -32,6 +32,7 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 
 | Session | Shipped | Commits | What it did |
 |---|---|---|---|
+| [quirky-pascal](.claude/sessions/2026-11-12-quirky-pascal.md) | 2026-11-12 | 2 | — |
 | [main](.claude/sessions/2026-09-03-main.md) | 2026-11-12 | 285 | — |
 | [focused-bell](.claude/sessions/2026-11-12-focused-bell.md) | 2026-11-12 | 2 | — |
 | [laughing-fermat](.claude/sessions/2026-11-11-laughing-fermat.md) | 2026-11-11 | 2 | — |
@@ -46,4 +47,3 @@ do not hand-edit.** Run `node scripts/session.mjs board --write`, or let
 | [awesome-brown](.claude/sessions/2026-11-10-awesome-brown.md) | 2026-11-10 | 0 | — |
 | [amazing-ride](.claude/sessions/2026-11-10-amazing-ride.md) | 2026-11-10 | 1 | — |
 | [eager-turing](.claude/sessions/2026-11-10-eager-turing.md) | 2026-11-10 | 3 | — |
-| [charming-brown](.claude/sessions/2026-11-10-charming-brown.md) | 2026-11-10 | 1 | — |
