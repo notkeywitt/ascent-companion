@@ -188,3 +188,29 @@ describe("a check that throws", () => {
     expect(runChecks(m, preSend).map((f) => f.kind)).toContain("job-not-invoiced");
   });
 });
+
+describe("Electrical department", () => {
+  it("is skipped by every check, whatever it holds", () => {
+    const unbilled = { bills: [bill({ id: "b1", cost: 900, invoiced: false })], uninvoicedBillsCost: 900 };
+    const m = month([
+      job({ jobId: "E1", jobName: "Electrical", customerName: "Ascent", ...unbilled }),
+      job({ jobId: "E2", jobName: "Ascent - Electrical", customerName: "Ascent", ...unbilled }),
+    ]);
+    expect(runChecks(m)).toEqual([]);
+  });
+
+  it("does not skip a real job that only mentions electrical", () => {
+    const dup = { bills: [bill({ id: "b1", cost: 900, invoiced: false })], uninvoicedBillsCost: 900 };
+    const m = month([
+      job({ jobId: "R1", jobName: "Electrical Remodel", ...dup }),
+      job({ jobId: "R2", jobName: "Electrical Remodel 2", ...dup }),
+    ]);
+    expect(runChecks(m).length).toBeGreaterThan(0);
+  });
+});
+
+describe("mail-capture default", () => {
+  it("is off", () => {
+    expect(DEFAULT_SETTINGS.checks["mail-capture"].enabled).toBe(false);
+  });
+});

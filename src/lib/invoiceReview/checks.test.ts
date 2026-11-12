@@ -8,7 +8,8 @@
 import { describe, expect, it } from "vitest";
 
 import { buildBrief } from "./brief";
-import { runChecks } from "./registry";
+import { runChecks as runChecksDefault } from "./registry";
+const runChecks = runChecksDefault;
 import { DEFAULT_SETTINGS } from "./settings";
 import { billLink, depositPart, matchBackup } from "./checks/shared";
 import { fallbackSummary } from "./summary";
@@ -1023,6 +1024,19 @@ describe("ordering and summary", () => {
 });
 
 describe("the office mailbox — was every vendor invoice captured?", () => {
+  // The check ships OFF (settings.ts). These tests prove it still works if switched on.
+  const runChecks: typeof runChecksDefault = (m, s, o) =>
+    runChecksDefault(
+      m,
+      s ?? {
+        ...DEFAULT_SETTINGS,
+        checks: {
+          ...DEFAULT_SETTINGS.checks,
+          "mail-capture": { ...DEFAULT_SETTINGS.checks["mail-capture"], enabled: true },
+        },
+      },
+      o,
+    );
   const swept = (emails: BillEmail[], over = {}) =>
     month([job()], { emailChecked: true, emails, mailWindow: { first: "2026-07-11", last: "2026-08-10" }, ...over });
 

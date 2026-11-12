@@ -255,8 +255,11 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         reportCodeRateSpread: true,
       },
     },
+    // OFF (2026-11-12): the office judged it too noisy. 143 of October's 216
+    // findings came from it, nearly all false positives. The check still exists;
+    // set `enabled: true` to bring it back.
     "mail-capture": {
-      enabled: true,
+      enabled: false,
       config: {
         // Unknown senders are noisy by nature — no bill list existed to search,
         // so nothing was ever proven. On by default because a new vendor whose

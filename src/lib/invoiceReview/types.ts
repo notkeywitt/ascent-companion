@@ -821,6 +821,16 @@ export function isNeverInvoiced(jobId: string, jobName: string): boolean {
 }
 
 /**
+ * Ascent's own Electrical department. Its bills never reach a client invoice,
+ * so the review skips the job outright: no check has anything true to say about it.
+ * Exact match on the name ("Electrical", or "Ascent - Electrical").
+ */
+export function isElectricalJob(jobName: string): boolean {
+  const n = String(jobName ?? "").trim().toLowerCase();
+  return n === "electrical" || n === "ascent - electrical";
+}
+
+/**
  * A finding's stable id.
  *
  * `subject` is whatever makes this finding one thing rather than a category — a

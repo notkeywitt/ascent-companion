@@ -24,7 +24,7 @@
  */
 import type { InvoiceCheck, JobCheck, MonthCheck } from "./checkTypes";
 import { DEFAULT_SETTINGS, type CheckId, type InvoiceReviewSettings } from "./settings";
-import { compareFindings, type Finding, type MonthEvidence } from "./types";
+import { compareFindings, isElectricalJob, type Finding, type MonthEvidence } from "./types";
 
 import { backupCheck } from "./checks/backup";
 import { costBasisCheck } from "./checks/costBasis";
@@ -163,7 +163,7 @@ function blockFor(id: string, settings: InvoiceReviewSettings) {
  * check that found nothing.
  */
 export function runChecks(
-  month: MonthEvidence,
+  fullMonth: MonthEvidence,
   settings: InvoiceReviewSettings = DEFAULT_SETTINGS,
   opts: {
     /**
@@ -181,6 +181,13 @@ export function runChecks(
     scopes?: ReadonlyArray<"job" | "invoice" | "month">;
   } = {},
 ): Finding[] {
+  // Electrical never reaches a client invoice, so no check sees it — month-scoped
+  // ones included (a bill filed on it would otherwise read as a cross-job duplicate).
+  // A shallow copy: `warnings` stays the one shared array.
+  const month: MonthEvidence = {
+    ...fullMonth,
+    jobs: fullMonth.jobs.filter((j) => !isElectricalJob(j.jobName)),
+  };
   const out: Finding[] = [];
   const global = settings.global;
   const scopes = new Set(opts.scopes ?? ["job", "invoice", "month"]);

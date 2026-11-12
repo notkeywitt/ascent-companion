@@ -12,5 +12,6 @@ next: Edit what the invoice check covers (settings.ts and checks/); the user nam
 ## Log
 
 <!-- Appended by .githooks/post-commit. Do not hand-write rows here. -->
+- 2026-11-12 15:14 · `0fe4b42` companion: add session ledger for invoice check review
 
 ## Notes
