@@ -142,6 +142,7 @@ export type {
   UninvoicedTimeEntryRef,
   UninvoicedBillLine,
   UninvoicedBills,
+  InvoicePreviewMeta,
 } from "./jobtread/invoiceStaging";
 export {
   CF_COST_CODES,

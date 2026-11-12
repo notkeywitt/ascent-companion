@@ -163,9 +163,28 @@ export interface UninvoicedBillLine {
   // detail only — no per-entry cost, the group row above already has the total).
   timeEntries?: UninvoicedTimeEntryRef[];
 }
+/**
+ * What the invoice preview needs beyond the cost lines: who it is for, and the
+ * job's markup. `markup` is the budget's price ÷ cost (1.18 = 18%), which is
+ * what JobTread applies to every invoice line. `fee` is worked out per cost
+ * item and per day of time, each rounded to the cent, the way JobTread prices
+ * an invoice's lines, so the preview's fee matches the invoice's to the cent.
+ */
+export interface InvoicePreviewMeta {
+  jobNumber: string;
+  address: string;
+  accountName: string;
+  contactName: string;
+  email: string;
+  markup: number;
+  fee: number;
+  /** CSI division names by number: "06 00 00" → "Wood, Plastics, and Composites". */
+  divisions: Record<string, string>;
+}
 export interface UninvoicedBills {
   customer: { id: string; name: string } | null;
   job?: { id: string; name: string };
   lines: UninvoicedBillLine[];
   total: number;
+  invoice?: InvoicePreviewMeta;
 }

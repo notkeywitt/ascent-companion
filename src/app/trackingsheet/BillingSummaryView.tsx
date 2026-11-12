@@ -5,7 +5,7 @@ import { Banner, Button, Loading, Toggle, btn } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import { money } from "./BillCodingCard";
 import type { Recon } from "@/components/InvoiceReconcile";
-import { Breakdown, printJob, type Detail } from "@/components/BillingSummary";
+import { Breakdown, printInvoicePreview, printJob, type Detail } from "@/components/BillingSummary";
 import { issueDateFor, monthLabel } from "@/lib/billingMonths";
 
 /**
@@ -66,6 +66,14 @@ export function BillingSummaryView({
                     onClick={() => summary && printJob(summary, monthLabel(ym), summaryByCsi)}
                   >
                     Print / Save PDF
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    disabled={!summary}
+                    onClick={() => summary && printInvoicePreview(summary, ym)}
+                  >
+                    Invoice preview
                   </Button>
                 </div>
 

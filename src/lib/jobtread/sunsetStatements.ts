@@ -6,7 +6,7 @@ import { cachedRef, clearJobCostCaches, pageAll, pageEach, pave, type PaveConfig
 import { _isInvoicedToClient, _isOnAnyInvoice } from "./unbilled";
 import { _getJobBudgetUncached, type BudgetItem, getJobBudget, getSalesTaxByDoc, getWarrantyByDoc } from "./codingQueue";
 import { createLine, deleteLine } from "./homeJobBoard";
-import type { CsiAmount, UninvoicedBillLine, UninvoicedBills } from "./invoiceStaging";
+import type { CsiAmount, InvoicePreviewMeta, UninvoicedBillLine, UninvoicedBills } from "./invoiceStaging";
 import { BUYBACK_CSI, type BuybackLineArgs, createVendorBill, findShopBuybackBill, getJobHeaderInfo, isExpenseDoc, resolveShopBuybackLeaf, resolveShopJobId } from "./billIngestion";
 import { OFFICE_JOB_ID } from "./tasks";
 // ---------------------------------------------------------------------------
@@ -458,7 +458,7 @@ export async function getUninvoicedBills(
             minutes: {},
             hourlyRate: {},
             user: { name: {} },
-            costItem: { costCode: { number: {}, name: {} } },
+            costItem: { id: {}, costCode: { number: {}, name: {} } },
             referencedDocuments: { nodes: { type: {}, status: {} } },
           },
         },
@@ -478,6 +478,8 @@ export async function getUninvoicedBills(
   // client-side by document id and aggregate the amounts per CSI cost code.
   const openIds = new Set(open.map((b) => b.id));
   const csiByBill = new Map<string, Map<string, { name: string; amount: number }>>();
+  // Every open bill's item costs, coded or not, for the invoice preview's fee.
+  const billItemCosts: number[] = [];
   await pageEach<any>(
     cfg,
     {
@@ -498,6 +500,7 @@ export async function getUninvoicedBills(
       for (const n of rows) {
         const doc = n.document;
         if (!doc || doc.type !== "vendorBill" || !openIds.has(doc.id)) continue;
+        billItemCosts.push(n.cost ?? 0);
         const code = String(n.costCode?.number ?? "").trim();
         if (!code) continue;
         let byCode = csiByBill.get(doc.id);
@@ -600,13 +603,80 @@ export async function getUninvoicedBills(
   const total = open.reduce((s, b) => s + (b.cost ?? 0), 0) + timeCost;
 
   const c = await pave(cfg, {
-    job: { $: { id: jobId }, id: {}, name: {}, location: { account: { id: {}, name: {} } } },
+    job: {
+      $: { id: jobId },
+      id: {},
+      name: {},
+      number: {},
+      location: {
+        address: {},
+        account: {
+          id: {},
+          name: {},
+          primaryContact: {
+            name: {},
+            customFieldValues: { $: { size: 10 }, nodes: { value: {}, customField: { name: {} } } },
+          },
+        },
+      },
+      // The budget (cost items on no document) carries the job's markup.
+      budget: {
+        _: "costItems",
+        $: { where: { and: [[["document", "id"], null], ["cost", "!=", 0]] } },
+        cost: { _: "sum", $: "cost" },
+        price: { _: "sum", $: "price" },
+      },
+    },
+    organization: {
+      $: { id: cfg.orgId },
+      costCodes: {
+        $: { size: 100, where: ["number", "like", "% 00 00"] },
+        nodes: { number: {}, name: {} },
+      },
+    },
   });
   const acc = c?.job?.location?.account;
   const customer = acc?.id ? { id: acc.id, name: acc.name ?? "" } : null;
   const job = { id: jobId, name: c?.job?.name ?? "" };
 
-  return { customer, job, lines, total };
+  // JobTread prices each bill item, and each day's time per budget item, on
+  // its own line: round(raw cost × markup), half up. Summing those roundings is
+  // what lands the preview's fee on the invoice's to the cent (checked against
+  // Monthly Invoice 004-424, 2026-11-12). The markup is rounded to 4 places
+  // because the budget sums carry float noise (1.179999991…).
+  const budgetCost = Number(c?.job?.budget?.cost) || 0;
+  const markup = budgetCost
+    ? Math.round(((Number(c?.job?.budget?.price) || 0) / budgetCost) * 1e4) / 1e4
+    : 1;
+  const r2 = (n: number) => Math.round(n * 100 + 1e-6) / 100;
+  const feeOf = (cost: number) => r2(cost * markup) - r2(cost);
+  const timeByDayItem = new Map<string, number>();
+  for (const t of openTime) {
+    const day = new Date(t.startedAt).toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    const k = `${day}|${t.costItem?.id ?? ""}`;
+    timeByDayItem.set(k, (timeByDayItem.get(k) ?? 0) + (t.cost ?? 0));
+  }
+  const fee = r2(
+    billItemCosts.reduce((s, n) => s + feeOf(n), 0) +
+      Array.from(timeByDayItem.values()).reduce((s, n) => s + feeOf(n), 0),
+  );
+  const contact = acc?.primaryContact;
+  const invoice: InvoicePreviewMeta = {
+    jobNumber: String(c?.job?.number ?? ""),
+    address: c?.job?.location?.address ?? "",
+    accountName: acc?.name ?? "",
+    contactName: contact?.name ?? "",
+    email:
+      (contact?.customFieldValues?.nodes ?? []).find((v: any) => /email/i.test(v?.customField?.name ?? ""))
+        ?.value ?? "",
+    markup,
+    fee,
+    divisions: Object.fromEntries(
+      (c?.organization?.costCodes?.nodes ?? []).map((n: any) => [String(n.number), String(n.name ?? "")]),
+    ),
+  };
+
+  return { customer, job, lines, total, invoice };
 }
 
 /** One job's roster row for the month-wide Invoicing preview. `billTotal` is

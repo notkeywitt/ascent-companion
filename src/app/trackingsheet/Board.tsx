@@ -668,6 +668,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             job: j.job,
             lines: j.lines ?? [],
             total: j.total ?? 0,
+            invoice: j.invoice,
           });
         } else {
           setSummaryError(j.error ?? "Couldn't load the billing summary");
