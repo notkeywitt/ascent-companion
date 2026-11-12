@@ -223,4 +223,62 @@ describe("findInvoiceColumns", () => {
     expect(off[0].code).toBe("01 51 20");
     expect(off[0].where).toBe("Tracking Sheet D11");
   });
+
+  // Berger Bunkhouse, October 2026: every code row was right, but section 10's
+  // subtotal read $0.00, so the tab's INVOICES total ($35,407.51) came up
+  // $2,722.34 short of the Sub/Vendor tab ($38,129.85).
+  const totalsHeaders: Grid = [["", "", "CURRENT INVOICE"], [], ["", "", "LABOR", "INVOICES"]];
+  const totalsCodes: Grid = [
+    ["01 00 00"], ["01 31 00"], ["01 51 10"], [],
+    [], [],
+    ["10 00 00"], ["10 28 16"], ["10 28 19"], [],
+    [], [],
+    ["12 00 00"], ["12 30 00"], [],
+    [], [],
+    [], [], // grand total, then a derived row
+  ];
+  const totalsCols = (tenSubtotal: string, grand: string): Record<string, Grid> => ({
+    C: [[""], ["$3,360.00"], ["$0.00"], ["$3,360.00"], [], [], [""], ["$0.00"], ["$0.00"], ["$0.00"], [], [], [""], ["$0.00"], ["$0.00"], [], [], ["$3,360.00"], ["$600.00"]],
+    D: [[""], ["$0.00"], ["$400.00"], ["$400.00"], [], [], [""], ["$0.00"], ["$2,722.34"], [tenSubtotal], [], [], [""], ["$8,463.15"], ["$8,463.15"], [], [], [grand], ["$1,000.00"]],
+  });
+  const totalsRun = (cols: Record<string, Grid>) =>
+    compareTrackingSheet({
+      year: 2026,
+      month: 10,
+      jt: totalJtLines([], []),
+      subVendor: [
+        ["01 51 10", "$400.00", "Starr"],
+        ["10 28 19", "$2,722.34", "Island Sash and Door"],
+        ["12 30 00", "$8,463.15", "Island Custom Woodworks"],
+      ],
+      labor: [[], [], ["01 31 00", "32", "", "", "$105.00", "$3,360.00"]],
+      headers: totalsHeaders,
+      codes: totalsCodes,
+      columns: cols,
+    }).issues.filter((i) => i.kind === "tracking-total-off");
+
+  it("flags a section subtotal that skips a code row, and the grand total behind it", () => {
+    const off = totalsRun(totalsCols("$0.00", "$8,863.15"));
+    expect(off).toHaveLength(2);
+    const sub = off.find((i) => i.code === "10 00 00");
+    expect(sub?.where).toBe("Tracking Sheet D19");
+    expect(sub?.detail).toContain("exactly 10 28 19");
+    const grand = off.find((i) => i.code === "");
+    expect(grand?.where).toBe("Tracking Sheet D27");
+    expect(grand?.sheet).toBe(8863.15);
+    expect(grand?.expected).toBe(11585.49);
+    expect(grand?.detail).toContain("exactly 10 28 19");
+  });
+
+  it("is quiet when the subtotals and the grand total tie out", () => {
+    expect(totalsRun(totalsCols("$2,722.34", "$11,585.49"))).toHaveLength(0);
+  });
+
+  it("flags a LABOR grand total that is off the Labor tab", () => {
+    const cols = totalsCols("$2,722.34", "$11,585.49");
+    cols.C[17] = ["$3,000.00"];
+    const off = totalsRun(cols);
+    expect(off).toHaveLength(1);
+    expect(off[0].where).toBe("Tracking Sheet C27");
+  });
 });

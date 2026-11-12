@@ -23,7 +23,8 @@
  * (stale or skipped), a code with no column (its money never reaches the
  * Tracking Sheet tab), a broken formula (a column or INVOICES cell that does
  * not add up to its rows), or labor at a different rate than JobTread costed it
- * (the sheet prices a code at one rate; JobTread snapshots each person's rate). Each has its own `kind` because each has its own fix.
+ * (the sheet prices a code at one rate; JobTread snapshots each person's rate),
+ * or a section subtotal / the grand total that skips a code row. Each has its own `kind` because each has its own fix.
  */
 import { isSalesTaxLine } from "@/lib/salesTax";
 import { WARRANTY_CSI } from "@/lib/warranty";
@@ -324,6 +325,7 @@ export type SheetIssueKind =
   | "column-total-off" // a code column's total ≠ its rows: a broken formula
   | "not-on-tracking-tab" // code has money but no row on the Tracking Sheet tab
   | "tracking-tab-off" // a LABOR / INVOICES cell ≠ what feeds it
+  | "tracking-total-off" // a section subtotal or the tab's grand total ≠ its code rows / the Labor and Sub/Vendor tabs
   | "labor-hours-off" // the Labor tab's hours for a code ≠ JobTread's
   | "labor-rate-off" // the sheet prices a code at a rate JobTread did not cost it at
   | "labor-cost-off" // same hours, same rate, different total
@@ -465,6 +467,109 @@ function compareLabor(jtLabor: Record<string, JtLaborCode>, lab: LaborTab, issue
   }
   for (const e of lab.errors) {
     issues.push({ kind: "sheet-error", code: "", sheet: null, expected: null, where: "Labor tab", detail: e });
+  }
+}
+
+
+/** A section header row: "01 00 00", "10 00 00" … Its code rows follow it. */
+const SECTION_RE = /^\d{2} 00 00$/;
+
+interface TotalsInput {
+  /** Code column from `first` down. */
+  codes: Grid;
+  /** One column's cells from `first` down. */
+  col: Grid;
+  first: number;
+  letter: string;
+  what: "LABOR" | "INVOICES";
+  label: string;
+  /** What the Labor / Sub/Vendor tab says the whole column should total. */
+  tabTotal: number;
+  tabName: string;
+  /** Per-code feed, to name the code behind a gap. */
+  feed: Record<string, number>;
+}
+
+/**
+ * The Tracking Sheet tab's totals for one LABOR or INVOICES column:
+ *   1. each section's subtotal row (the first row under its code rows) must
+ *      equal the section's code rows;
+ *   2. the grand total (the first filled row under the last section's subtotal)
+ *      must equal the Labor / Sub/Vendor tab's total.
+ * Compares what the sheet shows, so it catches a SUM range that skips a row
+ * even when every code row is right.
+ */
+function checkColumnTotals(t: TotalsInput, issues: SheetIssue[]) {
+  const { codes, col, first, letter } = t;
+  const at = (i: number) => parseMoney(col[i]?.[0]);
+  const filled = (i: number) => String(col[i]?.[0] ?? "").trim() !== "";
+  const isCode = (i: number) => CODE_RE.test(normCode(codes[i]?.[0]));
+  const isSection = (i: number) => SECTION_RE.test(normCode(codes[i]?.[0]));
+  const ref = (i: number) => `${letter}${first + i}`;
+  const rowCount = Math.max(codes.length, col.length);
+  const subtotalRows = new Set<number>();
+  let sectionCodesSum = 0;
+  let lastCodeRow = -1;
+
+  for (let i = 0; i < rowCount; i++) {
+    if (!isSection(i)) continue;
+    let j = i + 1;
+    const members: number[] = [];
+    while (j < rowCount && isCode(j) && !isSection(j)) members.push(j++);
+    if (!members.length) continue;
+    const sum = round2(members.reduce((a, m) => a + (at(m) ?? 0), 0));
+    sectionCodesSum = round2(sectionCodesSum + sum);
+    lastCodeRow = Math.max(lastCodeRow, members[members.length - 1]);
+    // The subtotal is the first filled, code-less row below the members.
+    let k = j;
+    while (k < rowCount && !isCode(k) && !filled(k)) k++;
+    if (k >= rowCount || isCode(k)) continue;
+    subtotalRows.add(k);
+    const raw = String(col[k]?.[0] ?? "").trim();
+    if (SHEET_ERROR.test(raw)) continue; // reported as a sheet-error elsewhere
+    const have = at(k) ?? 0;
+    if (Math.abs(have - sum) > CENT) {
+      const code = normCode(codes[i]?.[0]);
+      const culprit = members.find((m) => Math.abs((at(m) ?? 0) - round2(sum - have)) <= CENT && Math.abs(at(m) ?? 0) > CENT);
+      issues.push({
+        kind: "tracking-total-off",
+        code,
+        sheet: have,
+        expected: sum,
+        where: `Tracking Sheet ${ref(k)}`,
+        detail:
+          `${code} section ${t.what} subtotal (${ref(k)}) shows ${money(have)}; its code rows add to ${money(sum)} (${money(round2(sum - have))} off).` +
+          (culprit !== undefined ? ` The gap is exactly ${normCode(codes[culprit]?.[0])} (${ref(culprit)}) — the subtotal's SUM range skips that row.` : ` Check the subtotal's SUM range.`),
+      });
+    }
+  }
+
+  // The grand total: the first filled, code-less row that is not a section subtotal.
+  if (lastCodeRow < 0) return;
+  let g = lastCodeRow + 1;
+  while (g < rowCount && (isCode(g) || !filled(g) || subtotalRows.has(g))) g++;
+  if (g >= rowCount) return;
+  const raw = String(col[g]?.[0] ?? "").trim();
+  if (SHEET_ERROR.test(raw)) return;
+  const have = at(g) ?? 0;
+  if (Math.abs(have - t.tabTotal) > CENT) {
+    const gap = round2(t.tabTotal - have);
+    const culprit = Object.entries(t.feed).find(([, v]) => Math.abs(v - gap) <= CENT && Math.abs(v) > CENT);
+    const rowsOff = Math.abs(sectionCodesSum - t.tabTotal) > CENT;
+    issues.push({
+      kind: "tracking-total-off",
+      code: "",
+      sheet: have,
+      expected: t.tabTotal,
+      where: `Tracking Sheet ${ref(g)}`,
+      detail:
+        `${t.label} ${t.what} total (${ref(g)}) shows ${money(have)}; the ${t.tabName} tab totals ${money(t.tabTotal)} (${money(Math.abs(gap))} ${gap > 0 ? "short" : "over"}).` +
+        (rowsOff
+          ? ` The code rows on the tab add to ${money(sectionCodesSum)}, so a code is missing or wrong — see the per-code findings.`
+          : culprit
+            ? ` The code rows are right; the gap is exactly ${culprit[0]} (${money(culprit[1])}), so a section subtotal above it skips that code.`
+            : ` The code rows are right, so a section subtotal or the total's own formula is wrong.`),
+    });
   }
 }
 
@@ -620,6 +725,14 @@ export function compareTrackingSheet(input: SheetCheckInput): SheetCheckResult {
               detail: `${code} ${b.label} ${what} (${ref}) shows ${money(have)}; the ${what === "LABOR" ? "Labor tab row" : "Sub/Vendor column"} says ${money(expected)}. Check the cell's lookup formula.`,
             });
           }
+        }
+        // The section subtotals and the grand total in this column.
+        const tabTotal = what === "LABOR" ? lab?.costTotal : sv.rowsTotal;
+        if (tabTotal !== undefined) {
+          checkColumnTotals(
+            { codes: input.codes, col, first, letter, what, label: b.label, tabTotal, tabName: what === "LABOR" ? "Labor" : "Sub/Vendor Invoices", feed },
+            issues,
+          );
         }
       }
     }

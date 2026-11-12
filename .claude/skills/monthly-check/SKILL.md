@@ -163,6 +163,7 @@ What each kind means and what the office does:
 | `column-total-off` | A code column's total ≠ its rows | Repair the column's FILTER/total formula |
 | `not-on-tracking-tab` | Code has money but no row on the Tracking Sheet tab | Add the code's row |
 | `tracking-tab-off` | A LABOR/INVOICES cell ≠ what feeds it | Fix that cell's lookup formula |
+| `tracking-total-off` | A section subtotal ≠ its code rows, or the tab's grand total (CURRENT INVOICE LABOR / INVOICES, e.g. EQ / ER) ≠ the Labor / Sub/Vendor tab total | Fix the SUM range. The detail names the code the gap equals. Read the totals rows too: the code column and both columns down to the last row (rows 10–300). |
 | `labor-hours-off` | Labor tab hours ≠ JobTread | Re-run the labor report; check entries coded or dated after it ran |
 | `labor-rate-off` | Sheet rate ≠ the rate JobTread costed | Decide which is right: the sheet's code rate, or the person's pay rate on the entries |
 | `labor-cost-off` | Same hours and rate, different total | Formula on that Labor row |
