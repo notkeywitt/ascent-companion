@@ -95,7 +95,7 @@ export default function EmployeesPage() {
   const [linkingId, setLinkingId] = useState(""); // employee id being one-click linked
   const [adding, setAdding] = useState(false);
 
-  // Email composer — send one message from office@ to a chosen set of employees.
+  // Email composer — save one Gmail draft from office@ to a chosen set of employees.
   const [composing, setComposing] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [subject, setSubject] = useState("");
@@ -103,7 +103,8 @@ export default function EmployeesPage() {
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState("");
   const [sendResult, setSendResult] = useState<{
-    sent: number;
+    drafted: number;
+    draftUrl: string;
     skipped: { id: string; name: string; reason: string }[];
   } | null>(null);
 
@@ -315,10 +316,14 @@ export default function EmployeesPage() {
         body: JSON.stringify({ ids, subject, body: emailBody }),
       });
       const json = await res.json();
-      if (!res.ok || json.ok === false) throw new Error(json.error || "Send failed.");
-      setSendResult({ sent: json.sent ?? ids.length, skipped: json.skipped ?? [] });
+      if (!res.ok || json.ok === false) throw new Error(json.error || "Could not create the draft.");
+      setSendResult({
+        drafted: json.recipientCount ?? ids.length,
+        draftUrl: json.draftUrl ?? "",
+        skipped: json.skipped ?? [],
+      });
     } catch (e) {
-      setSendErr(e instanceof Error ? e.message : "Send failed.");
+      setSendErr(e instanceof Error ? e.message : "Could not create the draft.");
     } finally {
       setSending(false);
     }
@@ -715,7 +720,21 @@ export default function EmployeesPage() {
               // Success / result state
               <div className="overflow-y-auto p-4">
                 <Banner tone="success" className="mb-3">
-                  Sent to {sendResult.sent} employee{sendResult.sent === 1 ? "" : "s"}.
+                  Draft saved for {sendResult.drafted} employee{sendResult.drafted === 1 ? "" : "s"}.
+                  Nothing is sent yet. Open the draft in Gmail to review and send it.
+                  {sendResult.draftUrl && (
+                    <>
+                      {" "}
+                      <a
+                        href={sendResult.draftUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold underline"
+                      >
+                        Open draft
+                      </a>
+                    </>
+                  )}
                 </Banner>
                 {sendResult.skipped.length > 0 && (
                   <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-950/30">
@@ -830,8 +849,8 @@ export default function EmployeesPage() {
                       }
                     >
                       {sending
-                        ? "Sending…"
-                        : `Send to ${recipientCount} employee${recipientCount === 1 ? "" : "s"}`}
+                        ? "Creating draft…"
+                        : `Create draft for ${recipientCount} employee${recipientCount === 1 ? "" : "s"}`}
                     </Button>
                   </div>
                   <p className="mt-2 text-center text-[11px] text-neutral-400">
