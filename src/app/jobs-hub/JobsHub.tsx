@@ -22,6 +22,7 @@ import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
 import { CustomerPopup } from "@/app/clients/CustomerPopup";
 import Link from "next/link";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
+import { CheckForBills } from "@/components/CheckForBills";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { BudgetImport } from "@/app/budget-import/BudgetImport";
 import { Specs } from "@/app/specs/Specs";
@@ -457,6 +458,7 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
                       <div className="flex flex-wrap items-start justify-center gap-2">
                         <DraftInvoicingEmail ym={ym} />
                         <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
+                        {can("jobs-hub") && <CheckForBills />}
                         {can("invoice-review") && (
                           <Link
                             href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
@@ -530,6 +532,7 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
                   {/* The month's actions, for the month picked above. */}
                   <DraftInvoicingEmail ym={ym} />
                   <SyncAllTrackingSheetsFor ym={ym} />
+                  {can("jobs-hub") && <CheckForBills />}
                   {can("invoice-review") && (
                     <Link
                       href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
