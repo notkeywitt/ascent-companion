@@ -201,8 +201,8 @@ A rule that contradicts an older rule replaces it. Keep `preferences.md` under
 
 ## Saving
 
-These files are docs, not app code, but `main` is production and the push hook
-runs the full checks. Stage only this skill's files by name:
+These files are docs, not app code. `npm run ship` puts the commit in the
+release queue. Stage only this skill's files by name:
 
 ```
 git add .claude/skills/weekly-summary/preferences.md .claude/skills/weekly-summary/drafts/<file>

@@ -5,7 +5,7 @@
  * API, which only works while the Assistant is OPEN in a tab or the Chrome
  * side panel. It needs no service worker, no VAPID keys and no server: the page
  * asks the OS to draw a toast. Nothing arrives when the app is closed — that
- * is Web Push, a separate build (see the notes in `.claude/sessions/`).
+ * is Web Push, a separate build.
  *
  * A toast fires only for a notice that arrives while the app is in the
  * BACKGROUND. If the reader is looking at the app, the banner under the header

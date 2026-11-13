@@ -1,11 +1,11 @@
-# The gate CLAUDE.md's build loop describes ("Verify before you commit"), run
-# automatically. A branch that fails here must not be merged to main — main is
-# production.
+# Checks a cloud session's branch (claude/**) and any pull request. It does not
+# run on main: the lander (lander.yml) verifies the exact commit it pushes
+# there, so a second run on main would build the same tree twice.
 name: CI
 
 on:
   push:
-    branches: [main, "claude/**"]
+    branches: ["claude/**"]
   pull_request:
     branches: [main]
 

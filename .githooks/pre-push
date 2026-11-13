@@ -1,70 +1,17 @@
 #!/bin/sh
-# Blocks a push to main unless typecheck, tests, build and lint pass.
+# Refuses a direct push to main.
 #
-# main is production on Vercel: a push deploys straight to the live app, with
-# JobTread writes armed. This hook is the only gate between a bad commit and
-# field staff, so do not bypass it with --no-verify.
+# main is production on Vercel. Only the lander (.github/workflows/lander.yml)
+# pushes it, after it merges the queue and runs typecheck, tests, build and
+# lint once. A session ships with `npm run ship`, which pushes to ready/<name>.
 #
-# Arm it on a fresh clone (once per machine):
+# Arm it on a fresh clone (once per machine; the session-start hook does it):
 #   git config core.hooksPath .githooks
 
-pushing_main=0
 while read -r local_ref local_sha remote_ref remote_sha; do
-  case "$remote_ref" in
-    refs/heads/main) pushing_main=1 ;;
-  esac
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "pre-push: main is production and only the lander pushes it. Run \`npm run ship\` instead." >&2
+    exit 1
+  fi
 done
-
-if [ "$pushing_main" -eq 0 ]; then
-  exit 0
-fi
-
-echo "pre-push: main is production — running typecheck, tests, build and lint"
-
-# `next build` rewrites next-env.d.ts and tsconfig.json to point at whatever
-# output dir it used. Both are tracked, so keep a copy and put them back exactly
-# as they were — committed or not — however this hook exits.
-saved=$(mktemp -d)
-[ -f next-env.d.ts ] && cp next-env.d.ts "$saved/next-env.d.ts"
-[ -f tsconfig.json ] && cp tsconfig.json "$saved/tsconfig.json"
-restore_configs() {
-  [ -f "$saved/next-env.d.ts" ] && cp "$saved/next-env.d.ts" next-env.d.ts
-  [ -f "$saved/tsconfig.json" ] && cp "$saved/tsconfig.json" tsconfig.json
-  rm -rf "$saved"
-}
-trap restore_configs EXIT
-
-# The last build's generated route types name every route that existed then.
-# After a route is deleted they point at a missing file and fail the typecheck
-# below. The build regenerates them, so drop them first.
-rm -rf .next-prepush/types
-
-if ! npm run typecheck; then
-  echo "pre-push: typecheck FAILED — push blocked" >&2
-  exit 1
-fi
-
-# The unit tests hold the access gates (billEditAccess.test.ts and friends).
-# Seconds to run, and cheaper than the build, so they go before it.
-if ! npm test; then
-  echo "pre-push: tests FAILED — push blocked" >&2
-  exit 1
-fi
-
-# Build into its own directory. Sharing `.next` with a dev server or a second
-# build makes both fail on a missing manifest.
-if ! NEXT_DIST_DIR=.next-prepush npm run build; then
-  echo "pre-push: build FAILED — push blocked" >&2
-  exit 1
-fi
-
-# CI (.github/workflows/ci.yml) fails on any lint error. Without this step a
-# lint error passes here, ships, and every later push gets a red CI email.
-# Warnings do not fail; errors do.
-if ! npm run lint; then
-  echo "pre-push: lint FAILED — push blocked" >&2
-  exit 1
-fi
-
-echo "pre-push: checks passed"
 exit 0

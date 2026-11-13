@@ -58,7 +58,7 @@ const nextConfig = {
   // Overridable so a build can be run without stomping on `.next`. Two Next
   // builds (or a build and a running `next dev`) share `.next` and wipe each
   // other's manifests, which surfaces as ENOENT on pages-manifest.json during
-  // "Collecting page data". `.githooks/pre-push` sets this for that reason.
+  // "Collecting page data". Set NEXT_DIST_DIR for a build beside a dev server.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   // pdf.js (src/lib/pdfLinks.ts) is loaded from node_modules at run time rather
   // than bundled: it is a large ESM build that expects its own file layout.

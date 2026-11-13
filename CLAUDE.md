@@ -6,9 +6,11 @@ database (Drizzle + libSQL). It replaces the retired AppSheet UI and progressive
 absorbs those functions. The sibling repo `ascent-appscript` runs the automated
 back end (Gmail→Claude invoice ingestion, the hourly JobTread↔Sheet↔Drive mirror).
 
-**Read `CODEBASE_MAP.md` before you touch `src/`.** It is the orientation index:
-which doc answers what, a task-to-file table, and a directory map of `src/`. It is
-too large to auto-import, so open it. Do not guess where a file lives.
+**Read the task table in `CODEBASE_MAP.md` before you touch `src/`.** It says
+which doc answers what and which files a task touches. Open it; it is not
+auto-imported. The file-by-file directory map is `docs/CODEBASE_DIRS.md`. Read
+that one only when the task table does not name the file. Do not guess where a
+file lives.
 
 ## Write like this
 
@@ -30,58 +32,82 @@ Simplified Technical English, relaxed. These rules apply to every response.
 
 ## Shipping (read this first)
 
-**`main` is production.** A push to `main` deploys to Vercel at once. The owner
-does not use branch previews, so there is no review step between your push and
-the live app that field staff use.
+**`main` is production.** Only the lander pushes `main`. The lander is a GitHub
+Action that merges the release queue, verifies it once and deploys it once.
+Never push `main` yourself. The pre-push hook refuses it; never bypass the hook
+with `--no-verify`.
 
-Work on `main`. If a session put you on a `claude/*` branch, push it directly to
-remote main when the change is done:
-`git push origin <branch>:main`. Do not merge into local `main` — in ephemeral
-environments (CCR) the local `main` ref is often stale or unrelated to
-`origin/main`. Pushing branch-to-remote-main avoids that entirely.
+**Work in a worktree** (a private copy of the repo folder). The main folder is
+the owner's own. When a session starts in the main folder, call `EnterWorktree`
+before you edit a tracked file. The session-start hook says which case you are
+in. A cloud session on a `claude/*` branch is already isolated; work there.
 
-**Commit and push to `main` when a change is done.** Do not wait to be asked.
-Every one of these must hold first:
+**Ship when a change is done.** Do not wait to be asked.
 
-1. `npm run typecheck`, `npm test`, `npm run build` and `npm run lint` all pass. A failure blocks
-   the push. The `.githooks/pre-push` hook enforces this. Never bypass it with
-   `--no-verify`. Check the hook is armed with `git config core.hooksPath` — it
-   must print `.githooks`. On a fresh clone it is empty; run
-   `git config core.hooksPath .githooks` once to arm it.
-2. Every file is valid UTF-8 text. A stray control or NUL byte makes git treat a
+```
+git add <each file this change touched>
+npm run ship -- "companion: <message>"
+```
+
+`ship` runs typecheck and tests, commits what is staged, and pushes the branch
+to `ready/<name>` (the release queue). It never rebases. The lander then merges
+every queued branch onto `main`, runs typecheck, tests, build and lint once, and
+pushes `main` once. Tell the owner one line: what is queued for production.
+Do not show git output.
+
+Every one of these must hold before you ship:
+
+1. Every file is valid UTF-8 text. A stray control or NUL byte makes git treat a
    source file as binary, and it still compiles. If `git` shows a `.tsx` as
    `Bin`, find the byte and remove it.
-3. Stage only the files this change touched, by name. Never `git add -A`, never
+2. Stage only the files this change touched, by name. Never `git add -A`, never
    `git commit -a`. If the tree holds edits you did not make, leave them alone
    and name the files you left.
-4. Say in one line what is about to reach production. Then push.
+3. The owner asked for an express deploy ("push through"): add `--now` —
+   `npm run ship -- --now "companion: <message>"`. The lander deploys that
+   branch alone, ahead of the batch. Do not use `--now` otherwise.
 
-**Stop and ask instead of pushing** when the change touches `src/auth.ts`,
+**Stop and ask instead of shipping** when the change touches `src/auth.ts`,
 `src/middleware.ts`, `src/lib/config.ts`, `src/lib/paveGateway.ts`, or any
 JobTread write path. Writes are armed in production, so those changes reach live
 data on deploy.
 
-If the push is rejected, pull and rebase. Never force-push. Never rewrite history
-that is already on `origin`.
-
 - Git + the private GitHub repo (`notkeywitt/ascent-companion`) is the source of
-  truth. Pull before you edit.
+  truth.
 - **Claude writes the commit message.** Style: short, lowercase, imperative,
   prefixed `companion:` — e.g. `companion: add jobs budget view`. End it with a
   `Co-Authored-By:` trailer naming the model in use.
+- Never force-push `main`. Never rewrite history that is already on `main`.
+- To look at a change: `npm run dev`. It works in a worktree and prints its address.
 
-**Use `npm run ship` to finish a session.** It commits the session ledger,
-fetches, rebases onto `origin/main`, then pushes `HEAD:main` — the pre-push hook
-still runs typecheck, tests, build and lint. Rebasing before the push is what stops a stale
-branch turning into a push conflict; `main` moves dozens of commits a day.
+### A stuck branch
 
-## Where you left off — the session ledger
+The lander moves a branch it cannot land to `stuck/<name>`. That happens on a
+merge conflict with `main` or a failed check. The reason is the subject of the
+branch's last commit. The session-start hook lists stuck branches. Fix each one:
 
-`.claude/sessions/<date>-<slug>.md` records this branch. `SESSIONS.md` indexes them all.
+```
+git fetch origin
+git worktree add -b <name> .claude/worktrees/<name> origin/stuck/<name>~1
+cd .claude/worktrees/<name>
+git merge origin/main        # resolve the conflict, or fix the failed check
+npm run ship
+```
 
-- The log writes itself (`.githooks/post-commit`). Never hand-write a row under `## Log`.
-- Before you stop, set `next:` — `node scripts/session.mjs set next "the next concrete step"`.
-- `SESSIONS.md` and `src/lib/sessionLog.generated.json` are generated. Do not hand-edit them.
+`~1` drops the lander's reason commit. `ship` re-queues the branch and deletes
+`stuck/<name>`.
+
+### Where you left off
+
+There is no session ledger. The session-start hook prints the queue, the stuck
+branches and the last commits on `main`. `git log origin/main` has the rest.
+
+### Keep sessions small
+
+- One task per session. Start a new session for the next task.
+- The default model is Sonnet (`.claude/settings.json`). Use Opus for a design
+  decision, a schema change, the lander, or a "Stop and ask" change.
+- A one-file change: `/tweak`. The owner's typed requests: `/queue`.
 
 ## Stack & where things live
 
@@ -139,8 +165,9 @@ branch turning into a push conflict; `main` moves dozens of commits a day.
 4. **Build the UI on `ui.tsx` primitives** (rules in `THEME.md`). Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match the look of existing pages (`src/app/jobs`,
    `src/app/unbilled`, `src/app/budget-import`).
-5. **Verify** (`npm run typecheck`, `npm test`, `npm run build`) before
-   committing — see "Shipping"; the pre-push hook runs all three again.
+5. **Ship** — see "Shipping". `npm run ship` runs typecheck and tests. The
+   lander runs build and lint. Run `npm run build` yourself first when the
+   change adds a page or a route.
 
 For the bigger picture of why the gateway exists and where views should go, see
 **`FRONTEND_ARCHITECTURE.md`** (in this repo).

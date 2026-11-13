@@ -4,13 +4,12 @@
   "private": true,
   "description": "JobTread assistant: invoice coding, unbilled expenses, monthly invoice staging",
   "scripts": {
-    "dev": "next dev",
+    "dev": "sh scripts/dev.sh",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "check:map": "node scripts/check-codebase-map.mjs",
-    "session": "node scripts/session.mjs",
     "ship": "sh scripts/ship.sh",
     "test": "vitest run",
     "test:watch": "vitest"
