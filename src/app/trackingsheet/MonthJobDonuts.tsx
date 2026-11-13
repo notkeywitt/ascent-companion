@@ -9,7 +9,7 @@ import { WORKING_PHASES, type JobRef } from "@/components/JobPicker";
 import type { MonthJobCost } from "@/lib/monthCostByJob";
 import { WARRANTY_CSI, WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { buildColorMap, buildSlices, withoutSalesTax } from "./CostDonuts";
-import { money0 } from "./BillCodingCard";
+import { money0 } from "@/lib/money";
 import { JobMonthActions, type MonthActions } from "./JobMonthActions";
 
 /**

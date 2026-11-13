@@ -1,3 +1,4 @@
+import { revalidateTag, unstable_cache } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
@@ -38,17 +39,40 @@ const ORG_WIDE_OPS = new Set(["setPeriod", "setPaused"]);
 /** Ops that name a billing period. setPaused is the one that does not. */
 const PERIOD_OPS = new Set(["sync", "finalize", "setPeriod"]);
 
-export async function GET() {
-  const res = await callAppsScript<Record<string, unknown>>({ action: "listTrackingSheetJobs" });
-  if (res.error) return NextResponse.json({ error: res.error }, { status: res.status });
-  const b = res.data!;
-  if (b.ok !== true) {
-    return NextResponse.json(
-      { error: String(b.error || "Apps Script rejected the request.") },
-      { status: 502 },
-    );
+const SHEET_JOBS_TAG = "tracking-sheet-jobs";
+
+/** What a failed read throws, so unstable_cache stores nothing for it. */
+class SheetJobsError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
   }
-  return NextResponse.json(b);
+}
+
+/**
+ * The wired sheets, cached 5 minutes in Next's shared Data Cache. Apps Script
+ * takes 2 to 10 seconds to answer, and every job open asked it. The list only
+ * changes when someone wires a sheet or an org-wide op runs, and the POST below
+ * clears it then. A failure throws, so it is never cached.
+ */
+const getSheetJobs = unstable_cache(
+  async () => {
+    const res = await callAppsScript<Record<string, unknown>>({ action: "listTrackingSheetJobs" });
+    if (res.error) throw new SheetJobsError(res.error, res.status);
+    const b = res.data!;
+    if (b.ok !== true) throw new SheetJobsError(String(b.error || "Apps Script rejected the request."), 502);
+    return b;
+  },
+  ["tracking-sheet-jobs"],
+  { revalidate: 300, tags: [SHEET_JOBS_TAG] },
+);
+
+export async function GET() {
+  try {
+    return NextResponse.json(await getSheetJobs());
+  } catch (e) {
+    if (e instanceof SheetJobsError) return NextResponse.json({ error: e.message }, { status: e.status });
+    throw e;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -112,6 +136,9 @@ export async function POST(req: NextRequest) {
       { status: 502 },
     );
   }
+  // Sync and finalize can change what the list reports; setPeriod and setPaused
+  // do. A dry run changes nothing.
+  if (body.dryRun !== true) revalidateTag(SHEET_JOBS_TAG);
   if (op === "sync" && body.dryRun !== true) {
     const session = await auth();
     await recordMonthAction(

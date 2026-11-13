@@ -200,6 +200,15 @@ export async function getOpenToDos(cfg: PaveConfig): Promise<OpenToDo[]> {
 }
 
 /**
+ * The same open to-dos, kept 60 s — for the read-only lists (the Jobs page's My
+ * to-dos). /api/todos keeps the live read: its card must show the to-do you
+ * just added.
+ */
+export function getOpenToDosCached(cfg: PaveConfig): Promise<OpenToDo[]> {
+  return cachedRef(`opentodos:${cfg.orgId}`, 60_000, () => getOpenToDos(cfg));
+}
+
+/**
  * Each job's newest OPEN to-dos, at most `perJob` per job — the Jobs page
  * cards. "Open" is the digest's rule: progress null or under 1.
  *

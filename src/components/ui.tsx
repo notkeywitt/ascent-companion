@@ -850,6 +850,16 @@ export function CardSkeletonList({ rows = 3 }: { rows?: number }) {
   );
 }
 
+/** A page's `loading.tsx`: a title bar and a few cards, in the page's own frame. */
+export function PageSkeleton({ rows = 4 }: { rows?: number }) {
+  return (
+    <main role="status" aria-label="Loading" className="w-full max-w-2xl px-4 pb-10 pt-3 pad:max-w-none pad:px-7 pad:pt-5">
+      <Skeleton className="mb-4 h-7 w-44" />
+      <CardSkeletonList rows={rows} />
+    </main>
+  );
+}
+
 /* -------------------------------------------------------------- page header */
 
 /**

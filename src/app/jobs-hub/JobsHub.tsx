@@ -8,25 +8,19 @@ import { JobOverview } from "@/components/HomeJobBoard";
 import { HomeTodos } from "@/components/HomeTodos";
 import { HubLeadsCard } from "@/components/HubLeadsCard";
 import { HubMyTodos } from "@/components/HubMyTodos";
-import { NotesPanel, type NoteRequest } from "@/components/NotesPanel";
+import type { NoteRequest } from "@/components/NotesPanel";
 import type { Note, NoteBill } from "@/lib/notes";
 import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
 import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
-import { LopezMap } from "@/components/LopezMap";
 import { Card, Loading, Segmented, Select, Skeleton, btn } from "@/components/ui";
-import { Board } from "@/app/trackingsheet/Board";
 import { JobCard } from "@/app/job-board/JobBoardPage";
-import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
-import { CustomerPopup } from "@/app/clients/CustomerPopup";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
 import { CheckForBills } from "@/components/CheckForBills";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
-import { BudgetImport } from "@/app/budget-import/BudgetImport";
-import { Specs } from "@/app/specs/Specs";
-import { HouseManualPage } from "@/app/house-manual/HouseManual";
 import { monthJobRows, monthWarrantyRow, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { billingMonths } from "@/lib/billingMonths";
@@ -37,7 +31,18 @@ import { money0 } from "@/lib/money";
 import { appScrollTo, appScrollY } from "@/lib/appScroll";
 
 import { JobPhotos, JobPlans, useJobFiles } from "./JobFiles";
-import { PunchList } from "./PunchList";
+
+// The job tabs load when opened (Phase 2 of OVERHAUL_PLAN): Home mounts this
+// file with no job picked, and none of these is on screen then.
+const LopezMap = dynamic(() => import("@/components/LopezMap").then((m) => m.LopezMap));
+const NotesPanel = dynamic(() => import("@/components/NotesPanel").then((m) => m.NotesPanel));
+const Board = dynamic(() => import("@/app/trackingsheet/Board").then((m) => m.Board));
+const PunchList = dynamic(() => import("./PunchList").then((m) => m.PunchList));
+const ClientsBrowser = dynamic(() => import("@/app/clients/ClientsBrowser").then((m) => m.ClientsBrowser));
+const CustomerPopup = dynamic(() => import("@/app/clients/CustomerPopup").then((m) => m.CustomerPopup));
+const BudgetImport = dynamic(() => import("@/app/budget-import/BudgetImport").then((m) => m.BudgetImport));
+const Specs = dynamic(() => import("@/app/specs/Specs").then((m) => m.Specs));
+const HouseManualPage = dynamic(() => import("@/app/house-manual/HouseManual").then((m) => m.HouseManualPage));
 
 /**
  * Jobs — the desktop screen for every job at once (owner, 2026-11-01; the
@@ -92,11 +97,13 @@ const caption =
  * Jobs page shows the month rings and notes (owner, 2026-11-11). The Jobs page
  * itself passes nothing and is unchanged.
  */
-export function JobsHub({ home = false }: { home?: boolean } = {}) {
+export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; billingYm?: string } = {}) {
   const { can } = useAccess();
   const canTrackingSheet = can("recode");
   const [jobs, setJobs] = useState<HubJob[] | null>(null);
-  const [defaultYm, setDefaultYm] = useState("");
+  // The server page passes the billing month, so the month's figures fetch at
+  // once instead of after a round trip that only learns it.
+  const [defaultYm, setDefaultYm] = useState(billingYm);
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -146,14 +153,15 @@ export function JobsHub({ home = false }: { home?: boolean } = {}) {
       )
       .catch(() => !cancelled && setDetails(new Map()));
     // Only for the billing month's name: the month the rings open on.
-    fetch("/api/jobs/to-be-invoiced")
-      .then((r) => r.json())
-      .then((d) => !cancelled && !d?.error && setDefaultYm(d.ym ?? ""))
-      .catch(() => {});
+    if (!billingYm)
+      fetch("/api/jobs/to-be-invoiced")
+        .then((r) => r.json())
+        .then((d) => !cancelled && !d?.error && setDefaultYm(d.ym ?? ""))
+        .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [billingYm]);
 
   // The month: the billing month until someone picks another.
   const [pickedYm, setPickedYm] = useState<string | null>(null);

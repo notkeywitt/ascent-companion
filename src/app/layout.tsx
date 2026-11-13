@@ -13,6 +13,8 @@ import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
 import { NewVersionNotice } from "@/components/NewVersionNotice";
 import { UsageBeacon } from "@/components/UsageBeacon";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { cookies } from "next/headers";
 import { auth, roleBaseFor } from "@/auth";
 import { ALL_VIEW_IDS, resolveAllowedViews, type Role } from "@/lib/views";
@@ -79,11 +81,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Resolve the signed-in user's role + view set once, server-side, and hand it
   // to the (client) nav so it renders only what they can see. When neither auth
   // mechanism is configured (local dev) the app is open, so treat as admin/all.
-  const session = await auth();
   // Office-edited page copy (Admin → Page Text). Read alongside the session so
   // edited wording is server-rendered — no client fetch, no flash of old text.
   // Falls back to {} (i.e. the shipped English) if the DB is unreachable.
-  const copyOverrides = await loadCopyOverrides();
+  // The two reads do not depend on each other, so they run together.
+  const [session, copyOverrides] = await Promise.all([auth(), loadCopyOverrides()]);
   const devOpen = noAuthConfigured();
   let role: Role = "field";
   let views: string[] = [];
@@ -230,6 +232,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </StuckVendorsProvider>
         </AccessProvider>
         </CopyProvider>
+        {/* Vercel Web Analytics and Speed Insights (Phase 2 of OVERHAUL_PLAN).
+            Both are no-ops until the owner turns them on in the Vercel project. */}
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
