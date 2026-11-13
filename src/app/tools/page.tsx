@@ -12,6 +12,7 @@ import { BatchCard } from "./BatchCard";
 import { drainQueue } from "./batchQueue";
 import { isTrailerType } from "@/lib/toolSchedule";
 import { haversineKm, isShopLabel, nearestSite } from "@/lib/nearestSite";
+import { setUrlParam } from "@/lib/urlParam";
 
 // The QR scanner pulls in jsQR (a sizeable pure-JS decoder) and only appears after a
 // "Scan a tool" tap, so load it on demand — this keeps jsQR out of the initial /tools
@@ -409,6 +410,19 @@ export default function ToolsPage() {
   const [relocating, setRelocating] = useState(false);
   const [relocErr, setRelocErr] = useState("");
   const [relocDone, setRelocDone] = useState<{ tool: Tool; locationLabel: string } | null>(null);
+  // Home's "Scan tool" button scans first, then lands here with ?scan=<code>:
+  // run the same scan → relocate (or New tool) flow once the list is in.
+  const scanHandled = useRef(false);
+  useEffect(() => {
+    if (loading || scanHandled.current) return;
+    scanHandled.current = true;
+    const code = new URLSearchParams(window.location.search).get("scan");
+    if (!code) return;
+    setUrlParam("scan", "");
+    resetScanState();
+    onScan(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   // ---- New tool (scanned a QR that isn't in the inventory yet, or "Add tool") --
   const [newForm, setNewForm] = useState<Tool | null>(null); // creation form (id + fields)

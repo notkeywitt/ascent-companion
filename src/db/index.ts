@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "18cq-2zg723";
+export const SCHEMA_FINGERPRINT = "18k6-76phgw";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -649,6 +649,14 @@ async function applySchema() {
       value TEXT NOT NULL,
       updated_at TEXT NOT NULL DEFAULT '',
       updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  // Each person's desktop Home widgets (lib/homeWidgets). No row = the default.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS home_layouts (
+      email TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT ''
     )
   `);
   // ARCHIVED 2026-09-29: the retired home-launcher layouts. Nothing reads it; the

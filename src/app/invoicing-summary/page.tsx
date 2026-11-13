@@ -27,11 +27,10 @@ import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { money } from "@/lib/money";
 import {
   DELIVERY_LABEL,
-  PAYMENT_LABEL,
   type InvoiceStatus,
-  type PaymentState,
 } from "@/lib/invoiceStatus";
-import { jtDocumentUrl, type PackageJobInvoice } from "@/lib/packageInvoices";
+import { jtDocumentUrl } from "@/lib/packageInvoices";
+import { PaymentMark, liveTotals, useInvoicingSummary, type JobRow } from "./summary";
 
 /**
  * Invoice Status — every job billed in a month, and where its client invoice
@@ -58,90 +57,6 @@ import { jtDocumentUrl, type PackageJobInvoice } from "@/lib/packageInvoices";
 
 /** How many billing months the picker offers. */
 const MONTH_COUNT = 18;
-
-interface JobLinks {
-  appTracking: string;
-  appLabor: string;
-  jtJob: string;
-  jtLabor: string;
-  jtInvoice: string;
-  jtDocuments: string;
-}
-
-interface JobRow {
-  jtJobId: string;
-  projectId: string;
-  customer: string;
-  job: string;
-  customerLabel: string;
-  jobLabel: string;
-  include: boolean;
-  note: string;
-  labor: number;
-  laborHours: number;
-  laborPeople: number;
-  bills: number;
-  billCount: number;
-  vendorCount: number;
-  cost: number;
-  total: number;
-  invoiced: boolean;
-  invoiceNumber: string;
-  invoiceStatus: string;
-  invoiceBalance: number;
-  trackingSheetUrl: string;
-  billingFolderUrl: string;
-  /** -1 when the month's folder was never created for this job. */
-  billingFolderFiles: number;
-  links: JobLinks;
-  /** Payment and email state, read live from JobTread. Absent on a job with no
-   *  invoice, and when that read failed (the warnings say so). The PRIMARY
-   *  invoice's, when the job has two. */
-  status?: InvoiceStatus | null;
-  /** Every invoice for the month, primary first, each with its own state. A
-   *  month can hold two: the normal one and a $0 warranty record. */
-  invoices?: (PackageJobInvoice & { status: InvoiceStatus | null })[];
-}
-
-/** A job's invoice states — every invoice, or the primary's alone on an old payload. */
-function jobStatuses(j: JobRow): InvoiceStatus[] {
-  const list = j.invoices?.length ? j.invoices.map((i) => i.status) : [j.status];
-  return list.filter((s): s is InvoiceStatus => !!s);
-}
-
-interface Summary {
-  periodKey: string;
-  month: number;
-  year: number;
-  monthLabel: string;
-  invoiceMonthLabel: string;
-  docTitle: string;
-  docId: string;
-  docUrl: string;
-  /** A figure has moved since the doc was last written. */
-  stale: boolean;
-  /** The doc has been written at least once. */
-  written: boolean;
-  /** When Apps Script last read these figures from JobTread. */
-  computedAt: string;
-  /** How long that read took. Printed, because this month's read is the thing
-   *  that runs into Apps Script's ceiling when a month grows. */
-  readMs: number;
-  headline: string;
-  defaultHeadline: string;
-  closing: string;
-  totals: {
-    customers: number;
-    jobs: number;
-    labor: number;
-    bills: number;
-    cost: number;
-    total: number;
-    invoiced: number;
-  };
-  warnings: string[];
-  jobs: JobRow[];
-}
 
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 
@@ -186,9 +101,6 @@ const FILTERS: { key: Filter; label: string; test: (j: JobRow) => boolean }[] = 
 export default function InvoicingSummaryPage() {
   const [ym, setYm] = useState("");
   const email = usePackageEmail(ym);
-  const [data, setData] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [savingField, setSavingField] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -203,37 +115,17 @@ export default function InvoicingSummaryPage() {
 
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 
-  /**
-   * The month's figures and statuses. Passing no `ym` on the first load is
-   * deliberate: the route answers for the BILLING MONTH IN FORCE — the one
-   * picked on the home page — so this page opens on the month the office is
-   * closing rather than on whatever the calendar rolled to.
-   */
-  const load = useCallback(async (period: string, refresh = false) => {
-    setLoading(true);
-    setError("");
-    try {
-      const q = new URLSearchParams();
-      if (period) q.set("ym", period);
-      // Without this the FIGURES are Apps Script's cache of the last full
-      // read, which is what makes opening this page fast. The statuses are
-      // live either way. "Refresh figures" pays for a live read of the month.
-      if (refresh) q.set("refresh", "1");
-      const res = await fetch(
-        q.size ? `/api/invoicing-summary?${q}` : "/api/invoicing-summary",
-        { cache: "no-store" },
-      );
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || `HTTP ${res.status}`);
-      setData(body as Summary);
-      setYm((body as Summary).periodKey);
-    } catch (e) {
-      setData(null);
-      setError(e instanceof Error ? e.message : "Could not read the month.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  // Passing no `ym` on the first load is deliberate: the route answers for the
+  // billing month in force, so this page opens on the month the office is
+  // closing rather than on whatever the calendar rolled to.
+  const { data, setData, loading, error, load: loadSummary } = useInvoicingSummary();
+  const load = useCallback(
+    async (period: string, refresh = false) => {
+      const body = await loadSummary(period, refresh);
+      if (body) setYm(body.periodKey);
+    },
+    [loadSummary],
+  );
 
   // Mount only. Month changes go through onPickMonth so a failed load doesn't
   // strand the picker on a month the page isn't showing.
@@ -329,26 +221,9 @@ export default function InvoicingSummaryPage() {
 
   // Every headline figure is recomputed from the page's OWN state: leaving a
   // job out has to move the total on the tap.
-  const included = data?.jobs.filter((j) => j.include) ?? [];
+  const live = liveTotals(data?.jobs ?? []);
+  const included = live.included;
   const count = (f: Filter) => included.filter(FILTERS.find((x) => x.key === f)!.test).length;
-  const live = {
-    total: included.reduce((s, j) => s + j.total, 0),
-    labor: included.reduce((s, j) => s + j.labor, 0),
-    bills: included.reduce((s, j) => s + j.bills, 0),
-    invoiced: included.filter((j) => j.invoiced).length,
-    customers: new Set(included.map((j) => j.customerLabel)).size,
-    // Over EVERY invoice of a job, not just its primary.
-    due: included.reduce(
-      (s, j) =>
-        s +
-        jobStatuses(j).reduce(
-          (t, st) => t + (st.payment === "open" || st.payment === "partPaid" ? st.balance : 0),
-          0,
-        ),
-      0,
-    ),
-    paid: included.reduce((s, j) => s + jobStatuses(j).reduce((t, st) => t + st.amountPaid, 0), 0),
-  };
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
@@ -504,33 +379,6 @@ export default function InvoicingSummaryPage() {
         </div>
       )}
     </main>
-  );
-}
-
-const PAYMENT_TONE: Record<PaymentState, string> = {
-  draft: "text-warn",
-  open: "text-neutral-800 dark:text-neutral-100",
-  partPaid: "text-warn",
-  paid: "text-ok",
-  void: "text-danger",
-};
-
-/** Where the money is: Draft / Open / Part paid / Paid / Void, or Not invoiced. */
-function PaymentMark({ job }: { job: JobRow }) {
-  if (!job.invoiced) {
-    return (
-      <Chip tone="warning" title="No client invoice in JobTread for this month yet">
-        Not invoiced
-      </Chip>
-    );
-  }
-  const s = job.status;
-  if (!s) return <span>Invoice status unknown</span>;
-  return (
-    <span className={`font-semibold ${PAYMENT_TONE[s.payment]}`}>
-      {PAYMENT_LABEL[s.payment]}
-      {s.payment === "partPaid" ? ` · ${money(s.balance)} due` : ""}
-    </span>
   );
 }
 

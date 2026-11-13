@@ -6,7 +6,6 @@ import { PeakMark } from "@/components/PageTitle";
 import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
-import { HomeReminders } from "@/components/HomeReminders";
 import { MonthPicker } from "@/components/MonthPicker";
 
 /**
@@ -43,14 +42,22 @@ import { MonthPicker } from "@/components/MonthPicker";
  * about which day it is — a hydration mismatch that throws away the whole tree.
  * The band keeps its height while that resolves, so nothing shifts.
  */
+/** The billing month as the server read it (src/app/page.tsx). */
+export interface MastheadMonth {
+  ym: string;
+  /** "" while the 10th cutoff is deciding. */
+  override: string;
+}
+
 /** `notices`: Home's banners, drawn compact in the band between the date and the
- *  billing month (owner, 2026-11-02). */
-export function HomeMasthead({ notices }: { notices?: React.ReactNode } = {}) {
+ *  billing month (owner, 2026-11-02). `month`: the server's read, which saves
+ *  the fetch; without it (the /widget page) the masthead reads it itself. */
+export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; month?: MastheadMonth } = {}) {
   const access = useAccess();
   const [today, setToday] = useState<Date | null>(null);
-  const [ym, setYm] = useState("");
+  const [ym, setYm] = useState(month?.ym ?? "");
   /** True until someone picks a month: the 10th cutoff is still deciding. */
-  const [auto, setAuto] = useState(false);
+  const [auto, setAuto] = useState(month ? !month.override : false);
   const [saving, setSaving] = useState(false);
   /** Why the last save bounced. The month snaps back, so say why it did. */
   const [err, setErr] = useState("");
@@ -58,8 +65,9 @@ export function HomeMasthead({ notices }: { notices?: React.ReactNode } = {}) {
   useEffect(() => setToday(new Date()), []);
 
   const shows = access.can("recode");
+  const given = !!month;
   useEffect(() => {
-    if (!shows) return;
+    if (!shows || given) return;
     let cancelled = false;
     fetch("/api/billing-month")
       .then((r) => r.json())
@@ -72,7 +80,7 @@ export function HomeMasthead({ notices }: { notices?: React.ReactNode } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [shows]);
+  }, [shows, given]);
 
   // BOTH halves read the COMPANY timezone, not the device's. The billing month
   // has to (a bill uploaded at 11 PM Pacific on the 10th must not count as the
@@ -138,8 +146,6 @@ export function HomeMasthead({ notices }: { notices?: React.ReactNode } = {}) {
             {dateLine}
           </h1>
         </div>
-        {/* The dated to-dos (Amazon, LSWDD, …) — see HomeReminders. */}
-        <HomeReminders />
       </div>
 
       {notices && (

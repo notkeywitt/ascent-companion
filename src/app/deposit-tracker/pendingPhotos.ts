@@ -1,21 +1,24 @@
 /**
- * The photos Home's "Deposit checks" button took, handed to /deposit-tracker.
+ * The photos a Home camera button took, handed to the page that uses them:
+ * "Deposit check" to /deposit-tracker, "Add bill" to /add-bill.
  *
  * The camera has to open from a tap — a page cannot open it on load — so Home
  * takes the first photos and this module carries them across the client-side
  * navigation. Module state survives `router.push`; a full reload empties it,
  * and the page then offers its own camera button.
  */
-let pending: File[] = [];
+type Target = "deposit-tracker" | "add-bill";
+let pending: { files: File[]; target: Target } | null = null;
 
-export function setPendingPhotos(files: File[]): void {
-  pending = files;
+export function setPendingPhotos(files: File[], target: Target): void {
+  pending = { files, target };
 }
 
-/** The photos, once. A second read gets nothing, so a revisit starts clean. */
-export function takePendingPhotos(): File[] {
-  const out = pending;
-  pending = [];
+/** The photos for `target`, once. A second read gets nothing, so a revisit starts clean. */
+export function takePendingPhotos(target: Target): File[] {
+  if (!pending || pending.target !== target) return [];
+  const out = pending.files;
+  pending = null;
   return out;
 }
 

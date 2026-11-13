@@ -7,13 +7,8 @@ import { readLaborFocus, type LaborFocus } from "@/app/trackingsheet/findingFocu
 
 import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
-import { HomeTodos } from "@/components/HomeTodos";
-import { HubLeadsCard } from "@/components/HubLeadsCard";
-import { HubMyTodos } from "@/components/HubMyTodos";
 import type { NoteRequest } from "@/components/NotesPanel";
 import type { Note, NoteBill } from "@/lib/notes";
-import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
-import { TodayQueue } from "@/components/TodayQueue";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
 import { Card, Loading, Segmented, Select, Skeleton, btn } from "@/components/ui";
@@ -94,13 +89,7 @@ const LIST_PHASES = ["Active", "PreCon Budget", "PreCon"];
 const caption =
   "text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400";
 
-/**
- * `home` is Home's copy of this screen (Admin and Office land on it). With no
- * job picked it shows the person's own to-dos and the 5 newest leads where the
- * Jobs page shows the month rings and notes (owner, 2026-11-11). The Jobs page
- * itself passes nothing and is unchanged.
- */
-export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; billingYm?: string } = {}) {
+export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   const { can } = useAccess();
   const canTrackingSheet = can("recode");
   const [jobs, setJobs] = useState<HubJob[] | null>(null);
@@ -173,14 +162,12 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
 
   // The month: the billing month until someone picks another.
   const [pickedYm, setPickedYm] = useState<string | null>(null);
-  // Home has no picker of its own: it follows the masthead's billing month, which
-  // /api/jobs/to-be-invoiced reports. The Jobs page keeps its own picker.
-  const ym = home ? defaultYm : (pickedYm ?? defaultYm);
+  const ym = pickedYm ?? defaultYm;
   const months = useMemo(() => billingMonths(), []);
   // No outline: it sits in the card's top right corner, a word you can change
   // (owner, 2026-11-01).
   // Raw select, not `Select`: that draws the bordered field this must not have.
-  const monthSelect = home ? null : (
+  const monthSelect = (
     <select
       aria-label="Month"
       value={ym}
@@ -319,7 +306,7 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const urlRead = useRef(false);
   useEffect(() => {
-    if (home || !jobs || (urlRead.current && !linkedJobId)) return;
+    if (!jobs || (urlRead.current && !linkedJobId)) return;
     urlRead.current = true;
     const q = new URLSearchParams(window.location.search);
     const qJob = q.get("jobId");
@@ -342,12 +329,12 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
       setTab("sheet");
       setFocusBill({ docId, label: "Bill", nonce: Date.now() });
     }
-  }, [home, jobs, canTrackingSheet, linkedJobId]);
+  }, [jobs, canTrackingSheet, linkedJobId]);
   useEffect(() => {
-    if (home || !jobs || !urlRead.current || new URLSearchParams(window.location.search).has("bill")) return;
+    if (!jobs || !urlRead.current || new URLSearchParams(window.location.search).has("bill")) return;
     const path = hubPath(selected, jobs, ym, tab === "sheet" ? openDocId : null);
     if (path !== decodeURI(window.location.pathname)) window.history.replaceState(null, "", path);
-  }, [home, jobs, selected, ym, tab, openDocId, linkedJobId]);
+  }, [jobs, selected, ym, tab, openDocId, linkedJobId]);
   // A new job or tab unmounts the view under the header, so an embedded page's
   // unsaved edits (the House Manual) would go without a word. Ask first.
   const pick = (id: string) => {
@@ -530,12 +517,6 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
                 <Skeleton className="h-40 w-full rounded-xl" />
               )
             ) : (
-              home ? (
-                <div className="grid h-full min-h-0 gap-6 pad:grid-cols-2">
-                  <HubMyTodos className="max-pad:max-h-80 pad:min-h-[360px]" />
-                  <HubLeadsCard className="max-pad:max-h-80 pad:min-h-[360px]" />
-                </div>
-              ) : (
               // The list's height, with the tabs on their own row at the foot.
               <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
                 <div className="no-scrollbar min-h-0 min-w-0 flex-1 overflow-y-auto">
@@ -576,10 +557,9 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
                   {can("tracking-sheet") && <SheetSyncButton ym={ym} className="min-h-11" />}
                 </div>
               </Card>
-              )
             )}
             {/* A picked job's card carries these in its head row (owner, 2026-11-06). */}
-            {!selected && !home && (
+            {!selected && (
               <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
                 {monthControls}
               </div>
@@ -631,20 +611,8 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
         )}
 
         {/* UNDER THE HEADER */}
-        {!selected ? (
-          <>
-            {/* Home's "Needs you" queue and to-dos; each gates itself by view. */}
-            <div className="grid gap-6 xl:grid-cols-2">
-              <div className="min-w-0">
-                <TodayQueue />
-              </div>
-              <div className="min-w-0">
-                <HomeTodos />
-                <TodayOfficeTodos />
-              </div>
-            </div>
-          </>
-        ) : tab === "sheet" && canTrackingSheet ? (
+        {/* The queue and the to-dos that sat here are Home's now (2026-11-13). */}
+        {!selected ? null : tab === "sheet" && canTrackingSheet ? (
           /* The job's Tracking Sheet, as /trackingsheet draws it, less its
              tabs and header. Keyed by job and month: a new pick is a fresh
              board. Staged coding survives it — the board restores unsynced

@@ -232,27 +232,38 @@ PlaceInput) are out of scope, as in 3.1.
 
 Shared by phone and desktop:
 
-- [ ] **Today**: office calendar and JobTread schedule in one strip. Reuse `getUpcomingScheduleTasks` and the digest calendar check.
-- [ ] **To-dos**: one list sorted by urgency, then importance. Merges `HomeTodos`, `HubMyTodos`, `TodayOfficeTodos`.
-- [ ] **Needs attention**: one count that opens the inbox (Phase 5). Replaces the banners and `TodayQueue`.
+- [x] **Today**: office calendar and JobTread schedule in one strip. Reuse `getUpcomingScheduleTasks` and the digest calendar check.
+- [x] **To-dos**: one list sorted by urgency, then importance. Merges `HomeTodos`, `HubMyTodos`, `TodayOfficeTodos`.
+- [x] **Needs attention**: one count that opens the inbox (Phase 5). Replaces the banners and `TodayQueue`.
 
 Phone only:
 
-- [ ] Four large action buttons: Deposit check, Add bill, Scan tool, Record miles.
-- [ ] Each button is itself the camera or start control. A browser opens the camera only on a tap, so a page cannot open it on load.
-- [ ] Record miles starts the trip; a "Enter miles by hand" link sits under it.
+- [x] Four large action buttons: Deposit check, Add bill, Scan tool, Record miles.
+- [x] Each button is itself the camera or start control. A browser opens the camera only on a tap, so a page cannot open it on load.
+- [x] Record miles starts the trip; a "Enter miles by hand" link sits under it.
 
 Desktop only:
 
-- [ ] Monthly invoicing widget: per-job status and month totals. Extract it from `/invoicing-summary`.
-- [ ] Leads widget: reuse `HubLeadsCard`.
-- [ ] Widget settings: show, hide, reorder, and two sizes per widget. Saved per user.
+- [x] Monthly invoicing widget: per-job status and month totals. Extract it from `/invoicing-summary`.
+- [x] Leads widget: reuse `HubLeadsCard`.
+- [x] Widget settings: show, hide, reorder, and two sizes per widget. Saved per user.
 
 Cut from the request: free drag-to-resize on a pixel grid. It needs a grid
 library and touch support that the review could not verify. Add it only if
 show, hide, reorder and two sizes prove too little.
 
 Done when: Home fires under 10 requests and nothing on it repeats another card.
+
+Built 2026-11-13. Home for admin and office is `OfficeHome.tsx`; field and lead
+keep theirs. "Needs attention" sums the queues counted on the server
+(`lib/homeAttention.ts`, `/api/attention`); Phase 5 swaps `loadAttention`.
+Widget layout is the new `home_layouts` table (owner-approved schema). The
+masthead reminders moved into Needs attention; the LSWDD pay line went, as the
+app-wide pop-up says it. The Jobs page lost its copy of the queue and to-dos.
+Requests on load (production build, admin, not clocked in, link prefetches
+excluded): desktop 10 in all, 5 of them Home's own; phone 7, 3 of them Home's
+own. Home first load 278 KB. Not checked locally: the calendar and the
+Apps Script queues (no Apps Script URL in `.env.local`).
 
 ---
 

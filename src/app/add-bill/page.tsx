@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import { takePendingPhotos } from "@/app/deposit-tracker/pendingPhotos";
 import { BillPopup } from "@/app/trackingsheet/BillPopup";
 import { useRouter, useSearchParams } from "next/navigation";
 import { JobPicker } from "@/components/JobPicker";
@@ -250,6 +251,13 @@ function AddBill() {
     });
     setExternalId(f ? "INV-" + crypto.randomUUID().slice(0, 8) : "");
   }
+
+  // The photo Home's "Add bill" button took on the way in.
+  useEffect(() => {
+    const [first] = takePendingPhotos("add-bill");
+    if (first) onPickFile(first);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function reset() {
     onPickFile(null);

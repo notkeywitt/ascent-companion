@@ -19,8 +19,10 @@ import { isNewBuildLive } from "@/lib/versionCheck";
  * touched shared components) it reloads in place. In the desktop widget the
  * button reloads the widget and a link opens that page in the browser.
  *
- * HOW: one check on mount, every 45 s while the tab is visible, and when the tab
- * returns to the front. Errors stay silent — a missed poll only delays the banner.
+ * HOW: every 45 s while the tab is visible, and when the tab returns to the
+ * front. No check on mount: a page load is already the newest build (no service
+ * worker caches it), so that read could only ever answer "no". Errors stay
+ * silent — a missed poll only delays the banner.
  * Static `process.env.X` read, as in BuildFooter.tsx: a computed key is not replaced.
  */
 const RUNNING = process.env.APP_BUILD_SHA || "";
@@ -55,7 +57,6 @@ export function NewVersionNotice({ inWidget = false }: { inWidget?: boolean }) {
       }
     }
 
-    void check();
     const timer = window.setInterval(check, POLL_MS);
     document.addEventListener("visibilitychange", check);
     return () => {

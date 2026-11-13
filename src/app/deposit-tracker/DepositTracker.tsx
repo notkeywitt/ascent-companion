@@ -88,7 +88,7 @@ export function DepositTracker({ writes }: { writes: boolean }) {
 
   // The photos Home took on the way in.
   useEffect(() => {
-    const first = takePendingPhotos();
+    const first = takePendingPhotos("deposit-tracker");
     if (first.length) addPhotos(first);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

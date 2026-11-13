@@ -1,16 +1,14 @@
 /**
- * The facts the home page's reminders and card counts are built on — "the last
- * month Amazon was imported", "how many Sunset statements are green". CLIENT
- * module: each fact reads an endpoint its own page already uses.
+ * Small facts the app reads more than once per tab — the "Needs attention"
+ * rows (TodayQueue), the LSWDD statement the pay pop-up checks — and the
+ * company-time date helpers they compare against. CLIENT module, though the
+ * date helpers are pure and the server reads them too (lib/homeAttention).
  *
- * Two surfaces read the same fact (the Amazon reminder under the date AND the
- * Amazon Import row on its card), so every fact goes through `cached`: one
- * request per fact, shared, and kept for its TTL in this tab. Some are slow —
- * the Sunset reconcile is a 10-20s Apps Script run — and the home page is
- * opened many times a day.
+ * Every fact goes through `cached`: one request per fact, shared, and kept for
+ * its TTL in this tab. Some are slow (Apps Script runs), and Home is opened
+ * many times a day.
  */
 import { companyDateParts } from "@/lib/billing";
-import { reconcileState, type ReconcileResult } from "@/lib/sunsetReconcile";
 import type { LswddStatementBills } from "@/lib/jobtread";
 
 const MIN = 60_000;
@@ -72,41 +70,6 @@ export function previousMonth(now = new Date()): string {
 }
 
 /**
- * The newest month an Amazon import filed bills into, "YYYY-MM", or "" for
- * never. The rule lives in `getLastAmazonBillMonth` (src/lib/jobtread.ts).
- */
-export function lastAmazonMonth(): Promise<string> {
-  return cached("amazon", 10 * MIN, async () => {
-    const r = await fetch("/api/amazon-import/last-month");
-    if (!r.ok) throw new Error(String(r.status));
-    const j = (await r.json()) as { month?: string };
-    return j.month ?? "";
-  });
-}
-
-/**
- * The newest month of LSWDD dump charges that has been dealt with — pushed to
- * JobTread or deliberately dismissed on /lswdd — "YYYY-MM", or "" for never.
- * Read by charge date, so September's statement (which arrives in October)
- * counts as September.
- */
-export function lastLswddMonth(): Promise<string> {
-  return cached("lswdd", 30 * MIN, async () => {
-    const r = await fetch("/api/lswdd?includePushed=1");
-    if (!r.ok) throw new Error(String(r.status));
-    const j = (await r.json()) as {
-      statements?: { lines?: { chargeDate?: string; status?: string }[] }[];
-    };
-    let last = "";
-    for (const st of j.statements ?? [])
-      for (const l of st.lines ?? [])
-        if (l.status && l.status !== "Staged" && (l.chargeDate ?? "") > last)
-          last = l.chargeDate ?? "";
-    return last.slice(0, 7);
-  });
-}
-
-/**
  * The newest LSWDD statement's bills and due date (`/api/lswdd/bills`). Read by
  * the pay reminder pop-up and the Home reminder line. /lswdd forgets it after
  * Approve All, so the reminder follows.
@@ -116,25 +79,5 @@ export function lswddStatementBills(): Promise<LswddStatementBills> {
     const r = await fetch("/api/lswdd/bills");
     if (!r.ok) throw new Error(String(r.status));
     return (await r.json()) as LswddStatementBills;
-  });
-}
-
-/** Unpaid Sunset statements, split by the /payments green (reconciled) test. */
-export function sunsetGreenCounts(): Promise<{ green: number; notGreen: number }> {
-  return cached("sunset", 15 * MIN, async () => {
-    const [list, recon] = await Promise.all([
-      fetch("/api/sunset-statements?status=unpaid").then((r) => r.json()),
-      fetch("/api/sunset-statements/reconcile").then((r) => r.json()),
-    ]);
-    if (list?.error || recon?.ok === false) throw new Error("sunset read failed");
-    const rcBy = (recon.reconciliation ?? {}) as Record<string, ReconcileResult>;
-    const rows = (list.items ?? []) as {
-      expId: string;
-      extractedAt: string;
-      net: string;
-      total: string;
-    }[];
-    const green = rows.filter((s) => reconcileState(s, rcBy[s.expId]).reconciled).length;
-    return { green, notGreen: rows.length - green };
   });
 }

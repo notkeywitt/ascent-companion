@@ -458,9 +458,10 @@ Grouped by domain; each folder is `…/route.ts`.
   row — pages + vendors + bills + line items, from any
   page — hidden for the FIELD role), `TabBar` (the bottom bar — each role's
   slots from `BARS` in `src/lib/workspaces.ts`),
-  `HomeActions` (the Actions button panel on Today — one big button per job
-  done from a phone, each on its own view; Deposit checks first, which opens
-  the camera from the tap and hands the photo to `/deposit-tracker`),
+  `OfficeHome` (the admin and office Home: Needs attention, Today, To-dos, and
+  the desktop widgets with per-user layout), `HomeActions` (the phone's four
+  big buttons on that Home — Deposit check, Add bill, Scan tool, Record miles;
+  each button is itself the camera or start control),
   `HomeMasthead` (the iPad home's head — the date, and the BILLING MONTH as a
   dropdown: office/admin set the month every non-Sunset bill files into, a lead
   only reads it. It goes RED past the 10th while still behind the calendar
@@ -516,9 +517,9 @@ Grouped by domain; each folder is `…/route.ts`.
   its grouping, the selection and the recode drawer, in one place so the two
   can't drift again; money stays the caller's, since the two pages legitimately
   differ on what a code has left), `Donut`, `SignaturePad`, `QrScanner`, `CopyButton`,
-  `Spinner`, `HomeTodos` (the admin To Dos card on Home — the live JobTread
-  to-do list and the form that creates one, then the stored digest's other
-  categories under them; no hardcoded tabs),
+  `Spinner`, `DigestFindings` (the stored morning digest, opened under
+  Needs attention on Home, and `CreateTodo`, Home's new-to-do form; no
+  hardcoded tabs),
   `HomeJobBoard` (the board across the top of Home: a budget donut + calendar
   position per active job for office/admin, one wide panel for a lead's own job;
   the ROLE decides which, server-side in `/api/home/board`. Each card also
