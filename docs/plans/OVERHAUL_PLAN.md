@@ -97,9 +97,9 @@ private personal repo. The lander is about 60 lines of shell.
 
 ### 1.5 Phone review before production — **sign-off**
 
-- [ ] One stable preview address on a `preview` branch. "Show me on my phone" pushes the session's branch there.
+- [x] One stable preview address on a `preview` branch. "Show me on my phone" pushes the session's branch there.
 - [ ] Google sign-in needs that address registered. This changes auth config.
-- [ ] Confirm in Vercel that the Preview environment has `COMPANION_WRITES_ENABLED` off.
+- [x] Confirm in Vercel that the Preview environment has `COMPANION_WRITES_ENABLED` off.
 
 Desktop review stays on localhost. Limit: one branch on the phone at a time.
 
@@ -127,8 +127,17 @@ Desktop review stays on localhost. Limit: one branch on the phone at a time.
 Done when: two sessions edit the same file in parallel, both land in one
 production deploy, and neither prints a git message to the owner.
 
-Built 2026-11-13. Not yet run: the two-session test above. 1.5 waits for the
-owner's ok. 1.7 is not built; build it only if the lander is not enough. In
+Built 2026-11-13. Not yet run: the two-session test above. 1.7 is not built;
+build it only if the lander is not enough.
+
+1.5: `npm run preview` puts a branch on
+`ascent-companion-git-preview-keywitt.vercel.app`. The shared Vercel write
+switch covers Production and Preview with one value, so Preview was not off. A
+second value, `false`, now applies to the branch `preview` only. The owner
+still registers the address with Google sign-in. Open: the preview uses the
+production companion database.
+
+In
 1.2 the hook tells the session to call `EnterWorktree`; a hook cannot move a
 session into a worktree by itself.
 

@@ -79,6 +79,10 @@ data on deploy.
   `Co-Authored-By:` trailer naming the model in use.
 - Never force-push `main`. Never rewrite history that is already on `main`.
 - To look at a change: `npm run dev`. It works in a worktree and prints its address.
+- "Show me on my phone": commit, then `npm run preview`. It puts this branch on
+  the one preview address and prints it. JobTread writes are off there. The
+  preview uses the production companion database, so do not preview a branch
+  that changes `applySchema` unless the owner asks.
 
 ### A stuck branch
 

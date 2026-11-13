@@ -164,6 +164,7 @@ Not application code. Overview in `CLAUDE.md` → "Shipping".
 |---|---|
 | `.claude/hooks/session-start.sh` | Arms `core.hooksPath`, fetches `origin`, tells a session in the main folder to enter a worktree, lists queued (`ready/*`) and stuck (`stuck/*`) branches and the last commits on `main`. |
 | `scripts/dev.sh` | `npm run dev` — in a worktree, links `.env.local` and `data` from the main folder, then starts the dev server on the next free port. |
+| `scripts/preview.sh` | `npm run preview` — replaces the `preview` branch with this one; Vercel builds it at the one phone-review address. JobTread writes are off there (a Vercel variable scoped to that branch). |
 | `scripts/ship.sh` | `npm run ship` — typecheck + tests, commit, push the branch to `ready/<name>` (`ready/now-<name>` with `--now`). Never rebases, never pushes `main`. |
 | `.githooks/pre-push` | Refuses a direct push to `main`. |
 | `scripts/land.sh` + `.github/workflows/lander.yml` | The lander. Merges every `ready/*` branch onto `main`, verifies once, pushes `main` once. A branch that conflicts or fails moves to `stuck/<name>`. |
