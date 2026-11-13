@@ -172,16 +172,35 @@ shared-cache move.
 
 ### 3.1 Missing primitives in `ui.tsx`
 
-- [ ] `Sheet`: bottom sheet on phones, side panel on desktop. Grabber, two heights, `overscroll-behavior: contain`.
-- [ ] `Menu` and `Popover`: one build, replaces the 6 custom popovers. Use Base UI or the native Popover API; pick one in this step and record why in `THEME.md`.
-- [ ] `Notice`: `Banner` plus severity, dismiss, snooze and one action button.
-- [ ] `Toast`: one way to confirm a save.
+- [x] `Sheet`: bottom sheet on phones, side panel on desktop. Grabber, two heights, `overscroll-behavior: contain`.
+- [x] `Menu` and `Popover`: one build, replaces the 6 custom popovers. Use Base UI or the native Popover API; pick one in this step and record why in `THEME.md`.
+- [x] `Notice`: `Banner` plus severity, dismiss, snooze and one action button.
+- [x] `Toast`: one way to confirm a save.
+
+Built 2026-11-13 on Base UI 1.9.0 (THEME.md says why). Converted: the Tools
+title menu, the Job board card's details drop-down, the Tool Schedule job
+filter, and the Page Text save confirmation. The inventory found 3 real
+popovers, not 6: CopyInPlace and NotesPanel are panels, RailWidgetButton is a
+notice, Donut is a tooltip. The 4 typeahead pickers (CostCodeSelect,
+JobPicker, GlobalSearch, PlaceInput) are comboboxes, out of 3.1's scope. 10
+other files clear a "Saved" or "Copied" flag on a timer; move them to `toast`
+as each page is touched. `Sheet` has no caller yet; 3.3 puts the phone drawer
+on it. The toast host adds 1 KB to every page. Found while measuring: Home's
+first load on `main` after Phase 2 landed is 329 KB, not 275, before any 3.1
+change. Phase 2's 300 KB target needs a second look.
 
 ### 3.2 Token fixes (mechanical)
 
-- [ ] Inputs 16px on phones. Small buttons and segmented controls 44px on touch screens. Toggle at least 24px tall.
-- [ ] Quiet text on dark to 4.5:1 (about 390 sites; change the token, not the sites).
-- [ ] Add a `prefers-reduced-motion` rule.
+- [x] Inputs 16px on phones. Small buttons and segmented controls 44px on touch screens. Toggle at least 24px tall.
+- [x] Quiet text on dark to 4.5:1 (about 390 sites; change the token, not the sites).
+- [x] Add a `prefers-reduced-motion` rule.
+
+Built 2026-11-13, all in `globals.css` plus the `Toggle` size; no page edited.
+"Touch screen" is `(pointer: coarse)`, so an iPad gets the touch sizes too.
+Bare `text-neutral-500` in dark was already lifted (2026-10); the 8 sites that
+asked for `dark:text-neutral-500` now get the same lift. The worst dark
+surface (`--ink-overlay`) reads 4.58:1. Checked in a phone-sized browser:
+buttons and segments 44px, fields 16px, motion off under reduced motion.
 
 ### 3.3 Navigation
 
@@ -284,5 +303,4 @@ Target: about 61 pages to about 35 routes behind 8 hubs.
 | 4 | Widget scope: show, hide, reorder, two sizes | Yes; no free resize |
 | 5 | May the `/queue` agent work without the owner present? | No. By hand, and the owner picks which requests run and which push through (1.6) |
 
-Still open: menu primitive, Base UI (new dependency) or native Popover. Decide
-in 3.1 after a short trial of each.
+Menu primitive: Base UI (owner, 2026-11-13). The reasons are in `THEME.md`.

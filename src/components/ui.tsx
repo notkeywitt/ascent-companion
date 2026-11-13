@@ -150,13 +150,13 @@ export function Toggle({
       className={`inline-flex cursor-pointer items-center gap-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
     >
       <span
-        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition ${
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
           checked ? "bg-accent" : "bg-neutral-300 dark:bg-neutral-600"
         }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition ${
-            checked ? "translate-x-4" : "translate-x-0.5"
+          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition ${
+            checked ? "translate-x-[1.375rem]" : "translate-x-0.5"
           }`}
         />
       </span>
@@ -794,6 +794,75 @@ export function Banner({
   );
 }
 
+/**
+ * A `Banner` the user can act on: one action, plus Later (snooze) and ✕
+ * (dismiss). The caller owns what dismiss and snooze mean and where they are
+ * stored, so Phase 5's one findings store plugs in without changing this.
+ * Each control shows only when its handler is given.
+ */
+export function Notice({
+  tone = "warning",
+  title,
+  action,
+  onSnooze,
+  onDismiss,
+  className = "",
+  children,
+}: {
+  tone?: BannerTone;
+  title?: React.ReactNode;
+  action?: { label: string; onClick?: () => void; href?: string; busy?: boolean };
+  onSnooze?: () => void;
+  onDismiss?: () => void;
+  className?: string;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Banner tone={tone} className={`flex items-start gap-2 pr-1 ${className}`}>
+      <div className="min-w-0 flex-1">
+        {title && <div className="font-semibold">{title}</div>}
+        {children && <div className={title ? "mt-0.5" : ""}>{children}</div>}
+        {(action || onSnooze) && (
+          <div className="-ml-2 mt-1 flex flex-wrap items-center gap-1">
+            {action &&
+              (action.href ? (
+                <Link href={action.href} className="inline-flex min-h-11 items-center px-2 font-semibold underline underline-offset-2">
+                  {action.label}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={action.onClick}
+                  disabled={action.busy}
+                  className="inline-flex min-h-11 items-center gap-1.5 px-2 font-semibold underline underline-offset-2 disabled:opacity-60"
+                >
+                  {action.busy && <Spinner />}
+                  {action.label}
+                </button>
+              ))}
+            {onSnooze && (
+              <button type="button" onClick={onSnooze} className="inline-flex min-h-11 items-center px-2 opacity-80 hover:opacity-100">
+                Later
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {onDismiss && (
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Dismiss"
+          title="Dismiss"
+          className="-my-2.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg opacity-70 hover:opacity-100"
+        >
+          ✕
+        </button>
+      )}
+    </Banner>
+  );
+}
+
 /* -------------------------------------------------------------- empty state */
 
 export function EmptyState({
@@ -999,7 +1068,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`inline-flex items-center justify-center whitespace-nowrap rounded-md transition ${seg} ${fill ? "flex-1" : ""} ${
+            className={`ui-seg inline-flex items-center justify-center whitespace-nowrap rounded-md transition ${seg} ${fill ? "flex-1" : ""} ${
               on
                 ? "bg-white font-semibold text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
                 : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"

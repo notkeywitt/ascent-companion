@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
+import { ToastHost } from "@/components/Toast";
 import { AccessProvider } from "@/components/AccessProvider";
 import { CopyProvider } from "@/components/CopyProvider";
 import { CopyInPlace } from "@/components/CopyInPlace";
@@ -228,6 +229,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* Swipe right from the left edge to go back — installed app
                   only. It replaced the header's back button. */}
               <SwipeBack />
+              {/* Save confirmations from toast() (components/Toast). Outside
+                  #app-shell like the help mark. */}
+              <ToastHost />
             </BillMoveProvider>
             </StuckVendorsProvider>
         </AccessProvider>

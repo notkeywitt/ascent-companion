@@ -1,6 +1,7 @@
 "use client";
 
 import { PageTabs, LOOK_TABS } from "@/components/PageTabs";
+import { toast } from "@/components/Toast";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -45,7 +46,6 @@ export default function PageTextEditor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
-  const [saved, setSaved] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -93,8 +93,7 @@ export default function PageTextEditor() {
         })),
       );
       setDraft((d) => ({ ...d, [entry.key]: json.value ?? entry.text }));
-      setSaved(entry.key);
-      setTimeout(() => setSaved((k) => (k === entry.key ? null : k)), 2000);
+      toast("Saved");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
     } finally {
@@ -179,7 +178,6 @@ export default function PageTextEditor() {
                     >
                       {saving === e.key ? "Saving…" : "Save"}
                     </Button>
-                    {saved === e.key && <span className="text-xs text-neutral-500">Saved</span>}
                     {e.overridden && !dirty && (
                       <button
                         type="button"
