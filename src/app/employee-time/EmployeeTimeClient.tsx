@@ -3331,6 +3331,7 @@ function ChipInput({
     <span className="relative inline-flex min-h-11 items-center rounded-xl bg-neutral-200/80 px-3.5 text-sm font-semibold dark:bg-white/10">
       {display}
       {options ? (
+        /* Raw select: invisible overlay on a styled label. */
         <select
           value={value}
           aria-label={ariaLabel}

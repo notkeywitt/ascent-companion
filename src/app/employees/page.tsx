@@ -13,6 +13,7 @@ import {
   Label,
   Loading,
   PageHeader,
+  Select,
   Textarea,
   inputCls,
   tableCls,
@@ -407,10 +408,10 @@ export default function EmployeesPage() {
           placeholder="Search name, position, email, phone…"
           className={inputCls + " min-w-[12rem] flex-1"}
         />
-        <select
+        <Select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className={inputCls + " w-auto"}
+          className="!w-auto"
         >
           <option value="All">All statuses</option>
           {statuses.map((s) => (
@@ -418,7 +419,7 @@ export default function EmployeesPage() {
               {s}
             </option>
           ))}
-        </select>
+        </Select>
         <Button variant="secondary" onClick={openComposer} disabled={loading || !!loadErr}>
           ✉ Email employees
         </Button>
@@ -563,14 +564,13 @@ export default function EmployeesPage() {
               {jtErr ? (
                 <p className="text-sm text-neutral-500">Unavailable — JobTread users didn&apos;t load.</p>
               ) : (
-                <select
+                <Select
                   value={form.jtUserId}
                   onChange={(ev) => {
                     const id = ev.target.value;
                     const u = jtById.get(id);
                     setForm({ ...form, jtUserId: id, jtUserName: u?.name ?? "" });
                   }}
-                  className={inputCls}
                 >
                   <option value="">— Not linked —</option>
                   {/* keep a currently-linked user selectable even if external/absent */}
@@ -592,7 +592,7 @@ export default function EmployeesPage() {
                       </option>
                     );
                   })}
-                </select>
+                </Select>
               )}
             </div>
 
@@ -630,10 +630,9 @@ export default function EmployeesPage() {
                 <div key={f.key} className={f.wide ? "sm:col-span-2" : ""}>
                   <Label>{f.label}</Label>
                   {f.key === "status" ? (
-                    <select
+                    <Select
                       value={form.status}
                       onChange={(ev) => setForm({ ...form, status: ev.target.value })}
-                      className={inputCls}
                     >
                       {!statuses.includes(form.status) && form.status !== "" && (
                         <option value={form.status}>{form.status}</option>
@@ -644,7 +643,7 @@ export default function EmployeesPage() {
                           {s}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   ) : f.key === "leavePayType" ? (
                     (() => {
                       // Pay types come from the LINKED JobTread user (per-worker,
@@ -657,10 +656,9 @@ export default function EmployeesPage() {
                         : orgTypes;
                       const rateOf = (name: string) => memberTypes.find((t) => t.name === name)?.hourlyRate;
                       return (
-                        <select
+                        <Select
                           value={form.leavePayType}
                           onChange={(ev) => setForm({ ...form, leavePayType: ev.target.value })}
-                          className={inputCls}
                         >
                           <option value="">— None —</option>
                           {form.leavePayType && !names.includes(form.leavePayType) && (
@@ -675,7 +673,7 @@ export default function EmployeesPage() {
                               </option>
                             );
                           })}
-                        </select>
+                        </Select>
                       );
                     })()
                   ) : (

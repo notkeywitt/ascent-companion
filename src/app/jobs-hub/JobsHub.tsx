@@ -2,6 +2,8 @@
 
 import { hubPath, parseHubPath } from "@/lib/hubUrl";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { readLaborFocus, type LaborFocus } from "@/app/trackingsheet/findingFocus";
 
 import { useAccess } from "@/components/AccessProvider";
 import { JobOverview } from "@/components/HomeJobBoard";
@@ -21,6 +23,7 @@ import Link from "next/link";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
 import { CheckForBills } from "@/components/CheckForBills";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
+import { SheetSyncButton } from "@/components/SheetSyncSettings";
 import { monthJobRows, monthWarrantyRow, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { billingMonths } from "@/lib/billingMonths";
@@ -107,6 +110,11 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
   /** The Job Board's cards, by job id — address, number, schedule span, to-dos. */
   const [details, setDetails] = useState<Map<string, JobsPageCard> | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** A labor finding from a link (findingFocus.ts), handed to the board once. */
+  const [laborFocus, setLaborFocus] = useState<LaborFocus | null>(null);
+  // A link by id (hubHref, /jobs-hub?jobId=): read whenever it changes, since a
+  // link from inside this page keeps the page mounted.
+  const linkedJobId = useSearchParams().get("jobId");
   /** The job whose customer the pop-up shows (owner, 2026-11-02). */
   const [customerOf, setCustomerOf] = useState<string | null>(null);
   /** The list row under the pointer: its dot lights on the map meanwhile. */
@@ -171,6 +179,7 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
   const months = useMemo(() => billingMonths(), []);
   // No outline: it sits in the card's top right corner, a word you can change
   // (owner, 2026-11-01).
+  // Raw select, not `Select`: that draws the bordered field this must not have.
   const monthSelect = home ? null : (
     <select
       aria-label="Month"
@@ -310,8 +319,21 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
   const [openDocId, setOpenDocId] = useState<string | null>(null);
   const urlRead = useRef(false);
   useEffect(() => {
-    if (home || !jobs || urlRead.current) return;
+    if (home || !jobs || (urlRead.current && !linkedJobId)) return;
     urlRead.current = true;
+    const q = new URLSearchParams(window.location.search);
+    const qJob = q.get("jobId");
+    if (qJob) {
+      if (!jobs.some((j) => j.id === qJob)) return;
+      const qYm = q.get("ym");
+      if (qYm && /^\d{4}-\d{2}$/.test(qYm)) setPickedYm(qYm);
+      setSelectedId(qJob);
+      if (canTrackingSheet) {
+        setTab("sheet");
+        setLaborFocus(readLaborFocus(q));
+      }
+      return;
+    }
     const { jobId, ym: pathYm, docId } = parseHubPath(window.location.pathname, jobs);
     if (!jobId) return;
     if (pathYm) setPickedYm(pathYm);
@@ -320,16 +342,17 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
       setTab("sheet");
       setFocusBill({ docId, label: "Bill", nonce: Date.now() });
     }
-  }, [home, jobs, canTrackingSheet]);
+  }, [home, jobs, canTrackingSheet, linkedJobId]);
   useEffect(() => {
     if (home || !jobs || !urlRead.current || new URLSearchParams(window.location.search).has("bill")) return;
     const path = hubPath(selected, jobs, ym, tab === "sheet" ? openDocId : null);
     if (path !== decodeURI(window.location.pathname)) window.history.replaceState(null, "", path);
-  }, [home, jobs, selected, ym, tab, openDocId]);
+  }, [home, jobs, selected, ym, tab, openDocId, linkedJobId]);
   // A new job or tab unmounts the view under the header, so an embedded page's
   // unsaved edits (the House Manual) would go without a word. Ask first.
   const pick = (id: string) => {
     if (!confirmLeaveIfDirty()) return;
+    setLaborFocus(null);
     setSelectedId((cur) => (cur === id ? null : id));
   };
   const files = useJobFiles(selected && (tab === "plans" || tab === "photos") ? selected.id : null);
@@ -475,6 +498,7 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
                             Check All Jobs
                           </Link>
                         )}
+                        {can("tracking-sheet") && <SheetSyncButton jtJobId={selected.id} ym={ym} className="min-h-11" />}
                       </div>
                     ) : undefined
                   }
@@ -549,6 +573,7 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
                       Check All Jobs
                     </Link>
                   )}
+                  {can("tracking-sheet") && <SheetSyncButton ym={ym} className="min-h-11" />}
                 </div>
               </Card>
               )
@@ -626,7 +651,7 @@ export function JobsHub({ home = false, billingYm = "" }: { home?: boolean; bill
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, noteDocs, onBillNote, onOpenBill: setOpenDocId }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, laborFocus, noteDocs, onBillNote, onOpenBill: setOpenDocId }} />
             </Suspense>
           )
         ) : tab === "plans" ? (

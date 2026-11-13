@@ -26,6 +26,7 @@
 import { defineJobCheck } from "../checkTypes";
 import { cents, findingKey, money, type Finding } from "../types";
 import { billLink } from "./shared";
+import { hubHref } from "@/lib/hubUrl";
 
 export interface UninvoicedConfig {
   /** Below this, an "unbilled remainder" is rounding, not a missed charge. */
@@ -75,7 +76,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
           `is deliberately not billed — if it is the latter, set this aside and it will ` +
           `stop asking.`,
         amount: uninvoicedCost,
-        sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
+        sourceLink: hubHref(job.jobId, month.ym),
         sourceLabel: "Open the tracking sheet",
       });
     } else if (counted.length) {
@@ -117,7 +118,7 @@ export const uninvoicedCheck = defineJobCheck<UninvoicedConfig>({
           `${money(job.uninvoicedTimeCost)} of time logged in ${month.monthLabel} sits on no ` +
           `live client invoice, even though this job WAS invoiced this month.`,
         amount: job.uninvoicedTimeCost,
-        sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
+        sourceLink: hubHref(job.jobId, month.ym),
         sourceLabel: "Open labor review",
         // The same test uninvoicedTimeCost sums over — on no invoice, draft included.
         target: {

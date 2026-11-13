@@ -7,6 +7,7 @@ import { JobPicker } from "@/components/JobPicker";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import { Banner, Button, Card, Checkbox, FileDrop, Input, Label, PageHeader, Select, btn } from "@/components/ui";
 import { money } from "@/lib/money";
+import { hubHref } from "@/lib/hubUrl";
 
 interface VendorRef {
   id: string;
@@ -445,7 +446,7 @@ function AddBill() {
             onClick={() => {
               if (!confirmLeaveIfDirty()) return;
               if (window.history.length > 1) router.back();
-              else router.push(jobId ? `/trackingsheet?jobId=${encodeURIComponent(jobId)}` : "/");
+              else router.push(jobId ? hubHref(jobId) : "/");
             }}
             title="Close without logging a bill"
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-sm font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Button, Checkbox, Dialog, Loading, PageHeader, inputCls, tableCls } from "@/components/ui";
+import { Banner, Button, Checkbox, Dialog, Loading, PageHeader, Select, inputCls, tableCls } from "@/components/ui";
 
 import { PayTypeRules } from "./PayTypeRules";
 
@@ -411,12 +411,12 @@ export default function LaborRatesPage() {
 
               <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
                 <span className="text-sm font-semibold">Bulk apply:</span>
-                <select value={bulkRateId} onChange={(e) => setBulkRateId(e.target.value)} className={inputCls + " w-auto max-w-[18rem]"}>
+                <Select value={bulkRateId} onChange={(e) => setBulkRateId(e.target.value)} className="!w-auto max-w-[18rem]">
                   <option value="">Pick a rate…</option>
                   {rateOptions.map((o) => (
                     <option key={o.id} value={o.id}>{o.label} — {money(o.hourlyRate)}</option>
                   ))}
-                </select>
+                </Select>
                 <span className="text-sm text-neutral-500">to {selected.size} selected</span>
                 <Button onClick={bulkApply} disabled={busy || !bulkRate || !selected.size}>Apply</Button>
                 {selected.size > 0 && (
@@ -527,12 +527,12 @@ export default function LaborRatesPage() {
             </div>
 
             <div className="mt-3 flex items-center gap-2">
-              <select value={addCatalogId} onChange={(e) => setAddCatalogId(e.target.value)} className={inputCls + " flex-1"}>
+              <Select value={addCatalogId} onChange={(e) => setAddCatalogId(e.target.value)} className="flex-1">
                 <option value="">Add from catalog…</option>
                 {rateOptions.map((o) => (
                   <option key={o.id} value={o.id}>{o.label} — {money(o.hourlyRate)}</option>
                 ))}
-              </select>
+              </Select>
               <Button variant="secondary" onClick={draftAddFromCatalog} disabled={!addCatalogId}>Add</Button>
             </div>
             <button onClick={() => setDraft((d) => [...d, { name: "", hourlyRate: 0 }])} className="mt-2 text-xs font-semibold text-accent hover:underline">

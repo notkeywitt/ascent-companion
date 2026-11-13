@@ -1006,6 +1006,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                   <span className="w-48 shrink-0 truncate text-sm" title={w}>
                     {w}
                   </span>
+                  {/* Raw select: compact inline row (px-2 py-1), Select would grow it. */}
                   <select
                     value={workerIdMap[w] ?? ""}
                     onChange={(e) => setWorkerId(w, e.target.value)}
@@ -1188,6 +1189,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                         <span className="w-44 shrink-0 truncate text-sm" title={c.code}>
                           {c.code}
                         </span>
+                        {/* Raw select: compact inline row (px-2 py-1), Select would grow it. */}
                         <select
                           value={typeMap[c.key] ?? cur ?? ""}
                           onChange={(e) => setType(c.key, e.target.value)}
@@ -1416,6 +1418,7 @@ function JobIdControl({
         )
       : jtJobs;
     return (
+      /* Raw select: compact inline row (px-2 py-1), Select would grow it. */
       <select
         value={value || ""}
         onChange={(e) => {

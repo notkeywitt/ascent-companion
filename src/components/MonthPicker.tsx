@@ -42,6 +42,7 @@ export function MonthPicker({
       <span aria-hidden className="shrink-0 text-base font-normal text-neutral-400">
         ▾
       </span>
+      {/* Raw select: invisible overlay on a styled label. */}
       <select
         value={value}
         disabled={disabled || !value}

@@ -204,13 +204,27 @@ buttons and segments 44px, fields 16px, motion off under reduced motion.
 
 ### 3.3 Navigation
 
-- [ ] Rebuild the phone drawer on `Sheet`: 3 columns, 24px icons, 13px labels, opens to half height, drags to full.
-- [ ] Regroup the rail and the drawer from one ordered list by frequency of use. Use the Phase 2 counts once they exist; use the owner's order until then.
-- [ ] Repoint the roughly 30 `/trackingsheet` links at the Jobs Hub. Bill page Back returns to where the user came from.
-- [ ] Fold `/tracking-sheet` (hyphen) into the hub's sheet tab. Give `/unbilled`, `/jobs` and `/vendor-mail/index` a way back.
-- [ ] Replace native and custom dropdowns with `Select` or `Menu`, page by page.
+- [x] Rebuild the phone drawer on `Sheet`: 3 columns, 24px icons, 13px labels, opens to half height, drags to full.
+- [x] Regroup the rail and the drawer from one ordered list by frequency of use. Use the Phase 2 counts once they exist; use the owner's order until then.
+- [x] Repoint the roughly 30 `/trackingsheet` links at the Jobs Hub. Bill page Back returns to where the user came from.
+- [x] Fold `/tracking-sheet` (hyphen) into the hub's sheet tab. Give `/unbilled`, `/jobs` and `/vendor-mail/index` a way back.
+- [x] Replace native and custom dropdowns with `Select` or `Menu`, page by page.
 
 Done when: no page links to a page that the hub replaced, and one menu build remains.
+
+Built 2026-11-13. The drawer and the ☰ menu are both `Sheet` now; the drawer
+has no 12-page cap and lists every page the bar lacks, in the rail's order.
+The Phase 2 counts live only in the production database, so the order is
+still the owner's (`DESK_TOP`). Job links use `hubHref` (`src/lib/hubUrl.ts`);
+the hub reads `?jobId&ym` and a labor focus, then shortens the address. A
+redirect sends `/trackingsheet?jobId=…` to the hub, so stored finding links
+still land. Plain `/trackingsheet` (the all-jobs month views) stays: the hub
+did not replace it. Sheet sync settings is a panel (`SheetSyncButton`) on the
+hub and the all-jobs view; `/tracking-sheet` redirects to the hub. `BackLink`
+gives the three pages a way back. 17 raw selects became `Select`; 8 stay raw
+with a comment (invisible overlays, compact table cells, the hub's borderless
+month word). The comboboxes (JobPicker, CostCodeSelect, GlobalSearch,
+PlaceInput) are out of scope, as in 3.1.
 
 ---
 

@@ -7,6 +7,7 @@ import { InvoiceTagCard } from "./InvoiceTagCard";
 import { RecordEditor, type ReadOnlyRow, type ScalarSpec } from "./RecordEditor";
 import type { InvoiceTag, JobDetail } from "./types";
 import { money0 as money } from "@/lib/money";
+import { hubHref } from "@/lib/hubUrl";
 
 /**
  * ONE JOB, in full — its editable JobTread record, everything JobTread holds
@@ -167,7 +168,7 @@ export function JobPanel({
         onCreated={onTagCreated}
       />
 
-      <Link href={`/trackingsheet?jobId=${encodeURIComponent(job.id)}`} className={btn("secondary", "md")}>
+      <Link href={hubHref(job.id)} className={btn("secondary", "md")}>
         Open in Tracking Sheets
       </Link>
     </div>

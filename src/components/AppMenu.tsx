@@ -1,6 +1,5 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
@@ -8,6 +7,7 @@ import { signOut } from "next-auth/react";
 import { toggleKloi, useKloi } from "@/lib/kloi";
 import { useAccess } from "@/components/AccessProvider";
 import { AppearanceCard } from "@/components/AppearanceCard";
+import { Sheet } from "@/components/Sheet";
 import { DesktopAlertsCard } from "@/components/DesktopAlertsCard";
 import { useCopy, useCopyEdit } from "@/components/CopyProvider";
 import { ListCard, ListRow, SectionLabel, btn } from "@/components/ui";
@@ -41,10 +41,9 @@ import {
  * Assistant, Appearance, alerts and Sign out. The sidebar already lists the
  * pages, and pinning is a phone-bar thing.
  *
- * THE DRAWER IS PORTALLED TO <body>, and has to be. It is mounted from inside
- * the header, and the header carries `backdrop-blur` — a filtered element is
- * the containing block for every `position: fixed` descendant, so the overlay
- * would size itself to the header instead of the window.
+ * The menu is a `Sheet` (OVERHAUL_PLAN 3.3): a bottom sheet on a phone, a side
+ * panel from `pad` up. Sheet portals to <body>, which it must: the header
+ * carries `backdrop-blur`, and a filtered element would contain the overlay.
  */
 
 const MenuIcon = () => (
@@ -124,15 +123,6 @@ export function AppMenu({
     window.dispatchEvent(new Event(BAR_PIN_EVENT));
   };
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-
   const here = locate(pathname)?.workspace.id;
   const workspaces = WORKSPACES.map((w) => ({ ...w, tabs: reachableTabs(w, access.can) }))
     .filter((w) => w.tabs.length > 0)
@@ -189,155 +179,143 @@ export function AppMenu({
         </button>
       )}
 
-      {open &&
-        createPortal(
-          <div className="fixed inset-0 z-40 print:hidden">
+      <Sheet
+        open={open}
+        onClose={() => setOpen(false)}
+        label={account ? "Account" : "Menu"}
+        title={
+          <div className="flex items-center gap-3">
+            <span className="flex-1">{account ? "Account" : "Menu"}</span>
+            {!account && (
+              <button
+                type="button"
+                onClick={() => setPinning((was) => !was)}
+                className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
+              >
+                {pinning ? "Done" : "Pin to bar"}
+              </button>
+            )}
             <button
               type="button"
-              aria-label="Close menu"
               onClick={() => setOpen(false)}
-              className="absolute inset-0 bg-black/40"
-            />
-            <aside
-              aria-label={account ? "Account" : "Menu"}
-              className="sidenav-in absolute inset-y-0 left-0 flex w-[min(340px,88vw)] flex-col border-r border-line bg-cream shadow-xl dark:bg-ink"
+              aria-label="Close menu"
+              className="text-lg leading-none text-neutral-500 transition hover:text-accent"
             >
-              <div className="flex items-center gap-3 border-b border-line px-3 py-2.5 pt-[max(0.625rem,env(safe-area-inset-top))]">
-                <span className="flex-1 text-sm font-semibold tracking-tight">
-                  {account ? "Account" : "Menu"}
-                </span>
-                {!account && (
-                  <button
-                    type="button"
-                    onClick={() => setPinning((was) => !was)}
-                    className="text-[11px] font-semibold text-accent hover:underline dark:text-accent-soft"
-                  >
-                    {pinning ? "Done" : "Pin to bar"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  aria-label="Close menu"
-                  className="text-lg leading-none text-neutral-500 transition hover:text-accent"
-                >
-                  ✕
-                </button>
-              </div>
+              ✕
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-4 py-1">
+          {pinning && (
+            <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
+              Tap a page to put it on the bottom bar, in the last slot. This device only.
+            </p>
+          )}
+          {!pinning && !account && <ListCard>{row(TODAY)}</ListCard>}
 
-              <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-                {pinning && (
-                  <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
-                    Tap a page to put it on the bottom bar, in the last slot. This device only.
-                  </p>
-                )}
-                {!pinning && !account && <ListCard>{row(TODAY)}</ListCard>}
-
-                {!account &&
-                  workspaces.map((w) =>
-                    MENU_SINGLE_WORKSPACES.has(w.id) ? (
-                      <ListCard key={w.id}>
-                        {pinning ? (
-                          row(w.tabs[0])
-                        ) : (
-                          <ListRow
-                            href={w.tabs[0].href + qs}
-                            label={w.title}
-                            desc={w.desc}
-                            className={pathname === w.tabs[0].href ? "bg-accent/5" : ""}
-                          />
-                        )}
-                      </ListCard>
-                    ) : (
-                      <div key={w.id} className="space-y-1.5">
-                        <SectionLabel>{w.title}</SectionLabel>
-                        <ListCard>{w.tabs.map(row)}</ListCard>
-                      </div>
-                    ),
-                  )}
-
-                {account && pages && !pinning && (
-                  <div className="space-y-1.5">
-                    <SectionLabel>Pages</SectionLabel>
-                    <ListCard>
-                      {workspaces.map((w) => (
-                        <ListRow
-                          key={w.id}
-                          href={w.tabs[0].href + qs}
-                          label={w.title}
-                          desc={w.desc}
-                          className={here === w.id ? "bg-accent/5" : ""}
-                        />
-                      ))}
-                    </ListCard>
-                  </div>
-                )}
-
-                {(!pinning || extras.length > 0) && (
-                  <div className="space-y-1.5">
-                    <SectionLabel>More</SectionLabel>
-                    <ListCard>
-                      {!pinning && (
-                        <ListRow
-                          onClick={toggleKloi}
-                          label={kloi.playing ? "Pause KLOI" : "Listen to KLOI"}
-                          desc={
-                            kloi.failed
-                              ? "The stream did not start. Try again."
-                              : "Lopez Island's radio station, live"
-                          }
-                          chevron={false}
-                          trailing={
-                            <span
-                              aria-hidden
-                              className="shrink-0 text-base text-accent dark:text-accent-soft"
-                            >
-                              {kloi.playing ? "❚❚" : "▶"}
-                            </span>
-                          }
-                        />
-                      )}
-                      {extras.map(row)}
-                    </ListCard>
-                  </div>
-                )}
-
-                {copyEdit.canEdit && (
-                  <ListCard>
+          {!account &&
+            workspaces.map((w) =>
+              MENU_SINGLE_WORKSPACES.has(w.id) ? (
+                <ListCard key={w.id}>
+                  {pinning ? (
+                    row(w.tabs[0])
+                  ) : (
                     <ListRow
-                      onClick={() => {
-                        copyEdit.setEditing(!copyEdit.editing);
-                        setOpen(false);
-                      }}
-                      label={copyEdit.editing ? "Stop editing page text" : "Edit page text"}
-                      desc="Tap any outlined text on a page to reword it. Admin only."
-                      chevron={false}
+                      href={w.tabs[0].href + qs}
+                      label={w.title}
+                      desc={w.desc}
+                      className={pathname === w.tabs[0].href ? "bg-accent/5" : ""}
                     />
-                  </ListCard>
+                  )}
+                </ListCard>
+              ) : (
+                <div key={w.id} className="space-y-1.5">
+                  <SectionLabel>{w.title}</SectionLabel>
+                  <ListCard>{w.tabs.map(row)}</ListCard>
+                </div>
+              ),
+            )}
+
+          {account && pages && !pinning && (
+            <div className="space-y-1.5">
+              <SectionLabel>Pages</SectionLabel>
+              <ListCard>
+                {workspaces.map((w) => (
+                  <ListRow
+                    key={w.id}
+                    href={w.tabs[0].href + qs}
+                    label={w.title}
+                    desc={w.desc}
+                    className={here === w.id ? "bg-accent/5" : ""}
+                  />
+                ))}
+              </ListCard>
+            </div>
+          )}
+
+          {(!pinning || extras.length > 0) && (
+            <div className="space-y-1.5">
+              <SectionLabel>More</SectionLabel>
+              <ListCard>
+                {!pinning && (
+                  <ListRow
+                    onClick={toggleKloi}
+                    label={kloi.playing ? "Pause KLOI" : "Listen to KLOI"}
+                    desc={
+                      kloi.failed
+                        ? "The stream did not start. Try again."
+                        : "Lopez Island's radio station, live"
+                    }
+                    chevron={false}
+                    trailing={
+                      <span
+                        aria-hidden
+                        className="shrink-0 text-base text-accent dark:text-accent-soft"
+                      >
+                        {kloi.playing ? "❚❚" : "▶"}
+                      </span>
+                    }
+                  />
                 )}
+                {extras.map(row)}
+              </ListCard>
+            </div>
+          )}
 
-                <div className="space-y-1">
-                  <AppearanceCard />
-                  <DesktopAlertsCard />
-                </div>
+          {copyEdit.canEdit && (
+            <ListCard>
+              <ListRow
+                onClick={() => {
+                  copyEdit.setEditing(!copyEdit.editing);
+                  setOpen(false);
+                }}
+                label={copyEdit.editing ? "Stop editing page text" : "Edit page text"}
+                desc="Tap any outlined text on a page to reword it. Admin only."
+                chevron={false}
+              />
+            </ListCard>
+          )}
 
-                <div className="border-t border-line pt-4 text-center">
-                  <p className="text-xs text-neutral-500">
-                    Signed in — access level: <span className="font-semibold">{access.role}</span>
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => signOut({ callbackUrl: "/login" })}
-                    className={btn("secondary", "md", "mt-3")}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              </div>
-            </aside>
-          </div>,
-          document.body,
-        )}
+          <div className="space-y-1">
+            <AppearanceCard />
+            <DesktopAlertsCard />
+          </div>
+
+          <div className="border-t border-line pt-4 text-center">
+            <p className="text-xs text-neutral-500">
+              Signed in — access level: <span className="font-semibold">{access.role}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className={btn("secondary", "md", "mt-3")}
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </Sheet>
     </>
   );
 }

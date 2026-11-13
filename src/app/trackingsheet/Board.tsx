@@ -372,6 +372,9 @@ export interface BoardEmbed {
   focusBill?: { docId: string; label: string; nonce: number } | null;
   /** Told which bill is open (null = none), so the Jobs page can put it in the address bar. */
   onOpenBill?: (docId: string | null) => void;
+  /** A labor finding to show once the month loads (findingFocus.ts). The hub
+   *  reads it from its own URL, so the board leaves the address alone. */
+  laborFocus?: LaborFocus | null;
   /** Bills that have a note: bill id → the newest note's id. A row shows "Note"
    *  for these and "Add Note" for the rest. */
   noteDocs?: Map<string, number>;
@@ -1483,13 +1486,13 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * Applied once, after the month's entries are on screen, then taken out of
    * the URL so a reload or a Back does not re-apply it.
    */
-  const urlFocus = useRef<LaborFocus | null>(readLaborFocus(params));
+  const urlFocus = useRef<LaborFocus | null>(embed ? (embed.laborFocus ?? null) : readLaborFocus(params));
   useEffect(() => {
     const f = urlFocus.current;
     if (!f || !data) return;
     urlFocus.current = null;
     focusLabor(f);
-    router.replace(`/trackingsheet?${withoutFocus(params.toString())}`, { scroll: false });
+    if (!embed) router.replace(`/trackingsheet?${withoutFocus(params.toString())}`, { scroll: false });
     // Fires on the first load only — the ref is spent after it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
@@ -1912,7 +1915,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     const t = f.target;
     if (t?.kind === "bill") return { label: "Open the bill", onClick: () => openFindingBill(t.billId, f.title) };
     if (t?.kind === "labor") return { label: "Open the labor list", onClick: () => focusLabor(t) };
-    if (f.sourceLink?.startsWith(`/trackingsheet?jobId=${encodeURIComponent(jobId)}`)) return null;
+    // Old runs stored /trackingsheet links; new ones point at the hub.
+    const self = [`/trackingsheet?jobId=${encodeURIComponent(jobId)}`, `/jobs-hub?jobId=${encodeURIComponent(jobId)}`];
+    if (self.some((s) => f.sourceLink?.startsWith(s))) return null;
     return sourceLinkOf(f);
   };
 

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { ROLES, VIEWS, resolveAllowedViews, viewIdForPath } from "@/lib/views";
 import {
   BARS,
-  DRAWER_SIZE,
   EXTRA_LINKS,
   OUTSIDE_WORKSPACES,
   WORKSPACES,
@@ -212,12 +211,11 @@ describe("the phone bar's drawer", () => {
       expect(drawerFor(role, can(role)).map((i) => i.href), role).toContain("/payroll");
     }
   });
-  it("holds at most twelve pages each role can open, none already on the bar, none twice", () => {
+  it("holds pages each role can open, none already on the bar, none twice", () => {
     for (const role of ROLES) {
       const items = drawerFor(role, can(role));
       const bar = barFor(role, can(role)).map((i) => i.href);
       expect(items.length, role).toBeGreaterThan(0);
-      expect(items.length, role).toBeLessThanOrEqual(DRAWER_SIZE);
       expect(new Set(items.map((i) => i.href)).size, role).toBe(items.length);
       for (const i of items) {
         expect(bar, `${role} ${i.key}`).not.toContain(i.href);
@@ -225,9 +223,9 @@ describe("the phone bar's drawer", () => {
       }
     }
   });
-  it("fills the office's grid, workspaces first", () => {
+  it("follows the rail's order, then lists every other page, Safety Meeting last", () => {
     const keys = drawerFor("office", can("office")).map((i) => i.key);
-    expect(keys).toHaveLength(DRAWER_SIZE);
+    expect(keys.at(-1)).toBe("safety-meeting");
     expect(keys.slice(0, 5)).toEqual(["employees", "clients", "leads", "vendors", "time-sync"]);
     expect(keys).toEqual(expect.arrayContaining(["incoming", "search"]));
   });

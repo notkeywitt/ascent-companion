@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Banner, Button, CardSkeletonList, Checkbox, EmptyState, PageHeader, Select } from "@/components/ui";
 import Link from "next/link";
 import { useAccess } from "@/components/AccessProvider";
+import { hubHref } from "@/lib/hubUrl";
 
 // The Assistant's replacement for the Gmail add-on "Log Invoice" card. Lists
 // unprocessed inbox emails (from Apps Script), and for each one you pick a
@@ -637,7 +638,7 @@ function CodeBillLink({ jtJobId, expId }: { jtJobId: string; expId: string }) {
   if (!can || docId === null) return null;
   const href = docId
     ? `/bill/${docId}?jobId=${encodeURIComponent(jtJobId)}`
-    : `/trackingsheet?jobId=${encodeURIComponent(jtJobId)}`;
+    : hubHref(jtJobId);
   return (
     <Link href={href} className="text-sm font-semibold text-accent hover:underline dark:text-accent-soft">
       Code this bill →
