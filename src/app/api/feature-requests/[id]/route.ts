@@ -17,16 +17,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const reqId = Number(id);
   if (!Number.isFinite(reqId)) return NextResponse.json({ error: "Bad id" }, { status: 400 });
 
-  let body: Record<string, string>;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
-  const patch: Record<string, string> = { updatedAt: new Date().toISOString() };
+  const patch: Record<string, string | boolean> = { updatedAt: new Date().toISOString() };
   for (const field of ["status", "title", "detail", "requester"]) {
-    if (typeof body[field] === "string") patch[field] = body[field];
+    const v = body[field];
+    if (typeof v === "string") patch[field] = v;
   }
+  if (typeof body.pushThrough === "boolean") patch.pushThrough = body.pushThrough;
   await ensureDb();
   const [row] = await db
     .update(featureRequests)

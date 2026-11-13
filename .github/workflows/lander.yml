@@ -1,0 +1,44 @@
+# The lander — merges the release queue (ready/* branches) onto main.
+#
+# `npm run ship` pushes a session's branch to ready/<name>; that push starts a
+# run. One run at a time: a push that arrives during a run waits, and GitHub
+# keeps only the newest waiting run, which takes every branch queued by then.
+# So pushes batch on their own. The logic is scripts/land.sh.
+name: Lander
+
+on:
+  push:
+    branches: ["ready/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: lander
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  land:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # main's own land.sh, so a branch cut before a lander fix cannot run the
+      # old one. The fallback covers the first run, before main has the file.
+      - name: Land
+        run: |
+          f=scripts/land.sh
+          [ -f "$f" ] || { git show "$GITHUB_SHA:$f" > "$RUNNER_TEMP/land.sh"; f="$RUNNER_TEMP/land.sh"; }
+          sh "$f"

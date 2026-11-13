@@ -62,7 +62,8 @@ function checkCompanion() {
     drift += 1;
     return;
   }
-  const map = readFileSync(mapPath, "utf8");
+  // The directory half of the map lives in docs/CODEBASE_DIRS.md.
+  const map = readFileSync(mapPath, "utf8") + readFileSync(resolve(companionRoot, "docs/CODEBASE_DIRS.md"), "utf8");
   const src = resolve(companionRoot, "src");
 
   // lib modules — 1:1 table rows (skip tests and non-code fixtures)

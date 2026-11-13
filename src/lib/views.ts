@@ -565,9 +565,9 @@ export const VIEWS: ViewDef[] = [
   // default, alongside the other audit surfaces; the API route is listed so a
   // non-admin cannot read it directly.
   { id: "ai-cost", label: "AI Cost", group: "System", paths: ["/ai-cost", "/api/ai-usage"] },
-  // What each working session changed — the session ledger, rendered. Read-only
-  // and self-contained: the data is a generated JSON module imported at build
-  // time, so there is no API route to gate alongside it. Office + admin by
+  // What reached production — `git log`, rendered. Read-only and
+  // self-contained: the page reads the log when it builds, so there is no API
+  // route to gate alongside it. Office + admin by
   // default (not in ADMIN_MENU): it answers "what changed in the app and when",
   // which is the office's question as much as anyone's.
   { id: "changelog", label: "Changelog", group: "System", paths: ["/changelog"] },

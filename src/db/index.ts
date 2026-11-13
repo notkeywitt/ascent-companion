@@ -84,7 +84,7 @@ export const db: Db = new Proxy({} as Db, {
  * The constant is the hash of `applySchema`'s TypeScript SOURCE, which both
  * bundles share. `src/db/schemaFingerprint.test.ts` recomputes it from this file
  * and fails with the new value when a statement changes, so a schema edit still
- * cannot ship with a stale marker — the pre-push hook runs that test.
+ * cannot ship with a stale marker — `npm run ship` and the lander run that test.
  *
  * The in-flight promise is shared, so concurrent first-callers in one instance wait
  * on a single run instead of each starting their own; a failure clears it so the
@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1849-1h2n64k";
+export const SCHEMA_FINGERPRINT = "18cq-2zg723";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -196,6 +196,16 @@ async function applySchema() {
       updated_at TEXT NOT NULL
     )
   `);
+  for (const alter of [
+    "ALTER TABLE feature_requests ADD COLUMN push_through INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE feature_requests ADD COLUMN result TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(alter);
+    } catch {
+      /* column already exists */
+    }
+  }
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS allowed_users (
       email TEXT PRIMARY KEY,

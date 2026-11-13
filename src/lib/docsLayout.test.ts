@@ -23,7 +23,6 @@ const ROOT_DOCS = [
   "JT_API_REFERENCE.md",
   "PAVE_GOTCHAS.md",
   "README.md",
-  "SESSIONS.md",
   "THEME.md",
   "USER_MANUAL.md",
 ];

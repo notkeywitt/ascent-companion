@@ -8,8 +8,12 @@ dist/
 *.log
 .DS_Store
 .vercel
-data/
+# no trailing slash: in a worktree `data` is a link to the main folder's (scripts/dev.sh)
+/data
 *.tsbuildinfo
+
+# one private copy of the repo per session (EnterWorktree)
+.claude/worktrees/
 
 # local output of scripts/monthly-check.mjs (billing data)
 .monthly-check/

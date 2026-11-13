@@ -1,4 +1,5 @@
 {
+  "model": "sonnet",
   "hooks": {
     "SessionStart": [
       {
@@ -7,18 +8,7 @@
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-start.sh\"",
             "timeout": 60,
-            "statusMessage": "Reading the session ledger…"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/session-stop.sh\"",
-            "timeout": 20
+            "statusMessage": "Reading the release queue…"
           }
         ]
       }

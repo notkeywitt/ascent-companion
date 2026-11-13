@@ -31,6 +31,10 @@ export const featureRequests = sqliteTable("feature_requests", {
   detail: text("detail").notNull().default(""),
   requester: text("requester").notNull().default(""),
   status: text("status").notNull().default("open"), // open | planned | done | declined
+  // The /queue skill's two fields. pushThrough: the express lane — /queue does
+  // this request first and ships it alone. result: what /queue did, written back.
+  pushThrough: integer("push_through", { mode: "boolean" }).notNull().default(false),
+  result: text("result").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

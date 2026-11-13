@@ -11,6 +11,8 @@ interface FeatureRequest {
   detail: string;
   requester: string;
   status: string;
+  pushThrough: boolean;
+  result: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -63,11 +65,11 @@ export default function RequestsPage() {
     }
   }
 
-  async function setStatus(id: number, status: string) {
+  async function patch(id: number, body: { status?: string; pushThrough?: boolean }) {
     const res = await fetch(`/api/feature-requests/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
     });
     if (res.ok) {
       const json = await res.json();
@@ -144,6 +146,11 @@ export default function RequestsPage() {
                 {r.requester && (
                   <div className="mt-1 text-xs text-neutral-500">— {r.requester}</div>
                 )}
+                {r.result && (
+                  <p className="mt-1.5 whitespace-pre-wrap border-l-2 border-line pl-2.5 text-[13px] text-neutral-600 dark:text-neutral-400">
+                    {r.result}
+                  </p>
+                )}
               </div>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass[r.status] ?? ""}`}
@@ -156,7 +163,7 @@ export default function RequestsPage() {
                 {STATUS.map((s) => (
                   <button
                     key={s}
-                    onClick={() => setStatus(r.id, s)}
+                    onClick={() => patch(r.id, { status: s })}
                     className={
                       "rounded-full px-2.5 py-1 text-xs font-semibold transition " +
                       (r.status === s
@@ -167,6 +174,19 @@ export default function RequestsPage() {
                     {s}
                   </button>
                 ))}
+                {/* The express lane: /queue does this one first and ships it alone. */}
+                <button
+                  onClick={() => patch(r.id, { pushThrough: !r.pushThrough })}
+                  aria-pressed={r.pushThrough}
+                  className={
+                    "ml-auto rounded-full px-2.5 py-1 text-xs font-semibold transition " +
+                    (r.pushThrough
+                      ? "text-accent-fg bg-accent"
+                      : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
+                  }
+                >
+                  Push through
+                </button>
               </div>
             )}
           </li>
