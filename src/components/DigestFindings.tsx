@@ -6,12 +6,9 @@ import {
   Banner,
   Card,
   Chip,
-  CountBadge,
   Input,
   Label,
-  ListCard,
   Loading,
-  MetaLine,
   SectionHeading,
   SectionLabel,
   Select,
@@ -21,36 +18,26 @@ import {
 } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { JobPicker } from "@/components/JobPicker";
-import { jtToDoUrl } from "@/lib/jtLinks";
 import { applyDismissals, dismissalKey } from "@/lib/digest/dismissals";
 import { categoryTone, groupByCategory, type CategoryTone } from "@/lib/digest/grouping";
 import type { DigestCategory } from "@/lib/digest/settings";
 import type { DigestItem, DigestPayload, StoredCheckResult } from "@/lib/digest/types";
 
 /**
- * The To Dos card on the home launcher (the `digest` view in src/lib/views.ts —
- * admin-only since 2026-09-08).
+ * The stored morning digest's findings — the `digest` view (admin-only since
+ * 2026-09-08). Office Home opens it from "Needs attention", under the queues,
+ * so it fetches only when that sheet opens. The to-do list it used to carry is
+ * Home's one to-do list now (lib/homeTodos); `CreateTodo` below stays its
+ * create form.
  *
- * It was the Daily Digest, and it is now a TO-DO LIST with the digest's other
- * findings underneath it (2026-09-08, at the owner's request). Three things went
- * with the rename:
- *  - the written brief at the top — a paragraph that restated the rows below it;
- *  - the reply box that set companion-local reminders — to-dos now live in
- *    JobTread, so a second place to keep them was a second place to forget them;
- *  - the stored `jobtread-todos` check's block, because the live list above is
- *    the same to-dos read fresh (see HIDDEN_CHECKS).
+ * It only renders the digest (/api/digest), never runs the checks. "Refresh"
+ * (admin) is the one exception and it is an explicit tap.
  *
- * TWO SOURCES, AND THE ORDER MATTERS. The to-do list and the create form read
- * and write JobTread LIVE (/api/todos). Everything under them is the stored
- * morning digest (/api/digest), which this component still only renders — it
- * never runs the checks. "Refresh" (admin) is the one exception and it is an
- * explicit tap.
- *
- * WHAT IT DRAWS AND WHAT IT DOESN'T DECIDE, below the to-dos. Every heading,
- * count, status mark and row in the digest half comes out of the stored digest:
- * categories are whatever the results carry, ordered and labelled from the
- * `categories` list the API sends (src/lib/digest/settings.ts). Adding a check
- * or a category changes nothing in this file.
+ * WHAT IT DRAWS AND WHAT IT DOESN'T DECIDE. Every heading, count, status mark
+ * and row comes out of the stored digest: categories are whatever the results
+ * carry, ordered and labelled from the `categories` list the API sends
+ * (src/lib/digest/settings.ts). Adding a check or a category changes nothing in
+ * this file.
  *
  * DISMISSING. Items in a `dismissible` category (To-Do, Follow-ups — the flag
  * comes from settings.ts) carry a Dismiss button meaning "this one is handled".
@@ -58,23 +45,15 @@ import type { DigestItem, DigestPayload, StoredCheckResult } from "@/lib/digest/
  * Undo stays under the check for the rest of the visit. The key is built by the
  * SAME pure function the server stores (`dismissalKey`).
  *
- * Self-hiding: renders nothing at all for a user without the `digest` view, so
- * it can sit on the home page every role loads.
+ * Self-hiding: renders nothing for a user without the `digest` view.
  */
-
-/** Where the card remembers whether it is folded away, per device. */
-const OPEN_KEY = "digest.expanded";
 
 /**
- * Stored checks the card does NOT draw, because something above them says the
- * same thing better. `jobtread-todos` is the morning snapshot of exactly the
- * to-dos the live list holds — showing both put every to-do on the card twice,
- * once possibly hours stale.
+ * Stored checks this does NOT draw, because Home says the same thing live:
+ * `jobtread-todos` is the to-do list; the two calendar checks are the Today
+ * strip.
  */
-const HIDDEN_CHECKS = new Set(["jobtread-todos"]);
-
-/** How many to-dos the list shows before "open JobTread for the rest". */
-const TODO_LIMIT = 6;
+const HIDDEN_CHECKS = new Set(["jobtread-todos", "calendar-events", "jobtread-schedule"]);
 
 interface DigestResponse {
   today: string;
@@ -82,28 +61,6 @@ interface DigestResponse {
   stale: boolean;
   categories: DigestCategory[];
   checks: { id: string; title: string; category: string; enabled: boolean }[];
-  error?: string;
-}
-
-/** One live JobTread to-do, as /api/todos returns it. */
-interface TodoRow {
-  id: string;
-  name: string;
-  description?: string;
-  due: string | null;
-  overdue: boolean;
-  jobId: string | null;
-  jobName: string | null;
-}
-
-interface TodosResponse {
-  ok: boolean;
-  me: { name: string; linked: boolean };
-  /** Assigned to the person reading the card. */
-  mine: TodoRow[];
-  /** Assigned to nobody, so fair game — kept apart from `mine` on purpose. */
-  unclaimed: TodoRow[];
-  counts: { mine: number; unclaimed: number; overdue: number; open: number };
   error?: string;
 }
 
@@ -144,7 +101,7 @@ function dayOf(date: string): string {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export function HomeTodos() {
+export function DigestFindings() {
   const access = useAccess();
   const canSee = access.can("digest");
   // Refresh stays a SEPARATE check because /api/digest/run — an org-wide sweep
@@ -154,29 +111,6 @@ export function HomeTodos() {
   // the digest the morning run stored without the button that rebuilds it.
   const canRefresh = access.role === "admin";
 
-  // Collapsed by default, remembered per device (localStorage), like every other
-  // menu on the launcher. Reads are wrapped because storage can throw (private
-  // windows, blocked site data).
-  const [expanded, setExpanded] = useState(false);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(OPEN_KEY) === "1") setExpanded(true);
-    } catch {
-      /* storage unavailable — stay collapsed */
-    }
-  }, []);
-  const toggleExpanded = useCallback(() => {
-    setExpanded((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(OPEN_KEY, next ? "1" : "0");
-      } catch {
-        /* storage unavailable — the choice just won't persist */
-      }
-      return next;
-    });
-  }, []);
-
   const [data, setData] = useState<DigestResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -184,11 +118,6 @@ export function HomeTodos() {
   const [note, setNote] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [openItems, setOpenItems] = useState<Record<string, boolean>>({});
-
-  // The live JobTread to-dos.
-  const [todos, setTodos] = useState<TodosResponse | null>(null);
-  const [todosLoading, setTodosLoading] = useState(true);
-  const [todosErr, setTodosErr] = useState("");
 
   // Dismissals made in THIS visit. The server already filters the ones it knows
   // about, so this list only has to cover the gap between tapping Dismiss and
@@ -219,32 +148,13 @@ export function HomeTodos() {
     }
   }, []);
 
-  const loadTodos = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/todos?limit=${TODO_LIMIT}`);
-      const json: TodosResponse = await res.json();
-      if (!res.ok || !json.ok) {
-        setTodosErr(json.error || "Couldn't read to-dos from JobTread.");
-        return;
-      }
-      setTodos(json);
-      setTodosErr("");
-    } catch {
-      setTodosErr("Couldn't read to-dos from JobTread.");
-    } finally {
-      setTodosLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!canSee) {
       setLoading(false);
-      setTodosLoading(false);
       return;
     }
     load();
-    loadTodos();
-  }, [canSee, load, loadTodos]);
+  }, [canSee, load]);
 
   /**
    * "Refresh" only has to START the digest run — /api/digest/run detaches the
@@ -252,15 +162,13 @@ export function HomeTodos() {
    * duration even if this tab closes right after tapping it, which is a real
    * risk on a phone for something that can take tens of seconds. Once started,
    * this polls for the fresh result while the tab happens to stay open; if it
-   * doesn't stick around, the next normal load shows it anyway. The to-do list
-   * is re-read straight away, since that one is live.
+   * doesn't stick around, the next normal load shows it anyway.
    */
   async function refresh() {
     setRefreshing(true);
     setErr("");
     setNote("");
     const before = data?.digest?.generatedAt ?? null;
-    loadTodos();
 
     let started = false;
     try {
@@ -344,46 +252,25 @@ export function HomeTodos() {
   if (!canSee) return null;
 
   const digest = data?.digest ?? null;
-  const flaggedInDigest = categories.reduce(
-    (n, c) => n + (c.status === "warning" ? c.itemCount : 0),
-    0,
-  );
-  // A badge means work is waiting on YOU, so it counts every to-do assigned to
-  // the reader — not just the few the card lists, and never the unclaimed ones —
-  // plus whatever the digest flagged. A folded card still says what is in it.
-  const badge = (todos?.counts.mine ?? 0) + flaggedInDigest;
 
   return (
-    <section className="mb-6 space-y-2">
+    <section className="space-y-2">
       <SectionHeading
-        onToggle={toggleExpanded}
-        open={expanded}
         trailing={
-          <span className="flex items-center gap-2">
-            {badge > 0 && <CountBadge n={badge} />}
-            {canRefresh && expanded && (
-              <button
-                type="button"
-                onClick={refresh}
-                disabled={refreshing}
-                className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
-              >
-                {refreshing ? "Refreshing…" : "Refresh"}
-              </button>
-            )}
-          </span>
+          canRefresh && (
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={refreshing}
+              className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
+            >
+              {refreshing ? "Refreshing…" : "Refresh"}
+            </button>
+          )
         }
       >
-        To Dos
+        Morning digest
       </SectionHeading>
-
-      {expanded && (
-        <>
-          {/* The to-dos themselves, first and live. */}
-          <TodoList data={todos} loading={todosLoading} error={todosErr} />
-
-          <CreateTodo onCreated={loadTodos} />
-
           {err && <Banner tone="error">{err}</Banner>}
           {!err && note && <Banner tone="info">{note}</Banner>}
 
@@ -515,119 +402,7 @@ export function HomeTodos() {
               )}
             </>
           )}
-        </>
-      )}
     </section>
-  );
-}
-
-/**
- * The live list: your open JobTread to-dos, overdue first, then the ones nobody
- * has picked up — under their own label, because a list that mixes them reads
- * as somebody else's list. Read-only: a to-do is finished in JobTread, which is
- * where its progress, comments and files live, so every row links there.
- */
-function TodoList({
-  data,
-  loading,
-  error,
-}: {
-  data: TodosResponse | null;
-  loading: boolean;
-  error: string;
-}) {
-  if (loading) {
-    return (
-      <Card>
-        <Loading label="Reading your to-dos…" />
-      </Card>
-    );
-  }
-  if (error) return <Banner tone="error">{error}</Banner>;
-  if (!data) return null;
-
-  const nothing = data.mine.length === 0 && data.unclaimed.length === 0;
-  if (nothing) {
-    return (
-      <Card>
-        <p className="text-sm text-neutral-500">
-          Nothing open with your name on it.
-          {!data.me.linked && (
-            <>
-              {" "}
-              Your sign-in isn&rsquo;t a JobTread member, so this can only show
-              unclaimed to-dos.
-            </>
-          )}
-        </p>
-      </Card>
-    );
-  }
-
-  const moreMine = data.counts.mine - data.mine.length;
-  const moreUnclaimed = data.counts.unclaimed - data.unclaimed.length;
-
-  return (
-    <ListCard className="divide-y divide-line-soft">
-      {data.mine.length === 0 && (
-        <p className="px-3 py-2 text-[12px] text-neutral-500">
-          Nothing assigned to you. These are unclaimed:
-        </p>
-      )}
-      {data.mine.map((t) => (
-        <TodoRowView key={t.id} t={t} />
-      ))}
-      {moreMine > 0 && (
-        <p className="px-3 py-2 text-[12px] text-neutral-500">
-          {moreMine} more of yours — the rest are in JobTread.
-        </p>
-      )}
-
-      {data.mine.length > 0 && data.unclaimed.length > 0 && (
-        <p className="bg-neutral-50 px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-neutral-400 dark:bg-white/5">
-          Unclaimed
-        </p>
-      )}
-      {data.unclaimed.map((t) => (
-        <TodoRowView key={t.id} t={t} />
-      ))}
-      {data.unclaimed.length > 0 && moreUnclaimed > 0 && (
-        <p className="px-3 py-2 text-[12px] text-neutral-500">
-          {moreUnclaimed} more unclaimed in JobTread.
-        </p>
-      )}
-    </ListCard>
-  );
-}
-
-/** One to-do row. Links to JobTread's TO-DO list, opened on this to-do. */
-function TodoRowView({ t }: { t: TodoRow }) {
-  return (
-    <div className="px-3 py-2.5">
-      <div className="flex items-start gap-2">
-        <a
-          href={jtToDoUrl(t.id)}
-          target="_blank"
-          rel="noreferrer"
-          className="min-w-0 flex-1 text-[13px] font-semibold leading-snug hover:text-accent dark:hover:text-accent-soft"
-        >
-          {t.name}
-        </a>
-        {t.overdue && <Chip tone="warning">Overdue</Chip>}
-      </div>
-      <MetaLine
-        className="mt-0.5"
-        items={[
-          t.jobName ?? "Company-wide",
-          t.due ? `${t.overdue ? "was due " : "due "}${dayOf(t.due)}` : "no due date",
-        ]}
-      />
-      {t.description && (
-        <p className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-neutral-500">
-          {t.description}
-        </p>
-      )}
-    </div>
   );
 }
 
@@ -644,7 +419,7 @@ function TodoRowView({ t }: { t: TodoRow }) {
  * a jobs list plus a user list is a cost only paid by somebody who is adding a
  * to-do.
  */
-function CreateTodo({ onCreated }: { onCreated: () => void }) {
+export function CreateTodo({ onCreated }: { onCreated: () => void }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [jobId, setJobId] = useState("");

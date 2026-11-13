@@ -18,6 +18,7 @@ import {
   type TripPoint,
 } from "@/lib/mileageTrip";
 import { tripMiles } from "@/lib/mileageRoute";
+import { setUrlParam } from "@/lib/urlParam";
 import { placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
 import { PlaceInput } from "./PlaceInput";
 import {
@@ -876,6 +877,32 @@ export function MileageClient({
     }
     setTab("manual");
   }
+
+  // Home's "Record miles" lands here with ?start=1 (start the trip at once) and
+  // "Enter miles by hand" with ?tab=manual. A trip already open on this phone
+  // is shown instead of starting a second one.
+  // ponytail: a trip open only on another device is not waited for; the
+  // server copy loses to the new trip, as it does after a tap on Start.
+  const linkHandled = useRef(false);
+  useEffect(() => {
+    if (linkHandled.current) return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("tab") === "manual") {
+      linkHandled.current = true;
+      setUrlParam("tab", "");
+      openManual();
+      return;
+    }
+    if (q.get("start") !== "1") {
+      linkHandled.current = true;
+      return;
+    }
+    if (!driver) return; // the roster read is still naming the driver
+    linkHandled.current = true;
+    setUrlParam("start", "");
+    if (phase === "idle" && !readLocalTrip()) void startTrip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, driver]);
 
   // "Add more miles" after a hand-entered save: a clean form, From back on the
   // last start. Purpose stays when a trip is under way — it is that trip's too.

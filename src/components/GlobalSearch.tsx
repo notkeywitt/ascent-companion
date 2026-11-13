@@ -97,6 +97,12 @@ export function GlobalSearch() {
 
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  // The vendor and job lists load the first time the box opens, not with every
+  // page: most page views never search (OVERHAUL_PLAN Phase 4, request count).
+  const [wanted, setWanted] = useState(false);
+  useEffect(() => {
+    if (open) setWanted(true);
+  }, [open]);
   const [bills, setBills] = useState<BillHit[]>([]);
   const [billsLoading, setBillsLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -162,7 +168,7 @@ export function GlobalSearch() {
   const canSeeVendors = access.can("vendors");
   const [vendors, setVendors] = useState<{ id: string; name: string; address?: string }[]>([]);
   useEffect(() => {
-    if (!canSeeVendors) return;
+    if (!canSeeVendors || !wanted) return;
     let alive = true;
     fetch("/api/vendors")
       .then((r) => r.json())
@@ -171,7 +177,7 @@ export function GlobalSearch() {
     return () => {
       alive = false;
     };
-  }, [canSeeVendors]);
+  }, [canSeeVendors, wanted]);
 
   const vendorMatches = useMemo(() => {
     if (!q || !canSeeVendors) return [];
@@ -189,7 +195,7 @@ export function GlobalSearch() {
     { id: string; name: string; number?: string; customer?: string; address?: string }[]
   >([]);
   useEffect(() => {
-    if (!canSeeJobs) return;
+    if (!canSeeJobs || !wanted) return;
     let alive = true;
     fetch("/api/jobs")
       .then((r) => r.json())
@@ -198,7 +204,7 @@ export function GlobalSearch() {
     return () => {
       alive = false;
     };
-  }, [canSeeJobs]);
+  }, [canSeeJobs, wanted]);
   const jobMatches = useMemo(() => {
     if (!q || !canSeeJobs) return [];
     return jobs

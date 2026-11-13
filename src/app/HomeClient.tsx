@@ -6,34 +6,46 @@ import { ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
-import { HomeTodos } from "@/components/HomeTodos";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
-import { HomeMasthead } from "@/components/HomeMasthead";
-import { HomeActions } from "@/components/HomeActions";
+import { HomeMasthead, type MastheadMonth } from "@/components/HomeMasthead";
+import { OfficeHome } from "@/components/OfficeHome";
 import { TodayQueue } from "@/components/TodayQueue";
-import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
-import { JobsHub } from "@/app/jobs-hub/JobsHub";
+import type { HomeLayout } from "@/lib/homeWidgets";
 
 /**
  * The Assistant's front page — Today. The server half is page.tsx: it sends a
- * crew member on to Employee Time and passes the billing month in.
+ * crew member on to Employee Time and passes in the billing month and the
+ * person's widget layout.
  *
- * It no longer lists pages. Since 2026-09-29 every page is in the header's ☰
- * menu and the bottom bar (both from src/lib/workspaces.ts), so the launchers
- * that used to fill this page — the admin cards, the tile grid, All Pages —
- * are gone. What stays is what needs the person today: the billing month, the
- * queue (TodayQueue — a row and a count per thing waiting), the stuck and
- * unassigned bills, the job and lead boards, and the to-dos. Appearance,
- * desktop alerts and Sign out live in the ☰ menu.
+ * ADMIN and OFFICE get OfficeHome (OVERHAUL_PLAN Phase 4, 2026-11-13): one
+ * "Needs attention" count, the Today strip, one to-do list, the phone's four
+ * action buttons and the desktop widgets. Nothing on it repeats a page: the
+ * stuck-vendor and no-job banners became rows under "Needs attention" (the
+ * stuck-vendor pop-up still finds you on any page), and the Jobs page's
+ * map and list stay on /jobs-hub.
  *
- * The one exception is the Actions panel (HomeActions, 2026-10-26, owner): a
- * few big buttons for jobs done from a phone in the field, not page launchers.
+ * FIELD and LEAD keep the Home below, unchanged.
  */
 
-function Home({ billingYm }: { billingYm: string }) {
+function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
   const access = useAccess();
 
+  /* ADMIN and OFFICE: their own Home. */
+  if (access.role === "admin" || access.role === "office") {
+    return (
+      <main className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5">
+        <HomeMasthead month={month} />
+        <OfficeHome layout={layout} />
+      </main>
+    );
+  }
+  return <CrewHome month={month} />;
+}
+
+/** FIELD and LEAD. */
+function CrewHome({ month }: { month: MastheadMonth }) {
+  const access = useAccess();
   const needsProject = useNeedsProjectCount();
   // Home's notices, up in the masthead (owner, 2026-11-02). Each self-hides.
   const notices = (
@@ -43,22 +55,6 @@ function Home({ billingYm }: { billingYm: string }) {
     </>
   );
 
-  /* ADMIN and OFFICE land on the Jobs page (owner, 2026-11-02). Home's own
-     pieces it does not carry stay on top: the masthead (it sets the billing
-     month), the phone buttons and the two stuck-bill banners. The queue, both
-     to-do lists, and the job and lead boards are already on the Jobs page. */
-  if ((access.role === "admin" || access.role === "office") && access.can("jobs-hub")) {
-    return (
-      <>
-        <div className="w-full px-4 pt-3 pad:px-7 pad:pt-5">
-          <HomeMasthead notices={notices} />
-          <HomeActions />
-        </div>
-        <JobsHub home billingYm={billingYm} />
-      </>
-    );
-  }
-
   return (
     <main className="w-full max-w-2xl px-4 pb-10 pt-3 pad:max-w-none pad:pt-5 pad:px-7">
       {/* No page title here ON A PHONE, on purpose: the logo in the header
@@ -67,12 +63,7 @@ function Home({ billingYm }: { billingYm: string }) {
           screen is a foot tall and the same band costs nothing, so the masthead
           below draws the heading — and stands the billing month on it, which is
           the fact this office checks before it opens anything. */}
-      <HomeMasthead notices={notices} />
-
-      {/* The button panel — one big tap per thing done from a phone (Deposit
-          checks first). Hidden on a desktop. Self-hiding: each button rides its own view, and the
-          deposit view is admin-only by default. */}
-      <HomeActions />
+      <HomeMasthead notices={notices} month={month} />
 
       {/* What needs this person — one row per queue, each with its count. */}
       <TodayQueue />
@@ -87,21 +78,6 @@ function Home({ billingYm }: { billingYm: string }) {
           and remembered per device; self-gating on the `leads` view, so office
           and admin get it and a field or lead phone never fetches it. */}
       <HomeLeadBoard />
-
-      {/* To Dos — your open JobTread to-dos, a form that creates one, and the
-          morning digest's other findings (calendar, follow-ups) under them. The
-          to-dos are read live; the digest half is the report the scheduled job
-          stored, and this does NOT run the checks on load. Self-hiding: renders
-          nothing without the `digest` view, which is ADMIN-ONLY as of
-          2026-09-08. Office, lead and field all load this same page and pay
-          nothing for it. Only admin gets "Refresh", which is a separate check —
-          see HomeTodos.tsx. */}
-      <HomeTodos />
-
-      {/* The Office job's to-dos, under the "office" view — the same list and
-          edits as the Office dashboard. With HomeTodos above, Today holds both
-          to-do lists, each under its own gate. */}
-      <TodayOfficeTodos />
 
       {/* No views at all — don't leave a blank page. This happens when the
           session carries no identity/role (e.g. signed in with the temporary
@@ -140,10 +116,10 @@ function Home({ billingYm }: { billingYm: string }) {
   );
 }
 
-export function HomeClient({ billingYm }: { billingYm: string }) {
+export function HomeClient({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
   return (
     <Suspense fallback={<main className="p-6 text-sm text-neutral-500">Loading…</main>}>
-      <Home billingYm={billingYm} />
+      <Home month={month} layout={layout} />
     </Suspense>
   );
 }

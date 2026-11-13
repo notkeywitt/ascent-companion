@@ -2,7 +2,9 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
-import { currentBillingPeriod } from "@/lib/billingMonth";
+import { readBillingMonth } from "@/lib/billingMonth";
+import { readHomeLayout } from "@/lib/homeLayoutStore";
+import { DEFAULT_LAYOUT } from "@/lib/homeWidgets";
 import { onboardingOpen } from "@/lib/onboarding/open";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { HomeClient } from "./HomeClient";
@@ -19,8 +21,8 @@ import { HomeClient } from "./HomeClient";
  *     bar tap to Today is a client navigation (it carries the RSC header), so
  *     the lead's Today slot and the menu still reach this page. A refresh on
  *     Today lands on Time again.
- *   • The billing month for the office's Jobs Hub, so that page does not fetch
- *     it before it can fetch the month's figures.
+ *   • The billing month for the masthead, and the office Home's widget layout
+ *     (home_layouts), so neither is a request from the browser.
  */
 export default async function Page({
   searchParams,
@@ -49,7 +51,10 @@ export default async function Page({
     }
   }
 
-  const { billingYear, billingMonthNum } = await currentBillingPeriod();
-  const billingYm = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
-  return <HomeClient billingYm={billingYm} />;
+  const office = role === "admin" || role === "office";
+  const [month, layout] = await Promise.all([
+    readBillingMonth(),
+    office ? readHomeLayout(session?.user?.email ?? "") : DEFAULT_LAYOUT,
+  ]);
+  return <HomeClient month={{ ym: month.ym, override: month.override }} layout={layout} />;
 }

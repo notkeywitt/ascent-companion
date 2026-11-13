@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { HomeMasthead } from "@/components/HomeMasthead";
 import { TodayQueue } from "@/components/TodayQueue";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
-import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
+import { TodosWidget } from "@/components/OfficeHome";
 import { NewVersionNotice } from "@/components/NewVersionNotice";
 import { useAccess } from "@/components/AccessProvider";
 
@@ -20,7 +20,7 @@ import { useAccess } from "@/components/AccessProvider";
 export function WidgetView() {
   const root = useRef<HTMLDivElement>(null);
   const [stamp, setStamp] = useState("");
-  const { role } = useAccess();
+  const { role, can } = useAccess();
 
   useEffect(() => {
     setStamp(new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
@@ -53,7 +53,7 @@ export function WidgetView() {
       <HomeMasthead />
       <TodayQueue />
       <HomeJobBoard />
-      <TodayOfficeTodos />
+      {can("home") && <TodosWidget />}
       <p className="mt-4 text-center text-xs text-neutral-500">Updated {stamp}</p>
     </div>
   );

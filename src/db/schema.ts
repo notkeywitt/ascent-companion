@@ -645,6 +645,18 @@ export const pageCopy = sqliteTable("page_copy", {
 export type PageCopyRow = typeof pageCopy.$inferSelect;
 
 /**
+ * Each person's desktop Home arrangement: which widgets show, in what order,
+ * and which take the full width (src/lib/homeWidgets.ts). One row per signed-in
+ * email; no row means the default layout. Added 2026-11-13 (OVERHAUL_PLAN
+ * Phase 4), owner-approved schema.
+ */
+export const homeLayouts = sqliteTable("home_layouts", {
+  email: text("email").primaryKey(), // lowercased
+  value: text("value").notNull(), // JSON HomeLayout {order, hidden, wide}
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+/**
  * ARCHIVED 2026-09-29 — nothing reads or writes this table any more.
  *
  * It held the admin's home-launcher layout (`id = 'home'`) and the All Pages

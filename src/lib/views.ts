@@ -502,10 +502,14 @@ export const VIEWS: ViewDef[] = [
   // calls it has no session at all, so it is PUBLIC in middleware and does its
   // own authentication (a cron bearer secret, or an admin session). See that
   // route. So "Refresh now" stays ADMIN-ONLY even though the card is shared —
-  // the card hides that button for everyone else (see HomeTodos.tsx).
+  // the card hides that button for everyone else (see DigestFindings.tsx).
   // /api/todos rides the same gate: it reads and CREATES JobTread to-dos for
   // the card, so it must not be reachable by a role the card is hidden from.
   { id: "digest", label: "To Dos", group: "System", paths: ["/api/digest", "/api/todos"] },
+  // The office Home's own reads (2026-11-13, OVERHAUL_PLAN Phase 4): the Today
+  // strip, the merged to-do list and the widget layout. Office + admin; field
+  // and lead keep their own Home and never call these.
+  { id: "home", label: "Office Home", group: "System", paths: ["/api/home"] },
   // The in-app instructions — /help. EVERY role holds this one (it is in
   // FIELD_VIEWS below, the base every role inherits): a help page a crew member
   // cannot open is worse than no help page. Read-only and self-contained — the

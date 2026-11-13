@@ -15,7 +15,7 @@
  * paragraph.
  *
  * NOTHING RENDERS THIS TODAY. The card stopped drawing the brief when it became
- * To Dos (2026-09-08, src/components/HomeTodos.tsx): a paragraph restating the
+ * To Dos (2026-09-08, src/components/HomeTodos.tsx, now DigestFindings.tsx): a paragraph restating the
  * rows under it was the first thing on the screen every morning. `run.ts` still
  * writes a summary into every stored digest, so this parser stays — it is what
  * a future surface reads that text back with, and the unit suite tests it
