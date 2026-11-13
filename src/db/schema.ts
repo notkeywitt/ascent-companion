@@ -1006,6 +1006,48 @@ export const invoiceReviewFindingState = sqliteTable("invoice_review_finding_sta
 export type InvoiceReviewFindingStateRow = typeof invoiceReviewFindingState.$inferSelect;
 
 /**
+ * THE INBOX — one row per warning, from every source (lib/findings).
+ *
+ * A source reports what it sees now; a row it stops reporting resolves. The
+ * identity is (source, scope, key). `scope` is the month for invoice review
+ * (so `invoice_review_dispositions` joins on scope + key unchanged), the
+ * reader's email for a per-user finding, and "" otherwise.
+ *
+ * Rows are never deleted. A finding that comes back reopens and keeps its
+ * first-seen time and its dismissal.
+ */
+export const findings = sqliteTable("findings", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  /** "invoice-review" | "stuck-vendors" | ... */
+  source: text("source").notNull(),
+  scope: text("scope").notNull().default(""),
+  /** Stable within source + scope. */
+  key: text("key").notNull(),
+  kind: text("kind").notNull().default(""),
+  /** What it is about: a job id, a vendor name. */
+  subject: text("subject").notNull().default(""),
+  /** error | warning | info */
+  severity: text("severity").notNull().default("warning"),
+  title: text("title").notNull().default(""),
+  /** Where the fix lives today. */
+  link: text("link").notNull().default(""),
+  /** Inline fix id. "" = none. */
+  fixAction: text("fix_action").notNull().default(""),
+  firstSeenAt: text("first_seen_at").notNull(),
+  lastSeenAt: text("last_seen_at").notNull(),
+  /** "" = open. */
+  resolvedAt: text("resolved_at").notNull().default(""),
+  /** ISO time. "" = not snoozed. */
+  snoozedUntil: text("snoozed_until").notNull().default(""),
+  /** Email. "" = not dismissed. */
+  dismissedBy: text("dismissed_by").notNull().default(""),
+  dismissedAt: text("dismissed_at").notNull().default(""),
+  dismissReason: text("dismiss_reason").notNull().default(""),
+});
+
+export type FindingRow = typeof findings.$inferSelect;
+
+/**
  * MISTAKES THE REVIEW DIDN'T CATCH — the training set.
  *
  * THIS IS THE MOST IMPORTANT TABLE IN THE FEATURE, and the one that makes the

@@ -49,6 +49,10 @@ const DigestFindings = dynamic(
   () => import("@/components/DigestFindings").then((m) => m.DigestFindings),
   { ssr: false },
 );
+const FindingsInbox = dynamic(
+  () => import("@/components/FindingsInbox").then((m) => m.FindingsInbox),
+  { ssr: false },
+);
 const CreateTodo = dynamic(() => import("@/components/DigestFindings").then((m) => m.CreateTodo), {
   ssr: false,
 });
@@ -170,7 +174,8 @@ function NeedsAttention() {
       {used && (
         <Sheet open={open} onClose={() => setOpen(false)} title="Needs attention">
           <div className="space-y-6">
-            <AttentionList rows={rows} done={done} />
+            {can("attention") && <FindingsInbox limit={5} />}
+            <AttentionList rows={rows.filter((r) => r.key !== "findings")} done={done} />
             {can("digest") && <DigestFindings />}
           </div>
         </Sheet>

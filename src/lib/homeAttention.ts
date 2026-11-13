@@ -5,6 +5,8 @@ import { db, ensureDb, rawDb } from "@/db";
 import { featureRequests } from "@/db/schema";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { list as listFindings } from "@/lib/findings";
+import { refreshSources } from "@/lib/findingSources";
 import { monthLabel } from "@/lib/billingMonths";
 import { previousMonth } from "@/lib/homeFacts";
 import { getAllDraftBills, getLastAmazonBillMonth } from "@/lib/jobtread";
@@ -54,6 +56,19 @@ type Source = {
 };
 
 const SOURCES: Source[] = [
+  {
+    // The findings inbox (lib/findings). When every queue below reports into
+    // the store, this row is the whole list: delete the others.
+    key: "findings",
+    view: "attention",
+    label: "Warnings",
+    href: "/attention",
+    load: async (email) => {
+      await refreshSources();
+      const n = (await listFindings({ reader: email })).length;
+      return { count: n, detail: `${plural(n, "open warning")}` };
+    },
+  },
   {
     key: "drafts",
     view: "recode",

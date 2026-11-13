@@ -467,6 +467,9 @@ export const VIEWS: ViewDef[] = [
   // (/api/notices + /api/notices/dismiss) is ungated on purpose — every role
   // must be able to receive a notice and clear it.
   { id: "notices", label: "Notices", group: "Office", paths: ["/notices", "/api/admin/notices"] },
+  // The one inbox for every warning (OVERHAUL_PLAN Phase 5, 2026-11-13).
+  // /api/findings also snoozes and dismisses, so it rides the same gate.
+  { id: "attention", label: "Needs Attention", group: "Office", paths: ["/attention", "/api/findings"] },
   // System
   // Bulk-writes a real JobTread draft bill — admin only, not office (unlike
   // every other Financials view). The API prefix is listed alongside so a

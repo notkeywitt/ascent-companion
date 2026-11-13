@@ -269,14 +269,149 @@ Apps Script queues (no Apps Script URL in `.env.local`).
 
 ## Phase 5 — One inbox for every warning (Opus for the schema, Sonnet for the rollout; 1 to 2 sessions)
 
-- [ ] One `findings` store. Generalize `invoice_review_finding_state`: kind, severity, subject, first seen, last seen, resolved, snoozed until, dismissed by.
-- [ ] One dismissal mechanism replaces the five in use.
-- [ ] One "Needs attention" page built on `Notice`. Each row has: what is wrong, the fix button, snooze, dismiss.
-- [ ] Each source writes into the store: stuck vendors, needs project, uncaptured bills, flagged bills, time sync, pre-send check, Sunset duplicates, invoice review.
+- [x] One `findings` store. Generalize `invoice_review_finding_state`: kind, severity, subject, first seen, last seen, resolved, snoozed until, dismissed by.
+- [ ] One dismissal mechanism replaces the five in use. (The mechanism exists. The five old stores still run; see the mapping table below.)
+- [x] One "Needs attention" page built on `Notice`. Each row has: what is wrong, the fix button, snooze, dismiss.
+- [ ] Each source writes into the store: stuck vendors, needs project, uncaptured bills, flagged bills, time sync, pre-send check, Sunset duplicates, invoice review. (Done: invoice review, stuck vendors. The rest are listed below.)
 - [ ] Inline fixes for the finding kinds that occur most. Count them from `invoice_review_finding_state` first. Each fix reuses an existing write route. **Sign-off** per fix.
-- [ ] Show the Mac check's verdicts (`invoice_review_dispositions`) on each finding. Today they change nothing on screen.
-- [ ] Show when the Mac check last ran (`monthly_check_runs`) and warn when it is late.
+- [x] Show the Mac check's verdicts (`invoice_review_dispositions`) on each finding. Today they change nothing on screen.
+- [x] Show when the Mac check last ran (`monthly_check_runs`) and warn when it is late.
 - [ ] Replace the 28 hand-rolled amber and red boxes with `Notice`.
+
+### Handoff — first half built 2026-11-13
+
+Read this section and you do not need to re-read the codebase to finish the rollout.
+
+**What exists**
+
+| Part | File |
+|---|---|
+| The table `findings` (owner-approved schema; additive) | `src/db/schema.ts`, `applySchema` in `src/db/index.ts` |
+| The store | `src/lib/findings.ts` (tests: `src/lib/findings.test.ts`) |
+| Pull sources and the Mac check status | `src/lib/findingSources.ts` |
+| The route | `src/app/api/findings/route.ts` (GET the list, POST snooze / dismiss / restore) |
+| The list | `src/components/FindingsInbox.tsx` (the page and Home's sheet both draw it) |
+| The page | `src/app/attention/page.tsx`, view `attention`, first tab of the Office workspace |
+| Home's count | the `findings` row in `SOURCES`, `src/lib/homeAttention.ts` |
+
+A row's identity is `(source, scope, key)`. `scope` is `""` for a company-wide
+source, a billing month (`2026-11`) for invoice review, or the reader's email
+for a per-user finding. `list` hides a row whose scope holds `@` from every
+other reader.
+
+**The store API** (`src/lib/findings.ts`)
+
+| Call | What it does |
+|---|---|
+| `report(source, items, scope = "")` | Upserts every item and resolves every open row of that source and scope that is not in `items`. A resolved row that is reported again reopens and keeps its first-seen date. |
+| `list({ source?, scope?, reader?, hidden? })` | Open rows, worst severity first. Leaves out snoozed and dismissed rows unless `hidden` is true. |
+| `snooze(id, untilIso)` | Hides the row until that time. |
+| `dismiss(id, by, reason?)` | Hides the row for good. The row still tracks last-seen and still auto-resolves. |
+| `restore(id)` | Clears the snooze and the dismissal. |
+| `resolve(id)` | Closes one row by hand. A source rarely needs it: `report` does it. |
+| `get(id)`, `isHidden(row)` | Helpers for a route. |
+
+An item is `{ key, title, kind?, subject?, severity?, link?, fixAction?, dismissed? }`.
+`severity` is `error`, `warning` (default) or `info`. `link` is where "Fix"
+goes. `fixAction` is stored and not yet used: it is the id an inline fix will
+key on. Pass `dismissed` only when the source owns the dismissal (invoice
+review passes its rulings); leave it out and the inbox owns it.
+
+**Two rules**
+
+1. A source whose read failed must not call `report`. An empty array means
+   "nothing is wrong" and resolves every row of that source.
+2. `key` must be stable between runs. Use the record's id, not its title.
+
+**How to wire a source**
+
+A source with no job of its own is one entry in `PULL` in
+`src/lib/findingSources.ts`. `refreshSources` runs every entry when the inbox
+or Home's count is read, at most once a minute, with a 6 second limit each. A
+throw or a timeout reports nothing.
+
+```ts
+{
+  source: "needs-project",
+  load: async () => {
+    const r = await callAppsScriptOrThrow<{ items?: { expId: string; vendor: string; amount: number }[] }>(
+      { action: "listNeedsProject" },
+      { timeoutMs: TIMEOUT_MS },
+    );
+    return (r.items ?? []).map((b) => ({
+      key: b.expId,
+      kind: "needs-project",
+      subject: b.vendor,
+      title: `${b.vendor} $${b.amount}: no job picked, so it is not in JobTread`,
+      link: "/needs-project",
+    }));
+  },
+},
+```
+
+Then do three more things:
+
+1. Add the source's heading to `SOURCE_LABEL` in `src/components/FindingsInbox.tsx`.
+2. Delete that source's row from `SOURCES` in `src/lib/homeAttention.ts`, or Home counts it twice.
+3. Add one case to `findings.test.ts` only if the source has logic beyond a map.
+
+A source that already runs as a job (a cron, a save) calls `report` as its
+last step instead. Invoice review does this in `src/lib/invoiceReview/run.ts`
+(search for `report("invoice-review"`).
+
+**Dismissal mapping.** Nothing below is deleted yet. Move one store per
+commit: change the write, backfill if the old rows matter, then delete the old
+store.
+
+| Old store | Where it is written and read | New call |
+|---|---|---|
+| `notice_reads` (per user) | write `src/app/api/notices/dismiss/route.ts:11`; read `src/app/api/notices/route.ts:34` | `report("notices", …, email)` per reader, then `dismiss(id, email)` |
+| `digest_dismissals` (company-wide, key `<checkId>::<item.key>`) | write `src/app/api/digest/dismiss/route.ts:33`, `src/lib/digest/store.ts:104`; read `src/lib/digest/store.ts:90`, `src/lib/digest/dismissals.ts:52` | `dismiss(id, by)`; undo is `restore(id)` |
+| `invoice_review_rulings` | `src/lib/invoiceReview/rulings.ts:85` (record), `:126` (lift); route `src/app/api/invoice-review/route.ts:140` | Finding-scope ruling: `dismiss` / `restore`. `/api/findings` already writes both sides. A job-wide or customer-wide ruling stays in the table and reaches the store through `report(…, dismissed)`. |
+| Uncaptured and needs-project dismissal (Apps Script `dismissUncaptured`, by `expId`) | `src/app/api/uncaptured/route.ts:52`, `src/app/api/needs-project/route.ts:36` | `dismiss(id, by)` |
+| `localStorage` `ascent.presend.v1:<ym>:<jobId>` | `src/app/trackingsheet/preSendMemory.ts:161` (write), `:91` (read) | `dismiss(id, by)` with scope = the month |
+| `localStorage` `lswdd.payReminder.dismissed` | `src/components/LswddPayReminder.tsx:75` (write), `:45` (read) | `snooze(id, tomorrow)` with scope = the reader's email |
+| `localStorage` `timeBug.dismissedOn` | `src/lib/timeClockShared.ts:198` | `snooze(id, tomorrow)` with scope = the reader's email |
+| `sessionStorage` `ascent.stuckVendors.dismissed` | `src/components/StuckVendors.tsx:416` (write), `:404` (read) | `snooze(id, …)`; the source is already in the store |
+
+`requisitions.seenReqId` (`src/lib/requisitionsSeen.ts:33`) is a "new" marker,
+not a dismissal. Keep it.
+
+**Remaining sources.** Each row says where the warning is built today.
+
+| Source | Built at | Drawn at | Fix link | View |
+|---|---|---|---|---|
+| Needs project | `src/app/api/needs-project/route.ts:16` (Apps Script `listNeedsProject`) | `src/components/NeedsProject.tsx:103` | `/needs-project` | `needs-project` |
+| Uncaptured bills | `src/app/api/uncaptured/route.ts:30` (Apps Script `listUncaptured`) | `src/components/UncapturedBills.tsx:80` | the page that hosts `UncapturedBills` | `recode` |
+| Flagged bills | `src/app/api/bill-review/route.ts:71` (SQL at `:93`, `saved_bills.needs_review = 1`) | `src/app/needs-review/FlaggedBills.tsx:33` | `/invoice-review?section=flagged` | `bill-review` |
+| Time sync | `listTimeProblems`, `src/lib/timeSync.ts:175` | `src/app/time-sync/TimeSync.tsx:81` | `/payroll?section=sync` | `time-sync` |
+| Pre-send check | `preSendCheck`, `src/lib/invoiceReview/preSend.ts:76` (route `src/app/api/invoice-review/job/route.ts:27`) | `src/app/trackingsheet/PreSendCheck.tsx:26` | `/trackingsheet` | `invoice-review` |
+| Sunset unreconciled | `reconcileState`, `src/lib/sunsetReconcile.ts:32` (routes `src/app/api/sunset-statements/route.ts:43`, `reconcile/route.ts:74`) | `src/app/payments/page.tsx:829` | `/payments` | `payments` |
+| Sunset duplicates | `src/app/api/sunset-duplicates/route.ts:13` | `src/components/SunsetDuplicateScan.tsx:74` | `/payments` | `payments` |
+| Tracking sheet risks | `src/app/api/tracking-sheet/route.ts:77` (POST `op: "sync"`) | `src/components/TrackingSheetRisks.tsx:73` | `/trackingsheet` | `tracking-sheet` |
+| Digest findings | `src/lib/digest/run.ts:145` (push: report at the end of the run) | `src/components/DigestFindings.tsx:104` | per check | `digest` |
+| LSWDD pay reminder | `src/lib/lswddPay.ts:77` | `src/components/LswddPayReminder.tsx:27` | `/lswdd` | `lswdd` |
+| Billing month stale | `src/components/HomeMasthead.tsx:99` | same | — | — |
+| Notices | `src/app/api/notices/route.ts:20` | `src/components/Notices.tsx:98` | — | every role |
+
+The other `SOURCES` rows in `homeAttention.ts` (drafts, to-log, time-off,
+requisitions, amazon, lswdd, feedback) are work queues, not warnings. Decide
+with the owner whether they move.
+
+**Open points for the second half**
+
+- The `attention` view gates the whole list, and it is office and admin only.
+  A source for another role needs a per-row view check in `/api/findings`
+  first.
+- Pre-send check and tracking sheet risks compute on a button press. Report
+  from that route (push), not from `PULL`.
+- If the pull reads get slow, call `refreshSources` from the digest cron and
+  drop the call from the two readers.
+- Dismissing an invoice-review row in the inbox also records a finding-scope
+  ruling, so the review page hides it too and the accuracy figures count it as
+  set aside.
+- Stuck vendors was not run against Apps Script locally (no URL in
+  `.env.local`). Check the row on the first production read.
 
 The Mac check already runs unattended (launchd, headless Opus on the Claude
 subscription, posting to `/api/invoice-review/agent`). The missing part is the

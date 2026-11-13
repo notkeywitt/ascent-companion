@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "18k6-76phgw";
+export const SCHEMA_FINGERPRINT = "19ri-1ci5utn";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1649,6 +1649,41 @@ async function applySchema() {
   ]) {
     await getClient().execute(idx);
   }
+  // The inbox: one row per warning from every source (lib/findings).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS findings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      source TEXT NOT NULL,
+      scope TEXT NOT NULL DEFAULT '',
+      key TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT '',
+      subject TEXT NOT NULL DEFAULT '',
+      severity TEXT NOT NULL DEFAULT 'warning',
+      title TEXT NOT NULL DEFAULT '',
+      link TEXT NOT NULL DEFAULT '',
+      fix_action TEXT NOT NULL DEFAULT '',
+      first_seen_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      resolved_at TEXT NOT NULL DEFAULT '',
+      snoozed_until TEXT NOT NULL DEFAULT '',
+      dismissed_by TEXT NOT NULL DEFAULT '',
+      dismissed_at TEXT NOT NULL DEFAULT '',
+      dismiss_reason TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS findings_source_scope_key_idx ON findings (source, scope, key)`,
+  );
+  await getClient().execute(`CREATE INDEX IF NOT EXISTS findings_open_idx ON findings (resolved_at, source)`);
+  // Seed from the invoice review's memory: open findings, last two months.
+  // OR IGNORE makes a re-run a no-op.
+  await getClient().execute(`
+    INSERT OR IGNORE INTO findings
+      (source, scope, key, kind, subject, severity, title, first_seen_at, last_seen_at)
+    SELECT 'invoice-review', ym, key, kind, job_id, severity, title, first_seen_at, last_seen_at
+    FROM invoice_review_finding_state
+    WHERE resolved_at = '' AND ym >= strftime('%Y-%m', 'now', '-2 months')
+  `);
 }
 
 export { schema };

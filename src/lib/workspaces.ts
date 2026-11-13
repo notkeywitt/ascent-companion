@@ -127,6 +127,7 @@ export const WORKSPACES: Workspace[] = [
     title: "Office",
     desc: "The Office job, the team's notices, and the script jobs.",
     tabs: [
+      tab("attention", "/attention", "Needs Attention", "Every open warning in one list — fix, snooze or dismiss"),
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
       tab("notices", "/notices", "Notices", "Post a banner to the team — now or scheduled"),
     ],
