@@ -16,6 +16,8 @@ import { JobTabs } from "@/components/JobTabs";
 import { setUrlParam } from "@/lib/urlParam";
 import { Donut, type DonutSlice } from "@/components/Donut";
 import { money, money0 } from "@/lib/money";
+import { BackLink } from "@/components/BackLink";
+import { hubHref } from "@/lib/hubUrl";
 
 /**
  * Jobs cost browser — pick a job, see its cost laid out like the office's
@@ -406,6 +408,7 @@ export function JobsBrowser() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[110rem]">
+      <BackLink href={jobId ? hubHref(jobId) : "/jobs-hub"} />
       <JobTabs jobId={jobId} />
       <PageHeader
         title="Job Cost"

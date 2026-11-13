@@ -8,7 +8,7 @@ import { Tabs } from "@/components/ui";
  * ONE JOB, ITS PAGES — the tab row that ties a job's pages together
  * (CONSOLIDATION_PLAN.md stage 4). Pick the job once; every tab opens on it
  * through ?jobId. Each tab keeps its own route and gate, and shows only to
- * someone who holds its view. "This month" hands over to Tracking Sheets.
+ * someone who holds its view. "This month" opens the job on the Jobs Hub.
  */
 const TABS = [
   { view: "job-board", href: "/job-board/", label: "Overview" },
@@ -18,7 +18,7 @@ const TABS = [
   { view: "specs", href: "/specs", label: "Specifications" },
   { view: "house-manual", href: "/house-manual", label: "House Manual" },
   { view: "unbilled", href: "/unbilled", label: "Unbilled" },
-  { view: "recode", href: "/trackingsheet", label: "This month" },
+  { view: "recode", href: "/jobs-hub", label: "This month" },
 ];
 
 export function JobTabs({ jobId, className = "" }: { jobId: string; className?: string }) {

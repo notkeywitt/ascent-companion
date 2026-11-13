@@ -208,7 +208,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   "vendor-mail": "a section of Inbox (/email?section=mail); /vendor-mail redirects",
   "tool-schedule-edit": "the Edit button on the Tool Schedule page (/tool-schedule/edit)",
   "tools-batch-analyze": "the Analyze Tools Batch button on the Tools page's batch card",
-  "tracking-sheet": "Sheet sync settings, linked from Tracking Sheets' Company tools; Finalize is on each job since 2026-10-18",
+  "tracking-sheet": "Sheet sync settings, a panel on the Jobs Hub and Tracking Sheets' Company tools; /tracking-sheet redirects to the hub",
   "bill-review": "a section of Checks (/invoice-review?section=flagged); /needs-review redirects",
   "taxable-lines": "a section of Checks (/invoice-review?section=taxable); /taxable-lines redirects",
 };
@@ -549,14 +549,12 @@ const PARENT_WORKSPACE: [string, string][] = [
   ["/add-bill", "close"],
 ];
 
-/** How many links the phone bar's drawer holds: a 4 × 3 grid. */
-export const DRAWER_SIZE = 12;
-
 /**
  * The phone bar's drawer (owner, 2026-10-29): the pages the bar has no room
- * for, as a 4 × 3 grid of icons. First every workspace the rail lists that is
- * not already a bar slot; then single pages, in workspace order, that no slot
- * already opens. At most DRAWER_SIZE, and only what this person can open.
+ * for, three to a row in a `Sheet`. It follows the rail's order, so the phone
+ * and the iPad list pages the same way: first every item the rail lists that
+ * is not already a bar slot; then every other page, in workspace order, that
+ * no slot already opens. Only what this person can open.
  */
 export function drawerFor(
   role: Role,
@@ -572,9 +570,8 @@ export function drawerFor(
   const safetyTab = TAB_BY_VIEW.get("safety-meeting");
   const safety = safetyTab && can(safetyTab.view) && !taken.has(safetyTab.href) ? safetyTab : undefined;
   if (safety) taken.add(safety.href);
-  const cap = DRAWER_SIZE - (safety ? 1 : 0);
   const add = (i: BarItem) => {
-    if (out.length >= cap || taken.has(i.href)) return;
+    if (taken.has(i.href)) return;
     taken.add(i.href);
     out.push({ ...i, gap: undefined });
   };

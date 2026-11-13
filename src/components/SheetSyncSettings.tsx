@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { setUrlParam } from "@/lib/urlParam";
 import {
   Banner,
   Button,
@@ -9,7 +8,6 @@ import {
   EmptyState,
   Label,
   Loading,
-  PageHeader,
   SectionLabel,
   Select,
   Spinner,
@@ -17,8 +15,13 @@ import {
 } from "@/components/ui";
 import { createTaskRunner } from "@/lib/taskRunner";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
+import { Sheet } from "@/components/Sheet";
 
 /**
+ * Sheet sync settings — a panel on the Jobs Hub and on Tracking Sheets' all-jobs
+ * view since 2026-11-13 (OVERHAUL_PLAN 3.3); it was the /tracking-sheet page,
+ * which now redirects to the hub. `SheetSyncButton` opens it.
+ *
  * Google Tracking Sheet — pushes a job's month of sub/vendor invoices into that
  * project's own tracking spreadsheet, replacing the by-hand copy out of the
  * Expenditure Summary.
@@ -192,7 +195,31 @@ function monthOptions(month: number, year: number) {
   return out;
 }
 
-export default function TrackingSheetPage() {
+/** The button that opens Sheet sync settings in a panel. Renders nothing
+ *  without the "tracking-sheet" view; the caller checks it. */
+export function SheetSyncButton({
+  jtJobId,
+  ym,
+  className = "",
+}: {
+  jtJobId?: string;
+  ym?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} className={btn("secondary", "md", className)}>
+        Sheet sync settings
+      </button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Sheet sync settings">
+        {open && <SheetSyncSettings jtJobId={jtJobId} ym={ym} />}
+      </Sheet>
+    </>
+  );
+}
+
+function SheetSyncSettings({ jtJobId, ym: askedYmProp }: { jtJobId?: string; ym?: string }) {
   const [jobs, setJobs] = useState<JobRef[]>([]);
   const [shared, setShared] = useState<SharedSheet[]>([]);
   const [projectId, setProjectId] = useState("");
@@ -233,13 +260,12 @@ export default function TrackingSheetPage() {
         const list: JobRef[] = b.jobs || [];
         setJobs(list);
         setShared(b.shared || []);
-        // A link from Tracking Sheets names its job and month.
-        const asked = new URLSearchParams(window.location.search);
-        const askedJob = list.find((j) => j.jtJobId && j.jtJobId === asked.get("jobId"));
+        // The caller names its job and month.
+        const askedJob = list.find((j) => j.jtJobId && j.jtJobId === jtJobId);
         if (askedJob) setProjectId(askedJob.id);
         else if (list.length === 1) setProjectId(list[0].id);
         const key = ymKey(Number(b.defaultMonth), Number(b.defaultYear));
-        const askedYm = asked.get("ym") ?? "";
+        const askedYm = askedYmProp ?? "";
         const inList = monthOptions(Number(b.defaultMonth), Number(b.defaultYear)).some(
           (o) => o.key === askedYm,
         );
@@ -255,6 +281,8 @@ export default function TrackingSheetPage() {
       }
     })();
     return () => { alive = false; };
+    // Read once: the panel mounts fresh each time it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const job = useMemo(() => jobs.find((j) => j.id === projectId) || null, [jobs, projectId]);
@@ -407,21 +435,10 @@ export default function TrackingSheetPage() {
   const ready = !!projectId && !!ym;
 
   if (loading)
-    return (
-      <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-        <Loading label="Loading tracking sheets…" />
-      </main>
-    );
+    return <Loading label="Loading tracking sheets…" />;
 
   return (
-    // The app's standard page container. This was a bare <div> with no padding
-    // at all, so the title and every card sat hard against both screen edges on
-    // a phone — the only page besides Historical Cost Import that wasn't on it.
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader
-        title="Sheet sync settings"
-        description="Pause the automatic tracking-sheet sync, pin its month, or sync and finalize one job. Finalize is also on each job in Tracking Sheets."
-      />
+    <div>
 
       {bootError && <Banner tone="error" className="mb-4">{bootError}</Banner>}
 
@@ -617,7 +634,6 @@ export default function TrackingSheetPage() {
                   value={ym}
                   onChange={(e) => {
                     setYm(e.target.value);
-                    setUrlParam("ym", e.target.value);
                   }}
                 >
                   {months.map((m) => (
@@ -635,9 +651,6 @@ export default function TrackingSheetPage() {
                   value={projectId}
                   onChange={(e) => {
                     setProjectId(e.target.value);
-                    // Keep the address in step, so the tab strip carries THIS job
-                    // to the next tab, not the one the page opened on.
-                    setUrlParam("jobId", jobs.find((j) => j.id === e.target.value)?.jtJobId ?? "");
                   }}
                 >
                   <option value="">Choose a job…</option>
@@ -704,7 +717,7 @@ export default function TrackingSheetPage() {
           )}
         </>
       )}
-    </main>
+    </div>
   );
 }
 

@@ -30,6 +30,17 @@ export function hubPath(job: J | null, all: J[], ym: string, docId?: string | nu
   return ["/jobs-hub", jobSlug(job, all), ym && monthSlug(ym), job && docId].filter(Boolean).join("/");
 }
 
+/**
+ * A link to one job on the Jobs Hub by id, for callers without the job list
+ * (`hubPath` needs it). The hub reads the query once, opens the job's Tracking
+ * sheet tab, then rewrites the address to the short path. `extra` carries a
+ * board focus (findingFocus.ts). Replaces /trackingsheet?jobId= (OVERHAUL_PLAN 3.3).
+ */
+export function hubHref(jobId: string, ym?: string | null, extra?: Record<string, string>): string {
+  const q = new URLSearchParams({ jobId, ...(ym ? { ym } : {}), ...extra });
+  return `/jobs-hub?${q.toString()}`;
+}
+
 /** The path's job id, ym and bill id; each undefined when absent or unknown. */
 export function parseHubPath(pathname: string, all: J[]) {
   const [, , jobSeg, monthSeg, docId] = pathname.split("/").map((s) => decodeURIComponent(s));

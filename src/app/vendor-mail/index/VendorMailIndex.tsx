@@ -14,6 +14,7 @@ import {
   QuietInput,
   SectionHeading,
 } from "@/components/ui";
+import { BackLink } from "@/components/BackLink";
 
 /**
  * FILLING THE VENDOR ADDRESS INDEX.
@@ -146,6 +147,7 @@ export default function VendorMailIndex() {
 
   return (
     <main className="max-w-2xl w-full px-4 pad:px-7 pb-24 pt-6">
+      <BackLink href="/email?section=mail" />
       <PageHeader
         title="Vendor Addresses"
         description="The mail check only sees vendors it has an address for. These are addresses found in recent mail, matched to vendors that have none."

@@ -2,6 +2,7 @@
 
 import { RailWidgetButton } from "@/components/RailWidgetButton";
 import { useEffect, useRef, useState } from "react";
+import { Sheet } from "@/components/Sheet";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
@@ -35,11 +36,11 @@ import {
  * included (owner, 2026-09-29): it is the way home from any page, and the
  * header's ☰ menu carries everything else.
  *
- * THE DRAWER (owner, 2026-10-29/30): the bar itself slides up. Its slots stay
- * as the top row, and up to twelve more pages open under them, a 4 × 3 grid
- * of icons (`drawerFor`). A tap on the soft tab above the bar, or a swipe up,
- * opens it; a tap outside, a swipe down, Escape or any navigation closes it.
- * Phone only: the rail already lists everything.
+ * THE DRAWER (owner, 2026-10-29/30; on `Sheet` since 2026-11-13, OVERHAUL_PLAN
+ * 3.3): every page the bar has no room for, three to a row (`drawerFor`). A
+ * tap on the soft tab above the bar, or a swipe up on the bar, opens it at half
+ * height; it drags up to full. A swipe down, a tap outside, Escape or any
+ * navigation closes it. Phone only: the rail already lists everything.
  *
  * PINNED: a person can pin one page from the ☰ menu (per device). It takes the
  * bar's last slot; see `barFor`.
@@ -244,13 +245,12 @@ const BUMP_W = 76;
 const BUMP_H = 16;
 /* The edge ends at y 16.5, not 16: a 1px stroke centred there covers the same
    pixel row as the 1px top line it meets, so the joint has no step. */
-const BUMP_EDGE = "M0 16.5 C4.5 16.5 6.5 14.8 8.3 12.3 L13.4 4.6 C15.3 1.8 17.4 0.5 21.5 0.5 H54.5 C58.6 0.5 60.7 1.8 62.6 4.6 L67.7 12.3 C69.5 14.8 71.5 16.5 76 16.5";
+const BUMP_EDGE =
+  "M0 16.5 C4.5 16.5 6.5 14.8 8.3 12.3 L13.4 4.6 C15.3 1.8 17.4 0.5 21.5 0.5 H54.5 C58.6 0.5 60.7 1.8 62.6 4.6 L67.7 12.3 C69.5 14.8 71.5 16.5 76 16.5";
 /* The bar's outline: one colour for the top line and the tab's edge. Light:
    the strong hairline token. Dark: a light-grey line on the dark glass. */
 const EDGE_BG = "bg-line-strong dark:bg-[rgb(212_212_212/0.55)]";
 const EDGE_STROKE = "stroke-line-strong dark:stroke-[rgb(212_212_212/0.55)]";
-/* One drawer row: a 4.5rem cell. The open drawer is its rows plus 0.75rem. */
-const DRAWER_ROW_REM = 4.5;
 
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
@@ -347,12 +347,6 @@ export function TabBar() {
     } catch {}
   };
   useEffect(() => setOpen(false), [pathname]);
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open]);
   // A swipe up on the bar opens the drawer, like a sheet's handle.
   const touchY = useRef<number | null>(null);
 
@@ -375,7 +369,6 @@ export function TabBar() {
     items[centre] = baseMore[drawerIdx];
     more[drawerIdx] = baseItems[centre];
   }
-  const drawerH = Math.ceil(more.length / 4) * DRAWER_ROW_REM + 0.75;
   const rail = railFor(access.role, access.can, pin, access.menu);
   // One slot is decoration, and it would cost every page 56px to say nothing.
   if (items.length < 2) return null;
@@ -388,7 +381,8 @@ export function TabBar() {
 
   // A single-page slot takes the short bar word the office can reword; a
   // workspace or Today says its own name.
-  const labelOf = (t: BarItem) => (!t.workspace && t.view ? c(`home.quick.${t.view}.label`) || t.label : t.label);
+  const labelOf = (t: BarItem) =>
+    !t.workspace && t.view ? c(`home.quick.${t.view}.label`) || t.label : t.label;
   // The job picker and the bill editor both guard unsaved work; a slot is a
   // navigation like any other, so it asks the same question.
   const guard = (e: React.MouseEvent) => {
@@ -397,56 +391,63 @@ export function TabBar() {
 
   return (
     <>
-      {/* A tap anywhere outside the open drawer closes it. Not a <Dialog>: the
-          drawer is the bar itself, not a modal over the page. */}
-      {open && <div aria-hidden className="fixed inset-0 z-20 pad:hidden" onClick={() => setOpen(false)} />}
-
       {/* PHONE: edge to edge along the bottom, translucent glass that follows
           the theme (cream in light, near-black in dark), a hairline top line, the home indicator's inset as padding
-          INSIDE the bar. Closed, the drawer rows sit below the screen; open,
-          the whole bar slides up by their height. What shows when closed, plus
-          the tab above it, is --tabbar-h in globals.css.
+          INSIDE the bar. The bar plus the tab above it is --tabbar-h in
+          globals.css.
           The glass is a LAYER, not the nav's own backdrop-filter, and the tab
           is a filled SVG with no backdrop at all. Its marks are ink-dark in
           light and white in dark. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-neutral-900 transition-transform dark:text-white duration-300 ease-out print:hidden pad:hidden"
-        style={{ transform: open ? "none" : `translateY(${drawerH}rem)` }}
+        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-neutral-900 dark:text-white print:hidden pad:hidden"
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
           const start = touchY.current;
           touchY.current = null;
-          if (!more.length || start === null) return;
-          const dy = start - e.changedTouches[0].clientY;
-          if (dy > 30) setOpen(true);
-          else if (dy < -30) setOpen(false);
+          if (more.length && start !== null && start - e.changedTouches[0].clientY > 30)
+            setOpen(true);
         }}
       >
-        <span aria-hidden className="absolute inset-0 bg-cream/85 backdrop-blur-xl dark:bg-neutral-950/60" />
+        <span
+          aria-hidden
+          className="absolute inset-0 bg-cream/85 backdrop-blur-xl dark:bg-neutral-950/60"
+        />
         {/* No drawer: a plain top line. */}
-        {more.length === 0 && <span aria-hidden className={`absolute inset-x-0 top-0 h-px ${EDGE_BG}`} />}
+        {more.length === 0 && (
+          <span aria-hidden className={`absolute inset-x-0 top-0 h-px ${EDGE_BG}`} />
+        )}
         {/* The drawer's tab: a soft bump (16px) above the bar's top line, over
             an h-3 strip. --tabbar-h counts both. */}
         {more.length > 0 && (
           <button
             type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-label={open ? "Close more pages" : "More pages"}
+            onClick={() => setOpen(true)}
+            aria-label="More pages"
             aria-expanded={open}
-            aria-controls="tabbar-drawer"
             className="group relative block h-3 w-full"
           >
             {/* The top line, in two halves that meet the tab's edge. */}
-            <span aria-hidden className={`absolute left-0 top-0 h-px ${EDGE_BG}`} style={{ right: `calc(50% + ${BUMP_W / 2}px)` }} />
-            <span aria-hidden className={`absolute right-0 top-0 h-px ${EDGE_BG}`} style={{ left: `calc(50% + ${BUMP_W / 2}px)` }} />
+            <span
+              aria-hidden
+              className={`absolute left-0 top-0 h-px ${EDGE_BG}`}
+              style={{ right: `calc(50% + ${BUMP_W / 2}px)` }}
+            />
+            <span
+              aria-hidden
+              className={`absolute right-0 top-0 h-px ${EDGE_BG}`}
+              style={{ left: `calc(50% + ${BUMP_W / 2}px)` }}
+            />
             <svg
               aria-hidden
               viewBox={`0 0 ${BUMP_W} ${BUMP_H}`}
               className="absolute left-1/2 -translate-x-1/2 overflow-visible"
               style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
             >
-              <path d={`${BUMP_EDGE} Z`} className="fill-cream/95 transition group-active:fill-line dark:fill-neutral-950/80 dark:group-active:fill-neutral-800/90" />
+              <path
+                d={`${BUMP_EDGE} Z`}
+                className="fill-cream/95 transition group-active:fill-line dark:fill-neutral-950/80 dark:group-active:fill-neutral-800/90"
+              />
               <path d={BUMP_EDGE} fill="none" strokeWidth={1} className={EDGE_STROKE} />
             </svg>
             <span className="absolute inset-x-0 -top-2.5 flex justify-center">
@@ -454,7 +455,10 @@ export function TabBar() {
             </span>
           </button>
         )}
-        <div className="relative grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
+        <div
+          className="relative grid"
+          style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+        >
           {items.map((t) => {
             const on = t.key === active;
             const Icon = ICONS[t.key] ?? PinIcon;
@@ -467,11 +471,16 @@ export function TabBar() {
                 // `active:` is the PRESS (paints the instant a finger lands); the
                 // overlay below is the WAIT (only while the navigation is in flight).
                 className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 ${
-                  on ? "text-neutral-900 dark:text-white" : "text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white"
+                  on
+                    ? "text-neutral-900 dark:text-white"
+                    : "text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white"
                 }`}
               >
                 {/* The active mark is a short rule above the icon, in the text colour. */}
-                <span aria-hidden className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-current" : "bg-transparent"}`} />
+                <span
+                  aria-hidden
+                  className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-current" : "bg-transparent"}`}
+                />
                 <Icon />
                 {labelOf(t)}
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
@@ -479,18 +488,15 @@ export function TabBar() {
             );
           })}
         </div>
-        {/* The drawer: the pages the bar has no room for, four to a row.
-            Invisible while closed, so its links take no taps or focus. */}
-        {more.length > 0 && (
-          <div
-            id="tabbar-drawer"
-            className={`relative grid grid-cols-4 content-start gap-x-1 px-2 pb-3 transition-[opacity,visibility] duration-300 ${
-              open ? "visible opacity-100" : "invisible opacity-0"
-            }`}
-            style={{ height: `${drawerH}rem`, gridAutoRows: `${DRAWER_ROW_REM}rem` }}
-          >
+      </nav>
+
+      {/* The drawer: the pages the bar has no room for, three to a row, 24px
+          icons and 13px labels. */}
+      {more.length > 0 && (
+        <Sheet open={open} onClose={() => setOpen(false)} label="More pages">
+          <div className="grid grid-cols-3 gap-1 pb-2 pt-1">
             {more.map((t) => {
-              const on = t.covers.some((href) => pathname === href || pathname.startsWith(href + "/"));
+              const on = t.covers.some((href) => isHereRoot(href));
               const Icon = ICONS[t.key] ?? DocumentIcon;
               return (
                 <Link
@@ -501,18 +507,21 @@ export function TabBar() {
                     guard(e);
                     if (!e.defaultPrevented) setOpen(false);
                   }}
-                  className={`relative flex flex-col items-center justify-center gap-1.5 rounded-xl px-1 text-center text-[11px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 ${
-                    on ? "bg-black/5 text-neutral-900 dark:bg-white/10 dark:text-white" : "text-neutral-600 hover:text-neutral-900 dark:text-white/70 dark:hover:text-white"
+                  className={`relative flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl px-1 py-2 text-center text-[13px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 [&_svg]:h-6 [&_svg]:w-6 ${
+                    on
+                      ? "bg-black/5 text-neutral-900 dark:bg-white/10 dark:text-white"
+                      : "text-neutral-600 hover:text-neutral-900 dark:text-white/70 dark:hover:text-white"
                   }`}
                 >
                   <Icon />
                   <span className="line-clamp-2">{labelOf(t)}</span>
+                  <LinkPendingOverlay spinnerClassName="h-5 w-5" />
                 </Link>
               );
             })}
           </div>
-        )}
-      </nav>
+        </Sheet>
+      )}
 
       {/* iPAD AND UP: a rail down the left edge with every workspace; from 2xl
           a sidebar that also lists the current workspace's pages. Its width is
@@ -531,13 +540,21 @@ export function TabBar() {
           const isHere = (href: string) => pathname === href || pathname.startsWith(href + "/");
           // A page the rail already lists as its own item (Payroll) is not
           // repeated under its workspace; one page left needs no second level.
-          const own = ws ? reachableTabs(ws, access.can).filter((tab) => !rail.some((r) => !r.workspace && r.view === tab.view)) : [];
+          const own = ws
+            ? reachableTabs(ws, access.can).filter(
+                (tab) => !rail.some((r) => !r.workspace && r.view === tab.view),
+              )
+            : [];
           const pages = own.length > 1 ? own : [];
           // Customers is one page with two sections: list them under it once it
           // is open (/leads?section=). The first section is the page's default.
-          const sections = on && !t.workspace && t.view === "leads" ? CUSTOMER_SECTIONS.filter((x) => access.can(x.view)) : [];
+          const sections =
+            on && !t.workspace && t.view === "leads"
+              ? CUSTOMER_SECTIONS.filter((x) => access.can(x.view))
+              : [];
           const sectionNow = search.get("section") ?? "";
-          const sectionOn = (id: string) => (sectionNow ? sectionNow === id : id === sections[0]?.id);
+          const sectionOn = (id: string) =>
+            sectionNow ? sectionNow === id : id === sections[0]?.id;
           // From 2xl the fill moves down to the page itself, so one row is lit.
           const childLit = pages.some((tab) => isHere(tab.href));
           return (
@@ -610,7 +627,11 @@ export function TabBar() {
             type="button"
             onClick={toggleKloi}
             aria-pressed={kloi.playing}
-            title={kloi.failed ? "The stream did not start. Try again." : "Lopez Island's radio station, live"}
+            title={
+              kloi.failed
+                ? "The stream did not start. Try again."
+                : "Lopez Island's radio station, live"
+            }
             className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
               kloi.playing
                 ? "bg-accent/10 text-accent dark:text-accent-soft"
@@ -618,7 +639,9 @@ export function TabBar() {
             }`}
           >
             <RadioIcon playing={kloi.playing} />
-            <span className="rail-label min-w-0">{kloi.playing ? "Pause KLOI" : "Listen to KLOI"}</span>
+            <span className="rail-label min-w-0">
+              {kloi.playing ? "Pause KLOI" : "Listen to KLOI"}
+            </span>
           </button>
           {access.can("lopezrocks") && (
             <Link
@@ -656,4 +679,3 @@ export function TabBar() {
     </>
   );
 }
-

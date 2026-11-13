@@ -10,6 +10,7 @@
  */
 import { defineJobCheck } from "../checkTypes";
 import { findingKey, money, type Finding } from "../types";
+import { hubHref } from "@/lib/hubUrl";
 
 export type DraftBillsConfig = Record<string, never>;
 
@@ -39,7 +40,7 @@ export const draftBillsCheck = defineJobCheck<DraftBillsConfig>({
         `${month.monthLabel}. JobTread cannot pull a draft onto an invoice, so none of it ` +
         `was billed.`,
       amount: job.draftBillsCost,
-      sourceLink: `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`,
+      sourceLink: hubHref(job.jobId, month.ym),
       sourceLabel: "Open the tracking sheet",
     });
     return out;

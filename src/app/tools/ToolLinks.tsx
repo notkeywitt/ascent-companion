@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
-import { Banner, Button, Label, Loading, inputCls } from "@/components/ui";
+import { Banner, Button, Label, Loading, Select } from "@/components/ui";
 import { isTrailerType, typeKey } from "@/lib/toolSchedule";
 import { AssignedTasks, useTaskRules } from "../tool-schedule/TaskAssign";
 import { RequisitionPrompt } from "../tool-schedule/ToolPickers";
@@ -99,7 +99,7 @@ export function ToolLinks({
             </ul>
           )}
           <div className="flex gap-2">
-            <select aria-label="Add a tool to this trailer" value={adding} onChange={(e) => setAdding(e.target.value)} className={inputCls + " flex-1"}>
+            <Select aria-label="Add a tool to this trailer" value={adding} onChange={(e) => setAdding(e.target.value)} className="flex-1">
               <option value="">Add a tool…</option>
               {tools
                 .filter((t) => t.id !== tool.id && !isTrailerType(t.type) && loads[t.id] !== tool.id)
@@ -110,7 +110,7 @@ export function ToolLinks({
                     {loads[t.id] ? ` (now in ${name(tools.find((x) => x.id === loads[t.id]) ?? t)})` : ""}
                   </option>
                 ))}
-            </select>
+            </Select>
             <Button
               variant="secondary"
               size="sm"
@@ -127,7 +127,7 @@ export function ToolLinks({
       ) : trailers.length > 0 ? (
         <div className="grid gap-1">
           <Label>Rides in</Label>
-          <select aria-label="Rides in" value={loads[tool.id] ?? ""} disabled={busy} onChange={(e) => void setTrailer(tool.id, e.target.value)} className={inputCls}>
+          <Select aria-label="Rides in" value={loads[tool.id] ?? ""} disabled={busy} onChange={(e) => void setTrailer(tool.id, e.target.value)}>
             <option value="">— No trailer —</option>
             {trailers.map((t) => (
               <option key={t.id} value={t.id}>
@@ -135,7 +135,7 @@ export function ToolLinks({
                 {t.locationLabel ? ` · ${t.locationLabel}` : ""}
               </option>
             ))}
-          </select>
+          </Select>
           <p className="text-xs text-neutral-500">In a trailer, it goes where the trailer goes. Saves at once.</p>
         </div>
       ) : null}

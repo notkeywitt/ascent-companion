@@ -29,6 +29,37 @@ Moved here from `CLAUDE.md` so they load only for UI work.
   (the file picker), `Dialog` (every modal — never a hand-rolled `fixed inset-0`
   overlay), Button `size="xs"` (never `!py-… !text-xs`), and `tableCls` (one
   table style).
+- **Touch sizes and motion are set once, in `globals.css`.** On a touch
+  screen every field's text is 16px (smaller makes iOS zoom on focus), and
+  every `Button` (hook `ui-btn`) and `Segmented` option (hook `ui-seg`) is at
+  least 44px tall. `Toggle` is 24px tall. Under `prefers-reduced-motion`,
+  transitions and animations end at once. Do not add per-page overrides; a
+  new control that must meet 44px carries one of the hooks or its own
+  `min-h-11`. Quiet text in dark is lifted by rule too: bare
+  `text-neutral-500` and `dark:text-neutral-500` both paint #94928c (4.58:1 or
+  better on every dark surface). `dark:text-neutral-600` is for decoration only.
+- **Anything that slides in or drops down is a Base UI build** (`@base-ui/react`,
+  pinned to an exact version). `Sheet` (a place to browse: bottom sheet on a
+  phone, opens at half height and drags to full; side panel from `pad`),
+  `Menu` with `MenuItem`/`MenuLink`/`MenuSeparator`/`MenuLabel` (a list of
+  actions or links), `Popover` (any other content under a button), and
+  `toast("Saved")` (the one save confirmation; a failure the user must fix is a
+  `Notice` in place, not a toast). Never hand-roll an open state, an
+  outside-click listener and an Escape handler again. `Notice` is a `Banner`
+  with one action, Later and ✕; the caller owns where dismissal is stored.
+  **Why Base UI over the native Popover API (decided 2026-11-13, OVERHAUL_PLAN
+  3.1):** the native API gives top-layer stacking and light dismiss, but not
+  anchor placement on iOS Safari before 26, not arrow-key or typeahead
+  navigation of menu items, and no drawer swipe or snap points. Base UI covers
+  all four in one dependency, is unstyled (so the tokens above still apply),
+  and ships Drawer, Menu, Popover and Toast from the same package.
+  Import them from their own modules (`@/components/Sheet`, `@/components/Menu`,
+  `@/components/Toast`), never through `ui.tsx`: a re-export there put Base UI
+  in every page's bundle (+21 KB each, measured 2026-11-13).
+  Two traps: this is Tailwind 3, so Base UI's state attributes are written
+  `data-[highlighted]:`, not `data-highlighted:`; and the global
+  `:focus-visible` ring needs `focus-visible:outline-none` on a part that
+  already shows its own highlight.
 - **Status text is a token: `text-warn`, `text-danger`, `text-ok`** — never
   `text-amber-600 dark:text-amber-400` by hand. Values in `globals.css`. Money
   goes through `money` / `money0` (`src/lib/money.ts`); dates read

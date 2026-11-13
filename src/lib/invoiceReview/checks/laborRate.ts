@@ -65,6 +65,7 @@
  */
 import { defineJobCheck } from "../checkTypes";
 import { findingKey, money, withinTolerance, type Finding, type LaborEntryRef } from "../types";
+import { hubHref } from "@/lib/hubUrl";
 
 export interface LaborRateConfig {
   /**
@@ -144,7 +145,7 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
       groups.set(k, g);
     }
 
-    const link = `/trackingsheet?jobId=${encodeURIComponent(job.jobId)}&ym=${month.ym}`;
+    const link = hubHref(job.jobId, month.ym);
 
     /**
      * (person|pay type) → the rate it will carry once the per-person finding

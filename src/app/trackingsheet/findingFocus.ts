@@ -11,17 +11,18 @@
  * person/code filter alone still lands on the right rows.
  */
 import type { FindingTarget } from "@/lib/invoiceReview/types";
+import { hubHref } from "@/lib/hubUrl";
 
 export type LaborFocus = Extract<FindingTarget, { kind: "labor" }>;
 
 const MAX_IDS = 60;
 
 export function laborFocusHref(jobId: string, ym: string, t: LaborFocus): string {
-  const q = new URLSearchParams({ jobId, ym, focus: "labor" });
-  if (t.employee) q.set("emp", t.employee);
-  if (t.code) q.set("code", t.code);
-  if (t.entryIds.length && t.entryIds.length <= MAX_IDS) q.set("entries", t.entryIds.join(","));
-  return `/trackingsheet?${q.toString()}`;
+  const q: Record<string, string> = { focus: "labor" };
+  if (t.employee) q.emp = t.employee;
+  if (t.code) q.code = t.code;
+  if (t.entryIds.length && t.entryIds.length <= MAX_IDS) q.entries = t.entryIds.join(",");
+  return hubHref(jobId, ym, q);
 }
 
 /** The focus a board URL carries, or null when it carries none. */

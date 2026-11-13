@@ -1,4 +1,5 @@
 import { round2, type LineEdit } from "@/lib/billLineMath";
+import { hubHref } from "@/lib/hubUrl";
 
 /**
  * DURABLE CODING DRAFTS — staged coding work that survives leaving the page.
@@ -513,7 +514,7 @@ export function describeDraft(draft: CodingDraft, fromServerOnly = false): Draft
     return {
       ...base,
       kind: "job",
-      href: `/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`,
+      href: hubHref(jobId, ym),
     };
   }
   return null; // an unknown scope — nowhere to send anyone, so don't offer it

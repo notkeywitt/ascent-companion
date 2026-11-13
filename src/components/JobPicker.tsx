@@ -382,6 +382,7 @@ export function JobPicker({
             className="border-b border-line bg-transparent px-3 py-2 text-sm outline-none dark:border-white/10"
           />
           {showPhaseFilter && phases.length > 0 && (
+            /* Raw select: borderless strip inside the dropdown panel. */
             <select
               value={phaseFilter}
               onChange={(e) => setPhaseFilter(e.target.value)}

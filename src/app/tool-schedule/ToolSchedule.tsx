@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
+import { Popover } from "@/components/Menu";
 import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
 import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
 import { matchesAllWords } from "@/lib/searchWords";
@@ -327,18 +328,7 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
 
 /** Pick which jobs the schedule shows. A panel of checkboxes; a search box once the list is long. */
 function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: string }[]; hidden: Set<string>; onChange: (h: Set<string>) => void }) {
-  const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
 
   const hiddenCount = jobs.filter((j) => hidden.has(j.id)).length;
   const label = hiddenCount === 0 ? "All jobs" : `${jobs.length - hiddenCount} of ${jobs.length} jobs`;
@@ -351,59 +341,50 @@ function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: strin
   };
 
   return (
-    <div
-      ref={ref}
-      className="relative"
-      onKeyDown={(e) => {
-        if (e.key === "Escape") setOpen(false);
-      }}
+    <Popover
+      align="start"
+      label="Filter jobs"
+      className="w-64"
+      onOpenChange={() => setQ("")}
+      trigger={
+        <button
+          type="button"
+          className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold lg:min-h-7 ${hiddenCount ? "bg-accent/15 text-accent dark:text-accent-soft" : "bg-neutral-100 text-neutral-700 dark:bg-white/[0.07] dark:text-neutral-200"}`}
+        >
+          {label}
+          <span aria-hidden className="text-[10px]">
+            ▾
+          </span>
+        </button>
+      }
     >
-      <button
-        type="button"
-        aria-haspopup="true"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((o) => !o);
-          setQ("");
-        }}
-        className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold lg:min-h-7 ${hiddenCount ? "bg-accent/15 text-accent dark:text-accent-soft" : "bg-neutral-100 text-neutral-700 dark:bg-white/[0.07] dark:text-neutral-200"}`}
-      >
-        {label}
-        <span aria-hidden className="text-[10px]">
-          ▾
-        </span>
-      </button>
-      {open && (
-        <div className="absolute left-0 z-30 mt-1 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-white p-2 shadow-xl shadow-black/10 dark:bg-ink-overlay dark:shadow-black/40">
-          {jobs.length > 8 && (
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search jobs…"
-              aria-label="Search jobs"
-              className="mb-1 w-full rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
-            />
-          )}
-          <div className="mb-1 flex gap-1">
-            <Button variant="ghost" size="xs" onClick={() => onChange(new Set())} disabled={hiddenCount === 0}>
-              All
-            </Button>
-            <Button variant="ghost" size="xs" onClick={() => onChange(new Set(jobs.map((j) => j.id)))} disabled={hiddenCount === jobs.length}>
-              None
-            </Button>
-          </div>
-          <ul className="max-h-64 overflow-auto">
-            {listed.map((j) => (
-              <li key={j.id} className="flex min-h-9 items-center">
-                <Checkbox checked={!hidden.has(j.id)} onChange={() => toggle(j.id)} label={j.name} className="w-full" />
-              </li>
-            ))}
-            {listed.length === 0 && <li className="px-2 py-2 text-sm text-neutral-500">No job matches.</li>}
-          </ul>
-        </div>
+      {jobs.length > 8 && (
+        <input
+          autoFocus
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search jobs…"
+          aria-label="Search jobs"
+          className="mb-1 w-full rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
+        />
       )}
-    </div>
+      <div className="mb-1 flex gap-1">
+        <Button variant="ghost" size="xs" onClick={() => onChange(new Set())} disabled={hiddenCount === 0}>
+          All
+        </Button>
+        <Button variant="ghost" size="xs" onClick={() => onChange(new Set(jobs.map((j) => j.id)))} disabled={hiddenCount === jobs.length}>
+          None
+        </Button>
+      </div>
+      <ul className="max-h-64 overflow-auto">
+        {listed.map((j) => (
+          <li key={j.id} className="flex min-h-9 items-center">
+            <Checkbox checked={!hidden.has(j.id)} onChange={() => toggle(j.id)} label={j.name} className="w-full" />
+          </li>
+        ))}
+        {listed.length === 0 && <li className="px-2 py-2 text-sm text-neutral-500">No job matches.</li>}
+      </ul>
+    </Popover>
   );
 }
 

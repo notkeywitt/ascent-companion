@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LopezMap } from "@/components/LopezMap";
 import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
-import { Banner, Button, Checkbox, Dialog, Label, Loading, PageHeader, inputCls } from "@/components/ui";
+import { Banner, Button, Checkbox, Dialog, Label, Loading, PageHeader, inputCls, Select } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
 import { ToolLinks, putTrailer } from "./ToolLinks";
 import { BatchCard } from "./BatchCard";
@@ -262,7 +262,7 @@ function OptionSelect({
 }) {
   const inList = value !== "" && options.some((o) => o.toLowerCase() === value.toLowerCase());
   return (
-    <select
+    <Select
       value={value}
       onChange={(e) => {
         if (e.target.value === "__add__") {
@@ -272,7 +272,6 @@ function OptionSelect({
         }
         onChange(e.target.value);
       }}
-      className={inputCls}
     >
       <option value="">— Select —</option>
       {value !== "" && !inList && <option value={value}>{value}</option>}
@@ -282,7 +281,7 @@ function OptionSelect({
         </option>
       ))}
       <option value="__add__">＋ Add new…</option>
-    </select>
+    </Select>
   );
 }
 
@@ -1079,10 +1078,10 @@ export default function ToolsPage() {
           placeholder="Search name, id, type, serial, location…"
           className={inputCls + " min-w-[12rem] flex-1 xl:py-1.5"}
         />
-        <select
+        <Select
           value={conditionFilter}
           onChange={(e) => setConditionFilter(e.target.value)}
-          className={inputCls + " !w-auto max-w-[14rem] xl:py-1.5"}
+          className="!w-auto max-w-[14rem] xl:py-1.5"
         >
           <option value="All">All conditions</option>
           {conditions.map((c) => (
@@ -1090,11 +1089,11 @@ export default function ToolsPage() {
               {c}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={jobFilter}
           onChange={(e) => setJobFilter(e.target.value)}
-          className={inputCls + " !w-auto max-w-[14rem] xl:py-1.5"}
+          className="!w-auto max-w-[14rem] xl:py-1.5"
         >
           <option value="All">All job sites</option>
           {jobOptions.hasUnassigned && <option value="__none__">Unassigned</option>}
@@ -1103,7 +1102,7 @@ export default function ToolsPage() {
               {o.label}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
 
       {batchOpen && (
@@ -1348,11 +1347,10 @@ export default function ToolsPage() {
                 </div>
 
                 <Label htmlFor="reloc-job">Set location to</Label>
-                <select
+                <Select
                   id="reloc-job"
                   value={scanProjectId}
                   onChange={(ev) => setScanProjectId(ev.target.value)}
-                  className={inputCls}
                 >
                   <option value="">Select a job site…</option>
                   {/* Keep the current value selectable even if it isn't in the project list. */}
@@ -1364,7 +1362,7 @@ export default function ToolsPage() {
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {geoMsg && <p className="mt-1.5 text-xs text-neutral-500">{geoMsg}</p>}
 
                 {relocErr && (
@@ -1536,10 +1534,9 @@ export default function ToolsPage() {
                   )}
                   <div className="sm:col-span-2">
                     <Label>Location (job site)</Label>
-                    <select
+                    <Select
                       value={scanProjectId}
                       onChange={(ev) => setScanProjectId(ev.target.value)}
-                      className={inputCls}
                     >
                       <option value="">— Unassigned —</option>
                       {orderedProjects.map((p) => (
@@ -1547,16 +1544,15 @@ export default function ToolsPage() {
                           {p.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     {geoMsg && <p className="mt-1.5 text-xs text-neutral-500">{geoMsg}</p>}
                   </div>
                   <div className="sm:col-span-2">
                     <Label>In Trailer?</Label>
-                    <select
+                    <Select
                       aria-label="In Trailer?"
                       value={newTrailerId}
                       onChange={(ev) => setNewTrailerId(ev.target.value)}
-                      className={inputCls}
                     >
                       <option value="">No</option>
                       {tools
@@ -1567,7 +1563,7 @@ export default function ToolsPage() {
                             {t.locationLabel ? ` · ${t.locationLabel}` : ""}
                           </option>
                         ))}
-                    </select>
+                    </Select>
                     {newTrailerId && <p className="mt-1.5 text-xs text-neutral-500">It goes where the trailer goes, so the location above is replaced.</p>}
                   </div>
                 </div>
@@ -1729,10 +1725,9 @@ export default function ToolsPage() {
               )}
               <div className="sm:col-span-2">
                 <Label>Location (job site)</Label>
-                <select
+                <Select
                   value={form.location}
                   onChange={(ev) => setForm({ ...form, location: ev.target.value })}
-                  className={inputCls}
                 >
                   <option value="">— Unassigned —</option>
                   {/* Keep the current value selectable even if not in the project list. */}
@@ -1744,7 +1739,7 @@ export default function ToolsPage() {
                       {p.label}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             </div>
 

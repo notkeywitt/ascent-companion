@@ -23,6 +23,7 @@ import {
   spentOf,
   type JobBoardCard,
 } from "@/lib/jobBoard";
+import { hubHref } from "@/lib/hubUrl";
 
 /**
  * The job board at the top of the home page — budget status and calendar
@@ -271,7 +272,7 @@ function TrackingSheetLink({ c }: { c: JobBoardCard }) {
   if (!canOpen) return null;
   return (
     <Link
-      href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}
+      href={hubHref(c.id)}
       className="shrink-0 text-[12px] font-semibold text-accent hover:underline dark:text-accent-soft"
     >
       Tracking sheet →
@@ -425,7 +426,7 @@ function BoardCard({
       }`}
     >
       <Link
-        href={`/trackingsheet?jobId=${encodeURIComponent(c.id)}`}
+        href={hubHref(c.id)}
         className="flex flex-1 flex-col gap-2 rounded-lg transition hover:opacity-80"
       >
         <div className="flex items-start gap-2">

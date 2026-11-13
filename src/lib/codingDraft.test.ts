@@ -353,7 +353,7 @@ describe("describeDraft", () => {
     // Landing on the right job in the wrong month shows none of the work.
     const row = describeDraft(draft({ key: "job:J7:2026-08" }));
     expect(row?.kind).toBe("job");
-    expect(row?.href).toBe("/trackingsheet?jobId=J7&ym=2026-08");
+    expect(row?.href).toBe("/jobs-hub?jobId=J7&ym=2026-08");
   });
 
   it("falls back to the key when a draft predates labels, rather than vanishing", () => {

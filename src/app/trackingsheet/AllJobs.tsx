@@ -18,6 +18,8 @@ import { AllBills } from "./AllBills";
 import { UnsyncedDrafts } from "./UnsyncedDrafts";
 import { MonthJobDonuts, useMonthJobs } from "./MonthJobDonuts";
 import { useMonthActions } from "./JobMonthActions";
+import { hubHref } from "@/lib/hubUrl";
+import { SheetSyncButton } from "@/components/SheetSyncSettings";
 
 /**
  * Tracking Sheets with no job selected — every vendor bill issued in the
@@ -103,7 +105,7 @@ export function AllJobs() {
 
   const onPickJob = (id: string) => {
     if (!id) return;
-    router.push(`/trackingsheet?jobId=${encodeURIComponent(id)}&ym=${encodeURIComponent(ym)}`);
+    router.push(hubHref(id, ym));
   };
 
   return (
@@ -240,9 +242,7 @@ export function AllJobs() {
                   Pause the automatic tracking-sheet sync, or pin the month the sheets hold. Finalize
                   is on each job now, beside Sync.
                 </span>
-                <Link href="/tracking-sheet" className={btn("secondary", "md", "min-h-11 shrink-0")}>
-                  Sheet sync settings
-                </Link>
+                <SheetSyncButton ym={ym} className="min-h-11 shrink-0" />
               </div>
             )}
           </Card>

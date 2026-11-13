@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import SafetyTopicPicker, { TopicPoints } from "@/components/SafetyTopicPicker";
 import { SignaturePad, type SignaturePadHandle } from "@/components/SignaturePad";
-import { Banner, Button, Label, PageHeader, btn, inputCls } from "@/components/ui";
+import { Banner, Button, Label, PageHeader, btn, inputCls, Select } from "@/components/ui";
 import { findSafetyTopic } from "@/lib/safetyTopics";
 
 interface Employee {
@@ -241,14 +241,14 @@ export default function SafetyMeetingPage() {
         )}
 
         <Label className="!mb-0 pt-1">Meeting lead</Label>
-        <select value={admin} onChange={(e) => setAdmin(e.target.value)} className={inputCls}>
+        <Select value={admin} onChange={(e) => setAdmin(e.target.value)}>
           <option value="">Select…</option>
           {employees.map((e) => (
             <option key={e.id || e.name} value={e.name}>
               {e.name}
             </option>
           ))}
-        </select>
+        </Select>
       </section>
 
       {/* Attendee count + list */}
@@ -281,10 +281,9 @@ export default function SafetyMeetingPage() {
       {/* Current signer */}
       <section className={"mb-4 space-y-2 " + cardCls}>
         <Label className="!mb-0">Attendee</Label>
-        <select
+        <Select
           value={currentName}
           onChange={(e) => setCurrentName(e.target.value)}
-          className={inputCls}
         >
           <option value="">Select employee…</option>
           {signerOptions.map((e) => (
@@ -293,7 +292,7 @@ export default function SafetyMeetingPage() {
               {e.position ? ` — ${e.position}` : ""}
             </option>
           ))}
-        </select>
+        </Select>
 
         <Label className="!mb-0 pt-1">Signature</Label>
         <SignaturePad ref={padRef} onChange={(empty) => setHasInk(!empty)} />

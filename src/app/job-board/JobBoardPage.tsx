@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Banner,
   Card,
@@ -12,6 +12,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
+import { Popover } from "@/components/Menu";
 import { jtJobUrl, jtScheduleUrl, jtToDoUrl } from "@/lib/jtLinks";
 import {
   dateRange,
@@ -118,21 +119,6 @@ export function JobCard({
   onCustomer?: () => void;
 }) {
   const [open, setOpen] = useState(false);
-  const detailsRef = useRef<HTMLDivElement>(null);
-  // The narrow card's drop-down closes on a click outside it or on Escape.
-  useEffect(() => {
-    if (!open) return;
-    const away = (e: PointerEvent) => {
-      if (!detailsRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", away);
-    document.addEventListener("keydown", esc);
-    return () => {
-      document.removeEventListener("pointerdown", away);
-      document.removeEventListener("keydown", esc);
-    };
-  }, [open]);
 
   const nameRow = (
     <div className="flex items-baseline gap-2">
@@ -213,19 +199,27 @@ export function JobCard({
             globals.css (owner, 2026-11-06). */}
         <div className="jc">
           <div className="jc-head">
-            <div ref={detailsRef} className="jc-name">
+            <div className="jc-name">
               {nameRow}
               {customer}
               {/* With B folded away, the details drop down from here. */}
-              <button
-                type="button"
-                onClick={() => setOpen((o) => !o)}
-                aria-expanded={open}
-                className="jc-toggle mt-1 items-center gap-1 text-[12px] font-semibold text-neutral-600 hover:text-accent dark:text-neutral-300"
+              <Popover
+                open={open}
+                onOpenChange={setOpen}
+                align="start"
+                label="Job details"
+                className="flex max-h-72 w-64 flex-col gap-2"
+                trigger={
+                  <button
+                    type="button"
+                    className="jc-toggle mt-1 items-center gap-1 text-[12px] font-semibold text-neutral-600 hover:text-accent dark:text-neutral-300"
+                  >
+                    Job details <span aria-hidden className="text-[9px]">{open ? "▲" : "▼"}</span>
+                  </button>
+                }
               >
-                Job details <span aria-hidden className="text-[9px]">{open ? "▲" : "▼"}</span>
-              </button>
-              {open && <div className="jc-pop">{details}</div>}
+                {details}
+              </Popover>
             </div>
             {hub.total && <div className="jc-total">{hub.total}</div>}
             {hub.controls && <div className="jc-controls">{hub.controls}</div>}

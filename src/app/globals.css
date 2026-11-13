@@ -327,6 +327,44 @@ html .group:hover .group-hover\:text-accent {
 .dark .text-neutral-500:not([class*="dark:text-"]) {
   color: #94928c; /* neutral-400 (tailwind.config.ts): 5.6:1 on the dark card */
 }
+/* The same lift for the few sites that ASK for 500 in dark: at 3.0-3.6:1 they
+   failed on every dark surface. #94928c is 4.58:1 on the darkest step it meets
+   (--ink-overlay, Guidelines). `dark:text-neutral-600` stays: it marks only
+   decoration (separators, chevrons). The leading `html` outranks Tailwind's
+   own rule without depending on stylesheet order. */
+html.dark .dark\:text-neutral-500 {
+  color: #94928c;
+}
+
+/* TOUCH SIZES (OVERHAUL_PLAN 3.2). On a touch screen:
+   - A field's text is 16px. Under 16px, iOS zooms the page on focus and does
+     not zoom back. The attribute tests lift the specificity over `.text-sm`.
+   - Every Button and every Segmented option is at least 44px tall, the
+     WCAG 2.5.5 target. A mouse keeps the denser sizes. */
+@media (pointer: coarse) {
+  html input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  html select:not([multiple]),
+  html textarea:not([hidden]) {
+    font-size: 16px;
+  }
+  html .ui-btn,
+  html .ui-seg {
+    min-height: 2.75rem;
+  }
+}
+
+/* Reduced motion: transitions and animations end at once. They still run (for
+   0.01ms), so code that waits for `transitionend` still hears it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 /* Height of the fixed bottom tab bar (components/TabBar). Published as a
    variable so the two things that must clear it — the page's own bottom padding
@@ -595,18 +633,6 @@ textarea:focus-visible {
   }
 }
 
-/* The desktop slide-out menu (src/components/SideNav.tsx) — it slides in from
-   the left edge it is docked to. Mounted open, so the animation runs on the
-   element's first frame and needs no second render to trigger a transition. */
-.sidenav-in {
-  animation: sidenav-in 160ms ease-out;
-}
-@keyframes sidenav-in {
-  from {
-    transform: translateX(-100%);
-  }
-}
-
 /* Brand-tinted text selection — ochre in both themes, at low alpha. */
 ::selection {
   background: rgb(var(--brand) / 0.28);
@@ -704,8 +730,7 @@ textarea:focus-visible {
 .jc-controls {
   margin-left: auto;
 }
-.jc-toggle,
-.jc-pop {
+.jc-toggle {
   display: none;
 }
 .jc-body {
@@ -747,20 +772,6 @@ textarea:focus-visible {
   }
   .jc-toggle {
     display: inline-flex;
-  }
-  .jc-pop {
-    @apply rounded-xl border border-line bg-white shadow-lg dark:bg-ink-raised;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    left: 0;
-    max-height: 18rem;
-    overflow-y: auto;
-    padding: 0.75rem;
-    position: absolute;
-    top: 100%;
-    width: 16rem;
-    z-index: 30;
   }
 }
 /* C + D and one gap: 15 + 20 + 1.5 = 36.5rem. Below it the notes stand alone,

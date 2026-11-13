@@ -172,26 +172,59 @@ shared-cache move.
 
 ### 3.1 Missing primitives in `ui.tsx`
 
-- [ ] `Sheet`: bottom sheet on phones, side panel on desktop. Grabber, two heights, `overscroll-behavior: contain`.
-- [ ] `Menu` and `Popover`: one build, replaces the 6 custom popovers. Use Base UI or the native Popover API; pick one in this step and record why in `THEME.md`.
-- [ ] `Notice`: `Banner` plus severity, dismiss, snooze and one action button.
-- [ ] `Toast`: one way to confirm a save.
+- [x] `Sheet`: bottom sheet on phones, side panel on desktop. Grabber, two heights, `overscroll-behavior: contain`.
+- [x] `Menu` and `Popover`: one build, replaces the 6 custom popovers. Use Base UI or the native Popover API; pick one in this step and record why in `THEME.md`.
+- [x] `Notice`: `Banner` plus severity, dismiss, snooze and one action button.
+- [x] `Toast`: one way to confirm a save.
+
+Built 2026-11-13 on Base UI 1.9.0 (THEME.md says why). Converted: the Tools
+title menu, the Job board card's details drop-down, the Tool Schedule job
+filter, and the Page Text save confirmation. The inventory found 3 real
+popovers, not 6: CopyInPlace and NotesPanel are panels, RailWidgetButton is a
+notice, Donut is a tooltip. The 4 typeahead pickers (CostCodeSelect,
+JobPicker, GlobalSearch, PlaceInput) are comboboxes, out of 3.1's scope. 10
+other files clear a "Saved" or "Copied" flag on a timer; move them to `toast`
+as each page is touched. `Sheet` has no caller yet; 3.3 puts the phone drawer
+on it. The toast host adds 1 KB to every page. Found while measuring: Home's
+first load on `main` after Phase 2 landed is 329 KB, not 275, before any 3.1
+change. Phase 2's 300 KB target needs a second look.
 
 ### 3.2 Token fixes (mechanical)
 
-- [ ] Inputs 16px on phones. Small buttons and segmented controls 44px on touch screens. Toggle at least 24px tall.
-- [ ] Quiet text on dark to 4.5:1 (about 390 sites; change the token, not the sites).
-- [ ] Add a `prefers-reduced-motion` rule.
+- [x] Inputs 16px on phones. Small buttons and segmented controls 44px on touch screens. Toggle at least 24px tall.
+- [x] Quiet text on dark to 4.5:1 (about 390 sites; change the token, not the sites).
+- [x] Add a `prefers-reduced-motion` rule.
+
+Built 2026-11-13, all in `globals.css` plus the `Toggle` size; no page edited.
+"Touch screen" is `(pointer: coarse)`, so an iPad gets the touch sizes too.
+Bare `text-neutral-500` in dark was already lifted (2026-10); the 8 sites that
+asked for `dark:text-neutral-500` now get the same lift. The worst dark
+surface (`--ink-overlay`) reads 4.58:1. Checked in a phone-sized browser:
+buttons and segments 44px, fields 16px, motion off under reduced motion.
 
 ### 3.3 Navigation
 
-- [ ] Rebuild the phone drawer on `Sheet`: 3 columns, 24px icons, 13px labels, opens to half height, drags to full.
-- [ ] Regroup the rail and the drawer from one ordered list by frequency of use. Use the Phase 2 counts once they exist; use the owner's order until then.
-- [ ] Repoint the roughly 30 `/trackingsheet` links at the Jobs Hub. Bill page Back returns to where the user came from.
-- [ ] Fold `/tracking-sheet` (hyphen) into the hub's sheet tab. Give `/unbilled`, `/jobs` and `/vendor-mail/index` a way back.
-- [ ] Replace native and custom dropdowns with `Select` or `Menu`, page by page.
+- [x] Rebuild the phone drawer on `Sheet`: 3 columns, 24px icons, 13px labels, opens to half height, drags to full.
+- [x] Regroup the rail and the drawer from one ordered list by frequency of use. Use the Phase 2 counts once they exist; use the owner's order until then.
+- [x] Repoint the roughly 30 `/trackingsheet` links at the Jobs Hub. Bill page Back returns to where the user came from.
+- [x] Fold `/tracking-sheet` (hyphen) into the hub's sheet tab. Give `/unbilled`, `/jobs` and `/vendor-mail/index` a way back.
+- [x] Replace native and custom dropdowns with `Select` or `Menu`, page by page.
 
 Done when: no page links to a page that the hub replaced, and one menu build remains.
+
+Built 2026-11-13. The drawer and the ☰ menu are both `Sheet` now; the drawer
+has no 12-page cap and lists every page the bar lacks, in the rail's order.
+The Phase 2 counts live only in the production database, so the order is
+still the owner's (`DESK_TOP`). Job links use `hubHref` (`src/lib/hubUrl.ts`);
+the hub reads `?jobId&ym` and a labor focus, then shortens the address. A
+redirect sends `/trackingsheet?jobId=…` to the hub, so stored finding links
+still land. Plain `/trackingsheet` (the all-jobs month views) stays: the hub
+did not replace it. Sheet sync settings is a panel (`SheetSyncButton`) on the
+hub and the all-jobs view; `/tracking-sheet` redirects to the hub. `BackLink`
+gives the three pages a way back. 17 raw selects became `Select`; 8 stay raw
+with a comment (invisible overlays, compact table cells, the hub's borderless
+month word). The comboboxes (JobPicker, CostCodeSelect, GlobalSearch,
+PlaceInput) are out of scope, as in 3.1.
 
 ---
 
@@ -284,5 +317,4 @@ Target: about 61 pages to about 35 routes behind 8 hubs.
 | 4 | Widget scope: show, hide, reorder, two sizes | Yes; no free resize |
 | 5 | May the `/queue` agent work without the owner present? | No. By hand, and the owner picks which requests run and which push through (1.6) |
 
-Still open: menu primitive, Base UI (new dependency) or native Popover. Decide
-in 3.1 after a short trial of each.
+Menu primitive: Base UI (owner, 2026-11-13). The reasons are in `THEME.md`.

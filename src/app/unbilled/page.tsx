@@ -16,6 +16,8 @@ import { getUninvoicedBills, type UninvoicedBills } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { money } from "@/lib/money";
 import { CoiDot } from "@/components/CoiDot";
+import { BackLink } from "@/components/BackLink";
+import { hubHref } from "@/lib/hubUrl";
 
 /**
  * Server component. `jobId` comes from the URL — set by this page's own picker
@@ -37,6 +39,7 @@ export default async function UnbilledPage({
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+      <BackLink href={jobId ? hubHref(jobId) : "/jobs-hub"} />
       <JobTabs jobId={jobId} />
       <PageHeader
         title="Unbilled"

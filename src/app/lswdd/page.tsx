@@ -467,6 +467,7 @@ export default function LswddPage() {
                       </div>
 
                       {codes && codes.length > 0 ? (
+                        /* Raw select: compact mono table-row cell (h-10, text-xs). */
                         <select
                           className="h-10 rounded-lg border border-line bg-white px-2 font-mono text-xs dark:bg-ink-raised"
                           value={e.csi}

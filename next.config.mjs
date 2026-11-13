@@ -75,6 +75,11 @@ const nextConfig = {
       { source: "/taxable-lines", destination: "/invoice-review?section=taxable", permanent: false },
       // The job workbench's labor panel holds the same list (owner, 2026-10-18).
       { source: "/labor-review", destination: "/trackingsheet", permanent: false },
+      // One job's board lives on the Jobs Hub (OVERHAUL_PLAN 3.3). The query
+      // rides along, so stored finding links (?jobId&ym&focus) still land.
+      // Sheet sync settings is a panel on the hub now (OVERHAUL_PLAN 3.3).
+      { source: "/tracking-sheet", destination: "/jobs-hub", permanent: false },
+      { source: "/trackingsheet", has: [{ type: "query", key: "jobId" }], destination: "/jobs-hub", permanent: false },
       // One Incoming Bills inbox (CONSOLIDATION_PLAN.md stage 3).
       { source: "/needs-project", destination: "/email?section=stuck", permanent: false },
       { source: "/vendor-mail", destination: "/email?section=mail", permanent: false },

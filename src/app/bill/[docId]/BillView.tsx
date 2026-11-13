@@ -41,6 +41,7 @@ import {
 import { isTaxRecoverable, SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
 import { money } from "@/lib/money";
 import { postSplitBill } from "@/lib/splitBillClient";
+import { hubHref } from "@/lib/hubUrl";
 
 interface Line {
   id: string;
@@ -220,7 +221,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
         `/trackingsheet?open=${encodeURIComponent(jobId)}${ymQs}`
       : from === "payments"
         ? "/payments"
-        : `/trackingsheet?jobId=${encodeURIComponent(jobId)}${ymQs}#bill-${docId}`;
+        : hubHref(jobId, ym);
   // A general Back: return to the previous page via the browser's history when
   // there is one, so Back lands wherever you actually came from (search, the
   // digest, a shared link) instead of always claiming "Tracking Sheets". Falls
@@ -758,7 +759,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
     // Deliberately still `reassigning` — the navigation is what ends it, and
     // re-enabling the picker first would offer a second move against a doc
     // that is already being voided.
-    router.push(`/trackingsheet?jobId=${encodeURIComponent(target.id)}`);
+    router.push(hubHref(target.id));
   }
 
   /**

@@ -11,6 +11,7 @@ import { WARRANTY_CSI, WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { buildColorMap, buildSlices, withoutSalesTax } from "./CostDonuts";
 import { money0 } from "@/lib/money";
 import { JobMonthActions, type MonthActions } from "./JobMonthActions";
+import { hubHref } from "@/lib/hubUrl";
 
 /**
  * Tracking Sheets with no job selected — one card per job with cost in the
@@ -141,7 +142,7 @@ export function MonthTotalCard({ jobs, ym }: { jobs: MonthJobCost[]; ym: string 
   const router = useRouter();
   const openJob = (jobId: string) => {
     if (jobId === WARRANTY_SLICE_KEY) return; // warranty is no one job
-    router.push(`/trackingsheet?jobId=${encodeURIComponent(jobId)}&ym=${encodeURIComponent(ym)}`);
+    router.push(hubHref(jobId, ym));
   };
   // Every job's own figures, plus the month's warranty work as its own slice.
   const warranty = monthWarrantyRow(jobs);
@@ -228,7 +229,7 @@ function JobCard({
     // `w-80` is the scroller's card; `pad:w-auto` lets the grid cell decide.
     <Card className="flex h-full w-80 shrink-0 flex-col gap-2 pad:w-auto">
       <Link
-        href={`/trackingsheet?jobId=${encodeURIComponent(j.jobId)}&ym=${encodeURIComponent(ym)}`}
+        href={hubHref(j.jobId, ym)}
         className="flex flex-1 flex-col gap-3 rounded-lg transition hover:opacity-80"
       >
         <div className="flex items-start gap-2">
