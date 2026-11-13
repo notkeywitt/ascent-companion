@@ -20,3 +20,6 @@ dist/
 
 # working files of the /tool-batch skill (tool photos)
 .tool-batch/
+
+# every local env file (owner edit, kept 2026-11-13)
+.env*

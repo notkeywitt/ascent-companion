@@ -27,14 +27,15 @@ export function useRailView() {
    * the cards away on a phone, this closes the rail's whole COLUMN so the bills
    * take the width. Remembered per device — someone who codes with the rail
    * shut wants it shut tomorrow too. Read in an effect rather than at init, so
-   * the server and the first client render agree.
+   * the server and the first client render agree. Hidden by default (owner,
+   * 2026-11-02): only a device that reopened it ("0") opens shown.
    */
-  const [railHidden, setRailHidden] = useState(false);
+  const [railHidden, setRailHidden] = useState(true);
   useEffect(() => {
     try {
-      setRailHidden(localStorage.getItem(RAIL_HIDDEN_KEY) === "1");
+      setRailHidden(localStorage.getItem(RAIL_HIDDEN_KEY) !== "0");
     } catch {
-      /* blocked storage just means the rail opens shown */
+      /* blocked storage just means the rail opens hidden */
     }
   }, []);
   const toggleRailHidden = () =>

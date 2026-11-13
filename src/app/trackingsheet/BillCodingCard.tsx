@@ -1190,7 +1190,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   "mb-4 border-b border-line-soft pb-4" +
                   (standalone ? " sticky-below-header lg:sticky lg:mb-0 lg:border-0 lg:pb-0" : "") +
                   // Docked, the scroller is the card body, so pin to its top.
-                  (wide ? " sticky top-0 !mb-0 !border-0 !pb-0" : "")
+                  // Scrolling with the page, pin under the app header instead —
+                  // top-0 parks the scan's top behind it.
+                  (wide
+                    ? (boxed ? " sticky top-0" : " sticky sticky-below-header") +
+                      " !mb-0 !border-0 !pb-0"
+                    : "")
                 }
               >
                 {filesLoading && <p className="text-xs text-neutral-400">Loading…</p>}
