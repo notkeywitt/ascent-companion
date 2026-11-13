@@ -145,19 +145,26 @@ session into a worktree by itself.
 
 ## Phase 2 — Measure, then quick performance wins (Sonnet, 1 session)
 
-- [ ] Turn on Vercel Web Analytics and Speed Insights.
-- [ ] Add a per-route count (views, distinct users, 30 days) to Admin → Activity from `usage_events`. Phase 7 uses it to pick which pages to fold.
-- [ ] Lazy-load the Jobs Hub tabs (`JobsHub.tsx:19-29`). Cuts about 150 to 200 KB from Home.
-- [ ] Redirect field and lead users on the server in `src/app/page.tsx`. Not in middleware.
-- [ ] Cache `listTrackingSheetJobs` (`api/tracking-sheet/route.ts:42`). Removes a 2 to 10 second call from every job open.
-- [ ] Remove the Home month waterfall (`JobsHub.tsx:149`, `MonthJobDonuts.tsx:187`).
-- [ ] `my-todos` route: use `session.user.jtUserId`; cache the open to-dos for 60 seconds.
-- [ ] Run the layout's reads in parallel (`layout.tsx:82-121`). Do not change `auth()`.
-- [ ] Add `loading.tsx` skeletons for `employee-time`, `trackingsheet`, `jobs-hub`.
-- [ ] Move the Leads ingest off page open to a cron.
+- [x] Turn on Vercel Web Analytics and Speed Insights. (Code mounted in `layout.tsx`. The owner still enables both in the Vercel project.)
+- [x] Add a per-route count (views, distinct users, 30 days) to Admin → Activity from `usage_events`. Phase 7 uses it to pick which pages to fold.
+- [x] Lazy-load the Jobs Hub tabs (`JobsHub.tsx:19-29`). Cuts about 150 to 200 KB from Home.
+- [x] Redirect field and lead users on the server in `src/app/page.tsx`. Not in middleware.
+- [x] Cache `listTrackingSheetJobs` (`api/tracking-sheet/route.ts:42`). Removes a 2 to 10 second call from every job open.
+- [x] Remove the Home month waterfall (`JobsHub.tsx:149`, `MonthJobDonuts.tsx:187`).
+- [x] `my-todos` route: use `session.user.jtUserId`; cache the open to-dos for 60 seconds.
+- [x] Run the layout's reads in parallel (`layout.tsx:82-121`). Do not change `auth()`.
+- [x] Add `loading.tsx` skeletons for `employee-time`, `trackingsheet`, `jobs-hub`.
+- [ ] Move the Leads ingest off page open to a cron. **Sign-off:** the cron needs a path that skips sign-in, so it edits `src/middleware.ts`.
 - [ ] **Sign-off, measure first:** move hot in-memory caches to the shared cache with tags (ARCHITECTURE_REVIEW item 9). It touches the cache-bust calls on write paths.
 
 Done when: Home first load is under 300 KB and the field clock shows in one step.
+
+Built 2026-11-13. Home first load is 275 KB (was 466); Jobs Hub is 266 KB. Not
+yet run on a phone: the field redirect. It fires on an app open only (a request
+without the RSC header), so a refresh on Today lands on Time, and a menu tap to
+Today does not redirect. `/` and `/jobs-hub` now pass the billing month from the
+server, so the month's figures fetch at once. Open: the Leads cron, and the
+shared-cache move.
 
 ---
 

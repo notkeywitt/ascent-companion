@@ -1,178 +1,51 @@
-"use client";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 
-import { Suspense, useEffect } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
-import { useAccess } from "@/components/AccessProvider";
-import { StuckVendorBanner } from "@/components/StuckVendors";
-import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
-import { HomeTodos } from "@/components/HomeTodos";
-import { HomeJobBoard } from "@/components/HomeJobBoard";
-import { HomeLeadBoard } from "@/components/HomeLeadBoard";
-import { HomeMasthead } from "@/components/HomeMasthead";
-import { HomeActions } from "@/components/HomeActions";
-import { TodayQueue } from "@/components/TodayQueue";
-import { TodayOfficeTodos } from "@/components/TodayOfficeTodos";
-import { JobsHub } from "@/app/jobs-hub/JobsHub";
+import { auth } from "@/auth";
+import { currentBillingPeriod } from "@/lib/billingMonth";
+import { onboardingOpen } from "@/lib/onboarding/open";
+import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
+import { HomeClient } from "./HomeClient";
 
 /**
- * The Assistant's front page — Today.
+ * The Assistant's front page — Today. The page itself is in HomeClient.tsx.
  *
- * It no longer lists pages. Since 2026-09-29 every page is in the header's ☰
- * menu and the bottom bar (both from src/lib/workspaces.ts), so the launchers
- * that used to fill this page — the admin cards, the tile grid, All Pages —
- * are gone. What stays is what needs the person today: the billing month, the
- * queue (TodayQueue — a row and a count per thing waiting), the stuck and
- * unassigned bills, the job and lead boards, and the to-dos. Appearance,
- * desktop alerts and Sign out live in the ☰ menu.
+ * This server half does two jobs the browser used to do after it had already
+ * downloaded the page (Phase 2 of OVERHAUL_PLAN):
  *
- * The one exception is the Actions panel (HomeActions, 2026-10-26, owner): a
- * few big buttons for jobs done from a phone in the field, not page launchers.
+ *   • A crew member opens this app to clock in, so FIELD and LEAD land on
+ *     Employee Time (lead added 2026-09-30, owner). A new hire with paperwork
+ *     still open lands on it instead. Only an app OPEN redirects: a menu or
+ *     bar tap to Today is a client navigation (it carries the RSC header), so
+ *     the lead's Today slot and the menu still reach this page. A refresh on
+ *     Today lands on Time again.
+ *   • The billing month for the office's Jobs Hub, so that page does not fetch
+ *     it before it can fetch the month's figures.
  */
-
-function Home() {
-  const access = useAccess();
-  const router = useRouter();
-
-  /* A crew member opens this app to clock in, so FIELD and LEAD land on
-     Employee Time rather than here (lead added 2026-09-30, owner). Once per
-     tab: the redirect marks the tab, so a fresh app open lands on Time and the
-     bar's Today slot (lead) or the menu still reaches this page afterwards.
-     Client-side because the role only exists below the server layout. */
-  useEffect(() => {
-    if (access.role !== "field" && access.role !== "lead") return;
-    // The Chrome side panel opens "/?jobId=…" to follow the JobTread job on
-    // screen; that is a request for this page, not an app open.
-    if (new URLSearchParams(window.location.search).has("jobId")) return;
-    try {
-      if (sessionStorage.getItem("home.landed")) return;
-      sessionStorage.setItem("home.landed", "1");
-    } catch {
-      return; // storage blocked — leave them here rather than loop.
-    }
-    // A new hire with paperwork still open lands on it instead (field is the
-    // role an invite gives). A 403 — a token minted before the view existed —
-    // or any failure just means "no paperwork": go to Time as before.
-    fetch("/api/onboarding/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j: { intake?: { profileAt: string | null; sentAt: string | null } | null; forms?: { submitted: unknown }[] } | null) => {
-        const i = j?.intake;
-        const open = !!i && !i.sentAt && (!i.profileAt || (j?.forms ?? []).some((f) => !f.submitted));
-        router.replace(open ? "/onboarding" : "/employee-time");
-      })
-      .catch(() => router.replace("/employee-time"));
-  }, [access.role, router]);
-  const needsProject = useNeedsProjectCount();
-  // Home's notices, up in the masthead (owner, 2026-11-02). Each self-hides.
-  const notices = (
-    <>
-      <StuckVendorBanner compact />
-      <NeedsProjectBanner state={needsProject} compact />
-    </>
-  );
-
-  /* ADMIN and OFFICE land on the Jobs page (owner, 2026-11-02). Home's own
-     pieces it does not carry stay on top: the masthead (it sets the billing
-     month), the phone buttons and the two stuck-bill banners. The queue, both
-     to-do lists, and the job and lead boards are already on the Jobs page. */
-  if ((access.role === "admin" || access.role === "office") && access.can("jobs-hub")) {
-    return (
-      <>
-        <div className="w-full px-4 pt-3 pad:px-7 pad:pt-5">
-          <HomeMasthead notices={notices} />
-          <HomeActions />
-        </div>
-        <JobsHub home />
-      </>
-    );
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const session = await auth();
+  let role = session?.user?.role ?? null;
+  if (role === "admin") {
+    // An admin previewing as a role sees that role's landing (see layout.tsx).
+    role = parsePreviewRole((await cookies()).get(PREVIEW_COOKIE)?.value) ?? role;
   }
 
-  return (
-    <main className="w-full max-w-2xl px-4 pb-10 pt-3 pad:max-w-none pad:pt-5 pad:px-7">
-      {/* No page title here ON A PHONE, on purpose: the logo in the header
-          already says where you are, and an <h1>Home</h1> plus its description
-          cost the top fifth of a phone screen to repeat it. From `pad` up the
-          screen is a foot tall and the same band costs nothing, so the masthead
-          below draws the heading — and stands the billing month on it, which is
-          the fact this office checks before it opens anything. */}
-      <HomeMasthead notices={notices} />
+  if (role === "field" || role === "lead") {
+    const appOpen = !(await headers()).get("rsc");
+    // The Chrome side panel opens "/?jobId=…" to follow the JobTread job on
+    // screen; that is a request for this page, not an app open.
+    const asksForPage = "jobId" in (await searchParams);
+    if (appOpen && !asksForPage) {
+      const email = (session?.user?.email ?? "").trim().toLowerCase();
+      redirect(email && (await onboardingOpen(email)) ? "/onboarding" : "/employee-time");
+    }
+  }
 
-      {/* The button panel — one big tap per thing done from a phone (Deposit
-          checks first). Hidden on a desktop. Self-hiding: each button rides its own view, and the
-          deposit view is admin-only by default. */}
-      <HomeActions />
-
-      {/* What needs this person — one row per queue, each with its count. */}
-      <TodayQueue />
-
-      {/* Budget + calendar position for the work in flight — a card per active
-          job for office/admin, one wide panel for a lead's own job. Self-hiding,
-          and a field phone never fetches it (see HomeJobBoard). */}
-      <HomeJobBoard />
-
-      {/* The pipeline, as the same kanban row of cards — ordered by last
-          contact so a lead going quiet is the first thing on it. Collapsible
-          and remembered per device; self-gating on the `leads` view, so office
-          and admin get it and a field or lead phone never fetches it. */}
-      <HomeLeadBoard />
-
-      {/* To Dos — your open JobTread to-dos, a form that creates one, and the
-          morning digest's other findings (calendar, follow-ups) under them. The
-          to-dos are read live; the digest half is the report the scheduled job
-          stored, and this does NOT run the checks on load. Self-hiding: renders
-          nothing without the `digest` view, which is ADMIN-ONLY as of
-          2026-09-08. Office, lead and field all load this same page and pay
-          nothing for it. Only admin gets "Refresh", which is a separate check —
-          see HomeTodos.tsx. */}
-      <HomeTodos />
-
-      {/* The Office job's to-dos, under the "office" view — the same list and
-          edits as the Office dashboard. With HomeTodos above, Today holds both
-          to-do lists, each under its own gate. */}
-      <TodayOfficeTodos />
-
-      {/* No views at all — don't leave a blank page. This happens when the
-          session carries no identity/role (e.g. signed in with the temporary
-          shared password rather than Google). Offer a way back to Google. */}
-      {access.views.size === 0 && (
-        <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
-          <p className="text-sm font-semibold">No views are available for your account yet.</p>
-          <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
-            If you signed in with the temporary password, sign in with Google to load your access.
-            Otherwise, ask an admin to grant you access.
-          </p>
-          <Link href="/login" className={btn("primary", "md", "mt-4")}>
-            Sign in with Google
-          </Link>
-        </div>
-      )}
-
-      {/* LopezRocks — the island's community board, re-drawn for a phone
-          (src/app/lopezrocks). For EVERY role, at the owner's request
-          (2026-09-27): the view is in FIELD_VIEWS, which every role inherits.
-          Still gated on its own id, so a per-user denial in /admin hides it. */}
-      {access.can("lopezrocks") && (
-        <section className="mt-8">
-          <SectionHeading className="mb-2">Community</SectionHeading>
-          <ListCard>
-            <ListRow
-              href="/lopezrocks"
-              label="LopezRocks"
-              desc="Lopez Island's community board, easy to read on a phone"
-            />
-          </ListCard>
-        </section>
-      )}
-
-    </main>
-  );
-}
-
-export default function Page() {
-  return (
-    <Suspense fallback={<main className="p-6 text-sm text-neutral-500">Loading…</main>}>
-      <Home />
-    </Suspense>
-  );
+  const { billingYear, billingMonthNum } = await currentBillingPeriod();
+  const billingYm = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
+  return <HomeClient billingYm={billingYm} />;
 }

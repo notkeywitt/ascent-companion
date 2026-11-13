@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { auth } from "@/auth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { findMemberByEmail, getOpenToDos } from "@/lib/jobtread";
+import { findMemberByEmail, getOpenToDosCached } from "@/lib/jobtread";
 import { resolveJtUserLink } from "@/lib/jtUserLink";
 import { orgDay } from "@/lib/orgTime";
 
@@ -29,14 +29,20 @@ export async function GET(req: NextRequest) {
 
   const session = await auth();
   const email = (session?.user?.email ?? "").trim().toLowerCase();
-  const member = email ? await findMemberByEmail(getPaveConfig(), email).catch(() => null) : null;
-  const link = !member && email ? await resolveJtUserLink(email).catch(() => null) : null;
-  const myUserId = (member?.userId || link?.jtUserId || "").trim();
-  const myName = member?.name || link?.jtUserName || link?.name || "";
+  // The session already carries the JobTread user id (set at sign-in), so the
+  // lookups below run only for a token that has none.
+  let myUserId = (session?.user?.jtUserId ?? "").trim();
+  let myName = "";
+  if (!myUserId) {
+    const member = email ? await findMemberByEmail(getPaveConfig(), email).catch(() => null) : null;
+    const link = !member && email ? await resolveJtUserLink(email).catch(() => null) : null;
+    myUserId = (member?.userId || link?.jtUserId || "").trim();
+    myName = member?.name || link?.jtUserName || link?.name || "";
+  }
 
   let open;
   try {
-    open = await getOpenToDos(getPaveConfig());
+    open = await getOpenToDosCached(getPaveConfig());
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ ok: false, error: message }, { status: 502 });

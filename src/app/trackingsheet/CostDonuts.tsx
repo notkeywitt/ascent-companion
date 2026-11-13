@@ -6,7 +6,7 @@ import { Donut, type DonutDetailRow, type DonutSlice } from "@/components/Donut"
 import { SectionLabel } from "@/components/ui";
 import { SALES_TAX_CSI } from "@/lib/salesTax";
 import { WARRANTY_CSI } from "@/lib/warranty";
-import { money } from "./BillCodingCard";
+import { money } from "@/lib/money";
 
 /**
  * The job workbench's two cost rings — vendor bills and labor, each broken out

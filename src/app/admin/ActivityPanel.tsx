@@ -18,6 +18,12 @@ interface UserActivity {
   lastActive: string | null;
   topViews: TopView[];
 }
+interface RouteActivity {
+  key: string;
+  label: string;
+  views: number;
+  users: number;
+}
 interface RecodeEntry {
   line: string;
   from: string;
@@ -36,6 +42,7 @@ interface UsageSummary {
   since: string;
   totals: { activeUsers: number; logins: number; views: number; codings: number };
   users: UserActivity[];
+  routes: RouteActivity[];
   recent: RecentActivity[];
 }
 
@@ -132,6 +139,22 @@ export function ActivityPanel() {
             <Stat label="Page views" value={data.totals.views} />
             <Stat label="Coding saves" value={data.totals.codings} />
           </div>
+
+          <SectionLabel className="mb-1">Pages</SectionLabel>
+          <ul className="mb-5 divide-y divide-line-soft rounded-lg border border-line bg-white text-sm dark:divide-white/10 dark:bg-ink-raised">
+            {data.routes.map((r) => (
+              <li key={r.key} className="flex items-baseline justify-between gap-2 px-3 py-1.5">
+                <span className="min-w-0 truncate">{r.label}</span>
+                <span className="shrink-0 text-xs text-neutral-500">
+                  <strong className="text-neutral-700 dark:text-neutral-300">{r.views}</strong> view
+                  {r.views === 1 ? "" : "s"} · {r.users} {r.users === 1 ? "person" : "people"}
+                </span>
+              </li>
+            ))}
+            {data.routes.length === 0 && (
+              <li className="px-3 py-3 text-center text-neutral-500">No page views in this window yet.</li>
+            )}
+          </ul>
 
           <SectionLabel className="mb-1">People</SectionLabel>
           <ul className="space-y-2">

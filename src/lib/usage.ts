@@ -125,12 +125,43 @@ export interface RecentActivity {
   at: string; // ISO
 }
 
+export interface RouteActivity {
+  key: string; // view id when the path maps to one, else the path
+  label: string;
+  views: number;
+  users: number; // distinct people
+}
+
 export interface UsageSummary {
   days: number;
   since: string; // ISO window start
   totals: { activeUsers: number; logins: number; views: number; codings: number };
   users: UserActivity[]; // sorted by lastActive, most recent first
+  routes: RouteActivity[]; // page views per page, most viewed first
   recent: RecentActivity[]; // newest first, capped
+}
+
+/**
+ * Page views per page: views and distinct people. A page with a view id groups
+ * under it (so /bill/<id> and /bill/<other> count as one); any other path
+ * groups under itself. Phase 7 of OVERHAUL_PLAN reads this to order the folds.
+ */
+export function rollupRoutes(
+  rows: { email: string; kind: string; path: string; viewId: string }[],
+  label: (viewId: string) => string = (id) => id,
+): RouteActivity[] {
+  const by = new Map<string, { label: string; views: number; people: Set<string> }>();
+  for (const r of rows) {
+    if (r.kind !== "view") continue;
+    const key = r.viewId || r.path || "(other)";
+    let g = by.get(key);
+    if (!g) by.set(key, (g = { label: r.viewId ? label(r.viewId) : key, views: 0, people: new Set() }));
+    g.views += 1;
+    g.people.add(r.email);
+  }
+  return [...by.entries()]
+    .map(([key, g]) => ({ key, label: g.label, views: g.views, users: g.people.size }))
+    .sort((a, b) => b.views - a.views);
 }
 
 /**
@@ -228,6 +259,7 @@ export async function getUsageSummary(
       codings: users.reduce((s, u) => s + u.codings, 0),
     },
     users,
+    routes: rollupRoutes(rows, label),
     recent,
   };
 }
