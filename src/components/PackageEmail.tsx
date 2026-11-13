@@ -75,6 +75,24 @@ export function usePackageEmail(ym: string) {
   return { run, running, error, done, stale, recheck };
 }
 
+const STALE_TITLE =
+  "Out of date: a bill, amount, coding, note or invoice has changed since the draft was made. Open this and press Draft email to recreate it.";
+
+/** A small amber bug on the button's corner: the Gmail draft is out of date. */
+function StaleDot({ show }: { show: boolean }) {
+  if (!show) return null;
+  return (
+    <span
+      role="img"
+      aria-label="Email out of date"
+      title={STALE_TITLE}
+      className="pointer-events-none absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold leading-none text-white"
+    >
+      !
+    </span>
+  );
+}
+
 /** The button, on the Package tab's action bar (moved from Tracking Sheets'
  *  all-jobs row 2026-10-18, so the package and its email sit together). */
 export function PackageEmailButton({
@@ -87,32 +105,26 @@ export function PackageEmailButton({
   /** Opens the notes card; the card's own button runs the draft. */
   onOpen: () => void;
 }) {
+  const stale = email.stale && !email.running;
   return (
-    <Button
-      variant="secondary"
-      onClick={onOpen}
-      disabled={email.running || !ym}
-      title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links. A new draft replaces this month's draft."
-    >
-      {email.running ? "Drafting email…" : "Invoicing email"}
-    </Button>
+    <span className="relative inline-block">
+      <Button
+        variant="secondary"
+        onClick={onOpen}
+        disabled={email.running || !ym}
+        title={`${stale ? STALE_TITLE + " " : ""}Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links. A new draft replaces this month's draft.`}
+      >
+        {email.running ? "Drafting email…" : "Invoicing email"}
+      </Button>
+      <StaleDot show={stale} />
+    </span>
   );
 }
 
 export function PackageEmailResult({ email }: { email: ReturnType<typeof usePackageEmail> }) {
-  const outOfDate = email.stale && !email.running;
-  if (!email.error && !email.done && !outOfDate) return null;
+  if (!email.error && !email.done) return null;
   return (
     <div className="mb-3">
-      {outOfDate && (
-        <Banner tone="warning" className="">
-          <b>Email Out Of Date - Recreate</b> · A bill, amount, coding, note or invoice has changed since the draft
-          was made.{" "}
-          <button type="button" onClick={email.run} className="font-semibold underline">
-            Recreate the draft
-          </button>
-        </Banner>
-      )}
       {email.error && (
         <Banner tone="error" className="">
           Invoicing email: {email.error}
@@ -317,15 +329,18 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
 
   return (
     <div className={className}>
-      <Button
-        variant="secondary"
-        className="min-h-11"
-        onClick={() => void show()}
-        disabled={email.running || !ym}
-        title="Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links."
-      >
-        {email.running ? "Drafting email…" : "Invoicing Email"}
-      </Button>
+      <span className="relative inline-block">
+        <Button
+          variant="secondary"
+          className="min-h-11"
+          onClick={() => void show()}
+          disabled={email.running || !ym}
+          title={`${email.stale && !email.running ? STALE_TITLE + " " : ""}Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links.`}
+        >
+          {email.running ? "Drafting email…" : "Invoicing Email"}
+        </Button>
+        <StaleDot show={email.stale && !email.running} />
+      </span>
       <PackageEmailResult email={email} />
       {open && (
         <PackageEmailNotes
