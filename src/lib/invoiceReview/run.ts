@@ -21,6 +21,7 @@ import { runChecks } from "./registry";
 import { saveRun } from "./runs";
 import { fallbackSummary } from "./summary";
 import type { ReviewPayload } from "./types";
+import { report } from "@/lib/findings";
 import type { PaveConfig } from "@/lib/jobtread";
 
 export async function runInvoiceReview(
@@ -100,6 +101,32 @@ export async function runInvoiceReview(
       payload.evidence.warnings.push(
         `This run's findings could not be added to the review's memory — ${lost}. ` +
           `Ages and check accuracy will be missing a run.`,
+      );
+    }
+    // The same findings into the app's one inbox (lib/findings). A finding
+    // under a standing ruling goes in as dismissed, with the ruling's author
+    // and reason. A finding with no ruling has its dismissal cleared, so a
+    // lifted ruling shows it again.
+    try {
+      await report(
+        "invoice-review",
+        payload.findings.map((f) => ({
+          key: f.key,
+          kind: f.kind,
+          subject: f.jobId,
+          severity: f.severity,
+          title: f.jobName ? `${f.jobName}: ${f.title}` : f.title,
+          link: `/invoice-review?ym=${evidence.ym}`,
+          dismissed: f.suppressedBy
+            ? { by: f.suppressedBy.by, reason: f.suppressedBy.reason, at: f.suppressedBy.at }
+            : null,
+        })),
+        evidence.ym,
+        ranAt,
+      );
+    } catch (e) {
+      payload.evidence.warnings.push(
+        `This run's findings did not reach Needs attention — ${e instanceof Error ? e.message : "unknown error"}`,
       );
     }
   }
