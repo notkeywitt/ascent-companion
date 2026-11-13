@@ -35,7 +35,11 @@ export default async function Page({
   }
 
   if (role === "field" || role === "lead") {
-    const appOpen = !(await headers()).get("rsc");
+    // Two signals, because either header can be missing: `rsc` marks an in-app
+    // navigation, and `sec-fetch-dest` is "empty" for any fetch() but
+    // "document" for a real page load (app open, refresh, typed URL).
+    const h = await headers();
+    const appOpen = !h.get("rsc") && h.get("sec-fetch-dest") !== "empty";
     // The Chrome side panel opens "/?jobId=…" to follow the JobTread job on
     // screen; that is a request for this page, not an app open.
     const asksForPage = "jobId" in (await searchParams);
