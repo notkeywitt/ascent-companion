@@ -58,4 +58,19 @@ describe("findings store", () => {
     expect(await f.list({ source: "mine", reader: "a@x.com" })).toHaveLength(1);
     expect(await f.list({ source: "mine", reader: "b@x.com" })).toHaveLength(0);
   });
+
+  it("dismisses and restores by identity, and keeps the dismissal through a report", async () => {
+    const f = await import("./findings");
+    await f.dismissByKey("dk", "chk", "chk::a", "a@x.com", "Old item");
+    expect(await f.dismissedKeys("dk")).toEqual(new Set(["chk::a"]));
+    expect(await f.list({ source: "dk", hidden: true })).toHaveLength(0); // resolved row
+
+    await f.report("dk", [{ key: "chk::a", title: "Old item" }], "chk");
+    expect(await f.list({ source: "dk" })).toHaveLength(0); // reopened, still dismissed
+    expect(await f.list({ source: "dk", hidden: true })).toHaveLength(1);
+
+    await f.restoreByKey("dk", "chk", "chk::a");
+    expect((await f.dismissedKeys("dk")).size).toBe(0);
+    expect(await f.list({ source: "dk" })).toHaveLength(1);
+  });
 });

@@ -15,7 +15,8 @@
 import { desc, eq } from "drizzle-orm";
 
 import { db, ensureDb } from "@/db";
-import { dailyDigest, digestDismissals } from "@/db/schema";
+import { dailyDigest } from "@/db/schema";
+import { dismissByKey, dismissedKeys, restoreByKey } from "@/lib/findings";
 import type { DigestPayload, StoredCheckResult } from "./types";
 
 /** Persist (or overwrite) the digest for its date. */
@@ -80,6 +81,13 @@ export async function readLatestDigest(): Promise<DigestPayload | null> {
 
 /* ------------------------------------------------------------- dismissals */
 
+/*
+ * A dismissal is a row of the findings store (lib/findings): source "digest",
+ * scope = the check id, key = `dismissalKey` (checkId::item key). runDigest
+ * reports the dismissible items there, so the same row shows in Needs
+ * attention and hides in the digest.
+ */
+
 /**
  * Every item key the office has dismissed and not undone — the set both the run
  * and GET /api/digest filter with (see `applyDismissals` in dismissals.ts).
@@ -89,12 +97,7 @@ export async function readLatestDigest(): Promise<DigestPayload | null> {
  */
 export async function readActiveDismissals(): Promise<Set<string>> {
   try {
-    await ensureDb();
-    const rows = await db
-      .select({ key: digestDismissals.key })
-      .from(digestDismissals)
-      .where(eq(digestDismissals.active, true));
-    return new Set(rows.map((r) => r.key));
+    return await dismissedKeys("digest");
   } catch {
     return new Set();
   }
@@ -107,26 +110,10 @@ export async function saveDismissal(row: {
   title: string;
   by: string;
 }): Promise<void> {
-  await ensureDb();
-  const values = {
-    key: row.key,
-    checkId: row.checkId,
-    title: row.title.slice(0, 300),
-    dismissedBy: row.by,
-    dismissedAt: new Date().toISOString(),
-    active: true,
-  };
-  await db
-    .insert(digestDismissals)
-    .values(values)
-    .onConflictDoUpdate({ target: digestDismissals.key, set: values });
+  await dismissByKey("digest", row.checkId, row.key, row.by, row.title);
 }
 
-/** Undo a dismissal — deactivated, not deleted, so the record survives. */
+/** Undo a dismissal. The row stays, so the record survives. */
 export async function liftDismissal(key: string): Promise<void> {
-  await ensureDb();
-  await db
-    .update(digestDismissals)
-    .set({ active: false })
-    .where(eq(digestDismissals.key, key));
+  await restoreByKey("digest", key.split("::")[0], key);
 }
