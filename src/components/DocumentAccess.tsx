@@ -202,7 +202,8 @@ export function DocumentAccessDialog({
           {monthLabel}
           {jobTitle ? ` · ${jobTitle}` : ""}. The contact is added to the Document Access list on
           every vendor bill dated in the month, so the client can open the bills behind their
-          invoice. No email is sent.
+          invoice. No email is sent. A job with one contact gets this on its own when a bill is
+          approved; this covers the rest.
         </>
       }
       footer={
