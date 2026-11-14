@@ -324,6 +324,20 @@ export function TabBar() {
     } catch {}
   };
   useEffect(() => setOpen(false), [pathname]);
+  // PEEK (owner, 2026-11-14): a mouse resting on the narrow or hidden rail
+  // opens the full sidebar OVER the page; --rail-w does not change, so the
+  // page does not move. Mouse only: a tap on an iPad is not a hover. A short
+  // delay each way, so a mouse crossing the rail does not flash it open.
+  const [peek, setPeek] = useState(false);
+  const peekTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const peekLater = (on: boolean, e: React.PointerEvent) => {
+    if (e.pointerType !== "mouse") return;
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+    peekTimer.current = setTimeout(() => setPeek(on), on ? 150 : 250);
+  };
+  useEffect(() => () => {
+    if (peekTimer.current) clearTimeout(peekTimer.current);
+  }, []);
   // A swipe up on the bar opens the drawer, like a sheet's handle.
   const touchY = useRef<number | null>(null);
 
@@ -458,7 +472,10 @@ export function TabBar() {
           --rail-w in globals.css, which is what the page moves right by. */}
       <nav
         aria-label="Workspaces"
-        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-transform duration-200 ease-out dark:bg-ink/95 print:hidden pad:flex 2xl:w-[232px] 2xl:px-3`}
+        data-peek={peek || undefined}
+        onPointerEnter={(e) => peekLater(true, e)}
+        onPointerLeave={(e) => peekLater(false, e)}
+        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-[width] duration-200 ease-out data-[peek]:shadow-xl dark:bg-ink/95 print:hidden pad:flex wide:w-[232px] wide:px-3`}
       >
         {rail.map((t) => {
           const on = t.key === railActive;
@@ -493,9 +510,9 @@ export function TabBar() {
                 href={t.href + qs}
                 aria-current={on ? "page" : undefined}
                 onClick={guard}
-                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
+                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
                   on
-                    ? `bg-accent/10 text-accent dark:text-accent-soft ${childLit ? "2xl:bg-transparent" : ""}`
+                    ? `bg-accent/10 text-accent dark:text-accent-soft ${childLit ? "wide:bg-transparent" : ""}`
                     : "text-neutral-500 hover:text-accent dark:text-neutral-400"
                 }`}
               >
@@ -504,7 +521,7 @@ export function TabBar() {
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
               </Link>
               {sections.length > 1 && (
-                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
+                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:block">
                   {sections.map((x, i) => (
                     <Link
                       key={x.id}
@@ -524,7 +541,7 @@ export function TabBar() {
               )}
               {/* The sidebar's second level: the current workspace's pages. */}
               {pages.length > 0 && (
-                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 2xl:block">
+                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:block">
                   {pages.map((tab) => {
                     const here = isHere(tab.href);
                     return (
@@ -562,7 +579,7 @@ export function TabBar() {
                 ? "The stream did not start. Try again."
                 : "Lopez Island's radio station, live"
             }
-            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
+            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
               kloi.playing
                 ? "bg-accent/10 text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -578,7 +595,7 @@ export function TabBar() {
               href="/lopezrocks"
               aria-current={isHereRoot("/lopezrocks") ? "page" : undefined}
               onClick={guard}
-              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 2xl:flex-row 2xl:gap-3 2xl:px-3 2xl:text-left 2xl:text-[13px] ${
+              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
                 isHereRoot("/lopezrocks")
                   ? "bg-accent/10 text-accent dark:text-accent-soft"
                   : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -592,14 +609,14 @@ export function TabBar() {
           <AppMenu account />
           {/* The desktop widget's launcher sits beside the Hide arrow (owner,
               2026-11-11). Narrow rail: two small buttons in a row. */}
-          <div className="rail-foot mt-1 flex items-center justify-center gap-0.5 2xl:justify-start">
+          <div className="rail-foot mt-1 flex items-center justify-center gap-0.5 wide:justify-start">
             <RailWidgetButton />
             <button
               type="button"
               onClick={toggleRail}
               aria-label={railHidden ? "Show the labels" : "Hide the labels"}
               title={railHidden ? "Show the labels" : "Hide the labels"}
-              className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 2xl:justify-start 2xl:px-3"
+              className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 wide:justify-start wide:px-3"
             >
               {railHidden ? "›" : "‹"}
             </button>

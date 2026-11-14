@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import plugin from "tailwindcss/plugin";
 
 export default {
   darkMode: "class",
@@ -136,5 +137,18 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `wide:` — the desktop rail's full-sidebar look (TabBar.tsx). It applies
+    // from 2xl, as `2xl:` did, AND while a mouse rests on a narrow or hidden
+    // rail (`data-peek` on its <nav>), so the rail opens over the page without
+    // moving it. Plugin variants are emitted after the screens, so it wins
+    // over the narrow rail's unprefixed classes.
+    plugin(({ addVariant }) => {
+      addVariant("wide", [
+        "@media (min-width: 1536px)",
+        ".rail-nav[data-peek] &",
+        "&.rail-nav[data-peek]",
+      ]);
+    }),
+  ],
 } satisfies Config;
