@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1a0f-7int9e";
+export const SCHEMA_FINGERPRINT = "1ado-zldsdu";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1061,6 +1061,18 @@ async function applySchema() {
     CREATE TABLE IF NOT EXISTS mileage_open_trips (
       email TEXT PRIMARY KEY,
       payload TEXT NOT NULL DEFAULT '{}',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  // One row per finished-trip save, keyed by the phone's client key, so a save
+  // the phone retries after leaving the page is written to the sheet once. See
+  // src/lib/mileageSaves.ts.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS mileage_saves (
+      client_key TEXT PRIMARY KEY,
+      email TEXT NOT NULL DEFAULT '',
+      state TEXT NOT NULL DEFAULT 'saving',
+      result TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL DEFAULT ''
     )
   `);

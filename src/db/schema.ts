@@ -1387,6 +1387,21 @@ export type MileageOpenTripRow = typeof mileageOpenTrips.$inferSelect;
 export type NewMileageOpenTripRow = typeof mileageOpenTrips.$inferInsert;
 
 /**
+ * One finished-trip save, keyed by the client key the phone made for it. The
+ * phone keeps an unconfirmed save and sends it again on the next app open
+ * (src/lib/mileageOutbox.ts); this row is what stops that second send writing
+ * the trip to the Mileage sheet twice. `state`: saving | saved | failed.
+ * `result` is the JSON reply of the save that worked. Swept after 30 days.
+ */
+export const mileageSaves = sqliteTable("mileage_saves", {
+  clientKey: text("client_key").primaryKey(),
+  email: text("email").notNull().default(""),
+  state: text("state").notNull().default("saving"),
+  result: text("result").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+/**
  * THE FINANCIAL JOURNAL — every write this app makes to a money record, kept
  * forever, in one append-only list.
  *

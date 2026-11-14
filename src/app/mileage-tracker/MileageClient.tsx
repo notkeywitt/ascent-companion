@@ -17,6 +17,16 @@ import {
   type ActiveTrip,
   type TripPoint,
 } from "@/lib/mileageTrip";
+import {
+  SAVE_EVENT,
+  flushOutbox,
+  pendingSave,
+  queueSave,
+  removeSave,
+  sendSave,
+  type SaveEvent,
+  type SaveReply,
+} from "@/lib/mileageOutbox";
 import { tripMiles } from "@/lib/mileageRoute";
 import { setUrlParam } from "@/lib/urlParam";
 import { placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
@@ -49,6 +59,11 @@ import {
  * companion DB behind it (`/api/mileage/active`). That is what lets the driver
  * lock the phone, close the app, or even swap to another device between the two
  * taps and still finish the trip. See src/lib/mileageTrip.ts for the model.
+ *
+ * THE FINISHED TRIP IS KEPT TOO, until the server confirms it. End writes the
+ * save to the phone's outbox, then sends it with `keepalive`; the app sends it
+ * again on its next open if no reply came (src/lib/mileageOutbox.ts). So the
+ * driver can leave this screen, or close the app, right after End.
  */
 
 interface Employee {
@@ -347,7 +362,10 @@ export function MileageClient({
   // hand, or see (and edit) the logged trips. `phase` is the Record tab's own
   // state, so a trip under way keeps tracking while another tab is open.
   const [tab, setTab] = useState<MileageTab>("record");
-  const [phase, setPhase] = useState<"idle" | "active" | "done">("idle");
+  // "saving": End was tapped and the save sits in the outbox until confirmed.
+  const [phase, setPhase] = useState<"idle" | "active" | "saving" | "done">("idle");
+  // Why the save has not landed yet ("" while it is simply in flight).
+  const [saveErr, setSaveErr] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
@@ -466,6 +484,8 @@ export function MileageClient({
     // trip in progress before any network call.
     const local = readLocalTrip();
     if (local) applyTrip(local);
+    // End was tapped but the save was never confirmed: it is still sending.
+    if (local && pendingSave(local.tripKey)) setPhase("saving");
 
     // Then the server's copy, which is what survives a cleared browser and what
     // carries a trip started on another device. It only wins when it started
@@ -474,6 +494,7 @@ export function MileageClient({
       const server = await fetchServerTrip();
       if (!server || actedRef.current) return;
       if (pickTrip(local, server) !== server) return;
+      if (pendingSave(server.tripKey)) return; // already ended; the outbox holds it
       applyTrip(server);
       // The server copy only wins when it started later, so it always came from
       // somewhere other than this browser's current copy.
@@ -706,6 +727,60 @@ export function MileageClient({
     }
   }
 
+  // Put the finished trip in the outbox, then send it. The outbox keeps it until
+  // the server confirms, so leaving this screen now no longer loses it.
+  function submitSave(body: Record<string, unknown>) {
+    const entry = queueSave(tripKey, body);
+    setSaveErr("");
+    setLoopEnd(null);
+    setPhase("saving");
+    void sendSave(entry);
+  }
+
+  // Every send of this trip's save ends here: sent from this page, or by the
+  // app-wide outbox (components/MileageOutbox.tsx) on a later open.
+  useEffect(() => {
+    if (phase !== "saving") return;
+    const onSave = (e: Event) => {
+      const ev = (e as CustomEvent<SaveEvent>).detail;
+      if (!ev || ev.key !== tripKey) return;
+      if (ev.outcome === "ok") {
+        setSummary(summaryFrom(ev.body, ev.reply));
+        saveLastJob(String(ev.body.jobId ?? ""), String(ev.body.jobLabel ?? ""));
+        setRestoredElsewhere(false);
+        setStart(null);
+        setSaveErr("");
+        setPhase("done");
+      } else if (ev.outcome === "drop") {
+        setPhase("active");
+        setErr(ev.reply.error || "Could not save the trip. Your start point is still saved — try End again.");
+      } else {
+        setSaveErr(ev.reply.busy ? "" : ev.reply.error || "Not sent yet.");
+      }
+    };
+    window.addEventListener(SAVE_EVENT, onSave);
+    // Keep trying while the screen is open; a send in flight is not repeated.
+    const id = setInterval(() => void flushOutbox(), 10_000);
+    return () => {
+      window.removeEventListener(SAVE_EVENT, onSave);
+      clearInterval(id);
+    };
+  }, [phase, tripKey]);
+
+  function retrySave() {
+    const entry = pendingSave(tripKey);
+    if (!entry) return;
+    setSaveErr("");
+    void sendSave(entry);
+  }
+
+  // Give up on this save and go back to the open trip, to End it again.
+  function discardSave() {
+    removeSave(tripKey);
+    setSaveErr("");
+    setPhase("active");
+  }
+
   async function endTrip() {
     if (!start) return;
     setErr("");
@@ -732,52 +807,22 @@ export function MileageClient({
         [...waypoints, ...trail].sort((a, b) => a.time.localeCompare(b.time)),
         MAX_INTERMEDIATES,
       ).map((w) => ({ lat: w.lat, lng: w.lng }));
-      const res = await fetch("/api/mileage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          startLat: start.startLat,
-          startLng: start.startLng,
-          startTime: start.startTime,
-          endLat: pos.coords.latitude,
-          endLng: pos.coords.longitude,
-          endTime,
-          waypoints: routePoints,
-          stopPoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })), // marked stops → Via
-          stops: waypoints.length, // only explicitly-marked stops count as "stops"
-          driver,
-          jobId,
-          jobLabel,
-          purpose: purpose.trim(),
-          clientKey: tripKey,
-        }),
-      });
-      const json: TripResult = await res.json();
-      if (!res.ok || json.ok === false) {
-        setErr(json.error || "Could not save the trip. Your start point is still saved — try End again.");
-        return;
-      }
-      const durationMin = Math.max(0, Math.round((new Date(endTime).getTime() - new Date(start.startTime).getTime()) / 60000));
-      setSummary({
-        miles: json.miles ?? null,
-        startAddress: json.startAddress ?? "",
-        endAddress: json.endAddress ?? "",
-        via: json.via ?? "",
-        stops: json.stops ?? waypoints.length,
-        durationMin,
+      submitSave({
+        startLat: start.startLat,
+        startLng: start.startLng,
+        startTime: start.startTime,
+        endLat: pos.coords.latitude,
+        endLng: pos.coords.longitude,
+        endTime,
+        waypoints: routePoints,
+        stopPoints: waypoints.map((w) => ({ lat: w.lat, lng: w.lng })), // marked stops → Via
+        stops: waypoints.length, // only explicitly-marked stops count as "stops"
+        driver,
+        jobId,
         jobLabel,
         purpose: purpose.trim(),
-        startLatLng: `${start.startLat},${start.startLng}`,
-        endLatLng: `${pos.coords.latitude},${pos.coords.longitude}`,
-        polyline: json.polyline ?? "",
-        warning: json.warning,
+        clientKey: tripKey,
       });
-      saveLastJob(jobId, jobLabel);
-      clearLocalTrip();
-      void clearServerTrip();
-      setRestoredElsewhere(false);
-      setStart(null);
-      setPhase("done");
     } catch (e) {
       setErr(geoError(e));
     } finally {
@@ -813,49 +858,23 @@ export function MileageClient({
       const total = tripMiles(route.oneWayMiles, true);
       const from = route.startAddress || `${start.startLat.toFixed(5)},${start.startLng.toFixed(5)}`;
       const to = savedPlace(loopDest, loopMatch);
-      const res = await fetch("/api/mileage", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          manual: true,
-          miles: total,
-          date: today(new Date(start.startTime)),
-          driver,
-          jobId,
-          jobLabel,
-          purpose: purpose.trim(),
-          startAddress: from,
-          endAddress: to,
-          roundTrip: true,
-          clientKey: tripKey,
-        }),
-      });
-      const json: TripResult = await res.json();
-      if (!res.ok || json.ok === false) {
-        setLoopErr(json.error || "Could not save the trip.");
-        return;
-      }
-      const durationMin = Math.max(0, Math.round((Date.now() - new Date(start.startTime).getTime()) / 60000));
-      setSummary({
-        miles: json.miles ?? total,
-        startAddress: from,
-        endAddress: from,
-        via: to,
-        stops: 0,
-        durationMin,
+      submitSave({
+        manual: true,
+        miles: total,
+        date: today(new Date(start.startTime)),
+        driver,
+        jobId,
         jobLabel,
         purpose: purpose.trim(),
-        startLatLng: "",
-        endLatLng: "",
-        polyline: "",
+        startAddress: from,
+        endAddress: to,
+        roundTrip: true,
+        clientKey: tripKey,
+        // Not saved by the manual branch; they time the summary and tell the
+        // server which sheet month to search on a resend.
+        startTime: start.startTime,
+        endTime: new Date().toISOString(),
       });
-      saveLastJob(jobId, jobLabel);
-      clearLocalTrip();
-      void clearServerTrip();
-      setRestoredElsewhere(false);
-      setStart(null);
-      setLoopEnd(null);
-      setPhase("done");
     } catch (e) {
       setLoopErr(e instanceof Error ? e.message : "Could not save the trip.");
     } finally {
@@ -1084,6 +1103,7 @@ export function MileageClient({
 
   function cancelTrip() {
     actedRef.current = true;
+    removeSave(tripKey);
     clearLocalTrip();
     void clearServerTrip();
     setRestoredElsewhere(false);
@@ -1526,6 +1546,28 @@ export function MileageClient({
         </div>
       )}
 
+      {/* ------------------------------------------------------------- SAVING */}
+      {tab === "record" && phase === "saving" && (
+        <Card className="space-y-3">
+          <Loading label="Saving your trip…" />
+          <p className="text-sm text-neutral-500">
+            You can leave this screen or close the app. This phone keeps the trip until it is saved
+            and sends it again the next time the app opens.
+          </p>
+          {saveErr && (
+            <>
+              <Banner tone="warning">{saveErr}</Banner>
+              <div className="flex flex-wrap gap-2">
+                <Button onClick={retrySave}>Try again</Button>
+                <Button variant="ghost" onClick={discardSave}>
+                  Back to the trip
+                </Button>
+              </div>
+            </>
+          )}
+        </Card>
+      )}
+
       {/* --------------------------------------------------------------- DONE */}
       {tab === "record" && phase === "done" && summary && (
         <div className="space-y-4">
@@ -1707,6 +1749,44 @@ const monthOf = (display: string) => isoDate(display).slice(0, 7);
 
 // What a logged trip shows after it is saved: the miles, the map for a GPS
 // trip, and the From / Via / To / Job / Purpose lines.
+// The summary screen for a save that landed, built from what was sent and what
+// came back — the same for a save sent here and one the outbox sent later.
+function summaryFrom(body: Record<string, unknown>, reply: SaveReply): Summary {
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const st = Date.parse(str(body.startTime));
+  const et = Date.parse(str(body.endTime));
+  const durationMin = Number.isFinite(st) && Number.isFinite(et) ? Math.max(0, Math.round((et - st) / 60000)) : 0;
+  const miles = typeof reply.miles === "number" ? reply.miles : null;
+  const common = { durationMin, jobLabel: str(body.jobLabel), purpose: str(body.purpose) };
+  if (body.manual === true) {
+    // The zero-mile trip, saved as a round trip: From → To → From.
+    const from = str(body.startAddress);
+    return {
+      ...common,
+      miles: miles ?? (Number(body.miles) || null),
+      startAddress: from,
+      endAddress: from,
+      via: str(body.endAddress),
+      stops: 0,
+      startLatLng: "",
+      endLatLng: "",
+      polyline: "",
+    };
+  }
+  return {
+    ...common,
+    miles,
+    startAddress: str(reply.startAddress),
+    endAddress: str(reply.endAddress),
+    via: str(reply.via),
+    stops: typeof reply.stops === "number" ? reply.stops : Number(body.stops) || 0,
+    startLatLng: `${body.startLat},${body.startLng}`,
+    endLatLng: `${body.endLat},${body.endLng}`,
+    polyline: str(reply.polyline),
+    warning: typeof reply.warning === "string" && reply.warning ? reply.warning : undefined,
+  };
+}
+
 function TripSummary({ summary }: { summary: Summary }) {
   return (
     <>

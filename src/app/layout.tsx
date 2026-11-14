@@ -14,6 +14,7 @@ import { BillMoveProvider } from "@/components/BillMove";
 import { NoticeCenter } from "@/components/Notices";
 import { NewVersionNotice } from "@/components/NewVersionNotice";
 import { UsageBeacon } from "@/components/UsageBeacon";
+import { MileageOutbox } from "@/components/MileageOutbox";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { cookies } from "next/headers";
@@ -165,6 +166,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* Track page views for signed-in users (Admin → Activity). The route
             no-ops without a session, so it's inert in dev-open mode too. */}
         {session?.user && <UsageBeacon />}
+        {/* A mileage trip saved just before the app closed: sent again here, on
+            whatever page opens next (src/lib/mileageOutbox.ts). */}
+        {session?.user && <MileageOutbox />}
         <CopyProvider overrides={copyOverrides} canEdit={isAdmin}>
         {/* Admin: edit registry text where it sits (the menu's "Edit page text"). */}
         <CopyInPlace />
