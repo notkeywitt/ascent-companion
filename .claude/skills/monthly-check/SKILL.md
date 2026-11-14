@@ -40,6 +40,11 @@ bill edits into an invoice that already exists. So during the review window:
   (`countDraftInvoices`, checks/uninvoiced.ts); older runs may still carry
   `job-not-invoiced` / `bill-uninvoiced` / `scope-uninvoiced` findings made
   under the old rule — give those `probably-fine` with the reason "staging".
+- Never tell the office to delete a bill. A duplicate or wrong bill is
+  **voided** (payments removed, status set to denied), so it keeps its history
+  and the hourly mirror does not re-create it.
+- Never stop to ask a question. This runs unattended. If you cannot finish,
+  run `agent.mjs fail <ym> "<reason>"` and exit.
 
 ## Link every item to where it is fixed
 
@@ -106,7 +111,7 @@ Work every live `error` finding as invoice-review Step 3 describes. Then the
 
 | Question | Tool |
 |---|---|
-| Does the bill exist under another vendor spelling, amount or job? Is one half a credit? | `mcp__claude_ai_JobTread_x_Ascent__query` |
+| Does the bill exist under another vendor spelling, amount or job? Is one half a credit? | `mcp__jobtread__query` |
 | Is the email a real invoice? Does it carry a "Processed" / "Added to JT" label? | Gmail `search_threads`, `get_thread`, `get_message` |
 | Is the backup PDF filed under another job? | Drive `search_files` for the amount (`"$1,234.56"`), `get_file_metadata` |
 | Does a legacy client's Tracking Sheet match JobTread? | Step 4b — Google Sheets `get_values` |

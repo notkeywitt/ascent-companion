@@ -133,6 +133,12 @@ async function main() {
       console.log(`\nfull run: ${file}`);
       return;
     }
+    case "pass": {
+      // The month's pass status alone: running | done | error | none.
+      const r = await call("GET", `/api/invoice-review/agent?action=read&ym=${encodeURIComponent(a ?? "")}`);
+      console.log(r.investigation?.status ?? "none");
+      return;
+    }
     case "begin":
       console.log(JSON.stringify(await call("POST", "/api/invoice-review/agent", { action: "begin", ym: a, model: b })));
       return;
@@ -193,7 +199,7 @@ async function main() {
       return;
     default:
       console.error(
-        "usage: agent.mjs schedule | run [ym] | read ym | begin ym model | finish ym file | fail ym reason |" +
+        "usage: agent.mjs schedule | run [ym] | read ym | pass ym | begin ym model | finish ym file | fail ym reason |" +
           " tracking | sheet-columns ym file | sheet-check ym file | log status message [ym] [logfile]",
       );
       process.exit(2);
