@@ -98,6 +98,7 @@ import { UncapturedBills } from "@/components/UncapturedBills";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import { billPaidState, driveMainWindowToDoc, type Detail } from "@/components/BillingSummary";
 import { runTrackingSync } from "@/components/TrackingSheetSync";
+import { LastRun } from "@/components/LastRun";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck, sourceLinkOf, type FindingLink } from "./PreSendCheck";
 import { BillPopup } from "./BillPopup";
@@ -502,7 +503,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // reads /api/historical-cost, which carries the same view gate.
   const canSheetGap = can("historical-cost");
   // The job's tracking sheet and the last push into it — ./useTrackingPush.
-  const { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy } = useTrackingPush({
+  const { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy, autoSyncAt, pinnedYm } = useTrackingPush({
     canTrack,
     jobId,
     ym,
@@ -1853,26 +1854,32 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     if (trackingTarget) {
       return (
         <>
-        <Button
-          variant="secondary"
-          className={cls}
-          disabled={syncing || trackingBusy}
-          // The sheet reads costCode off the bill lines IN JOBTREAD, so staged
-          // coding that has not been saved simply will not appear in it. Said
-          // here rather than blocking the push: refreshing the sheet from what
-          // JobTread holds today is still a legitimate thing to want.
-          title={
-            dirty
-              ? `Push ${monthLabel(ym)} into ${trackingTarget.label} — your ${stagedCount} staged change${stagedCount === 1 ? "" : "s"} are not saved yet, so the sheet won't show them`
-              : `Push ${monthLabel(ym)} into ${trackingTarget.label}`
+        {/* The 30-minute timer pushes the pinned month into every sheet, so
+            this is its stamp and a retry, not a button (Phase 6). A month the
+            timer does not hold says so: only the retry pushes it. The sheet
+            reads costCode off the bill lines IN JOBTREAD, so staged coding is
+            not in it until saved — said in the detail, not a block. */}
+        <LastRun
+          className={`basis-full text-center ${cls}`}
+          verb={`${trackingTarget.label} synced`}
+          at={autoSyncAt}
+          every={pinnedYm === ym ? "every 30 min" : undefined}
+          retry="Sync now"
+          busy={trackingBusy}
+          busyLabel="Syncing sheet…"
+          detail={
+            pinnedYm && pinnedYm !== ym
+              ? `The timer holds ${monthLabel(pinnedYm)}, not this month.`
+              : dirty
+                ? `${stagedCount} staged change${stagedCount === 1 ? "" : "s"} not saved yet, so not in the sheet.`
+                : undefined
           }
-          onClick={() => {
+          onRetry={() => {
+            if (syncing) return;
             const [y, m] = ym.split("-").map(Number);
             runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
           }}
-        >
-          {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
-        </Button>
+        />
         {/* Finalize, moved here from its own page (CONSOLIDATION_PLAN stage 2):
             copies the sheet's CURRENT INVOICE column into the month's reserved
             block. Re-running overwrites that block, never adds a second. */}

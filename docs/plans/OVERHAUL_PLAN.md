@@ -426,7 +426,7 @@ finding kinds clear from that list.
 
 - [x] Labor report: regenerate after any labor write, debounced, with `after()` (runs after the response is sent). Show "updated 3 min ago" in place of the button. (2026-11-13: `src/lib/laborReport.ts`; the office routes `/api/time-entry`, `/api/time-entry/create`, `/api/labor-review` refile; the crew's clock routes do not.)
 - [x] Job check: run on open and after each save. Remove "Check this job". (2026-11-13: runs on every month load in `Board.tsx`; the card carries "Check again".)
-- [ ] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes.
+- [x] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes. (2026-11-13: `src/components/LastRun.tsx`. Timers checked: tag scan 15 min, tracking push 30 min, full sync hourly; the "Run now" tasks are steps of the hourly run; "Refresh" is the digest, on crons at 8:00 and 17:00 UTC. The full-sync and tag-scan stamps come from Apps Script `FULL_SYNC_LAST_RUN` / `INVOICE_SCAN_LAST_RUN`, which show "no run recorded" until that side is deployed.)
 - [ ] Document access: grant on bill approval when the job has one customer contact.
 - [ ] One save rule, shown in the UI: an edit that changes money stages behind "Save Changes"; anything else saves at once with a `Toast`. Move approve, void and line add or delete under that rule.
 - [ ] One "Close month" step per job: finalize the sheet, grant access, open the JobTread invoice.

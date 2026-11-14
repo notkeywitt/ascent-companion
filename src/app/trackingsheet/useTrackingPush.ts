@@ -21,6 +21,10 @@ export function useTrackingPush({ canTrack, jobId, ym }: { canTrack: boolean; jo
   // loop) is already false while it's still going. Without this the button would
   // re-enable mid-push and a second click would queue a duplicate sync.
   const trackingBusy = trackingSync?.status === "queued" || trackingSync?.status === "running";
+  /** The automatic 30-minute push: when it last ran, and the month it holds
+   *  (the pinned period). A month that is not the pinned one is never pushed
+   *  by the timer, so its line offers the retry alone. */
+  const [auto, setAuto] = useState<{ at: string | null; pinnedYm: string }>({ at: null, pinnedYm: "" });
 
   useEffect(() => {
     // A new job starts unresolved — clear the old job's target so its Sync
@@ -39,6 +43,7 @@ export function useTrackingPush({ canTrack, jobId, ym }: { canTrack: boolean; jo
           (b.jobs ?? []) as { id: string; label: string; jtJobId: string; url: string }[]
         ).find((j) => j.jtJobId === jobId);
         if (hit) setTrackingTarget({ projectId: hit.id, label: hit.label, url: hit.url });
+        setAuto(autoSyncOf(b));
         // Only a clean read flips this on: a transient API failure hides the
         // button rather than wrongly offering to "Link" a sheet that exists.
         setTrackingChecked(true);
@@ -55,5 +60,28 @@ export function useTrackingPush({ canTrack, jobId, ym }: { canTrack: boolean; jo
   // billing period.
   useEffect(() => setTrackingSync(undefined), [ym]);
 
-  return { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy };
+  return {
+    trackingTarget,
+    trackingChecked,
+    trackingSync,
+    setTrackingSync,
+    trackingBusy,
+    /** When the timer last pushed, if it holds this month; null otherwise. */
+    autoSyncAt: auto.pinnedYm === ym ? auto.at : null,
+    pinnedYm: auto.pinnedYm,
+  };
+}
+
+/** The automatic push's last run and pinned month, off GET /api/tracking-sheet. */
+export function autoSyncOf(b: {
+  sync?: { lastRun?: { at?: string } | null } | null;
+  defaultMonth?: number | string;
+  defaultYear?: number | string;
+}): { at: string | null; pinnedYm: string } {
+  const m = Number(b.defaultMonth);
+  const y = Number(b.defaultYear);
+  return {
+    at: b.sync?.lastRun?.at ?? null,
+    pinnedYm: m && y ? `${y}-${String(m).padStart(2, "0")}` : "",
+  };
 }

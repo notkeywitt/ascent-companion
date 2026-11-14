@@ -5,6 +5,8 @@ import { Banner, Button, Spinner } from "@/components/ui";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { useAccess } from "@/components/AccessProvider";
 import { runLaborReport } from "@/components/LaborReportButton";
+import { LastRun } from "@/components/LastRun";
+import { autoSyncOf } from "@/app/trackingsheet/useTrackingPush";
 import { createTaskRunner } from "@/lib/taskRunner";
 import { money } from "@/lib/money";
 
@@ -294,6 +296,8 @@ export function SyncAllTrackingSheetsFor({
   const [targets, setTargets] = useState<TrackingTarget[]>([]);
   const [states, setStates] = useState<Record<string, TrackingSyncState>>({});
   const [labor, setLabor] = useState<{ busy?: boolean; error?: string; text?: string; url?: string }>({});
+  /** The 30-minute push's last run and the month it holds. */
+  const [auto, setAuto] = useState<{ at: string | null; pinnedYm: string }>({ at: null, pinnedYm: "" });
 
   useEffect(() => {
     if (!canTrack) return;
@@ -301,7 +305,7 @@ export function SyncAllTrackingSheetsFor({
     (async () => {
       try {
         const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
-        if (!res.ok) return; // non-fatal — the button simply doesn't appear
+        if (!res.ok) return; // non-fatal — the line simply doesn't appear
         const b = await res.json();
         if (!alive) return;
         setTargets(
@@ -309,6 +313,7 @@ export function SyncAllTrackingSheetsFor({
             .filter((j) => (jtJobId ? j.jtJobId === jtJobId : j.jtJobId))
             .map((j) => ({ projectId: j.id, label: j.label, url: j.url })),
         );
+        setAuto(autoSyncOf(b));
       } catch {
         /* non-fatal */
       }
@@ -373,24 +378,26 @@ export function SyncAllTrackingSheetsFor({
   const busy = summary.queued + summary.running > 0 || !!labor.busy;
 
   if (!canTrack || targets.length === 0) return null;
+  const pinned = auto.pinnedYm === ym;
   return (
     <div className={className}>
-      <Button
-        variant="secondary"
-        disabled={busy}
-        onClick={start}
-        className="min-h-11"
-        title="Create or update the month's Labor Report in Drive, and push every job's month of bills into its own Google Tracking Sheet."
-      >
-        {busy ? (
-          <>
-            <Spinner className="mr-1.5" />
-            Syncing {summary.done + summary.error}/{summary.total}…
-          </>
-        ) : (
-          "Sync to Tracking Sheets"
-        )}
-      </Button>
+      {/* The 30-minute timer pushes the pinned month into every sheet, so this
+          is its stamp and a retry (Phase 6). The retry also refiles the month's
+          Labor Report, which the sheets read their labor from. */}
+      <LastRun
+        verb={jtJobId ? "Sheet synced" : "Tracking sheets synced"}
+        at={pinned ? auto.at : null}
+        every={pinned ? "every 30 min" : undefined}
+        detail={
+          auto.pinnedYm && !pinned
+            ? "The timer holds another month; only Sync now pushes this one."
+            : undefined
+        }
+        retry="Sync now"
+        busy={busy}
+        busyLabel={`Syncing ${summary.done + summary.error}/${summary.total}…`}
+        onRetry={start}
+      />
       {!busy && (summary.done > 0 || summary.error > 0) && (
         <p className="mt-1.5 text-xs text-neutral-500">
           {summary.done} sheets synced

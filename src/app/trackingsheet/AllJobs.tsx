@@ -1,7 +1,6 @@
 "use client";
 
 import { InvoicingTabs } from "@/components/InvoicingTabs";
-import { ScriptJobs } from "@/components/ScriptJobs";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,7 +9,7 @@ import { JobPicker, WORKING_PHASES } from "@/components/JobPicker";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { UncapturedBills } from "@/components/UncapturedBills";
-import { SyncNowButton } from "@/components/SyncNowButton";
+import { DriveSyncStatus } from "@/components/SyncNowButton";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { billingMonths } from "@/lib/billingMonths";
 import { MonthPicker } from "@/components/MonthPicker";
@@ -222,20 +221,14 @@ export function AllJobs() {
           <Card pad={false} className="overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3">
               <span className="min-w-0 flex-1 text-[12px] text-neutral-500 dark:text-neutral-400">
-                Pull all of JobTread into the Sheet and Drive tree now. Runs hourly on its own;
-                this only asks for it early.
+                All of JobTread into the Sheet and Drive tree: projects, vendors, bills, PDFs, the
+                expenditure summary. Runs hourly on its own.
               </span>
-              <SyncNowButton className="min-h-11 shrink-0" />
+              {/* Its stamp and a retry. The old "Run now" tasks (projects,
+                  vendors, expenditure summary) are steps of this same hourly
+                  run, so the one retry covers them. */}
+              <DriveSyncStatus className="shrink-0" />
             </div>
-            {can("actions") && (
-              <div className="border-t border-line-soft px-4 py-3">
-                {/* From the retired Actions page (stage 6). */}
-                <ScriptJobs
-                  title="Run now"
-                  keys={["syncProjectsFromJobTread", "syncVendorsFromJobTread", "generateMonthlyExpenditureSummary"]}
-                />
-              </div>
-            )}
             {can("tracking-sheet") && (
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line-soft px-4 py-3">
                 <span className="min-w-0 flex-1 text-[12px] text-neutral-500 dark:text-neutral-400">
