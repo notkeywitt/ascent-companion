@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/auth";
+import { refileLaborReportAfterWrite } from "@/lib/laborReport";
 import {
   clearJobCostCaches,
   createTimeEntry,
@@ -41,6 +42,9 @@ import { clockOf, overlappingEntry } from "@/lib/timeProblems";
  *      → { ok, previewed, wrote, jtEntryId }
  */
 export const dynamic = "force-dynamic";
+// The answer is quick; the detached Labor Report refile (after()) waits a minute
+// and then files the month, and the function must live that long.
+export const maxDuration = 300;
 
 export async function GET() {
   if (!hasGrant()) {
@@ -184,6 +188,9 @@ export async function POST(req: NextRequest) {
         beforeSource: "none",
       },
     ]);
+    // The month's Labor Report mirrors JobTread, so refile it — after the
+    // answer is sent, debounced across a burst of edits (src/lib/laborReport.ts).
+    after(() => refileLaborReportAfterWrite([date.slice(0, 7)], session?.user?.email ?? ""));
     return NextResponse.json({ previewed: false, wrote: true, jtEntryId: id });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

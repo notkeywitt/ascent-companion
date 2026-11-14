@@ -12,7 +12,15 @@ import { and, eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { monthActionRuns, type MonthActionRunRow } from "@/db/schema";
 
-export type MonthAction = "document-access" | "labor-report" | "tracking-sync" | "invoicing-email";
+/** `labor-report-due` is the debounce stamp behind the automatic refile — see
+ *  refileLaborReportAfterWrite (src/lib/laborReport.ts); its `note` is the
+ *  write's own instant. */
+export type MonthAction =
+  | "document-access"
+  | "labor-report"
+  | "labor-report-due"
+  | "tracking-sync"
+  | "invoicing-email";
 
 /**
  * Stamp one run, replacing the last stamp for the same action, scope and month.

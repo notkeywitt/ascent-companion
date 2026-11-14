@@ -424,7 +424,7 @@ finding kinds clear from that list.
 
 ## Phase 6 — EOM automation and one save model (Opus, 1 session; every step **sign-off**)
 
-- [ ] Labor report: regenerate after any labor write, debounced, with `after()` (runs after the response is sent). Show "updated 3 min ago" in place of the button.
+- [x] Labor report: regenerate after any labor write, debounced, with `after()` (runs after the response is sent). Show "updated 3 min ago" in place of the button. (2026-11-13: `src/lib/laborReport.ts`; the office routes `/api/time-entry`, `/api/time-entry/create`, `/api/labor-review` refile; the crew's clock routes do not.)
 - [ ] Job check: run on open and after each save. Remove "Check this job".
 - [ ] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes.
 - [ ] Document access: grant on bill approval when the job has one customer contact.
