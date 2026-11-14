@@ -329,10 +329,11 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
 
   return (
     <div className={className}>
-      <span className="relative inline-block">
+      {/* `w-full`: as wide as the wrapper, which a grid cell stretches. */}
+      <span className="relative inline-block w-full">
         <Button
           variant="secondary"
-          className="min-h-11"
+          className="min-h-11 w-full"
           onClick={() => void show()}
           disabled={email.running || !ym}
           title={`${email.stale && !email.running ? STALE_TITLE + " " : ""}Opens the notes for each job. Save the notes, or draft the Invoicing Package email as a Gmail draft with each job's tracking sheet, Drive folder, per-job Invoicing Summary PDF (filed in its Drive folder) and invoices as links.`}

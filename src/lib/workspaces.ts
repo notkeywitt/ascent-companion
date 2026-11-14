@@ -402,6 +402,10 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
 const DESK_TOP: BarSlot[] = [
   { kind: "today" },
   { kind: "workspace", id: "close" },
+  // Checks and Status under Tracking Sheets (owner, 2026-11-14): the two pages
+  // the month closes through, one tap each. The hub draws them as tabs too.
+  { kind: "tab", view: "invoice-review" },
+  { kind: "tab", view: "invoicing-summary" },
   { kind: "workspace", id: "employees" },
   { kind: "workspace", id: "clients" },
   // Customers on the rail (owner, 2026-11-11): the tab strip is gone, so this is

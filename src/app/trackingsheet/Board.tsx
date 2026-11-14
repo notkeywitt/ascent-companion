@@ -354,6 +354,10 @@ function useIsBelowXl() {
 export interface BoardEmbed {
   jobId: string;
   ym: string;
+  /** The Jobs page's month buttons and status lines. They join the closing
+   *  actions, in the menu that opens over Save Changes. */
+  actions?: React.ReactNode;
+  statuses?: React.ReactNode;
   /** Where to draw the to-be-invoiced figure and the rings instead of at the
    *  head of the bills column (the Jobs page's job card). */
   summarySlot?: HTMLElement | null;
@@ -1933,19 +1937,33 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * ends the month. The standalone sheet push only appears with NOTHING staged,
    * because Save Changes already runs it as part of the same commit.
    */
-  const closingActions = (
+  // Two blocks (owner, 2026-11-14): the status lines, then the buttons. `panel`
+  // is the desktop menu over Save Changes — lines left, buttons in a grid;
+  // otherwise the touch row under the columns, centred.
+  const closingActions = (panel: boolean) => (
     <>
       {/* The job check has no button: it runs on every month load — open, and
           after each save — see the effect by usePreSendCheck. Its card carries
           "Check again". */}
-      {trackingSheetAction("min-h-11")}
+      <div className={`flex basis-full flex-col gap-1 ${panel ? "[&>*]:!text-left" : ""}`}>
+        {trackingSheetAction("")}
+        {embed?.statuses}
+        {/* Company-wide, not this job — see LaborReportStatus. The office labor
+            routes refile the month on their own after a write, so this is the
+            stamp and a retry, not a button. */}
+        <LaborReportStatus ym={ym} className="text-center" />
+      </div>
       {/* Document Access has no button here: approval gives it to a job's one
           contact, Close month covers what is left, and the all-jobs card keeps
           the dialog for a job with several contacts. */}
-      {/* Company-wide, not this job — see LaborReportStatus. The office labor
-          routes refile the month on their own after a write, so this is the
-          stamp and a retry, not a button. */}
-      <LaborReportStatus ym={ym} className="basis-full text-center" />
+      <div
+        className={
+          panel
+            ? "grid basis-full grid-cols-2 gap-2 [&>*]:w-full"
+            : "flex basis-full flex-wrap items-center justify-center gap-2"
+        }
+      >
+      {embed?.actions}
       {showApprove &&
         (allApproved ? (
           /* Every bill is approved, so the month closes in ONE step — sheet
@@ -1988,6 +2006,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
           </Button>
         ))}
+      </div>
     </>
   );
 
@@ -2543,10 +2562,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             touch, where they have their own row under the columns. */}
         {/* Hidden, not unmounted, when the pointer leaves: the Labor Report
             runs for up to four minutes, and unmounting would drop its result. */}
+        {/* A menu over the bar, not a row inside it: a row widened the bar
+            across the page and scattered the lines (owner, 2026-11-14). The
+            `pb-2` gap is inside the bar's hover area, so it stays open on the
+            way up. */}
         <div
-          className={`hidden flex-wrap items-center justify-end gap-2 ${barHover && !noHover ? "lg:flex" : ""}`}
+          className={`absolute bottom-full right-0 hidden w-[26rem] max-w-[calc(100vw-2rem)] pb-2 ${barHover && !noHover ? "lg:block" : ""}`}
         >
-          {closingActions}
+          <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-4 shadow-lg dark:bg-ink-raised">
+            {closingActions(true)}
+          </div>
         </div>
         {dirty && (
           <span className="text-xs font-bold tabular-nums text-warn">
@@ -3086,7 +3111,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {jobId && (
         <div className={`order-last mt-4 border-t border-line pt-4 ${noHover ? "" : "lg:hidden"}`}>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
-            {closingActions}
+            {closingActions(false)}
           </div>
         </div>
       )}
