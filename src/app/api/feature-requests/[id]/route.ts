@@ -4,15 +4,21 @@ import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
 import { featureRequests } from "@/db/schema";
 
+/** Office or admin, or a 403 to send back. */
+async function triageOnly(): Promise<NextResponse | null> {
+  const role = (await auth())?.user?.role;
+  return role === "admin" || role === "office"
+    ? null
+    : NextResponse.json({ error: "Forbidden" }, { status: 403 });
+}
+
 // PATCH /api/feature-requests/:id — update status / title / detail.
 // Office and admin only: every role may SEND feedback (the "requests" view),
 // but triaging it is office work. Middleware cannot split a route by method,
 // so the check is here.
 export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
-  const role = (await auth())?.user?.role;
-  if (role !== "admin" && role !== "office") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const denied = await triageOnly();
+  if (denied) return denied;
   const { id } = await ctx.params;
   const reqId = Number(id);
   if (!Number.isFinite(reqId)) return NextResponse.json({ error: "Bad id" }, { status: 400 });
@@ -37,4 +43,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     .returning();
   if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ request: row });
+}
+
+// DELETE /api/feature-requests/:id — remove a request from the list.
+// Office and admin only, like PATCH. Companion DB only; nothing in JobTread.
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const denied = await triageOnly();
+  if (denied) return denied;
+  const { id } = await ctx.params;
+  const reqId = Number(id);
+  if (!Number.isFinite(reqId)) return NextResponse.json({ error: "Bad id" }, { status: 400 });
+  await ensureDb();
+  const [row] = await db.delete(featureRequests).where(eq(featureRequests.id, reqId)).returning();
+  if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json({ ok: true });
 }

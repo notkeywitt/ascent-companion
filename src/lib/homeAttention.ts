@@ -178,7 +178,7 @@ const SOURCES: Source[] = [
     key: "feedback",
     view: "requests",
     officeOnly: true,
-    label: "App Feedback",
+    label: "Feature Requests",
     href: "/requests",
     load: async () => {
       await ensureDb();

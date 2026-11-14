@@ -1,12 +1,12 @@
 ---
 name: queue
-description: Work the App Feedback requests the owner typed into the app (/requests) — list the open ones, do the ones the owner picks, each group in its own worktree, ship each to the release queue, and write the result back on the request. Use when the owner types /queue, or asks to "run the queue", "do the requests" or "work the feedback list". Run by hand only; never schedule it.
+description: Work the Feature Requests requests the owner typed into the app (/requests) — list the open ones, do the ones the owner picks, each group in its own worktree, ship each to the release queue, and write the result back on the request. Use when the owner types /queue, or asks to "run the queue", "do the requests" or "work the feedback list". Run by hand only; never schedule it.
 argument-hint: "[request id …]"
 ---
 
-# Work the App Feedback queue
+# Work the Feature Requests queue
 
-The owner types tweaks into App Feedback (`/requests`) from any device. You do
+The owner types tweaks into Feature Requests (`/requests`) from any device. You do
 the ones the owner picks. Every call to the app goes through one helper, which
 holds the token:
 

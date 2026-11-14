@@ -53,6 +53,10 @@ const FindingsInbox = dynamic(
   () => import("@/components/FindingsInbox").then((m) => m.FindingsInbox),
   { ssr: false },
 );
+const FeatureRequestForm = dynamic(
+  () => import("@/components/FeatureRequestForm").then((m) => m.FeatureRequestForm),
+  { ssr: false },
+);
 const CreateTodo = dynamic(() => import("@/components/DigestFindings").then((m) => m.CreateTodo), {
   ssr: false,
 });
@@ -71,11 +75,15 @@ function useDesktop(): boolean | null {
 }
 
 export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
-  const { can } = useAccess();
+  const { can, role } = useAccess();
   const desktop = useDesktop();
   const [layout, setLayout] = useState(initial);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsUsed = useUsed(settingsOpen);
+  // Admin's Feature Request button (owner, 2026-11-14): the form in a sheet.
+  const askable = role === "admin" && can("requests");
+  const [askOpen, setAskOpen] = useState(false);
+  const askUsed = useUsed(askOpen);
 
   const allowed = (id: WidgetId) => {
     const w = WIDGETS.find((x) => x.id === id);
@@ -86,6 +94,15 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
     <div className="space-y-4">
       <div className="flex items-stretch gap-2">
         <NeedsAttention />
+        {askable && (
+          <IconButton
+            label="New feature request"
+            onClick={() => setAskOpen(true)}
+            className="h-auto self-stretch border border-line"
+          >
+            <RequestMark />
+          </IconButton>
+        )}
         {desktop && (
           <IconButton
             label="Arrange Home"
@@ -124,6 +141,22 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
               </div>
             ))}
         </div>
+      )}
+
+      {askUsed && (
+        <Sheet open={askOpen} onClose={() => setAskOpen(false)} title="New feature request">
+          {askOpen && (
+            <FeatureRequestForm
+              onDone={() => {
+                setAskOpen(false);
+                toast("Request sent");
+              }}
+            />
+          )}
+          <Link href="/requests" className="mt-3 block min-h-11 py-2 text-[12px] font-semibold text-accent">
+            See all requests
+          </Link>
+        </Sheet>
       )}
 
       {settingsUsed && (
@@ -533,6 +566,25 @@ function WidgetCard({
       </div>
       <div className="min-h-0 flex-1">{children}</div>
     </Card>
+  );
+}
+
+/** A speech bubble with a plus — ask for a feature. */
+function RequestMark() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12Z" />
+      <path d="M12 9v6M9 12h6" />
+    </svg>
   );
 }
 

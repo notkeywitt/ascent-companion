@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 
-import { Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
+import { Button, EmptyState, Loading, PageHeader } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
+import { FeatureRequestForm } from "@/components/FeatureRequestForm";
 
 interface FeatureRequest {
   id: number;
@@ -27,14 +29,23 @@ const statusClass: Record<string, string> = {
   declined: "text-neutral-600 bg-neutral-200 dark:text-neutral-300 dark:bg-neutral-800",
 };
 
+// useSearchParams needs a Suspense boundary, or the build fails to prerender.
 export default function RequestsPage() {
+  return (
+    <Suspense>
+      <Requests />
+    </Suspense>
+  );
+}
+
+function Requests() {
   // Status changes are office/admin only (see /api/feature-requests/[id]).
   const { role } = useAccess();
   const canTriage = role === "admin" || role === "office";
   const [requests, setRequests] = useState<FeatureRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ title: "", detail: "", requester: "" });
+  // ?new=1 opens the form at once (a link straight to "ask for something").
+  const [showNew, setShowNew] = useState(useSearchParams().get("new") === "1");
 
   async function load() {
     setLoading(true);
@@ -50,21 +61,6 @@ export default function RequestsPage() {
     load();
   }, []);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.title.trim()) return;
-    const res = await fetch("/api/feature-requests", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
-    });
-    if (res.ok) {
-      setForm({ title: "", detail: "", requester: "" });
-      setShowNew(false);
-      load();
-    }
-  }
-
   async function patch(id: number, body: { status?: string; pushThrough?: boolean }) {
     const res = await fetch(`/api/feature-requests/${id}`, {
       method: "PATCH",
@@ -77,10 +73,16 @@ export default function RequestsPage() {
     }
   }
 
+  async function remove(r: FeatureRequest) {
+    if (!window.confirm(`Delete “${r.title}”? This cannot be undone.`)) return;
+    const res = await fetch(`/api/feature-requests/${r.id}`, { method: "DELETE" });
+    if (res.ok) setRequests((rs) => rs.filter((x) => x.id !== r.id));
+  }
+
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
-        title="App Feedback"
+        title="Feature Requests"
         description="Ask for app fixes and new features."
         actions={
           <Button
@@ -95,34 +97,13 @@ export default function RequestsPage() {
       />
 
       {showNew && (
-        <form
-          onSubmit={create}
-          className="mb-5 space-y-2 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
-        >
-          <input
-            autoFocus
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="What do you want? (required)"
-            className={inputCls}
-          />
-          <textarea
-            value={form.detail}
-            onChange={(e) => setForm({ ...form, detail: e.target.value })}
-            placeholder="Any details — where it goes, how it should work…"
-            rows={3}
-            className={inputCls}
-          />
-          <input
-            value={form.requester}
-            onChange={(e) => setForm({ ...form, requester: e.target.value })}
-            placeholder="Your name"
-            className={inputCls}
-          />
-          <Button type="submit" className="w-full">
-            Submit request
-          </Button>
-        </form>
+        <FeatureRequestForm
+          onDone={() => {
+            setShowNew(false);
+            load();
+          }}
+          className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+        />
       )}
 
       {loading && <Loading label="Loading requests…" />}
@@ -186,6 +167,12 @@ export default function RequestsPage() {
                   }
                 >
                   Push through
+                </button>
+                <button
+                  onClick={() => remove(r)}
+                  className="rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-red-50 hover:text-danger dark:hover:bg-red-950/40"
+                >
+                  Delete
                 </button>
               </div>
             )}
