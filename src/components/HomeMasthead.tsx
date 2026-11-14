@@ -7,6 +7,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { MonthPicker } from "@/components/MonthPicker";
+import { MonthCloseChip } from "@/components/MonthClose";
 
 /**
  * The head of the iPad home console — a dateline, and where the billing month
@@ -192,6 +193,12 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
                 // still rolls it over on its own. Picking one ends that for good.
                 <MetaLine items={["Automatic — rolls on the 10th"]} />
               )}
+            </div>
+          )}
+          {/* Where the tracking sheets' month close stands (src/components/MonthClose.tsx). */}
+          {ym && access.can("tracking-sheet") && (
+            <div className="mt-1 flex justify-end">
+              <MonthCloseChip homeYm={ym} />
             </div>
           )}
         </div>

@@ -147,7 +147,7 @@ export const VIEWS: ViewDef[] = [
     id: "tracking-sheet",
     label: "Finalize",
     group: "Financials",
-    paths: ["/tracking-sheet", "/api/tracking-sheet"],
+    paths: ["/tracking-sheet", "/api/tracking-sheet", "/api/month-close"],
   },
   // A tracking sheet's estimate as a JobTread budget: a CSV the office imports
   // in JobTread themselves, or "Import into JT", which WRITES the live budget.
