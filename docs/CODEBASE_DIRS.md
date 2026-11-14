@@ -248,7 +248,7 @@ while its checks are off.
 | `registry.ts` | The one list of checks, each bound to its settings block. Adding a check = one import + one line here. |
 | `run.ts` | The aggregator: runs each enabled check in isolation (per-check timeout; a failure becomes one `status:"error"` entry, never a broken digest), makes the single Claude summary call, stores the result. Knows nothing about any individual check. |
 | `grouping.ts` ⟂ | Stored results → the categories the screen draws, worst status rolled up. Also `categoryTone`, which separates PRESENTATION from status: a check reporting `ok` with items (the calendar) draws as informational with its count, not as a green "Clear". Pure, so "categories are data, not tabs" is testable. |
-| `store.ts` | Read/write the `daily_digest` row and the `digest_dismissals` rows — the ONLY things this feature writes anywhere. |
+| `store.ts` | Read/write the `daily_digest` row and the digest's findings-store dismissals — the ONLY things this feature writes anywhere. |
 | `dismissals.ts` ⟂ | "This one is handled, stop showing it to me." Pure: builds an item's stable dismissal key (`<checkId>::<item key>`, falling back to the title) and filters a set of results by it — the same code the browser, the aggregator and GET `/api/digest` all use, so a dismissal means one thing. Dismissing never closes a JobTread to-do or touches Gmail; the office's own reminders are the one item a dismissal also marks done, in `digest_todos`. |
 | `checks/timeNotInJobtread.ts` | Time records that didn't reach JobTread, or reached it with the wrong hours (`auditWorked`, above). Twice a day, because the failure is silent from every other direction: the phone said saved, the sheet holds the record, and JobTread just shows fewer hours than were worked. Read-only — a retry stays a person's decision, on /time-sync. |
 | `checks/uncapturedBills.ts` | Invoice-looking mail with no matching JobTread bill (sender → vendor account → date/amount window). |
@@ -545,7 +545,7 @@ into; no row means the automatic 10th cutoff),
 `page_guides` (one JSON row per page — the per-element help topics an admin
 wrote in the help overlay; no row means that page has no guide),
 `bill_index`,
-`bill_line_index`, `bill_index_meta`, `daily_digest`, `digest_dismissals`
+`bill_line_index`, `bill_index_meta`, `daily_digest`
 (items the office marked handled on the digest — hidden from every later run),
 `invoice_review_rulings`
 (the invoice review's standing rulings), `invoice_review_runs` (every review that

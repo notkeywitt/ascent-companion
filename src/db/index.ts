@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1aay-dj4xvy";
+export const SCHEMA_FINGERPRINT = "19ig-1j54ag9";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1004,19 +1004,6 @@ async function applySchema() {
       created_at TEXT NOT NULL
     )
   `);
-  // Dismissed digest items — "this one is handled, stop showing it to me" from
-  // the To-Do and Follow-ups lists. Written by POST /api/digest/dismiss, read by
-  // the run and by GET /api/digest. See db/schema.ts.
-  await getClient().execute(`
-    CREATE TABLE IF NOT EXISTS digest_dismissals (
-      key TEXT PRIMARY KEY,
-      check_id TEXT NOT NULL DEFAULT '',
-      title TEXT NOT NULL DEFAULT '',
-      dismissed_by TEXT NOT NULL DEFAULT '',
-      dismissed_at TEXT NOT NULL DEFAULT '',
-      active INTEGER NOT NULL DEFAULT 1
-    )
-  `);
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS digest_replies (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1684,17 +1671,9 @@ async function applySchema() {
     FROM invoice_review_finding_state
     WHERE resolved_at = '' AND ym >= strftime('%Y-%m', 'now', '-2 months')
   `);
-  // The digest's dismissals move into the store (OVERHAUL_PLAN Phase 5, step 3).
-  // A resolved row that keeps the dismissal: the next digest run reopens the
-  // item still dismissed. OR IGNORE keeps a re-run, and an undo, from
-  // overwriting a row. digest_dismissals itself stays until the owner's ok.
-  await getClient().execute(`
-    INSERT OR IGNORE INTO findings
-      (source, scope, key, kind, severity, title, first_seen_at, last_seen_at, resolved_at, dismissed_by, dismissed_at)
-    SELECT 'digest', check_id, key, check_id, 'info', title, dismissed_at, dismissed_at, dismissed_at, dismissed_by, dismissed_at
-    FROM digest_dismissals
-    WHERE active = 1 AND dismissed_by <> ''
-  `);
+  // The digest's dismissals live in the findings store (OVERHAUL_PLAN Phase 5,
+  // step 3). The old table was copied into it, checked, and dropped.
+  await getClient().execute(`DROP TABLE IF EXISTS digest_dismissals`);
 }
 
 export { schema };
