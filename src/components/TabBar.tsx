@@ -229,29 +229,6 @@ const SafetyIcon = () => (
     <path d="M4 15a8 8 0 0 1 16 0M2 15h20v3H2zM12 7V4M9 15V9.5M15 15V9.5" />
   </IconBase>
 );
-/** The drawer's grip: two rows of three dots, like the handle of a sheet. */
-const GripIcon = () => (
-  <span aria-hidden className="grid grid-cols-3 gap-[3px]">
-    {Array.from({ length: 6 }, (_, i) => (
-      <span key={i} className="h-[3px] w-[3px] rounded-full bg-neutral-500" />
-    ))}
-  </span>
-);
-
-/* The tab's shape: 76 × 16, soft at all four corners. Drawn as an SVG, not a
-   clip-path: a `clip-path: path()` on the bar's glass made the WHOLE bar vanish
-   on the iPhone (2026-10-29), twice. */
-const BUMP_W = 76;
-const BUMP_H = 16;
-/* The edge ends at y 16.5, not 16: a 1px stroke centred there covers the same
-   pixel row as the 1px top line it meets, so the joint has no step. */
-const BUMP_EDGE =
-  "M0 16.5 C4.5 16.5 6.5 14.8 8.3 12.3 L13.4 4.6 C15.3 1.8 17.4 0.5 21.5 0.5 H54.5 C58.6 0.5 60.7 1.8 62.6 4.6 L67.7 12.3 C69.5 14.8 71.5 16.5 76 16.5";
-/* The bar's outline: one colour for the top line and the tab's edge. Light:
-   the strong hairline token. Dark: a light-grey line on the dark glass. */
-const EDGE_BG = "bg-line-strong dark:bg-[rgb(212_212_212/0.55)]";
-const EDGE_STROKE = "stroke-line-strong dark:stroke-[rgb(212_212_212/0.55)]";
-
 /** A claw hammer — the Jobs page. */
 const HammerIcon = () => (
   <IconBase>
@@ -393,14 +370,13 @@ export function TabBar() {
     <>
       {/* PHONE: edge to edge along the bottom, translucent glass that follows
           the theme (cream in light, near-black in dark), a hairline top line, the home indicator's inset as padding
-          INSIDE the bar. The bar plus the tab above it is --tabbar-h in
-          globals.css.
+          INSIDE the bar. The bar is --tabbar-h in globals.css.
           The glass is a LAYER, not the nav's own backdrop-filter, and the tab
           is a filled SVG with no backdrop at all. Its marks are ink-dark in
           light and white in dark. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] text-neutral-900 dark:text-white print:hidden pad:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 rounded-t-2xl border-t border-line bg-white pb-[env(safe-area-inset-bottom)] text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-white print:hidden pad:hidden"
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
           const start = touchY.current;
@@ -409,52 +385,6 @@ export function TabBar() {
             setOpen(true);
         }}
       >
-        <span
-          aria-hidden
-          className="absolute inset-0 bg-cream/85 backdrop-blur-xl dark:bg-neutral-950/60"
-        />
-        {/* No drawer: a plain top line. */}
-        {more.length === 0 && (
-          <span aria-hidden className={`absolute inset-x-0 top-0 h-px ${EDGE_BG}`} />
-        )}
-        {/* The drawer's tab: a soft bump (16px) above the bar's top line, over
-            an h-3 strip. --tabbar-h counts both. */}
-        {more.length > 0 && (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-label="More pages"
-            aria-expanded={open}
-            className="group relative block h-3 w-full"
-          >
-            {/* The top line, in two halves that meet the tab's edge. */}
-            <span
-              aria-hidden
-              className={`absolute left-0 top-0 h-px ${EDGE_BG}`}
-              style={{ right: `calc(50% + ${BUMP_W / 2}px)` }}
-            />
-            <span
-              aria-hidden
-              className={`absolute right-0 top-0 h-px ${EDGE_BG}`}
-              style={{ left: `calc(50% + ${BUMP_W / 2}px)` }}
-            />
-            <svg
-              aria-hidden
-              viewBox={`0 0 ${BUMP_W} ${BUMP_H}`}
-              className="absolute left-1/2 -translate-x-1/2 overflow-visible"
-              style={{ top: -BUMP_H, width: BUMP_W, height: BUMP_H }}
-            >
-              <path
-                d={`${BUMP_EDGE} Z`}
-                className="fill-cream/95 transition group-active:fill-line dark:fill-neutral-950/80 dark:group-active:fill-neutral-800/90"
-              />
-              <path d={BUMP_EDGE} fill="none" strokeWidth={1} className={EDGE_STROKE} />
-            </svg>
-            <span className="absolute inset-x-0 -top-2.5 flex justify-center">
-              <GripIcon />
-            </span>
-          </button>
-        )}
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}

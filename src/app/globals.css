@@ -371,10 +371,8 @@ html.dark .dark\:text-neutral-500 {
    and <StickyActionBar>'s `bottom` — both read the ONE number instead of each
    hardcoding an offset that drifts the moment the bar changes height. */
 :root {
-  /* h-14 (3.5rem) tab + the drawer's h-3 (0.75rem) grip strip and its 16px
-     (1rem) bump above the top line + the home-indicator inset. The top line
-     is drawn inside the strip, so it adds no height. */
-  --tabbar-h: calc(3.5rem + 0.75rem + 1rem + env(safe-area-inset-bottom));
+  /* h-14 (3.5rem) tab + the home-indicator inset. */
+  --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom));
 
   /* Height of the sticky TOP chrome (components/AppHeader — logo, search and
      Add bill, all on one row). Unlike the tab bar this is not a fixed
