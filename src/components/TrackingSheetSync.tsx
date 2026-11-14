@@ -184,6 +184,8 @@ export function runSheetOp(
   op: "sync" | "finalize",
   month: number,
   year: number,
+  /** `dryRun` reports the plan and writes nothing. */
+  opts: { dryRun?: boolean } = {},
 ): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     void trackingRunner.run(projectId, async () => {
@@ -191,7 +193,7 @@ export function runSheetOp(
         const res = await fetch("/api/tracking-sheet", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ op, projectId, month, year }),
+          body: JSON.stringify({ op, projectId, month, year, ...(opts.dryRun ? { dryRun: true } : {}) }),
         });
         const b = await res.json();
         if (!res.ok || b?.ok === false) throw new Error(b?.error || `Request failed (${res.status})`);
