@@ -38,7 +38,7 @@ import {
  *
  * THE DRAWER (owner, 2026-10-29/30; on `Sheet` since 2026-11-13, OVERHAUL_PLAN
  * 3.3): every page the bar has no room for, three to a row (`drawerFor`). A
- * tap on the soft tab above the bar, or a swipe up on the bar, opens it at half
+ * swipe up on the bar opens it at half
  * height; it drags up to full. A swipe down, a tap outside, Escape or any
  * navigation closes it. Phone only: the rail already lists everything.
  *
@@ -372,7 +372,7 @@ export function TabBar() {
           the theme (cream in light, near-black in dark), a hairline top line, the home indicator's inset as padding
           INSIDE the bar. The bar is --tabbar-h in globals.css.
           The glass is a LAYER, not the nav's own backdrop-filter, and the tab
-          is a filled SVG with no backdrop at all. Its marks are ink-dark in
+          has no tab. Its marks are ink-dark in
           light and white in dark. */}
       <nav
         aria-label="Main"
