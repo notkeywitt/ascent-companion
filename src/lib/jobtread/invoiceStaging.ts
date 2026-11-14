@@ -3,15 +3,16 @@
 
 import { pave, type PaveConfig } from "./core";
 // ---------------------------------------------------------------------------
-// INVOICE STAGING  (confirmed mechanism: createDocument type customerInvoice;
-// the exact lineItems shape is the one remaining detail to lock)
+// INVOICE STAGING
 // ---------------------------------------------------------------------------
 
-// NOTE: no createDraftInvoice here. Building a customer invoice from unbilled
-// items is a multi-call, server-side JobTread flow (create invoice → costGroup
-// per bill → cost items → recalc) that also sets the bill↔invoice reference; a
-// bare createDocument yields an EMPTY invoice and can't set that link, so the
-// assistant deep-links to JobTread's native builder instead (see stage/page.tsx).
+// NOTE: one createDocument (type customerInvoice) DOES build a full invoice and
+// set the bill↔invoice link. scripts/probe-invoice-create.mjs (2026-11-13)
+// found that it takes nested `lineItems` (groups → lines with jobCostItemId)
+// and `references` to bills and time entries, which set each one's
+// referencedDocuments at draft. A reference to a record on another job is
+// dropped without an error, so the result must be re-read. The draft builder
+// is invoiceDraft.ts; JobTread's own builder stays one deep link away.
 
 export interface StageLine {
   key: string;
@@ -148,6 +149,8 @@ export interface UninvoicedTimeEntryRef {
   cost: number; // the entry's coded cost (hours × rate, JT-authoritative)
   code?: string; // costItem.costCode.number
   codeName?: string; // costItem.costCode.name
+  costItemId?: string; // the budget leaf the entry is coded to
+  startedAt?: string;
 }
 export interface UninvoicedBillLine {
   key: string;

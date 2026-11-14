@@ -28,6 +28,7 @@ import { JobPicker, WORKING_PHASES, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
 import { DocumentAccessDialog } from "@/components/DocumentAccess";
 import { JtLink } from "@/components/JtLink";
+import { InvoiceDraftButton } from "./InvoiceDraftButton";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
@@ -1990,12 +1991,23 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               Create Invoice in JobTread ↗
             </Button>
           ) : (
-            <JtLink
-              href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-              className={btn("primary", "md", "min-h-11")}
-            >
-              Create Invoice in JobTread ↗
-            </JtLink>
+            <>
+              {/* The same invoice, built here as a draft — ./InvoiceDraftButton. */}
+              <InvoiceDraftButton
+                jobId={jobId}
+                ym={ym}
+                month={monthLabel(ym)}
+                jobTitle={jobTitle}
+                writes={Boolean(data?.writesEnabled)}
+                onCreated={() => void load({ preserveStaged: true })}
+              />
+              <JtLink
+                href={`https://app.jobtread.com/jobs/${jobId}/documents`}
+                className={btn("primary", "md", "min-h-11")}
+              >
+                Create Invoice in JobTread ↗
+              </JtLink>
+            </>
           )
         ) : (
           <Button
