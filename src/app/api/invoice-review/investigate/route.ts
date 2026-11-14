@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
     suggestedAction: d.suggestedAction,
     model: d.model,
     at: d.at,
+    seen: d.seen ?? "",
   }));
   return NextResponse.json({ ym, investigation, dispositions, runs });
 }

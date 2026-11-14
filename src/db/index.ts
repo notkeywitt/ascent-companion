@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "19vb-1cj3bm4";
+export const SCHEMA_FINGERPRINT = "1a0f-7int9e";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -935,6 +935,13 @@ async function applySchema() {
       created_at TEXT NOT NULL
     )
   `);
+  try {
+    await getClient().execute(
+      "ALTER TABLE invoice_review_dispositions ADD COLUMN seen TEXT NOT NULL DEFAULT ''",
+    );
+  } catch {
+    /* column already exists */
+  }
   await getClient().execute(`
     CREATE UNIQUE INDEX IF NOT EXISTS invoice_review_dispositions_ym_key_idx
       ON invoice_review_dispositions (ym, key)

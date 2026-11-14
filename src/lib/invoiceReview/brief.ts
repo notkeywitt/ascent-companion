@@ -137,3 +137,56 @@ export function buildBrief(
 
   return out.join("\n") + "\n";
 }
+
+/** Whether a finding still needs a verdict: it has none, or it moved since. */
+export function needsVerdict(f: Finding): boolean {
+  return !f.suppressedBy && (!f.disposition || !!f.disposition.stale);
+}
+
+const APP = "https://ascent-companion.vercel.app";
+
+/**
+ * One finding as a prompt for Claude Code, opened in the ascent-companion repo.
+ *
+ * It asks for two things the page cannot do: find where the bad figure comes
+ * from, and say which cure fits — the data, the check, or a ruling. It carries
+ * every id Claude needs, so the first step is a lookup and not a search.
+ */
+export function buildFindingPrompt(f: Finding, ym: string): string {
+  const link = f.sourceLink ? (f.sourceLink.startsWith("http") ? f.sourceLink : APP + f.sourceLink) : "";
+  const d = f.disposition;
+  const out = [
+    `Chase one finding from the Ascent monthly invoice check (${ym}). Work in the ascent-companion repo. Read CLAUDE.md first.`,
+    "",
+    "## The finding",
+    `- Title: ${f.title}`,
+    `- Kind: \`${f.kind}\` (severity ${f.severity})`,
+    `- Key: \`${f.key}\``,
+    `- Customer / job: ${f.customerName || "none"} / ${f.jobName || "none"} (JobTread job id \`${f.jobId || "none"}\`)`,
+    f.invoiceNumber ? `- Client invoice: #${f.invoiceNumber} (document id \`${f.invoiceId}\`)` : null,
+    f.amount == null ? "" : `- Amount: ${money(f.amount)}`,
+    `- Detail: ${f.detail}`,
+    link ? `- Where the office fixes it: ${link}` : null,
+    f.jobId ? `- JobTread job: https://app.jobtread.com/jobs/${f.jobId}` : null,
+    `- The month's list: ${APP}/invoice-review?ym=${ym}`,
+    f.history
+      ? `- History: ${f.history.isNew ? "new on the latest run" : `on ${f.history.runsSeen} runs since ${f.history.firstSeenAt.slice(0, 10)}`}`
+      : null,
+    d ? `- Last verdict (${d.model}, ${d.at.slice(0, 10)}${d.stale ? ", written before the finding changed" : ""}): ${d.verdict} — ${d.why}` : null,
+    d?.suggestedAction ? `- Suggested then: ${d.suggestedAction}` : null,
+    "",
+    "## Find the source",
+    `1. Find the check that makes this kind: search \`src/lib/invoiceReview/\` for \`"${f.kind.startsWith("sheet-") ? "sheet-" : f.kind}\`. Read that check and the evidence it reads (\`evidence.ts\`${f.kind.startsWith("sheet-") ? ", `sheetCompare.ts`, `sheetEvidence.ts`" : ""}).`,
+    "2. Read the live data behind it, read-only: the JobTread job, its bills, time entries and client invoice for the month (`mcp__jobtread__query`; compose queries from `JT_API_REFERENCE.md` and `PAVE_GOTCHAS.md`).",
+    "3. Say which is true: (a) the data is wrong, (b) the check is wrong or too strict, (c) the data is right and this case is a known exception.",
+    "",
+    "## Give the cure",
+    "- (a) Data: name the exact record and the exact edit, with its link. Do not make the edit. A duplicate or wrong bill is voided, never deleted.",
+    "- (b) Check: propose the code change with a test that fails today and passes after. Show me the diff before you ship.",
+    `- (c) Exception: draft the ruling for me to record on the page ("Not an issue…"): the narrowest scope that fits (this finding, this kind on this job, this kind for this customer) and a one-line reason.`,
+    "- If the check should have caught something more, draft the text for \"Something this missed?\" on the same page.",
+    "",
+    "Do not write to JobTread. Do not change auth, config or a write path. Answer with: source, cure, and what you verified.",
+  ];
+  return out.filter((l) => l !== null).join("\n");
+}

@@ -1,7 +1,7 @@
 ---
 name: monthly-check
-description: Run the COMPLETE monthly invoice check on Opus in Claude Code — make sure the month has a fresh coded run in the app (JobTread + Drive + mailbox), chase every finding with the JobTread, Gmail and Drive tools, reconcile each legacy client's Google Tracking Sheet (bills and labor) against JobTread, then post a verdict per finding, the month's reading and the full report back to the app's /invoice-review page. Runs on its own on review days from the office Mac (scripts/monthly-check/). Use when the owner types /monthly-check, or asks to "run the monthly check", "run the full invoice check", or "check the month on Opus".
-model: opus
+description: Run the COMPLETE monthly invoice check in Claude Code — make sure the month has a fresh coded run in the app (JobTread + Drive + mailbox), chase every finding with the JobTread, Gmail and Drive tools, reconcile each legacy client's Google Tracking Sheet (bills and labor) against JobTread, then post a verdict per finding, the month's reading and the full report back to the app's /invoice-review page. Runs on its own on review days from the office Mac (scripts/monthly-check/). Use when the owner types /monthly-check, or asks to "run the monthly check", "run the full invoice check", or "check the month on Opus".
+model: sonnet
 argument-hint: "[YYYY-MM]"
 ---
 
@@ -98,7 +98,7 @@ Read `evidence.warnings` first, as the invoice-review skill says.
 
 ## Step 3 — claim the pass
 
-`agent.mjs begin <ym> "Claude Code (Opus)"`. The page now says a pass is
+`agent.mjs begin <ym> "Claude Code (Sonnet)"`. The page now says a pass is
 running. A 409 means another pass is running: stop and say so.
 
 From here on, if you cannot finish, run `agent.mjs fail <ym> "<reason>"` before
@@ -106,7 +106,12 @@ you stop. A pass left "running" blocks the month for an hour.
 
 ## Step 4 — chase the findings
 
-Work every live `error` finding as invoice-review Step 3 describes. Then the
+The digest lists only the findings that need a verdict: new ones, and ones
+that changed after their verdict. Every other verdict carries forward. Do not
+redo it, and do not post it again. When the digest says `needs a verdict: 0`,
+go straight to Step 5 with an empty `dispositions` list.
+
+Work every listed `error` finding as invoice-review Step 3 describes. Then the
 `warning` findings, as far as cheap evidence goes. Use these tools, read-only:
 
 | Question | Tool |
@@ -186,26 +191,18 @@ A difference under $1 with matching hours is rounding; the server already ignore
 
 ## Step 5 — post it
 
-Write the full report to `.monthly-check/<ym>.report.md`. The page shows it
-above the findings list, and it is the only account of the month on the page —
-**no summary section, no headline totals**. It is a list of things to do. Markdown:
-`##` headings, `-` bullets, `|` tables, `**bold**`, `[text](url)` links.
-Sections, in this order, each item one bullet with its fix link:
+The page builds the breakdown from the verdicts: To fix, To confirm, False
+alarms, by job, Office and Shop last. Do not write that list again.
 
-1. **To fix**: confirmed findings — what, job, amount, the action, the link.
-2. **Tracking Sheets**: one table row per job (JobTread vs sheet, bills and
-   labor), then each discrepancy with its fix and the link to the sheet or the
-   job's Tracking Sheets page.
-3. **Worth confirming**: `needs-human`, and `probably-fine` where the office
-   should check your reading.
-4. **False alarms**: one line per group, with the reason.
-5. **Not checked**: what was skipped or partial.
+Write `.monthly-check/<ym>.report.md` only when there is something the list
+cannot say: a check that was skipped or partial, or a pattern across findings.
+Keep it under ten lines. With nothing to add, leave `reportFile` out.
 
-Then write `.monthly-check/<ym>.verdicts.json`:
+Write `.monthly-check/<ym>.verdicts.json`:
 
 ```json
 {
-  "model": "Claude Code (Opus)",
+  "model": "Claude Code (Sonnet)",
   "reportFile": ".monthly-check/<ym>.report.md",
   "dispositions": [
     { "key": "<finding.key>", "verdict": "confirmed", "why": "…", "suggestedAction": "… <link>" }
@@ -213,8 +210,8 @@ Then write `.monthly-check/<ym>.verdicts.json`:
 }
 ```
 
-Follow the owner's standing instructions from the digest. Apply the
-invoice-review rule on calling a month clean.
+`dispositions` holds only the findings you worked this pass. It may be empty.
+Follow the owner's standing instructions from the digest.
 
 Then `agent.mjs finish <ym> .monthly-check/<ym>.verdicts.json`. It answers with
 `saved` and `rejected`. A rejected key does not match the filed run; fix it and
@@ -233,5 +230,7 @@ appear on the page under "Scheduled runs".
 `scripts/monthly-check/install.sh` installs a launchd job (a macOS login item)
 that calls `run.sh` hourly while the owner is logged in. `run.sh` asks the app
 whether today is a review day (the 5th, the 8th, and daily from the 11th to send
-day on the 15th). After 9 am it runs this skill once with `claude -p` on Opus.
+day on the 15th). After 9 am it runs this skill once with `claude -p` on Sonnet. It skips the
+day when another Mac already finished the pass and nothing new needs a verdict,
+so the job may be installed on more than one Mac.
 `run.sh --now [YYYY-MM]` runs it immediately.
