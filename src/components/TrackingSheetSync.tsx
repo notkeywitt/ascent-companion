@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Banner, Button, Spinner } from "@/components/ui";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { useAccess } from "@/components/AccessProvider";
@@ -183,6 +184,8 @@ export function runSheetOp(
   op: "sync" | "finalize",
   month: number,
   year: number,
+  /** `dryRun` reports the plan and writes nothing. */
+  opts: { dryRun?: boolean } = {},
 ): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     void trackingRunner.run(projectId, async () => {
@@ -190,7 +193,7 @@ export function runSheetOp(
         const res = await fetch("/api/tracking-sheet", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ op, projectId, month, year }),
+          body: JSON.stringify({ op, projectId, month, year, ...(opts.dryRun ? { dryRun: true } : {}) }),
         });
         const b = await res.json();
         if (!res.ok || b?.ok === false) throw new Error(b?.error || `Request failed (${res.status})`);
@@ -312,6 +315,7 @@ export function SyncAllTrackingSheetsFor({
   jtJobId,
   className,
   onDone,
+  resultSlot,
 }: {
   ym: string;
   /** Sync only this job's sheet. Omit to sync every job. */
@@ -319,6 +323,9 @@ export function SyncAllTrackingSheetsFor({
   className?: string;
   /** Called as each sheet and the Labor Report finish — the all-jobs cards re-read their stamps. */
   onDone?: () => void;
+  /** Draw the press's result lines here instead of under the stamp — the Jobs
+   *  Hub's month card puts them at its foot, under the buttons (owner, 2026-11-14). */
+  resultSlot?: HTMLElement | null;
 }) {
   const access = useAccess();
   const canTrack = access.can("tracking-sheet");
@@ -409,27 +416,8 @@ export function SyncAllTrackingSheetsFor({
 
   if (!canTrack || targets.length === 0) return null;
   const pinned = auto.pinnedYm === ym;
-  return (
-    // `basis-full`: in a wrapping row of buttons this line takes a row of its own.
-    <div className={`basis-full ${className ?? ""}`}>
-      {/* The 30-minute timer pushes the pinned month into every sheet, so this
-          is its stamp and a retry (Phase 6). The retry also refiles the month's
-          Labor Report, which the sheets read their labor from. A month the timer
-          is not on has no time to show, so the line says where the timer is. */}
-      <LastRun
-        verb={jtJobId ? "Sheet synced" : "Tracking sheets synced"}
-        quiet={
-          auto.pinnedYm && !pinned
-            ? `The sheet timer is on ${monthLabel(auto.pinnedYm)}, not this month. Sync now pushes this one.`
-            : undefined
-        }
-        at={auto.at}
-        every="every 30 min"
-        retry="Sync now"
-        busy={busy}
-        busyLabel={`Syncing ${summary.done + summary.error}/${summary.total}…`}
-        onRetry={start}
-      />
+  const result = (
+    <>
       {!busy && (summary.done > 0 || summary.error > 0) && (
         <p className="mt-1.5 text-xs text-neutral-500">
           {summary.done} sheets synced
@@ -456,6 +444,30 @@ export function SyncAllTrackingSheetsFor({
           )}
         </p>
       )}
+    </>
+  );
+  return (
+    // `basis-full`: in a wrapping row of buttons this line takes a row of its own.
+    <div className={`basis-full ${className ?? ""}`}>
+      {/* The 30-minute timer pushes the pinned month into every sheet, so this
+          is its stamp and a retry (Phase 6). The retry also refiles the month's
+          Labor Report, which the sheets read their labor from. A month the timer
+          is not on has no time to show, so the line says where the timer is. */}
+      <LastRun
+        verb={jtJobId ? "Sheet synced" : "Tracking sheets synced"}
+        quiet={
+          auto.pinnedYm && !pinned
+            ? `The sheet timer is on ${monthLabel(auto.pinnedYm)}, not this month. Sync now pushes this one.`
+            : undefined
+        }
+        at={auto.at}
+        every="every 30 min"
+        retry="Sync now"
+        busy={busy}
+        busyLabel={`Syncing ${summary.done + summary.error}/${summary.total}…`}
+        onRetry={start}
+      />
+      {resultSlot === undefined ? result : resultSlot && createPortal(result, resultSlot)}
     </div>
   );
 }

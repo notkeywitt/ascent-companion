@@ -43,6 +43,9 @@ export interface SplitResult {
   newDocId: string;
   externalId: string;
   moved: SplitLine[];
+  /** The original bill's line total and line count before the split. */
+  originalTotal: number;
+  originalLineCount: number;
   /** Files copied to the new bill, and any that could not be. */
   filesCopied: number;
   fileErrors: string[];
@@ -178,5 +181,6 @@ export async function splitBill(cfg: PaveConfig, docId: string, lineIds: string[
     }
   }
 
-  return { newDocId, externalId, moved, filesCopied, fileErrors };
+  const originalTotal = all.reduce((s, l) => s + l.cost, 0);
+  return { newDocId, externalId, moved, originalTotal, originalLineCount: all.length, filesCopied, fileErrors };
 }

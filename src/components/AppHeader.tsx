@@ -86,9 +86,15 @@ export function AppHeader() {
   const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
   return (
+    /* `pt-[env(safe-area-inset-top)]`: the page is drawn edge to edge
+       (`viewportFit: "cover"`, layout.tsx), and iOS does not always keep the
+       web view below the status bar — newer iOS Home Screen apps and a
+       rotation both draw under it. Without this pad the row slid under the
+       clock and battery. The inset is 0 where nothing covers the top, and the
+       pad is inside the measured box, so --appheader-h includes it. */
     <div
       ref={measure}
-      className="sticky top-0 z-20 border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
+      className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
     >
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
         {/* Every page this person can open, by workspace — on a phone only. From

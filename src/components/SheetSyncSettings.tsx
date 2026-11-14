@@ -15,13 +15,15 @@ import {
 } from "@/components/ui";
 import { createTaskRunner } from "@/lib/taskRunner";
 import { timeAgo } from "@/lib/timeAgo";
+import { companyDateParts } from "@/lib/billing";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { Sheet } from "@/components/Sheet";
 
 /**
- * Sheet sync settings — a panel on the Jobs Hub and on Tracking Sheets' all-jobs
- * view since 2026-11-13 (OVERHAUL_PLAN 3.3); it was the /tracking-sheet page,
- * which now redirects to the hub. `SheetSyncButton` opens it.
+ * Sheet sync settings — a panel on the Jobs Hub since 2026-11-13 (OVERHAUL_PLAN
+ * 3.3): the Month tab's Company tools and a picked job's save menu open it. The
+ * hub's month card no longer does (owner, 2026-11-14). It was the /tracking-sheet
+ * page, which now redirects to the hub. `SheetSyncButton` opens it.
  *
  * Google Tracking Sheet — pushes a job's month of sub/vendor invoices into that
  * project's own tracking spreadsheet, replacing the by-hand copy out of the
@@ -169,12 +171,18 @@ const ymLabel = (month: number, year: number) =>
 const invoiceLabel = (month: number, year: number) =>
   month === 12 ? ymLabel(1, year + 1) : ymLabel(month + 1, year);
 
-/** The 24 billing periods ending at the current one — newest first. */
+/**
+ * The billing periods the selects offer, newest first: from today's calendar
+ * month back to 23 months before the held month. The list must reach past the
+ * held month. It once ended there, so a pinned month could never be advanced.
+ */
 function monthOptions(month: number, year: number) {
   const out: { key: string; label: string }[] = [];
-  let m = month;
-  let y = year;
-  for (let i = 0; i < 24; i++) {
+  const today = companyDateParts(new Date());
+  const ahead = Math.max(0, (today.year - year) * 12 + (today.month - month));
+  let m = ahead ? today.month : month;
+  let y = ahead ? today.year : year;
+  for (let i = 0; i < 24 + ahead; i++) {
     out.push({ key: ymKey(m, y), label: ymLabel(m, y) });
     m -= 1;
     if (m < 1) { m = 12; y -= 1; }

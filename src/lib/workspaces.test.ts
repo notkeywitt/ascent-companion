@@ -67,11 +67,11 @@ describe("the bottom bar", () => {
     ]);
   });
 
-  it("gives office and admin the same bar: Home, Invoicing, Tools, Miles, Time", () => {
+  it("gives office and admin the same bar: Home, Jobs, Tools, Miles, Time", () => {
     for (const role of ["office", "admin"] as const) {
       expect(barFor(role, canFor(role)).map((i) => i.label), role).toEqual([
         "Home",
-        "Invoicing",
+        "Jobs",
         "Tools",
         "Miles",
         "Time",
@@ -92,7 +92,7 @@ describe("the bottom bar", () => {
     const items = barFor("office", canFor("office"));
     expect(activeBarKey(items, "/mileage-tracker")).toBe("mileage");
     expect(activeBarKey(items, "/employee-time")).toBe("employee-time");
-    expect(activeBarKey(items, "/invoice-review")).toBe("close");
+    expect(activeBarKey(items, "/jobs-hub")).toBe("jobs-hub");
     expect(activeBarKey(items, "/")).toBe("today");
   });
 });
@@ -148,6 +148,15 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
     expect(activeBarKey(rail, "/employee-time")).toBe("time");
     expect(activeBarKey(rail, "/tools")).toBe("tools");
+  });
+  it("lists Feature Requests right under Help, on the rail and in the drawer", () => {
+    for (const role of ["office", "field"] as const) {
+      const rail = railFor(role, can(role)).map((i) => i.key);
+      expect(rail.indexOf("requests")).toBe(rail.indexOf("help") + 1);
+      const drawer = drawerFor(role, can(role)).map((i) => i.key);
+      expect(drawer.indexOf("requests")).toBe(drawer.indexOf("help") + 1);
+    }
+    expect(activeBarKey(railFor("office", can("office")), "/requests")).toBe("requests");
   });
   it("lights the parent workspace on a job page or a bill", () => {
     const rail = railFor("office", can("office"));
@@ -226,7 +235,7 @@ describe("the phone bar's drawer", () => {
   it("follows the rail's order, then lists every other page, Safety Meeting last", () => {
     const keys = drawerFor("office", can("office")).map((i) => i.key);
     expect(keys.at(-1)).toBe("safety-meeting");
-    expect(keys.slice(0, 7)).toEqual(["invoice-review", "invoicing-summary", "employees", "clients", "leads", "vendors", "time-sync"]);
+    expect(keys.slice(0, 8)).toEqual(["close", "invoice-review", "invoicing-summary", "employees", "job-board", "leads", "vendors", "time-sync"]);
     expect(keys).toEqual(expect.arrayContaining(["incoming", "search"]));
   });
 });

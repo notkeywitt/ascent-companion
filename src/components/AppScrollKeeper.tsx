@@ -16,6 +16,9 @@ import { APP_SCROLL_ID, appScroller, appScrollsInShell } from "@/lib/appScroll";
  *   - Back no longer returns to where you were. The browser only restores the
  *     window's scroll. This saves each page's offset and puts it back.
  *
+ * It also puts the window back at 0 after the iOS keyboard closes (see the
+ * second effect).
+ *
  * Renders nothing. In a browser tab it does nothing at all.
  */
 // Module state, not refs: the keeper sits under a Suspense boundary that can
@@ -76,6 +79,33 @@ export function AppScrollKeeper() {
   useEffect(() => {
     const shell = document.getElementById(APP_SCROLL_ID);
     if (shell) listen(shell);
+  }, []);
+
+  // The installed app's WINDOW must stay at 0 — html and body are the screen
+  // and #app-shell scrolls. iOS still scrolls the window to lift a focused
+  // field above the keyboard, and does not always scroll it back when the
+  // keyboard closes. The whole app then sits shifted up, its header under the
+  // status bar, until a reload. Put the window back once no field has focus.
+  useEffect(() => {
+    if (!appScrollsInShell()) return;
+    let timer = 0;
+    const reset = () => {
+      window.clearTimeout(timer);
+      // Wait out the keyboard's close, and a hop from one field to the next.
+      timer = window.setTimeout(() => {
+        const el = document.activeElement as HTMLElement | null;
+        const editing = !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+        if (!editing && (window.scrollY !== 0 || window.scrollX !== 0)) window.scrollTo(0, 0);
+      }, 150);
+    };
+    const vv = window.visualViewport;
+    document.addEventListener("focusout", reset);
+    vv?.addEventListener("resize", reset);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("focusout", reset);
+      vv?.removeEventListener("resize", reset);
+    };
   }, []);
 
   useEffect(() => {

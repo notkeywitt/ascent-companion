@@ -998,7 +998,7 @@ export const HELP: HelpSection[] = [
         href: "/requests",
         keywords: ["request", "feature", "bug", "suggestion", "broken"],
         steps: [
-          "Open **App Feedback**.",
+          "Open **Feature Requests**.",
           "Tap **+ Request**.",
           "Write the title.",
           "Write what you expected and what happened.",
@@ -1114,7 +1114,7 @@ export const HELP: HelpSection[] = [
         view: null,
         keywords: ["help", "support", "who", "ask", "stuck", "problem"],
         steps: [
-          "Open **App Feedback**.",
+          "Open **Feature Requests**.",
           "Write what you did, what you expected, and what happened.",
           "Tap **Submit**.",
         ],

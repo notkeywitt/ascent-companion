@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "19vp-1bhij4h";
+export const SCHEMA_FINGERPRINT = "1a8k-15rg75w";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1686,6 +1686,18 @@ async function applySchema() {
   // The digest's dismissals live in the findings store (OVERHAUL_PLAN Phase 5,
   // step 3). The old table was copied into it, checked, and dropped.
   await getClient().execute(`DROP TABLE IF EXISTS digest_dismissals`);
+  // One row per "Split bill": which bill the new one came from, and the
+  // original's total and line count at that moment (src/lib/splitCheck.ts).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bill_splits (
+      new_doc_id TEXT PRIMARY KEY,
+      original_doc_id TEXT NOT NULL,
+      original_total REAL NOT NULL,
+      original_line_count INTEGER NOT NULL,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )
+  `);
 }
 
 export { schema };

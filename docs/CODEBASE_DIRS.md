@@ -461,7 +461,9 @@ Grouped by domain; each folder is `…/route.ts`.
   page — hidden for the FIELD role), `TabBar` (the bottom bar — each role's
   slots from `BARS` in `src/lib/workspaces.ts`),
   `OfficeHome` (the admin and office Home: Needs attention, Today, To-dos, and
-  the desktop widgets with per-user layout), `HomeActions` (the phone's four
+  the desktop widgets with per-user layout; admin's Feature Request button
+  beside the count), `FeatureRequestForm` (the new Feature Request form —
+  on `/requests` and in that Home button's sheet), `HomeActions` (the phone's four
   big buttons on that Home — Deposit check, Add bill, Scan tool, Record miles;
   each button is itself the camera or start control),
   `HomeMasthead` (the iPad home's head — the date, and the BILLING MONTH as a
