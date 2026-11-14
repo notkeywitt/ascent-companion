@@ -128,6 +128,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   /** Where the Tracking sheet draws its to-be-invoiced figure and rings: the
    *  job card, beside the map (owner, 2026-11-01). */
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
+  // The month card's foot: the sheet sync's result lines land here, under the buttons.
+  const [syncResultSlot, setSyncResultSlot] = useState<HTMLElement | null>(null);
   /** …and the rings' month / job-to-date switch, under the month picker. */
   const [scopeSlot, setScopeSlot] = useState<HTMLElement | null>(null);
   /** …and the rings alone, in the card's own column (owner, 2026-11-06). */
@@ -573,16 +575,18 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                   )}
                 </div>
                 {/* The month's actions, for the month picked above: the status
-                    lines, then one row of buttons (owner, 2026-11-14). */}
+                    lines, one row of buttons, then a sync's result lines full
+                    width at the foot (owner, 2026-11-14). Check All Jobs and
+                    Sheet sync settings left this card: the Checks tab and the
+                    Month tab's Company tools hold them (owner, 2026-11-14). */}
                 <div className="flex shrink-0 flex-col items-center gap-2 border-t border-line-soft pt-3">
-                  <SyncAllTrackingSheetsFor ym={ym} className="text-center" />
+                  <SyncAllTrackingSheetsFor ym={ym} className="text-center" resultSlot={syncResultSlot} />
                   {can("jobs-hub") && <CheckForBills />}
                   <div className="flex flex-wrap items-start justify-center gap-2">
                     <DraftInvoicingEmail ym={ym} />
                     <ApproveAllBills ym={ym} />
-                    {checkAllJobs}
-                    {can("tracking-sheet") && <SheetSyncButton ym={ym} className="min-h-11" />}
                   </div>
+                  <div ref={setSyncResultSlot} className="w-full text-center empty:hidden" />
                 </div>
               </Card>
             )}
