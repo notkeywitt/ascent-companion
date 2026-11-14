@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { eq } from "drizzle-orm";
+
 import { auth } from "@/auth";
+import { db } from "@/db";
+import { digestTodos } from "@/db/schema";
+import { todoIdFromKey } from "@/lib/digest/dismissals";
 import { dismiss, get, isHidden, list, restore, snooze } from "@/lib/findings";
 import { macCheckStatus, refreshSources } from "@/lib/findingSources";
 import { readDispositions } from "@/lib/invoiceReview/dispositions";
@@ -73,6 +78,13 @@ export async function POST(req: NextRequest) {
       });
     }
     await dismiss(row.id, email, DISMISS_REASON);
+    // The office's own reminder lives only in digest_todos: dismissing it
+    // there means done, the same as the digest's Dismiss button.
+    const todoId = row.source === "digest" ? todoIdFromKey(row.key) : null;
+    if (todoId !== null) {
+      const now = new Date().toISOString();
+      await db.update(digestTodos).set({ status: "done", completedAt: now, updatedAt: now }).where(eq(digestTodos.id, todoId));
+    }
   } else if (body.action === "restore") {
     // Lifts a ruling on this one finding. A wider ruling (a whole job or
     // customer) is lifted on the review page; the next run dismisses again.

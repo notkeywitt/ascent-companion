@@ -30,6 +30,7 @@ const SOURCE_LABEL: Record<string, string> = {
   "time-sync": "Time sync",
   "pre-send": "Before you send",
   "sunset-duplicates": "Sunset duplicates",
+  digest: "Daily digest",
 };
 
 const TONE: Record<string, BannerTone> = { error: "error", warning: "warning", info: "info" };

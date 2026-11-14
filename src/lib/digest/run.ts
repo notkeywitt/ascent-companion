@@ -26,9 +26,10 @@ import { companyDateParts } from "@/lib/billing";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { CHECKS } from "./registry";
 import { resolveChecks } from "./overrides";
-import { applyDismissals } from "./dismissals";
+import { applyDismissals, dismissalKey } from "./dismissals";
 import { getInstructionTexts } from "./instructions";
-import { DIGEST_GLOBAL } from "./settings";
+import { DIGEST_CATEGORIES, DIGEST_GLOBAL } from "./settings";
+import { report } from "@/lib/findings";
 import { readActiveDismissals, saveDigest } from "./store";
 import type { DigestCheck, DigestPayload, StoredCheckResult } from "./types";
 
@@ -209,6 +210,34 @@ export function fallbackSummary(results: StoredCheckResult[]): string {
 }
 
 /**
+ * The items the office works through (To-Do, Follow-ups) into the findings
+ * inbox, one scope per check. A check that errored reports nothing, so its
+ * rows stay; a dismissed item is not in the payload, so its row resolves and
+ * keeps its dismissal. Never throws: the digest is already saved.
+ */
+async function reportToInbox(payload: DigestPayload): Promise<void> {
+  const dismissible = new Set(DIGEST_CATEGORIES.filter((c) => c.dismissible).map((c) => c.id));
+  await Promise.allSettled(
+    payload.results
+      .filter((r) => r.status !== "error" && dismissible.has(r.category))
+      .map((r) =>
+        report(
+          "digest",
+          r.items.map((item) => ({
+            key: dismissalKey(r.id, item),
+            kind: r.id,
+            severity: r.status === "warning" ? ("warning" as const) : ("info" as const),
+            title: item.title,
+            link: item.sourceLink ?? "",
+          })),
+          r.id,
+          payload.generatedAt,
+        ),
+      ),
+  );
+}
+
+/**
  * Run every enabled check and store the result as today's digest.
  *
  * The one real caller: reads live settings (defaults + any /admin overrides)
@@ -223,5 +252,6 @@ export async function runDigest(now: Date = new Date()): Promise<DigestPayload> 
   ]);
   const payload = await computeDigest(now, checks, instructions, dismissed);
   await saveDigest(payload);
+  await reportToInbox(payload);
   return payload;
 }
