@@ -63,6 +63,24 @@ const PULL: PullSource[] = [
       }));
     },
   },
+  {
+    // Ingested bills that never reached JobTread: no job doc, not dismissed.
+    source: "uncaptured",
+    load: async () => {
+      const r = await callAppsScriptOrThrow<{
+        items?: { expId: string; vendor?: string; amount?: number; billingMonth?: number | null; billingYear?: number | null }[];
+      }>({ action: "listUncaptured" }, { timeoutMs: TIMEOUT_MS });
+      return (r.items ?? []).map((b) => ({
+        key: b.expId,
+        kind: "uncaptured",
+        subject: b.vendor || "Unknown vendor",
+        title: `${b.vendor || "Unknown vendor"} ${money(b.amount ?? 0)}${
+          b.billingMonth && b.billingYear ? ` (${b.billingMonth}/${b.billingYear})` : ""
+        }: ingested, never reached JobTread`,
+        link: "/needs-project",
+      }));
+    },
+  },
 ];
 
 let lastRefresh = 0;

@@ -25,6 +25,7 @@ const SOURCE_LABEL: Record<string, string> = {
   "invoice-review": "Invoice review",
   "stuck-vendors": "Stuck vendors",
   "needs-project": "Bills with no job",
+  uncaptured: "Bills not in JobTread",
 };
 
 const TONE: Record<string, BannerTone> = { error: "error", warning: "warning", info: "info" };
