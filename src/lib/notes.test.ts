@@ -4,9 +4,12 @@ import {
   billingYmForDate,
   changedFields,
   cleanBills,
+  appendNoteLines,
   cleanInvolves,
+  emailLinesForJob,
   groupByBillingMonth,
   isNoteDate,
+  noteEmailLine,
   readNoteFields,
   type Note,
   type NoteFields,
@@ -112,5 +115,42 @@ describe("bills", () => {
     const r = readNoteFields({ bills: [{ docId: "abc123def", label: "A" }] }, base);
     expect(r.ok && r.fields.bills).toHaveLength(1);
     expect(r.ok && changedFields(base, r.fields)).toEqual(["bills"]);
+  });
+});
+
+describe("invoicing email note lines", () => {
+  const note = (over: Partial<Note>): Note => ({
+    ...base,
+    id: 1,
+    authorEmail: "a@x.com",
+    authorName: "A",
+    createdAt: "2026-10-19T10:00:00Z",
+    updatedAt: "2026-10-19T10:00:00Z",
+    editCount: 0,
+    ...over,
+  });
+
+  it("puts a bill note's vendor and invoice number first, without the amount", () => {
+    expect(
+      noteEmailLine(
+        note({ body: "Credit due\n next month", bills: [{ docId: "d1", label: "Island Lumber · #4471 · $1,204.50" }] }),
+      ),
+    ).toBe("Island Lumber #4471: Credit due next month");
+  });
+
+  it("keeps one job's notes, oldest first, without repeats", () => {
+    const notes = [
+      note({ id: 2, body: "Second", noteDate: "2026-10-20" }),
+      note({ id: 1, body: "First", noteDate: "2026-10-02" }),
+      note({ id: 3, body: "Other job", jobId: "zzz" }),
+      note({ id: 4, body: "First", noteDate: "2026-10-03" }),
+    ];
+    expect(emailLinesForJob(notes, "abc123def")).toEqual(["First", "Second"]);
+  });
+
+  it("adds only the lines the box does not hold", () => {
+    expect(appendNoteLines("", ["A", "B"])).toBe("A\nB");
+    expect(appendNoteLines("Typed. A\n", ["A", "B"])).toBe("Typed. A\nB");
+    expect(appendNoteLines("A B", ["A"])).toBe("A B");
   });
 });

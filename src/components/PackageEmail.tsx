@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAccess } from "@/components/AccessProvider";
 import { Banner, Button, Dialog, Textarea } from "@/components/ui";
+import { appendNoteLines, emailLinesForJob, firstLine, type Note } from "@/lib/notes";
 
 /**
  * "Draft invoicing email" — POST /api/invoicing-summary/email, which saves the
@@ -175,8 +176,13 @@ function invoiceLabel(j: NoteJob): string {
  * then closes. "Draft email" waits the same way first, because Apps Script
  * reads the notes when it builds the draft. `jobs` is null while the caller
  * still reads the month, so the card opens at once.
+ *
+ * Under each box: that job's notes for the month from the Jobs page (job and
+ * bill notes, /api/notes) and "Add to note", which adds the ones the box does
+ * not hold yet and saves (owner, 2026-11-14). Hidden without the jobs-hub view.
  */
 export function PackageEmailNotes({
+  ym,
   jobs,
   running,
   onPatch,
@@ -185,6 +191,8 @@ export function PackageEmailNotes({
   onClose,
   loadError,
 }: {
+  /** The billing month, YYYY-MM — whose Jobs page notes to show. */
+  ym: string;
   jobs: NoteJob[] | null;
   running: boolean;
   /** Set when the caller could not read the month's jobs. */
@@ -198,6 +206,21 @@ export function PackageEmailNotes({
   const pending = useRef(new Set<Promise<boolean>>());
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<"" | "save" | "draft">("");
+
+  // The month's Jobs page notes, every job. A failed read shows nothing.
+  const canNotes = useAccess().can("jobs-hub");
+  const [hubNotes, setHubNotes] = useState<Note[]>([]);
+  useEffect(() => {
+    if (!canNotes || !ym) return;
+    let live = true;
+    fetch(`/api/notes?ym=${encodeURIComponent(ym)}`, { cache: "no-store" })
+      .then((r): Promise<{ notes?: Note[] }> => (r.ok ? r.json() : Promise.resolve({})))
+      .then((b) => live && setHubNotes(Array.isArray(b.notes) ? b.notes : []))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [canNotes, ym]);
 
   const saveNote = (jobId: string, note: string) => {
     const p = onSave(jobId, note);
@@ -272,22 +295,47 @@ export function PackageEmailNotes({
         <p className="text-[13px] text-neutral-500">No jobs are included this month.</p>
       )}
       <div className="space-y-3">
-        {ordered.map((j) => (
-          <label key={j.jtJobId} className="block">
-            <span className="text-[13px] font-semibold">
-              {j.jobLabel} - {j.customerLabel}
-              {invoiceLabel(j) ? <span className="font-normal text-neutral-500"> · {invoiceLabel(j)}</span> : null}
-            </span>
-            <Textarea
-              rows={2}
-              value={j.note}
-              placeholder="Note"
-              onChange={(e) => onPatch(j.jtJobId, e.target.value)}
-              onBlur={(e) => saveNote(j.jtJobId, e.target.value)}
-              disabled={locked}
-            />
-          </label>
-        ))}
+        {ordered.map((j) => {
+          const lines = emailLinesForJob(hubNotes, j.jtJobId);
+          const added = appendNoteLines(j.note, lines) === j.note;
+          return (
+            <div key={j.jtJobId}>
+              <label className="block">
+                <span className="text-[13px] font-semibold">
+                  {j.jobLabel} - {j.customerLabel}
+                  {invoiceLabel(j) ? <span className="font-normal text-neutral-500"> · {invoiceLabel(j)}</span> : null}
+                </span>
+                <Textarea
+                  rows={2}
+                  value={j.note}
+                  placeholder="Note"
+                  onChange={(e) => onPatch(j.jtJobId, e.target.value)}
+                  onBlur={(e) => saveNote(j.jtJobId, e.target.value)}
+                  disabled={locked}
+                />
+              </label>
+              {lines.length > 0 && (
+                <div className="mt-1 flex items-start gap-2 text-[12px] text-neutral-500 dark:text-neutral-400">
+                  <span className="min-w-0 flex-1">
+                    Jobs page notes: {lines.map((l) => firstLine(l, 60)).join(" · ")}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={locked || added}
+                    onClick={() => {
+                      const next = appendNoteLines(j.note, lines);
+                      onPatch(j.jtJobId, next);
+                      saveNote(j.jtJobId, next);
+                    }}
+                    className="shrink-0 font-semibold text-accent underline disabled:no-underline disabled:opacity-60"
+                  >
+                    {added ? "In the note" : "Add to note"}
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </Dialog>
   );
@@ -345,6 +393,7 @@ export function DraftInvoicingEmail({ ym, className }: { ym: string; className?:
       <PackageEmailResult email={email} />
       {open && (
         <PackageEmailNotes
+          ym={ym}
           jobs={jobs}
           loadError={loadError}
           running={email.running}

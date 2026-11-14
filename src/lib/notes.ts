@@ -220,3 +220,34 @@ export function groupByBillingMonth(notes: Note[]): { ym: string; notes: Note[] 
       ),
     }));
 }
+
+/**
+ * One note as a line for the invoicing email's note box (owner, 2026-11-14:
+ * the Jobs page's job and bill notes go into the email note for that job).
+ * The text on one line; a bill note leads with its bills' vendor and invoice
+ * number. The bill's amount stays out.
+ */
+export function noteEmailLine(n: Pick<Note, "body" | "bills">): string {
+  const text = n.body.replace(/\s+/g, " ").trim();
+  const bills = n.bills
+    .map((b) => b.label.split(" · ").filter((p) => !p.trim().startsWith("$")).join(" ").trim())
+    .filter(Boolean);
+  return bills.length ? `${bills.join(", ")}: ${text}` : text;
+}
+
+/** One job's notes in a month as email lines, oldest first, no repeats. */
+export function emailLinesForJob(notes: Note[], jobId: string): string[] {
+  const lines = notes
+    .filter((n) => n.jobId === jobId && n.body.trim())
+    .sort((a, b) => a.noteDate.localeCompare(b.noteDate) || a.createdAt.localeCompare(b.createdAt))
+    .map(noteEmailLine);
+  return [...new Set(lines)];
+}
+
+/** `current` with each line it does not already hold added on its own line. */
+export function appendNoteLines(current: string, lines: string[]): string {
+  const missing = lines.filter((l) => l && !current.includes(l));
+  if (!missing.length) return current;
+  const head = current.trimEnd();
+  return [head, ...missing].filter(Boolean).join("\n");
+}
