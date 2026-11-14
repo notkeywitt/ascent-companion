@@ -7,8 +7,6 @@ import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { MonthPicker } from "@/components/MonthPicker";
-import { MonthChangeSheets } from "@/components/MonthChangeSheets";
-import { isLaterMonth } from "@/lib/monthChangeSheets";
 
 /**
  * The head of the iPad home console — a dateline, and where the billing month
@@ -63,8 +61,6 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   const [saving, setSaving] = useState(false);
   /** Why the last save bounced. The month snaps back, so say why it did. */
   const [err, setErr] = useState("");
-  /** A move to a later month, waiting on the tracking sheets' records copy. */
-  const [closing, setClosing] = useState<{ from: string; to: string } | null>(null);
 
   useEffect(() => setToday(new Date()), []);
 
@@ -111,20 +107,8 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   // The route sets this month in the Apps Script project too, and refuses the
   // whole change if that push fails — so a rejection means NOTHING moved, and
   // showing the old month back is the truth rather than a lost edit.
-  //
-  // A move to a LATER month closes the month it leaves, so it goes through
-  // MonthChangeSheets first: each tracking sheet's CURRENT INVOICE is copied
-  // into its records before anything moves. A move back, and a role without
-  // the sheets, changes the month directly.
-  function pick(next: string) {
+  async function set(next: string) {
     if (next === ym) return;
-    if (isLaterMonth(ym, next) && access.can("tracking-sheet")) return setClosing({ from: ym, to: next });
-    void set(next);
-  }
-
-  /** Resolves with the error when the save bounced, null when the page reloads. */
-  async function set(next: string): Promise<string | null> {
-    if (next === ym) return null;
     setSaving(true);
     setErr("");
     const prev = ym;
@@ -137,14 +121,12 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
     }).catch(() => null);
     if (!r || !r.ok) {
       const why = r ? await r.json().catch(() => null) : null;
-      const msg = String(why?.error ?? "Couldn't save the billing month. Try again.");
       setYm(prev);
-      setErr(msg);
+      setErr(String(why?.error ?? "Couldn't save the billing month. Try again."));
       setSaving(false);
-      return msg;
+      return;
     }
     window.location.reload();
-    return null;
   }
 
   return (
@@ -180,7 +162,7 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
               <MonthPicker
                 value={ym}
                 options={months}
-                onChange={pick}
+                onChange={set}
                 disabled={saving}
                 ariaLabel="Billing month — every non-Sunset bill files into this month"
                 className={stale ? "text-danger" : ""}
@@ -194,14 +176,6 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
             >
               {ym ? monthLabel(ym) : ""}
             </p>
-          )}
-          {closing && (
-            <MonthChangeSheets
-              from={closing.from}
-              to={closing.to}
-              onCancel={() => setClosing(null)}
-              onChange={() => set(closing.to)}
-            />
           )}
           {(err || stale || auto) && (
             <div className="mt-1 flex items-center justify-end gap-2">
