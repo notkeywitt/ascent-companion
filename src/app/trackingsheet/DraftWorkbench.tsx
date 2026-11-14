@@ -44,6 +44,8 @@ import {
 } from "@/lib/codingDraft";
 import { SALES_TAX_LINE_NAME, splitSalesTax } from "@/lib/salesTax";
 import { postSplitBill } from "@/lib/splitBillClient";
+import { toast } from "@/components/Toast";
+import { useLineOps, type LineOps } from "./useLineOps";
 
 /**
  * The two side columns of the needs-coding workbench — the budget rail and the
@@ -194,7 +196,10 @@ export interface BillEditor {
   dismissRestored: () => void;
   saving: boolean;
   saveMsg: string;
-  save: () => Promise<void>;
+  /** Resolves with the bills this Save voided, so the host can leave them. */
+  save: () => Promise<{ voided: string[] } | undefined>;
+  /** The staged delete / add / buyback / void (one save rule) — useLineOps.ts. */
+  lineOps: LineOps;
   /** Cost-code number → pre-tax dollars THIS bill currently puts on it. */
   pendingByCode: Map<string, number>;
   /** Re-read this bill from JobTread — what every structural write calls. */
@@ -225,6 +230,7 @@ export function useBillEditor(
   /** The merge waiting for Save — see combineRows in the coding panel. It lives
    *  here with the other staged state because `save` is what applies it. */
   const [combinePending, setCombinePending] = useState<CombineRequest | null>(null);
+  const lineOps = useLineOps();
   const [taxEdit, setTaxEdit] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
@@ -330,7 +336,8 @@ export function useBillEditor(
 
   // A staged merge counts as one change however many lines it folds
   // together — it is one decision.
-  const changeCount = math.pendingCount + (taxChanged ? 1 : 0) + (combinePending ? 1 : 0);
+  const changeCount =
+    math.pendingCount + (taxChanged ? 1 : 0) + (combinePending ? 1 : 0) + lineOps.count;
 
   // ---- durable drafts -----------------------------------------------------
   /**
@@ -428,7 +435,8 @@ export function useBillEditor(
       math.wholeBillChanges.length === 0 &&
       !taxChanged &&
       !needsTaxMigration &&
-      !combinePending
+      !combinePending &&
+      lineOps.count === 0
     ) {
       setSaveMsg("Nothing to save.");
       return;
@@ -505,15 +513,22 @@ export function useBillEditor(
         combineErr = await postCombine(combinePending);
         if (!combineErr) setCombinePending(null);
       }
-      setSaveMsg(
-        combineErr
-          ? `Saved the lines, but the merge failed. ${combineErr}`
-          : failed
-            ? `Saved, ${failed} line(s) failed.`
-            : "Saved.",
-      );
+      // The staged structural ops go after the merge (useLineOps.ts): buyback
+      // and delete remove lines, add puts one on, void ends the bill.
+      const ops = await lineOps.run();
+      const problems = [
+        ...(combineErr ? [`the merge failed. ${combineErr}`] : []),
+        ...(failed ? [`${failed} line(s) failed.`] : []),
+        ...ops.failures,
+      ];
+      if (problems.length) setSaveMsg(`Saved, but ${problems.join("; ")}`);
+      else {
+        setSaveMsg("");
+        toast(ops.done.length ? `Saved. ${ops.done.join(", ")}.` : "Saved.");
+      }
       markBillTouched(docId);
       hRef.current.onSaved?.(docId);
+      if (ops.voided.length) return { voided: ops.voided };
       // Re-read JobTread's truth, so the rail and the totals reflect the write.
       await fetchInto(`${docId}|${jobId}`, docId, jobId).catch(() => {
         /* the save landed; a failed re-read leaves the old numbers on screen */
@@ -523,7 +538,7 @@ export function useBillEditor(
     } finally {
       setSaving(false);
     }
-  }, [docId, jobId, draftKey, math, taxChanged, needsTaxMigration, taxView, lines, picked, budget, fetchInto, combinePending]);
+  }, [docId, jobId, draftKey, math, taxChanged, needsTaxMigration, taxView, lines, picked, budget, fetchInto, combinePending, lineOps]);
 
   /** Re-read this bill from JobTread, keeping the staged edits on screen. */
   const reload = useCallback(async () => {
@@ -586,6 +601,7 @@ export function useBillEditor(
     saving,
     saveMsg,
     save,
+    lineOps,
     pendingByCode,
     reload,
   };
@@ -941,6 +957,7 @@ export function DraftCodingPanel({
     saving,
     saveMsg,
     save,
+    lineOps,
     pendingByCode,
     reload,
   } = editor;
@@ -1134,128 +1151,50 @@ export function DraftCodingPanel({
 
   // ---- delete / add / buyback --------------------------------------------
 
-  const deleteLineById = async (id: string, label: string) => {
-    if (
-      !window.confirm(`Delete this line?\n\n${label}\n\nThis removes it from the bill in JobTread.`)
-    )
-      return;
-    setDeletingLineId(id);
+  // Delete, add and buyback are STAGED (one save rule, Phase 6): the tap marks
+  // the row and Save writes them with the rest — see useLineOps.ts. Same
+  // handlers as the board's useLineEdits.
+  const deleteLineById = (id: string, label: string) => {
+    if (!docId) return;
+    lineOps.toggleDelete(id, docId, label);
+    setCombineSelected((s) => s.filter((x) => x !== id));
     setDeleteLineMsg("");
-    try {
-      const res = await fetch("/api/delete-line", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId, costItemId: id }),
-      });
-      const json = await res.json();
-      if (!res.ok) setDeleteLineMsg(json.error ?? "Delete failed");
-      else if (json.previewed)
-        setDeleteLineMsg("Preview only — writes are OFF. Nothing was deleted in JobTread.");
-      else {
-        setCombineSelected((s) => s.filter((x) => x !== id));
-        setPicked((p) => {
-          const next = { ...p };
-          delete next[id];
-          return next;
-        });
-        setEdits((p) => {
-          const next = { ...p };
-          delete next[id];
-          return next;
-        });
-        await reload();
-      }
-    } catch (e) {
-      setDeleteLineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setDeletingLineId("");
-    }
   };
 
-  const addLine = async () => {
+  const addLine = () => {
     const name = newLine.name.trim();
     if (!name || !header) return;
-    setAddLineSaving(true);
+    // Unit $ is entered PRE-TAX, like the line editor; grossed up against the
+    // bill's CURRENT previewed subtotal so it lands consistent with what's on
+    // screen, including an unsaved tax edit.
+    const qty = Number(newLine.quantity) || 0;
+    const preTaxUnit = Number(newLine.unitCost) || 0;
+    const newSumPreTax = math.subtotal + preTaxUnit * qty;
+    const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + taxView) / newSumPreTax : 1;
+    lineOps.stageAdd({
+      docId,
+      name,
+      quantity: qty,
+      preTaxUnit,
+      unitCost: round2(preTaxUnit * reTaxAdd),
+      jobCostItemId: newLine.code || undefined,
+      description: descriptionForCode(newLine.code, budget),
+    });
+    setAddingLine(false);
+    setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
     setAddLineMsg("");
-    try {
-      // Unit $ is entered PRE-TAX, like the line editor; gross it up against
-      // the bill's CURRENT previewed subtotal so it lands consistent with
-      // what's on screen, including an unsaved tax edit.
-      const qty = Number(newLine.quantity) || 0;
-      const preTaxUnit = Number(newLine.unitCost) || 0;
-      const newSumPreTax = math.subtotal + preTaxUnit * qty;
-      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + taxView) / newSumPreTax : 1;
-      const res = await fetch("/api/add-line", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          docId,
-          name,
-          quantity: qty,
-          unitCost: round2(preTaxUnit * reTaxAdd),
-          jobCostItemId: newLine.code || undefined,
-          description: descriptionForCode(newLine.code, budget),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setAddLineMsg(json.error ?? "Add failed");
-      else if (json.previewed)
-        setAddLineMsg("Preview only — writes are OFF. Nothing was added to JobTread.");
-      else {
-        setAddingLine(false);
-        setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
-        await reload();
-      }
-    } catch (e) {
-      setAddLineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setAddLineSaving(false);
-    }
   };
 
   const buybackLineById = async (l: CodingLine, name: string, extended: number) => {
-    // No confirm here: the card's buyback dialog is the confirmation, and it can
-    // hand over several lines in a row.
-    setBuybackId(l.id);
+    const codeId = leafOf(l);
+    lineOps.stageBuyback({
+      lineId: l.id,
+      docId,
+      name,
+      unitCost: round2(extended),
+      description: codeId ? descriptionForCode(codeId, budget) : undefined,
+    });
     setDeleteLineMsg("");
-    try {
-      const codeId = leafOf(l);
-      const res = await fetch("/api/buyback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceDocId: docId,
-          costItemId: l.id,
-          name,
-          unitCost: round2(extended),
-          description: codeId ? descriptionForCode(codeId, budget) : undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setDeleteLineMsg(json.error ?? "Buyback failed.");
-      else if (json.previewed)
-        setDeleteLineMsg("Preview only — writes are OFF. Nothing was moved in JobTread.");
-      else {
-        setPicked((p) => {
-          const next = { ...p };
-          delete next[l.id];
-          return next;
-        });
-        setEdits((p) => {
-          const next = { ...p };
-          delete next[l.id];
-          return next;
-        });
-        setDeleteLineMsg(
-          json.created ? "Moved to a new Shop bill." : "Added to the existing Shop bill.",
-        );
-        await reload();
-      }
-    } catch (e) {
-      setDeleteLineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setBuybackId("");
-    }
   };
 
   // ---- filing -------------------------------------------------------------
@@ -1279,7 +1218,7 @@ export function DraftCodingPanel({
       else if (json.previewed)
         setFilingMsg("Preview only — writes are OFF. The billing month wasn't changed.");
       else {
-        setFilingMsg("Billing month saved.");
+        toast("Billing month saved.");
         await reload();
       }
     } catch (e) {
@@ -1309,7 +1248,10 @@ export function DraftCodingPanel({
       if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the due date.");
       else if (json.previewed)
         setFilingMsg("Preview only — writes are OFF. The due date wasn't changed.");
-      else await reload();
+      else {
+        toast("Due date saved.");
+        await reload();
+      }
     } catch (e) {
       setFilingMsg(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -1334,7 +1276,7 @@ export function DraftCodingPanel({
       else if (json.previewed)
         setFilingMsg("Preview only — writes are OFF. The bill number wasn't changed.");
       else {
-        setFilingMsg("Bill number saved.");
+        toast("Bill number saved.");
         await reload();
       }
     } catch (e) {
@@ -1433,6 +1375,8 @@ export function DraftCodingPanel({
     deletingLineId,
     deleteLineById,
     deleteLineMsg,
+    lineOps: lineOps.view,
+    stageVoid: () => lineOps.toggleVoid(docId, sel?.label ?? "this bill"),
     addingLine,
     setAddingLine,
     newLine,
@@ -1493,7 +1437,16 @@ export function DraftCodingPanel({
           it's still on screen after scrolling down a long bill. */}
       {header && (
         <div className="mb-2">
-          <Button className="w-full" onClick={save} disabled={saving}>
+          <Button
+            className="w-full"
+            onClick={() =>
+              void save().then((r) => {
+                // A voided bill is gone from the queue: the host leaves it.
+                if (r?.voided.length) actions?.onVoided?.();
+              })
+            }
+            disabled={saving}
+          >
             {saving
               ? "Saving…"
               : changeCount > 0

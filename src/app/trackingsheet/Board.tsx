@@ -92,6 +92,7 @@ import { saveCoding } from "./saveCoding";
 import { useBillApproval } from "./useBillApproval";
 import { useRailView } from "./useRailView";
 import { useTrackingPush } from "./useTrackingPush";
+import { useLineOps } from "./useLineOps";
 import { usePreSendCheck } from "./usePreSendCheck";
 import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
@@ -610,6 +611,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   );
 
   const taxDirty = isTaxDirty(taxEdits, data?.bills, billTax);
+  /** The staged structural edits — delete, add, buyback, void. One save rule
+   *  (Phase 6): they change money, so they wait for Save Changes too. */
+  const lineOps = useLineOps();
   const dirty =
     staged.size > 0 ||
     timeStaged.size > 0 ||
@@ -617,11 +621,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     Object.keys(edits).length > 0 ||
     taxDirty ||
     Object.keys(typeEdits).length > 0 ||
-    combinePending !== null;
+    combinePending !== null ||
+    lineOps.count > 0;
   /** Everything Sync would write, for the toolbar's chip. A staged merge counts
    *  as one change however many lines it folds together — it is one decision. */
   const stagedCount =
-    staged.size + timeTouched.size + Object.keys(typeEdits).length + (combinePending ? 1 : 0);
+    staged.size +
+    timeTouched.size +
+    Object.keys(typeEdits).length +
+    (combinePending ? 1 : 0) +
+    lineOps.count;
   // Still worth a prompt — leaving means the coding hasn't reached JobTread —
   // but it no longer says "lose them", because it isn't true any more: the
   // autosave below has already put the work somewhere it survives (see
@@ -1107,6 +1116,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     setNewLine,
     toggleCombineSel,
   } = useLineEdits({
+    lineOps,
     data,
     edits,
     leafOf,
@@ -1300,9 +1310,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     },
     approveBill: canApprove ? approveOneBill : undefined,
     approvingBill: approving,
-    onVoided: () => {
-      setOpenDocId(null);
-      void load({ preserveStaged: true });
+    // Void is STAGED like every other money edit; Save writes /api/bill-void
+    // and the re-read drops the bill (denied is the void).
+    lineOps: lineOps.view,
+    stageVoid: () => {
+      if (openBill) lineOps.toggleVoid(openBill.id, openBill.label);
     },
     approveBlocked: dirty ? "Save staged coding changes to JobTread first" : null,
     isCombinable,
@@ -1355,6 +1367,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     setTypeEdits({});
     setCombinePending(null);
     setCombineMsg("");
+    lineOps.clear();
     setSyncMsg(null);
     setRestoreMsg(null);
     // Revert is the one place the office says "I don't want this work" — so it
@@ -1441,6 +1454,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       setCombining,
       setCombineMsg,
       setCombinePending,
+      lineOps,
       setRestoreMsg,
       draftKey,
       load,
