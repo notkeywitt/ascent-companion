@@ -12,6 +12,8 @@
 //   4. createDocumentReference on an existing invoice — does it set the flag too?
 //   5. deleteDocumentReference — does it clear the flag (bill and time entry)?
 //   6. Does the draft stay out of QuickBooks (no qboId) throughout?
+//   7. Does a past issueDate (the last day of a billing month) stick, under the
+//      "Monthly Invoice" template name?
 //
 // JobTread refuses a customer invoice on the Office job (007): "Customer orders
 // and invoices can only be created for fixed-price or cost-plus jobs", and 007
@@ -40,6 +42,7 @@ const JOB = "22Pi4qW5bdmr"; // Job 37 (customer "Tester", cost-plus) — holds t
 const CODE_CONSUMABLES = "22PXGEz4rPUw"; // 01 31 30 Consumables, for the $0 leaf
 const COST_TYPE = "22PXG7Zt8iGY"; // Labor — the type the Office Admin leaf uses; any type does for a $0 leaf
 const TAX_RATE = 0.0835;
+const ISSUE_DATE = "2026-10-31"; // the last day of a past billing month
 const UNIT_COST = 100;
 const UNIT_PRICE = 118; // cost + an 18% fee, sent as a plain number
 
@@ -143,7 +146,7 @@ show("budget leaf on Job 37", LEAF);
 const hasInvoice = (node, invoiceId) => (node?.referencedDocuments?.nodes ?? []).some((n) => n.id === invoiceId);
 const readBill = async (id) => (await pave({ document: { $: { id }, id: {}, status: {}, ...refs } })).document;
 const readEntry = async (id) => (await pave({ timeEntry: { $: { id }, id: {}, ...refs } })).timeEntry;
-const docSel = { id: {}, number: {}, status: {}, price: {}, cost: {}, tax: {}, priceWithTax: {}, qboId: {} };
+const docSel = { id: {}, number: {}, status: {}, price: {}, cost: {}, tax: {}, priceWithTax: {}, qboId: {}, name: {}, issueDate: {} };
 const readInvoice = async (id) =>
   (
     await pave({
@@ -169,7 +172,7 @@ try {
         jobId: JOB,
         // JobTread refuses a free name: "Name must be one of Deposit, Invoice,
         // Monthly Invoice, …" (the org's document templates). toName marks the probe.
-        name: "Invoice",
+        name: "Monthly Invoice",
         fromName: "Ascent Building Co.",
         toName: "ZZ probe",
         // JobTread refuses a new invoice without a job location, and wants exactly
@@ -177,6 +180,8 @@ try {
         jobLocationName: "1361 Davis Bay Road",
         jobLocationAddress: "1361 Davis Bay Rd, Lopez Island, WA 98261, USA",
         dueDays: 14,
+        // The app dates a draft the last day of its billing month, not today.
+        issueDate: ISSUE_DATE,
         // Never reaches QuickBooks, whatever happens below.
         qboIsIgnored: true,
         taxRate: TAX_RATE,
@@ -258,6 +263,8 @@ try {
 
   const end = await readInvoice(invoiceId);
   answers["6 draft stays out of QuickBooks"] = !inv.qboId && !end.qboId ? "yes — no qboId at any step" : "NO — a qboId appeared";
+  answers["7 issueDate and template name kept"] =
+    end.issueDate === ISSUE_DATE && end.name === "Monthly Invoice" ? "yes" : `NO — ${end.name}, ${end.issueDate}`;
 } finally {
   // Answers first: a failed void must not hide them.
   console.log("\nANSWERS");
