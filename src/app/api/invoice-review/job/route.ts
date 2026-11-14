@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
           link: "/trackingsheet",
           dismissed: f.suppressedBy
             ? { by: f.suppressedBy.by, reason: f.suppressedBy.reason, at: f.suppressedBy.at }
-            : null,
+            : undefined, // an inbox dismissal of a pre-send row stands
         })),
         `${result.ym}:${jobId}`,
       ).catch(() => {});
