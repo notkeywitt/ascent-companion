@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { auth } from "@/auth";
-import { db, ensureDb, rawDb } from "@/db";
+import { db, ensureDb } from "@/db";
 import { featureRequests } from "@/db/schema";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
@@ -93,18 +93,6 @@ const SOURCES: Source[] = [
       if (r.error || !r.data?.ok) throw new Error(r.error || r.data?.error || "listEmails failed");
       const n = (r.data.emails ?? []).length;
       return { count: n, detail: `${plural(n, "invoice email")} to log` };
-    },
-  },
-  {
-    key: "corrections",
-    view: "bill-review",
-    label: "Bill Corrections",
-    href: "/invoice-review?section=flagged",
-    load: async () => {
-      await ensureDb();
-      const res = await rawDb().execute("SELECT COUNT(*) AS n FROM saved_bills WHERE needs_review = 1");
-      const n = Number(res.rows[0]?.n ?? 0);
-      return { count: n, detail: `${plural(n, "bill")} flagged for a billing correction` };
     },
   },
   {
