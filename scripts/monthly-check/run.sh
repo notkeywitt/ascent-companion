@@ -2,7 +2,7 @@
 # The launchd job's entry point. launchd calls it hourly and at login.
 #
 # On a review day (the app's own schedule: 5th, 8th, 11th to send day) it runs
-# the /monthly-check skill once, headless, in Claude Code on Opus. Nothing
+# the /monthly-check skill once, headless, in Claude Code on Sonnet. Nothing
 # happens before 9 am, so the app's own 8 am run is on file first.
 #
 #   run.sh            what launchd runs
@@ -37,6 +37,11 @@ if [ -z "$FORCE" ]; then
   }
   YM="$(printf '%s' "$SCHEDULE" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const j=JSON.parse(s);process.stdout.write(j.due?j.due.ym:"")})')"
   [ -z "$YM" ] && exit 0
+  # The other Mac already finished today's pass and nothing new needs a verdict.
+  if [ "$(node "$HERE/agent.mjs" settled "$YM" 2>/dev/null)" = "yes" ]; then
+    mkdir -p "$DIR" && touch "$STAMP"
+    exit 0
+  fi
 fi
 
 # Each start and outcome is posted to the app (/invoice-review shows them), so
@@ -59,7 +64,7 @@ say "monthly check starting${YM:+ for $YM} ($CLAUDE)"
 report started "Scheduled check started on the office Mac." "$YM"
 cd "$REPO" || exit 1
 "$CLAUDE" -p "/monthly-check ${YM}" \
-  --model opus \
+  --model sonnet \
   --allowedTools \
     "Bash(node scripts/monthly-check/agent.mjs:*)" \
     "Read" "Grep" "Glob" \

@@ -21,7 +21,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { invoiceReviewDispositions } from "@/db/schema";
 
-import type { Finding, FindingDisposition } from "./types";
+import { findingPrint, type Finding, type FindingDisposition } from "./types";
 
 /** One verdict as Claude Code posts it (/api/invoice-review/agent). */
 export interface DispositionInput {
@@ -29,6 +29,8 @@ export interface DispositionInput {
   verdict: "confirmed" | "probably-fine" | "needs-human";
   why: string;
   suggestedAction: string;
+  /** `findingPrint` of the finding as it stood when the verdict was written. */
+  seen?: string;
 }
 
 export const VERDICTS: ReadonlySet<string> = new Set(["confirmed", "probably-fine", "needs-human"]);
@@ -54,6 +56,7 @@ export async function saveDispositions(
         suggestedAction: d.suggestedAction,
         model,
         createdAt,
+        seen: d.seen ?? "",
       };
       await db
         .insert(invoiceReviewDispositions)
@@ -70,7 +73,9 @@ export async function saveDispositions(
 }
 
 /** A month's verdicts, keyed by finding key. Empty when none or unreachable. */
-export async function readDispositions(ym: string): Promise<Map<string, FindingDisposition>> {
+export async function readDispositions(
+  ym: string,
+): Promise<Map<string, FindingDisposition & { seen?: string }>> {
   try {
     await ensureDb();
     const rows = await db
@@ -86,6 +91,7 @@ export async function readDispositions(ym: string): Promise<Map<string, FindingD
           suggestedAction: r.suggestedAction,
           model: r.model,
           at: r.createdAt,
+          seen: r.seen,
         },
       ]),
     );
@@ -114,11 +120,15 @@ export async function clearDispositions(ym: string, keys?: string[]): Promise<vo
  */
 export function attachDispositions(
   findings: Finding[],
-  byKey: Map<string, FindingDisposition>,
+  byKey: Map<string, FindingDisposition & { seen?: string }>,
 ): Finding[] {
   if (!byKey.size) return findings;
   return findings.map((f) => {
-    const d = byKey.get(f.key);
-    return d ? { ...f, disposition: d } : f;
+    const hit = byKey.get(f.key);
+    if (!hit) return f;
+    const { seen, ...d } = hit;
+    // The finding moved since the verdict: keep the verdict on show, but mark
+    // it so the next pass writes a new one.
+    return { ...f, disposition: seen && seen !== findingPrint(f) ? { ...d, stale: true } : d };
   });
 }

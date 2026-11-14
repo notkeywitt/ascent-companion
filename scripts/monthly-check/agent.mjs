@@ -117,15 +117,21 @@ function digest(r) {
   }
   lines.push("");
   const live = p.findings.filter((f) => !f.suppressedBy);
-  lines.push(`findings: ${live.length} live, ${p.findings.length - live.length} ruled out`);
-  for (const f of live) {
+  // A verdict stands until its finding moves (`stale`), so only these need work.
+  const todo = live.filter((f) => !f.disposition || f.disposition.stale);
+  lines.push(
+    `findings: ${live.length} live, ${p.findings.length - live.length} ruled out.`,
+    `needs a verdict: ${todo.length}. Carried forward with an unchanged verdict: ${live.length - todo.length} (do not redo them).`,
+  );
+  for (const f of todo) {
     const h = f.history ? (f.history.isNew ? "NEW" : `seen ${f.history.runsSeen}x since ${String(f.history.firstSeenAt).slice(0, 10)}`) : "no history";
     lines.push(
       `- [${f.severity}] ${f.kind} | ${f.customerName ?? ""} / ${f.jobName ?? ""} | ${f.amount != null ? money(f.amount) : ""} | ${h}`,
       `  key: ${f.key}`,
       `  ${f.title ?? ""}${f.detail ? ` — ${f.detail}` : ""}`,
     );
-    if (f.disposition) lines.push(`  last verdict: ${f.disposition.verdict} — ${f.disposition.why}`);
+    if (f.sourceLink) lines.push(`  fix link: ${f.sourceLink}`);
+    if (f.disposition) lines.push(`  earlier verdict, before the finding changed: ${f.disposition.verdict} — ${f.disposition.why}`);
   }
   return lines.join("\n");
 }
@@ -152,6 +158,17 @@ async function main() {
       // The month's pass status alone: running | done | error | none.
       const r = await call("GET", `/api/invoice-review/agent?action=read&ym=${encodeURIComponent(a ?? "")}`);
       console.log(r.investigation?.status ?? "none");
+      return;
+    }
+    case "settled": {
+      // "yes" when a pass finished today (local date) and nothing has needed a
+      // verdict since. run.sh skips the scheduled run then: the other Mac did it.
+      const r = await call("GET", `/api/invoice-review/agent?action=read&ym=${encodeURIComponent(a ?? "")}`);
+      const day = (iso) => (iso ? new Date(iso).toLocaleDateString("en-CA") : "");
+      const today = day(new Date().toISOString());
+      const open = (r.payload?.findings ?? []).filter((f) => !f.suppressedBy && (!f.disposition || f.disposition.stale));
+      const ok = r.investigation?.status === "done" && day(r.investigation.finishedAt) === today && day(r.storedAt) === today && !open.length;
+      console.log(ok ? "yes" : "no");
       return;
     }
     case "begin":
@@ -214,7 +231,7 @@ async function main() {
       return;
     default:
       console.error(
-        "usage: agent.mjs schedule | run [ym] | read ym | pass ym | begin ym model | finish ym file | fail ym reason |" +
+        "usage: agent.mjs schedule | run [ym] | read ym | pass ym | settled ym | begin ym model | finish ym file | fail ym reason |" +
           " tracking | sheet-columns ym file | sheet-check ym file | log status message [ym] [logfile]",
       );
       process.exit(2);

@@ -207,6 +207,15 @@ export interface FindingDisposition {
   /** Which model produced it, so a change in quality is attributable. */
   model: string;
   at: string;
+  /** True when the finding's title or amount moved after this verdict was
+   *  written. A stale verdict is shown, but the finding needs a new one. */
+  stale?: boolean;
+}
+
+/** What a verdict was written against. A finding keeps its key while its
+ *  amount moves, so the key alone cannot say the verdict still fits. */
+export function findingPrint(f: Pick<Finding, "title" | "amount" | "severity">): string {
+  return `${f.severity}|${f.amount ?? ""}|${f.title}`.slice(0, 400);
 }
 
 /** What the review remembers about one finding. */

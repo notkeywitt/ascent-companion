@@ -24,8 +24,8 @@ import {
   Select,
   Textarea, Tabs } from "@/components/ui";
 import { ReportText } from "@/components/ReportText";
-import { buildBrief } from "@/lib/invoiceReview/brief";
-import { money } from "@/lib/invoiceReview/types";
+import { buildBrief, buildFindingPrompt } from "@/lib/invoiceReview/brief";
+import { findingPrint, money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
 /** Ascent's own findings: the Office/Shop jobs, and mail from the office's own address. */
@@ -41,6 +41,7 @@ interface DispositionRow {
   suggestedAction: string;
   model: string;
   at: string;
+  seen?: string;
 }
 
 /** The state of a month's investigation pass — see
@@ -107,20 +108,39 @@ function defaultYm(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-type Lens = "all" | "fix" | "look" | "set-aside";
+type Lens = "all" | "fix" | "look" | "fine" | "set-aside";
 
 const LENSES: { id: Lens; label: string }[] = [
   { id: "fix", label: "To fix" },
-  { id: "look", label: "To look at" },
+  { id: "look", label: "To confirm" },
+  { id: "fine", label: "False alarms" },
   { id: "set-aside", label: "Set aside" },
   { id: "all", label: "Everything" },
 ];
 
+/**
+ * Which list a finding is on. Claude's verdict decides when there is a current
+ * one; the check's own severity decides when there is none, or when the
+ * finding moved after the verdict.
+ */
+function lensOf(f: Finding): Exclude<Lens, "all"> {
+  if (f.suppressedBy) return "set-aside";
+  const v = f.disposition && !f.disposition.stale ? f.disposition.verdict : null;
+  if (v === "confirmed") return "fix";
+  if (v === "probably-fine") return "fine";
+  if (v === "needs-human") return "look";
+  return f.severity === "error" ? "fix" : "look";
+}
+
+const LENS_CHIP: Record<Exclude<Lens, "all">, { label: string; tone: "danger" | "warning" | "neutral" }> = {
+  fix: { label: "Fix", tone: "danger" },
+  look: { label: "Confirm", tone: "warning" },
+  fine: { label: "Fine", tone: "neutral" },
+  "set-aside": { label: "Set aside", tone: "neutral" },
+};
+
 function inLens(f: Finding, lens: Lens): boolean {
-  if (lens === "all") return true;
-  if (f.suppressedBy) return lens === "set-aside";
-  if (lens === "set-aside") return false;
-  return lens === "fix" ? f.severity === "error" : f.severity === "warning";
+  return lens === "all" || lensOf(f) === lens;
 }
 
 /** How a verdict reads on screen. Wording matters here: "probably fine" must not
@@ -295,6 +315,7 @@ export function InvoiceReview() {
                         suggestedAction: d.suggestedAction,
                         model: d.model || model,
                         at: d.at || new Date().toISOString(),
+                        stale: !!d.seen && d.seen !== findingPrint(f),
                       },
                     }
                   : f;
@@ -461,6 +482,21 @@ export function InvoiceReview() {
    * than a render-time check — reading navigator during render would disagree
    * between the server and the first client paint.
    */
+  // One finding as a Claude Code prompt: find the source, name the cure.
+  const [copiedKey, setCopiedKey] = useState("");
+  const copyFinding = useCallback(
+    async (f: Finding) => {
+      try {
+        await navigator.clipboard.writeText(buildFindingPrompt(f, ym));
+        setCopiedKey(f.key);
+        setTimeout(() => setCopiedKey(""), 3000);
+      } catch {
+        setCopied("Couldn't copy.");
+      }
+    },
+    [ym],
+  );
+
   const [canShare, setCanShare] = useState(false);
   useEffect(() => {
     setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
@@ -491,8 +527,9 @@ export function InvoiceReview() {
   );
   const counts = useMemo(
     () => ({
-      fix: live.filter((f) => f.severity === "error").length,
-      look: live.filter((f) => f.severity === "warning").length,
+      fix: live.filter((f) => lensOf(f) === "fix").length,
+      look: live.filter((f) => lensOf(f) === "look").length,
+      fine: live.filter((f) => lensOf(f) === "fine").length,
       "set-aside": data?.findings.filter((f) => f.suppressedBy).length ?? 0,
       all: data?.findings.length ?? 0,
     }),
@@ -510,6 +547,7 @@ export function InvoiceReview() {
       by.set(k, [...(by.get(k) ?? []), f]);
     }
     const all = Array.from(by.entries());
+    for (const [, list] of all) list.sort((a, b) => Math.abs(b.amount ?? 0) - Math.abs(a.amount ?? 0));
     return [...all.filter(([k]) => !isOfficeGroup(k)), ...all.filter(([k]) => isOfficeGroup(k))];
   }, [shown]);
 
@@ -745,17 +783,7 @@ export function InvoiceReview() {
                         onClick={() => toggle(f.key)}
                         className="flex w-full items-start gap-3 px-4 py-3 text-left"
                       >
-                        <Chip
-                          tone={
-                            f.suppressedBy
-                              ? "neutral"
-                              : f.severity === "error"
-                                ? "danger"
-                                : "warning"
-                          }
-                        >
-                          {f.suppressedBy ? "Set aside" : f.severity === "error" ? "Fix" : "Look"}
-                        </Chip>
+                        <Chip tone={LENS_CHIP[lensOf(f)].tone}>{LENS_CHIP[lensOf(f)].label}</Chip>
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium">{f.title}</span>
                           <span className="block text-xs opacity-60">
@@ -797,6 +825,11 @@ export function InvoiceReview() {
                                 <p className="mt-1 text-sm leading-relaxed opacity-80">
                                   <span className="font-medium">Suggested:</span>{" "}
                                   {f.disposition.suggestedAction}
+                                </p>
+                              ) : null}
+                              {f.disposition.stale ? (
+                                <p className="mt-1 text-xs font-medium">
+                                  The finding changed after this reading. The next pass reads it again.
                                 </p>
                               ) : null}
                               <p className="mt-1 text-xs opacity-50">
@@ -841,6 +874,13 @@ export function InvoiceReview() {
                                 Not an issue…
                               </Button>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => copyFinding(f)}
+                            >
+                              {copiedKey === f.key ? "Copied" : "Copy Claude prompt"}
+                            </Button>
                           </div>
 
                           {ruling?.finding.key === f.key ? (
