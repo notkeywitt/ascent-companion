@@ -429,11 +429,12 @@ finding kinds clear from that list.
 - [x] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes. (2026-11-13: `src/components/LastRun.tsx`. Timers checked: tag scan 15 min, tracking push 30 min, full sync hourly; the "Run now" tasks are steps of the hourly run; "Refresh" is the digest, on crons at 8:00 and 17:00 UTC. The full-sync and tag-scan stamps come from Apps Script `FULL_SYNC_LAST_RUN` / `INVOICE_SCAN_LAST_RUN`, which show "no run recorded" until that side is deployed.)
 - [x] Document access: grant on bill approval when the job has one customer contact. (2026-11-13: `grantSoleContactAccess` in `after()` on `/api/bill-status`; the dialog stays for a job with no contact or several.)
 - [x] One save rule, shown in the UI: an edit that changes money stages behind "Save Changes"; anything else saves at once with a `Toast`. Move approve, void and line add or delete under that rule. (2026-11-13: `src/app/trackingsheet/useLineOps.ts` stages delete, add, buyback and void on the board and the draft queue; approve, time approve and move, billing month, due date and bill number write at once with a toast. The bill page `/bill/<id>` still writes delete, add, buyback and void at once.)
-- [ ] One "Close month" step per job: finalize the sheet, grant access, open the JobTread invoice.
+- [x] One "Close month" step per job: finalize the sheet, grant access, open the JobTread invoice. (2026-11-13: `src/app/trackingsheet/CloseMonth.tsx` — sheet push, finalize, client access, then the draft invoice through `/api/invoice-draft`, with "Open the invoice ↗". Refused while the timer holds another month. The finalize op stamps `finalize` per sheet; advancing the pinned month on the Tracking Sheet settings names any sheet without that stamp and waits for a second tap. Apps Script `finalizeTrackingSheetMonth` reads the block back and throws on a mismatch — deploy pending.)
 
 Do not add a write that races the hourly mirror.
 
 Done when: one job, one month takes under 8 taps on the happy path.
+Measured 2026-11-13: before, 10 taps (approve, confirm, check this job, labor report, give access, pick contact, sync sheet, finalize, confirm, create invoice link). After: 4 taps (Approve Draft Bills, confirm, Close month, confirm) and the draft invoice opens from the dialog.
 
 ---
 

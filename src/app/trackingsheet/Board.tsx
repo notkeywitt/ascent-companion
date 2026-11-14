@@ -26,9 +26,8 @@ import {
 import type { Option } from "@/components/CostCodeSelect";
 import { JobPicker, WORKING_PHASES, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
-import { DocumentAccessDialog } from "@/components/DocumentAccess";
 import { JtLink } from "@/components/JtLink";
-import { InvoiceDraftButton } from "./InvoiceDraftButton";
+import { CloseMonth } from "./CloseMonth";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
@@ -485,13 +484,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
 
 
-  /**
-   * Bulk Document Access — the month's vendor bills added to the client's
-   * "Document Access" list in one press, instead of sharing forty documents one
-   * at a time in JobTread. The list itself is <DocumentAccess>, the same
-   * component the bill card uses for a single bill.
-   */
-  const [accessOpen, setAccessOpen] = useState(false);
 
   // The Tracking Sheet push is its own button in the closing row, never a step
   // inside Save. It still needs target resolution and result state held HERE
@@ -1477,9 +1469,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * forbids.
    */
   const [barHover, setBarHover] = useState(false);
-  // Finalize (moved here from /tracking-sheet) — see finalizeSheet.
-  const [finalizing, setFinalizing] = useState(false);
-  const [finalizeMsg, setFinalizeMsg] = useState("");
   // A touch screen 1024px+ wide (an iPad in landscape) has no hover, so the
   // commit bar never reveals the closing actions. Show the row under the
   // columns there instead, as on a phone.
@@ -1842,27 +1831,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * Rendered nothing until we've read whether the job has a sheet, so the label
    * is never wrong. `cls` carries whatever width the row it sits in wants.
    */
-  const finalizeSheet = async (projectId: string) => {
-    if (finalizing) return;
-    if (!window.confirm(`Finalize ${monthLabel(ym)} into this job's tracking sheet? Sync the sheet first if anything changed.`)) return;
-    const [y, m] = ym.split("-").map(Number);
-    setFinalizing(true);
-    setFinalizeMsg("");
-    try {
-      const res = await fetch("/api/tracking-sheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "finalize", projectId, month: m, year: y }),
-      });
-      const j = await res.json();
-      if (!res.ok || j?.ok === false) throw new Error(j?.error || `Request failed (${res.status})`);
-      setFinalizeMsg(`Finalized into the ${j.monthLabel ?? monthLabel(ym)} block.`);
-    } catch (e) {
-      setFinalizeMsg(e instanceof Error ? e.message : "Finalize failed.");
-    } finally {
-      setFinalizing(false);
-    }
-  };
   const trackingSheetAction = (cls: string) => {
     if (!canTrack || !trackingChecked) return null;
     if (trackingTarget) {
@@ -1894,19 +1862,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
           }}
         />
-        {/* Finalize, moved here from its own page (CONSOLIDATION_PLAN stage 2):
-            copies the sheet's CURRENT INVOICE column into the month's reserved
-            block. Re-running overwrites that block, never adds a second. */}
-        <Button
-          variant="secondary"
-          className={cls}
-          disabled={syncing || trackingBusy || finalizing}
-          title={`Copy the sheet's CURRENT INVOICE column into the ${monthLabel(ym)} block`}
-          onClick={() => void finalizeSheet(trackingTarget.projectId)}
-        >
-          {finalizing ? "Finalizing…" : "Finalize sheet"}
-        </Button>
-        {finalizeMsg && <span className="basis-full text-center text-xs text-neutral-500 dark:text-neutral-400">{finalizeMsg}</span>}
+        {/* Finalize is a step of Close month (./CloseMonth) now. */}
         </>
       );
     }
@@ -1980,55 +1936,41 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           after each save — see the effect by usePreSendCheck. Its card carries
           "Check again". */}
       {trackingSheetAction("min-h-11")}
-      <Button
-        variant="secondary"
-        className="min-h-11"
-        title={`Add the client to the Document Access list on every ${monthLabel(ym)} bill`}
-        onClick={() => setAccessOpen(true)}
-      >
-        Give Document Access
-      </Button>
+      {/* Document Access has no button here: approval gives it to a job's one
+          contact, Close month covers what is left, and the all-jobs card keeps
+          the dialog for a job with several contacts. */}
       {/* Company-wide, not this job — see LaborReportStatus. The office labor
           routes refile the month on their own after a write, so this is the
           stamp and a retry, not a button. */}
       <LaborReportStatus ym={ym} className="basis-full text-center" />
       {showApprove &&
         (allApproved ? (
-          /* Every bill is approved, so the next step is JobTread's own invoice
-             builder — New → Customer Invoice on the job's documents page pulls
-             exactly these uninvoiced bills. Staged coding still blocks it: an
-             invoice built now would carry the OLD cost codes, so save first. A
-             disabled <a> is not a thing, hence the button/link swap. Hidden
-             entirely once the reconcile banner above is already green — an
-             invoice exists and holds the whole month, so this would only raise a
-             duplicate one; the banner's own "Open invoice" link is the way in
-             from here. */
+          /* Every bill is approved, so the month closes in ONE step — sheet
+             push, finalize, client access, draft invoice (./CloseMonth). Staged
+             coding still blocks it: an invoice built now would carry the OLD
+             cost codes, so save first. Hidden once the reconcile banner above
+             is already green — an invoice exists and holds the whole month, so
+             this would only raise a duplicate one; the banner's own "Open
+             invoice" link is the way in from here. */
           reconReady ? null : dirty ? (
             <Button
               disabled
               title="Save staged coding changes to JobTread first"
               className="min-h-11"
             >
-              Create Invoice in JobTread ↗
+              Close month
             </Button>
           ) : (
-            <>
-              {/* The same invoice, built here as a draft — ./InvoiceDraftButton. */}
-              <InvoiceDraftButton
-                jobId={jobId}
-                ym={ym}
-                month={monthLabel(ym)}
-                jobTitle={jobTitle}
-                writes={Boolean(data?.writesEnabled)}
-                onCreated={() => void load({ preserveStaged: true })}
-              />
-              <JtLink
-                href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-                className={btn("primary", "md", "min-h-11")}
-              >
-                Create Invoice in JobTread ↗
-              </JtLink>
-            </>
+            <CloseMonth
+              jobId={jobId}
+              ym={ym}
+              month={monthLabel(ym)}
+              jobTitle={jobTitle}
+              target={canTrack && trackingChecked ? trackingTarget : null}
+              pinnedYm={pinnedYm}
+              writes={Boolean(data?.writesEnabled)}
+              onClosed={() => void load({ preserveStaged: true })}
+            />
           )
         ) : (
           <Button
@@ -2823,15 +2765,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             </p>
           )}
       </Dialog>
-    )}
-    {accessOpen && (
-      <DocumentAccessDialog
-        jobId={jobId}
-        ym={ym}
-        monthLabel={monthLabel(ym)}
-        jobTitle={jobTitle}
-        onClose={() => setAccessOpen(false)}
-      />
     )}
     </>
   );

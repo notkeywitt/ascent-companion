@@ -285,12 +285,41 @@ function SheetSyncSettings({ jtJobId, ym: askedYmProp }: { jtJobId?: string; ym?
    * runs, so a month can't roll over mid-close and wipe CURRENT INVOICE before
    * it has been finalized into its reserved block.
    */
+  /** Set by the guard in advancePeriod once it has named the unfinalized
+   *  sheets; the next tap moves anyway. A month change starts the guard over. */
+  const forceAdvance = useRef(false);
+  useEffect(() => {
+    forceAdvance.current = false;
+  }, [pinnedYm]);
+
   const advancePeriod = useCallback(async () => {
     if (!pinnedYm || pinning) return;
     const { month, year } = parseYm(pinnedYm);
     setPinning(true);
     setPinNote("");
     try {
+      // THE GUARD: advancing rewrites CURRENT INVOICE on every wired sheet with
+      // the new month, so the month it leaves must already be finalized into
+      // its block on each of them (the `finalize` stamp, written by Close
+      // month and the finalize op). A sheet that is not is named, and the move
+      // waits for a second tap — the one override the owner may take.
+      if (defaultYm && pinnedYm !== defaultYm && !forceAdvance.current) {
+        const r = await fetch(`/api/month-actions?ym=${encodeURIComponent(defaultYm)}`, { cache: "no-store" });
+        const runs: { action: string; scope: string }[] = r.ok ? ((await r.json()).runs ?? []) : [];
+        const done = new Set(runs.filter((x) => x.action === "finalize").map((x) => x.scope));
+        const missing = jobs.filter((j) => !done.has(j.id)).map((j) => j.label);
+        if (missing.length) {
+          const { month: lm, year: ly } = parseYm(defaultYm);
+          forceAdvance.current = true;
+          setPinNote(
+            `${ymLabel(lm, ly)} is not finalized on ${missing.length} sheet${missing.length === 1 ? "" : "s"}: ` +
+              `${missing.slice(0, 6).join(", ")}${missing.length > 6 ? "…" : ""}. ` +
+              `Close the month on each job first. Tap Advance again to move anyway.`,
+          );
+          return;
+        }
+      }
+      forceAdvance.current = false;
       const res = await fetch("/api/tracking-sheet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -318,7 +347,7 @@ function SheetSyncSettings({ jtJobId, ym: askedYmProp }: { jtJobId?: string; ym?
     } finally {
       setPinning(false);
     }
-  }, [pinnedYm, pinning, defaultYm]);
+  }, [pinnedYm, pinning, defaultYm, jobs]);
 
   /**
    * Pause or resume the automatic all-projects sync.

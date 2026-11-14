@@ -139,13 +139,17 @@ export async function POST(req: NextRequest) {
   // Sync and finalize can change what the list reports; setPeriod and setPaused
   // do. A dry run changes nothing.
   if (body.dryRun !== true) revalidateTag(SHEET_JOBS_TAG);
-  if (op === "sync" && body.dryRun !== true) {
+  // Stamped per project and month: the all-jobs card reads the sync, and the
+  // pin-advance guard reads the finalize (a month must be finalized into its
+  // block on every wired sheet before the timer may move on).
+  if ((op === "sync" || op === "finalize") && body.dryRun !== true) {
     const session = await auth();
     await recordMonthAction(
-      "tracking-sync",
+      op === "sync" ? "tracking-sync" : "finalize",
       projectId,
       `${year}-${String(month).padStart(2, "0")}`,
       session?.user?.email ?? "",
+      op === "finalize" ? String(b.monthLabel ?? "") : "",
     );
   }
   return NextResponse.json(b);
