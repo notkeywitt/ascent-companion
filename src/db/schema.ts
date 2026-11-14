@@ -2169,3 +2169,15 @@ export const mileageTrips = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.tripId, t.clientKey] })],
 );
+
+/** One row per "Split bill" (/api/split-bill): the new bill, the bill it came
+ *  from, and the original's total and line count at the split. Read by
+ *  src/lib/splitCheck.ts to say whether the pieces still add up. */
+export const billSplits = sqliteTable("bill_splits", {
+  newDocId: text("new_doc_id").primaryKey(),
+  originalDocId: text("original_doc_id").notNull(),
+  originalTotal: real("original_total").notNull(),
+  originalLineCount: integer("original_line_count").notNull(),
+  createdBy: text("created_by").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});

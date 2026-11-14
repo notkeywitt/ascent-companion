@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clearJobCostCaches } from "@/lib/jobtread";
+import { auth } from "@/auth";
+import { db, ensureDb } from "@/db";
+import { billSplits } from "@/db/schema";
+import { clearJobCostCaches, getBillDetail } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { openJournal } from "@/lib/financialJournal";
 import { qboLock } from "@/lib/qboLock";
 import { splitBill } from "@/lib/splitBill";
+import { checkSplit, splitFamily } from "@/lib/splitCheck";
 
 /**
  * Split a draft bill in two: the picked lines move to a new draft bill on the
@@ -16,6 +20,11 @@ import { splitBill } from "@/lib/splitBill";
  * and returns a preview, matching /api/buyback and /api/delete-line. Each moved
  * line goes in the financial journal as the original's delete and the new
  * bill's add, so the split can be traced and undone by hand.
+ *
+ * Each split also records a `bill_splits` row in the companion DB (App
+ * Feedback #6). GET ?docId= reads it back: the bill's split family and whether
+ * the pieces' current totals and line counts still match the original.
+ *   GET ?docId= → { split: null } | { split: { pieces, originalTotal, originalLineCount, ...SplitCheck } }
  */
 export const maxDuration = 120;
 
@@ -48,6 +57,7 @@ export async function POST(req: NextRequest) {
   try {
     const r = await splitBill(cfg, docId, lineIds);
     clearJobCostCaches();
+    await recordSplitLink(docId, r.newDocId, r.originalTotal, r.originalLineCount);
     await j.record(
       r.moved.map((l) => ({
         action: "bill.split",
@@ -74,5 +84,59 @@ export async function POST(req: NextRequest) {
     const message = e instanceof Error ? e.message : "Unknown error";
     await j.record([{ action: "bill.split", entity: "bill", entityId: docId, docId, outcome: "error", error: message }]);
     return NextResponse.json({ error: message }, { status: 502 });
+  }
+}
+
+/** The split is already in JobTread; a failed link row must not report it as failed. */
+async function recordSplitLink(originalDocId: string, newDocId: string, originalTotal: number, originalLineCount: number) {
+  try {
+    let email = "";
+    try {
+      email = (await auth())?.user?.email ?? "";
+    } catch {
+      /* best-effort — createdBy is optional */
+    }
+    await ensureDb();
+    await db.insert(billSplits).values({
+      newDocId,
+      originalDocId,
+      originalTotal,
+      originalLineCount,
+      createdBy: email,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("[split-bill] link row not saved", e);
+  }
+}
+
+export async function GET(req: NextRequest) {
+  const docId = req.nextUrl.searchParams.get("docId")?.trim();
+  if (!docId) return NextResponse.json({ error: "Pass ?docId=<bill id>" }, { status: 400 });
+  try {
+    await ensureDb();
+    // ponytail: whole-table read, one row per split ever made; index by doc id if it grows large.
+    const family = splitFamily(await db.select().from(billSplits), docId);
+    if (!family) return NextResponse.json({ split: null });
+    if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
+    const cfg = getPaveConfig();
+    const pieces = await Promise.all(
+      family.pieceIds.map(async (id) => {
+        const d = await getBillDetail(cfg, id);
+        const total = d.lines.reduce((s, l) => s + (typeof l.cost === "number" ? l.cost : 0), 0);
+        return { docId: id, externalId: d.header.externalId ?? "", status: d.header.status ?? "", total, lineCount: d.lines.length };
+      }),
+    );
+    return NextResponse.json({
+      split: {
+        rootId: family.rootId,
+        originalTotal: family.originalTotal,
+        originalLineCount: family.originalLineCount,
+        pieces,
+        ...checkSplit(family, pieces),
+      },
+    });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 502 });
   }
 }
