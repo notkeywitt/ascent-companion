@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 import { auth } from "@/auth";
-import { db, ensureDb, rawDb } from "@/db";
+import { db, ensureDb } from "@/db";
 import { featureRequests } from "@/db/schema";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig, hasGrant } from "@/lib/config";
@@ -12,7 +12,6 @@ import { previousMonth } from "@/lib/homeFacts";
 import { getAllDraftBills, getLastAmazonBillMonth } from "@/lib/jobtread";
 import { listRequests } from "@/lib/leaveService";
 import { reconcileState, type ReconcileResult } from "@/lib/sunsetReconcile";
-import { listTimeProblems } from "@/lib/timeSync";
 import { resolveAllowedViews } from "@/lib/views";
 import { GET as sunsetList } from "@/app/api/sunset-statements/route";
 import { GET as sunsetReconcile } from "@/app/api/sunset-statements/reconcile/route";
@@ -93,41 +92,6 @@ const SOURCES: Source[] = [
       if (r.error || !r.data?.ok) throw new Error(r.error || r.data?.error || "listEmails failed");
       const n = (r.data.emails ?? []).length;
       return { count: n, detail: `${plural(n, "invoice email")} to log` };
-    },
-  },
-  {
-    key: "needs-project",
-    view: "needs-project",
-    officeOnly: true,
-    label: "Bills with no job",
-    href: "/needs-project",
-    load: async () => {
-      const r = await callAppsScript<{ items?: unknown[]; error?: string }>({ action: "listNeedsProject" });
-      if (r.error || r.data?.error) throw new Error(r.error || r.data?.error);
-      const n = (r.data?.items ?? []).length;
-      return { count: n, detail: `${plural(n, "bill")} not in JobTread until a job is picked` };
-    },
-  },
-  {
-    key: "corrections",
-    view: "bill-review",
-    label: "Bill Corrections",
-    href: "/invoice-review?section=flagged",
-    load: async () => {
-      await ensureDb();
-      const res = await rawDb().execute("SELECT COUNT(*) AS n FROM saved_bills WHERE needs_review = 1");
-      const n = Number(res.rows[0]?.n ?? 0);
-      return { count: n, detail: `${plural(n, "bill")} flagged for a billing correction` };
-    },
-  },
-  {
-    key: "time-sync",
-    view: "time-sync",
-    label: "Time Sync",
-    href: "/payroll?section=sync",
-    load: async () => {
-      const n = (await listTimeProblems()).problems;
-      return { count: n, detail: `${plural(n, "time record")} JobTread does not have right` };
     },
   },
   {

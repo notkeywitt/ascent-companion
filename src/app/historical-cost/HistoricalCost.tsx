@@ -8,6 +8,7 @@ import {
   Input,
   Label,
   Loading,
+  Notice,
   PageHeader,
   SectionLabel,
   Spinner,
@@ -342,7 +343,7 @@ export function HistoricalCost({
                 {commitLabel}
               </Button>
             ) : (
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700/60 dark:bg-amber-900/20">
+              <Notice>
                 <p className="mb-2 text-sm font-semibold">
                   {gap.existingDocId
                     ? `This will VOID the existing draft bill (${gap.existingDocId}) and create a new one with the numbers above — confirm?`
@@ -356,7 +357,7 @@ export function HistoricalCost({
                     Cancel
                   </Button>
                 </div>
-              </div>
+              </Notice>
             )}
           </div>
 

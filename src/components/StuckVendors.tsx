@@ -12,7 +12,7 @@ import {
 import { JtLink } from "@/components/JtLink";
 import { LinkVendor } from "@/components/LinkVendor";
 import { useAccess } from "@/components/AccessProvider";
-import { Button, Dialog, Input, btn } from "@/components/ui";
+import { Banner, Button, Dialog, Input, Notice, btn } from "@/components/ui";
 import { money } from "@/lib/money";
 
 /**
@@ -506,7 +506,7 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
       );
     if (vendors.length === 0) return null;
     return (
-      <div role="status" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+      <Banner tone="warning" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 !px-3 !py-1.5 !text-xs">
         <span className="font-semibold">
           {vendors.length === 1 ? "1 vendor isn’t in JobTread" : `${vendors.length} vendors aren’t in JobTread`} —{" "}
           {billCount} bill{billCount === 1 ? "" : "s"} stuck
@@ -525,7 +525,7 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
         <button type="button" onClick={refresh} disabled={loading} className="underline opacity-80 disabled:opacity-50">
           {loading ? "Checking…" : "Refresh"}
         </button>
-      </div>
+      </Banner>
     );
   }
   if (error) {
@@ -541,10 +541,7 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
   if (vendors.length === 0) return null;
 
   return (
-    <div
-      role="status"
-      className="mb-5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-    >
+    <Notice className="mb-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-semibold">
@@ -591,6 +588,6 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
           Open JobTread Vendors ↗
         </JtLink>
       </div>
-    </div>
+    </Notice>
   );
 }

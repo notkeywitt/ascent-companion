@@ -24,6 +24,12 @@ type Row = FindingRow & { hidden: boolean; verdict: FindingDisposition | null };
 const SOURCE_LABEL: Record<string, string> = {
   "invoice-review": "Invoice review",
   "stuck-vendors": "Stuck vendors",
+  "needs-project": "Bills with no job",
+  uncaptured: "Bills not in JobTread",
+  "flagged-bills": "Flagged bills",
+  "time-sync": "Time sync",
+  "pre-send": "Before you send",
+  "sunset-duplicates": "Sunset duplicates",
 };
 
 const TONE: Record<string, BannerTone> = { error: "error", warning: "warning", info: "info" };

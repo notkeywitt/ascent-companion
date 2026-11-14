@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { JtLink } from "./JtLink";
-import { Banner, Button, Spinner } from "./ui";
+import { Banner, Button, Notice, Spinner } from "./ui";
 import { money as moneyN } from "@/lib/money";
 
 // Inline "duplicate bill" scanner for the Sunset Statements page. On demand it
@@ -137,10 +137,12 @@ export function SunsetDuplicateScan() {
 
       {state === "done" && data && data.jobsFlagged > 0 && (
         <div className="mt-3 space-y-2">
-          <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-            ⚠ {data.jobsFlagged} job{data.jobsFlagged === 1 ? "" : "s"} · {data.groupsFlagged} duplicate group
-            {data.groupsFlagged === 1 ? "" : "s"} · ~{moneyN(data.suspectExcess)} suspected double-counted
-          </div>
+          <Notice
+            className="!px-2.5 !py-2 !text-xs"
+            title={`${data.jobsFlagged} job${data.jobsFlagged === 1 ? "" : "s"} · ${data.groupsFlagged} duplicate group${
+              data.groupsFlagged === 1 ? "" : "s"
+            } · ~${moneyN(data.suspectExcess)} suspected double-counted`}
+          />
 
           {data.jobs.map((job) => (
             <div

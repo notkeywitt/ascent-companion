@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Spinner } from "@/components/ui";
+import { Notice, Spinner } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import type { InvoiceRef } from "@/lib/jobtread";
 import { money } from "@/lib/money";
@@ -103,9 +103,7 @@ export function InvoiceReconcile({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-        Couldn&apos;t check JobTread for invoices: {error}
-      </div>
+      <Notice className="!px-2.5 !py-2 !text-xs">Couldn&apos;t check JobTread for invoices: {error}</Notice>
     );
   }
   if (!data) {
@@ -140,14 +138,7 @@ export function InvoiceReconcile({
   }
 
   return (
-    <div
-      className={
-        "rounded-lg border px-2.5 py-2 text-xs " +
-        (good
-          ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
-          : "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300")
-      }
-    >
+    <Notice tone={good ? "success" : "warning"} className="!px-2.5 !py-2 !text-xs">
       <div className="flex items-center justify-between gap-2 font-semibold">
         <span>
           {reconciled
@@ -199,6 +190,6 @@ export function InvoiceReconcile({
           </li>
         ))}
       </ul>
-    </div>
+    </Notice>
   );
 }

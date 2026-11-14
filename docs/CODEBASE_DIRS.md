@@ -504,7 +504,7 @@ Grouped by domain; each folder is `…/route.ts`.
   first load after a deploy), `ScriptJobs` (one button per Apps Script
   `COMPANION_TASKS` registry entry, from `GET /api/actions`).
 - **Feature widgets:** `InvoiceReconcile`, `InvoiceSweepResult`,
-  `UncapturedBills`, `StuckVendors`, `NeedsProject`, `Notices` (`NoticeCenter` —
+  `UncapturedBills`, `StuckVendors`, `Notices` (`NoticeCenter` —
   BOTH reader surfaces for a notice, the banner stack under the header and the
   interrupting popup, off ONE feed request; mounted in the root layout, and it
   re-reads the feed on tab focus — and every five minutes whatever the tab is

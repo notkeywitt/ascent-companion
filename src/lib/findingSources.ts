@@ -11,6 +11,7 @@
  * A pull source that throws or runs out of time reports nothing, so its rows
  * stay as they were. An empty array means "nothing is wrong" and resolves them.
  */
+import { ensureDb, rawDb } from "@/db";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
 import { companyDateParts, COMPANY_TZ } from "@/lib/billing";
 import { DIGEST_GLOBAL } from "@/lib/digest/settings";
@@ -18,6 +19,8 @@ import { report, type FindingInput } from "@/lib/findings";
 import { recentMonthlyCheckRuns } from "@/lib/invoiceReview/investigations";
 import { reviewWindow } from "@/lib/invoiceReview/schedule";
 import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/settings";
+import { money } from "@/lib/money";
+import { listTimeProblems } from "@/lib/timeSync";
 
 interface PullSource {
   source: string;
@@ -44,6 +47,75 @@ const PULL: PullSource[] = [
         link: "/email?section=stuck",
       }));
     },
+  },
+  {
+    // Bills held for a job decision: no job picked, so not in JobTread yet.
+    source: "needs-project",
+    load: async () => {
+      const r = await callAppsScriptOrThrow<{ items?: { expId: string; vendor?: string; amount?: number }[] }>(
+        { action: "listNeedsProject" },
+        { timeoutMs: TIMEOUT_MS },
+      );
+      return (r.items ?? []).map((b) => ({
+        key: b.expId,
+        kind: "needs-project",
+        subject: b.vendor || "Unknown vendor",
+        title: `${b.vendor || "Unknown vendor"} ${money(b.amount ?? 0)}: no job picked, so it is not in JobTread`,
+        link: "/needs-project",
+      }));
+    },
+  },
+  {
+    // Ingested bills that never reached JobTread: no job doc, not dismissed.
+    source: "uncaptured",
+    load: async () => {
+      const r = await callAppsScriptOrThrow<{
+        items?: { expId: string; vendor?: string; amount?: number; billingMonth?: number | null; billingYear?: number | null }[];
+      }>({ action: "listUncaptured" }, { timeoutMs: TIMEOUT_MS });
+      return (r.items ?? []).map((b) => ({
+        key: b.expId,
+        kind: "uncaptured",
+        subject: b.vendor || "Unknown vendor",
+        title: `${b.vendor || "Unknown vendor"} ${money(b.amount ?? 0)}${
+          b.billingMonth && b.billingYear ? ` (${b.billingMonth}/${b.billingYear})` : ""
+        }: ingested, never reached JobTread`,
+        link: "/needs-project",
+      }));
+    },
+  },
+  {
+    // Bills flagged "needs review": a fix the app cannot make itself.
+    source: "flagged-bills",
+    load: async () => {
+      await ensureDb();
+      const res = await rawDb().execute(`
+        SELECT sb.doc_id AS docId, sb.review_note AS note, bi.vendor AS vendor, bi.amount AS amount, bi.job_id AS jobId
+          FROM saved_bills sb LEFT JOIN bill_index bi ON bi.jt_doc_id = sb.doc_id
+         WHERE sb.needs_review = 1`);
+      return res.rows.map((r) => {
+        const vendor = r.vendor == null ? "Bill" : String(r.vendor);
+        const note = r.note ? `: ${String(r.note)}` : "";
+        return {
+          key: String(r.docId),
+          kind: "flagged-bill",
+          subject: vendor,
+          title: `${vendor}${r.amount == null ? "" : ` ${money(Number(r.amount))}`} flagged for a billing correction${note}`,
+          link: `/bill/${r.docId}${r.jobId ? `?jobId=${encodeURIComponent(String(r.jobId))}` : ""}`,
+        };
+      });
+    },
+  },
+  {
+    // Time records the sheet says JobTread does not have right. Read from the sheet only.
+    source: "time-sync",
+    load: async () =>
+      (await listTimeProblems()).rows.map((r) => ({
+        key: r.entryId || `${r.employee}|${r.date}|${r.start}`,
+        kind: `time-${r.problem}`,
+        subject: r.employee,
+        title: `${r.employee || "Unknown"} ${r.date}${r.jobLabel ? ` on ${r.jobLabel}` : ""}: ${r.detail}`,
+        link: "/payroll?section=sync",
+      })),
   },
 ];
 
