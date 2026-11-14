@@ -11,7 +11,7 @@ import { liftDismissal, saveDismissal } from "@/lib/digest/store";
  * POST /api/digest/dismiss — "this one is handled, stop showing it to me."
  *
  * The Dismiss button on a To-Do or Follow-ups item. Writes one row in
- * `digest_dismissals` keyed by the item's stable identity (`dismissalKey` in
+ * the findings store (source `digest`) keyed by the item's stable identity (`dismissalKey` in
  * src/lib/digest/dismissals.ts, computed identically in the browser and here),
  * which both GET /api/digest and the next run filter with. Pass `undo: true` to
  * lift a dismissal — the row is deactivated, never deleted.
