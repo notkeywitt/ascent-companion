@@ -7,7 +7,7 @@ import { JtLink } from "@/components/JtLink";
 import { SunsetDuplicateScan } from "@/components/SunsetDuplicateScan";
 import { SunsetLinkPicker, type LinkTarget } from "@/components/SunsetLinkPicker";
 import { SunsetStatementBills } from "@/components/SunsetStatementBills";
-import { Banner, Button, CardSkeletonList, EmptyState, PageHeader, Spinner } from "@/components/ui";
+import { Banner, Button, CardSkeletonList, EmptyState, Notice, PageHeader, Spinner } from "@/components/ui";
 import { BillPopup } from "@/app/trackingsheet/BillPopup";
 import { useIsWide, type Selection } from "@/app/trackingsheet/DraftWorkbench";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
@@ -878,19 +878,11 @@ export default function PaymentsPage() {
                   <Spinner /> Matching invoices…
                 </div>
               ) : rc && !hasRows ? (
-                <div className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs font-semibold text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300">
-                  No logged Sunset invoices for this project &amp; month
-                </div>
+                <Notice className="mt-2 !px-2.5 !py-2 !text-xs" title="No logged Sunset invoices for this project &amp; month" />
               ) : rc ? (
-                <div
-                  className={
-                    "mt-2 rounded-lg border px-2.5 py-2 text-xs " +
-                    (reconciled
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300"
-                      : cmpReady
-                        ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
-                        : "border-line bg-neutral-50 text-neutral-600  dark:bg-white/5 dark:text-neutral-300")
-                  }
+                <Notice
+                  tone={reconciled ? "success" : cmpReady ? "warning" : "neutral"}
+                  className="mt-2 !px-2.5 !py-2 !text-xs"
                 >
                   <div className="flex items-center justify-between gap-2 font-semibold">
                     <span>
@@ -1115,7 +1107,7 @@ export default function PaymentsPage() {
                       })}
                     </ul>
                   </details>
-                </div>
+                </Notice>
               ) : null}
 
               {!done &&

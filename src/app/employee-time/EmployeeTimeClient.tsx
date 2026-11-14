@@ -51,6 +51,7 @@ import {
   Input,
   Label,
   Loading,
+  Notice,
   PageHeader,
   Select,
   Segmented,
@@ -2287,22 +2288,14 @@ export function EmployeeTimeClient({
           still change it here. Re-linking otherwise requires the Employees page. */}
       {needsUserPick &&
         (effectiveUser && !canActAs ? (
-          <div className="mb-3 flex w-full items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-            <span>Logging as {effectiveUser.name}.</span>
-          </div>
+          <Notice className="mb-3">Logging as {effectiveUser.name}.</Notice>
         ) : (
-          <button
-            type="button"
-            onClick={() => openSheet("user")}
-            className="mb-3 flex w-full items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-3 text-left text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300"
+          <Notice
+            className="mb-3"
+            action={{ label: effectiveUser ? "Change" : "Pick", onClick: () => openSheet("user") }}
           >
-            <span>
-              {effectiveUser
-                ? `Logging as ${effectiveUser.name} — tap to change.`
-                : "Tap to pick who you are in JobTread."}
-            </span>
-            <span aria-hidden>›</span>
-          </button>
+            {effectiveUser ? `Logging as ${effectiveUser.name}.` : "Pick who you are in JobTread."}
+          </Notice>
         ))}
 
       {/* Desktop: the clock, or the week time card. Your own time only — the
@@ -3099,9 +3092,9 @@ export function EmployeeTimeClient({
           </Banner>
         )}
         {editEntry?.approved && (
-          <p className="mb-3 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+          <Notice className="mb-3">
             This entry is already approved — saving a change re-opens it for the office to review.
-          </p>
+          </Notice>
         )}
 
         <Card pad={false} className="overflow-hidden">

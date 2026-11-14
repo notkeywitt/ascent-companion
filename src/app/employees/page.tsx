@@ -12,6 +12,7 @@ import {
   Dialog,
   Label,
   Loading,
+  Notice,
   PageHeader,
   Select,
   Textarea,
@@ -735,7 +736,7 @@ export default function EmployeesPage() {
                   )}
                 </Banner>
                 {sendResult.skipped.length > 0 && (
-                  <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm dark:border-amber-500/40 dark:bg-amber-950/30">
+                  <Notice className="mb-3">
                     <p className="mb-1 font-semibold text-amber-800 dark:text-amber-300">
                       Skipped {sendResult.skipped.length} (no usable email):
                     </p>
@@ -746,7 +747,7 @@ export default function EmployeesPage() {
                         </li>
                       ))}
                     </ul>
-                  </div>
+                  </Notice>
                 )}
                 <Button className="w-full" onClick={() => setComposing(false)}>
                   Done
