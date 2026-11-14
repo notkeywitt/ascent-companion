@@ -126,21 +126,26 @@ export function buildInvoiceDraft(src: InvoiceDraftSource): InvoiceDraftPlan {
     price: number,
     isTaxable: boolean,
     description?: string | null,
-  ) => ({
-    _type: "costItem",
-    name: name.slice(0, 250),
-    ...(description ? { description } : {}),
-    jobCostItemId,
-    ...(leaf.costCodeId ? { costCodeId: leaf.costCodeId } : {}),
-    ...(leaf.costTypeId ? { costTypeId: leaf.costTypeId } : {}),
-    ...(leaf.unitId ? { unitId: leaf.unitId } : {}),
-    quantity,
-    unitCost: quantity ? cost / quantity : cost,
-    // JobTread keeps the unitPrice sent; price = quantity × unitPrice lands on
-    // the cent worked out here.
-    unitPrice: quantity ? price / quantity : price,
-    isTaxable,
-  });
+  ) => {
+    // A bill line may hold no quantity (cost only). JobTread prices a line at
+    // quantity × unit, so a 0 here would land the line at $0: send 1 instead.
+    const q = quantity || 1;
+    return {
+      _type: "costItem",
+      name: name.slice(0, 250),
+      ...(description ? { description } : {}),
+      jobCostItemId,
+      ...(leaf.costCodeId ? { costCodeId: leaf.costCodeId } : {}),
+      ...(leaf.costTypeId ? { costTypeId: leaf.costTypeId } : {}),
+      ...(leaf.unitId ? { unitId: leaf.unitId } : {}),
+      quantity: q,
+      unitCost: cost / q,
+      // JobTread keeps the unitPrice sent; price = quantity × unitPrice lands on
+      // the cent worked out here.
+      unitPrice: price / q,
+      isTaxable,
+    };
+  };
 
   let price = 0;
   const unleafed: string[] = [];

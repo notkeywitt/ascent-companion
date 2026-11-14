@@ -163,6 +163,13 @@ describe("buildInvoiceDraft", () => {
     expect(lines.find((l) => l.name === "Lumber")).toMatchObject({ isTaxable: false, unitPrice: 118.39 });
   });
 
+  it("sends quantity 1 for a bill line that holds no quantity, so it does not land at $0", () => {
+    const s = source();
+    s.billLines[0] = { ...s.billLines[0], quantity: 0 };
+    const move = allLines(buildInvoiceDraft(s).input.lineItems).find((l) => l.name === "Move-in");
+    expect(move).toMatchObject({ quantity: 1, unitCost: 160, unitPrice: 188.8 });
+  });
+
   it("carries the header: Monthly Invoice, dueDays, tax, location", () => {
     const { input } = buildInvoiceDraft(source());
     expect(input).toMatchObject({
