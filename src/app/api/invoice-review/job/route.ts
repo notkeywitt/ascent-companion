@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { report } from "@/lib/findings";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { preSendCheck } from "@/lib/invoiceReview/preSend";
 
@@ -38,9 +39,28 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    return NextResponse.json(
-      await preSendCheck(getPaveConfig(), jobId, parsed.year, parsed.month),
-    );
+    const result = await preSendCheck(getPaveConfig(), jobId, parsed.year, parsed.month);
+    // Into the findings inbox, one scope per job and month. A check that could
+    // not read the whole job must not report: an empty report would resolve
+    // the rows it failed to see.
+    if (!result.evidenceWarnings.length) {
+      await report(
+        "pre-send",
+        result.findings.map((f) => ({
+          key: f.key,
+          kind: f.kind,
+          subject: f.jobId,
+          severity: f.severity,
+          title: f.jobName ? `${f.jobName}: ${f.title}` : f.title,
+          link: "/trackingsheet",
+          dismissed: f.suppressedBy
+            ? { by: f.suppressedBy.by, reason: f.suppressedBy.reason, at: f.suppressedBy.at }
+            : null,
+        })),
+        `${result.ym}:${jobId}`,
+      ).catch(() => {});
+    }
+    return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unknown error" },

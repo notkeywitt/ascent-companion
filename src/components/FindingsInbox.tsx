@@ -28,6 +28,7 @@ const SOURCE_LABEL: Record<string, string> = {
   uncaptured: "Bills not in JobTread",
   "flagged-bills": "Flagged bills",
   "time-sync": "Time sync",
+  "pre-send": "Before you send",
 };
 
 const TONE: Record<string, BannerTone> = { error: "error", warning: "warning", info: "info" };
