@@ -104,7 +104,7 @@ import { InvoicingTabs } from "@/components/InvoicingTabs";
 import type { Selection } from "./DraftWorkbench";
 import { readLaborFocus, withoutFocus, type LaborFocus } from "./findingFocus";
 import type { Finding } from "@/lib/invoiceReview/types";
-import { LaborReportButton } from "@/components/LaborReportButton";
+import { LaborReportStatus } from "@/components/LaborReportButton";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -1954,17 +1954,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       >
         Give Document Access
       </Button>
-      {/* Company-wide, not this job — see LaborReportButton. It sits here so a
-          labor fix made on this job reaches the Drive Labor sheet without a
-          trip to the all-jobs view. Held while anything is staged: the report
-          reads JobTread, so it would file the month without the unsaved edit. */}
-      <LaborReportButton
-        ym={ym}
-        size="md"
-        disabled={dirty || syncing}
-        buttonClassName="min-h-11"
-        className="items-center text-center"
-      />
+      {/* Company-wide, not this job — see LaborReportStatus. The office labor
+          routes refile the month on their own after a write, so this is the
+          stamp and a retry, not a button. */}
+      <LaborReportStatus ym={ym} className="basis-full text-center" />
       {showApprove &&
         (allApproved ? (
           /* Every bill is approved, so the next step is JobTread's own invoice

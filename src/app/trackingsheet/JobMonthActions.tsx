@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { DocumentAccessDialog } from "@/components/DocumentAccess";
-import { LaborReportButton } from "@/components/LaborReportButton";
+import { LaborReportStatus } from "@/components/LaborReportButton";
 import {
   SyncOutcome,
   runTrackingSync,
@@ -140,9 +140,7 @@ export function JobMonthActions({
       {/* Company-wide, like the workbench's copy: every job's labor goes in,
           so its stamp reads the same on every card. */}
       {canReport && (
-        <ActionRow run={actions.stamp("labor-report", "")} detail="all jobs">
-          <LaborReportButton ym={ym} onDone={actions.reload} />
-        </ActionRow>
+        <LaborReportStatus ym={ym} run={actions.stamp("labor-report", "")} onDone={actions.reload} />
       )}
 
       {target && (

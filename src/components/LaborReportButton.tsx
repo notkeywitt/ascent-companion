@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button, Card, Select } from "@/components/ui";
 import { deriveBillingPeriod, ymOf } from "@/lib/billing";
 import { billingMonths } from "@/lib/billingMonths";
+import { timeAgo } from "@/lib/timeAgo";
 import { useAccess } from "@/components/AccessProvider";
 
 /**
@@ -128,6 +129,102 @@ export function LaborReportButton({
             </>
           )}
         </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * "Labor report updated 12 minutes ago · Run now" — the month's report as a
+ * status line, where the button used to be (Phase 6). The office labor routes
+ * refile the month on their own after a write (src/lib/laborReport.ts), so
+ * what the closing row needs is the stamp and a retry, not a button.
+ *
+ * With `run` the host supplies the stamp (the all-jobs cards read every stamp
+ * once); without it the line reads `/api/month-actions` itself.
+ */
+export function LaborReportStatus({
+  ym,
+  run,
+  onDone,
+  className = "",
+}: {
+  ym: string;
+  /** The month's `labor-report` stamp: null for never, undefined while loading. */
+  run?: { at: string } | null;
+  onDone?: () => void;
+  className?: string;
+}) {
+  const canReport = useAccess().can("labor-review");
+  const [own, setOwn] = useState<{ at: string } | null | undefined>(undefined);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ tone: "ok" | "error"; text: string; url?: string } | null>(null);
+  const selfRead = run === undefined && onDone === undefined;
+
+  const read = useCallback(() => {
+    fetch(`/api/month-actions?ym=${encodeURIComponent(ym)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const r = (j.runs ?? []).find(
+          (x: { action: string; scope: string }) => x.action === "labor-report" && x.scope === "",
+        );
+        setOwn(r ?? null);
+      })
+      .catch(() => setOwn(null));
+  }, [ym]);
+
+  useEffect(() => {
+    if (!selfRead || !canReport) return;
+    setOwn(undefined);
+    read();
+  }, [selfRead, canReport, read]);
+
+  if (!canReport) return null;
+  const stamp = selfRead ? own : run;
+
+  const go = async () => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      setMsg({ tone: "ok", ...(await runLaborReport(ym)) });
+      if (selfRead) read();
+      else onDone?.();
+    } catch (e) {
+      setMsg({ tone: "error", text: e instanceof Error ? e.message : "Report failed" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={`text-[12px] text-neutral-500 dark:text-neutral-400 ${className}`}>
+      <span
+        title="The whole company's labor for this month, filed as a Google Sheet in the Drive Labor folder. Refiled on its own after a labor edit."
+      >
+        Labor report{" "}
+        {stamp === undefined ? "…" : stamp ? `updated ${timeAgo(stamp.at)}` : "not filed yet"}
+      </span>
+      {" · "}
+      <button
+        type="button"
+        onClick={go}
+        disabled={busy || !ym}
+        className="text-accent underline disabled:no-underline disabled:opacity-60"
+      >
+        {busy ? "Filing…" : "Run now"}
+      </button>
+      {msg && (
+        <span role={msg.tone === "error" ? "alert" : "status"} className={msg.tone === "error" ? "ml-2 text-danger" : "ml-2"}>
+          {msg.text}
+          {msg.url && (
+            <>
+              {" "}
+              <a href={msg.url} target="_blank" rel="noreferrer" className="text-accent underline">
+                Open the sheet
+              </a>
+            </>
+          )}
+        </span>
       )}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   btn,
 } from "@/components/ui";
 import { createTaskRunner } from "@/lib/taskRunner";
+import { timeAgo } from "@/lib/timeAgo";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { Sheet } from "@/components/Sheet";
 
@@ -146,20 +147,6 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-/** "12 minutes ago" — the only thing anyone wants to know about the last run. */
-function timeAgo(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  const mins = Math.round((Date.now() - t) / 60000);
-  if (mins < 1) return "just now";
-  if (mins === 1) return "1 minute ago";
-  if (mins < 60) return `${mins} minutes ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs === 1) return "1 hour ago";
-  if (hrs < 48) return `${hrs} hours ago`;
-  return `${Math.round(hrs / 24)} days ago`;
-}
 
 const money = (n: number) =>
   "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
