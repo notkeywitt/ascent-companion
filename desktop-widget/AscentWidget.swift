@@ -32,6 +32,7 @@ final class Controller: NSObject, NSApplicationDelegate, WKNavigationDelegate, W
     var status: NSStatusItem!
     var urlWatch: NSKeyValueObservation?
     var onTopItem: NSMenuItem!
+    let started = Date()
 
     func applicationDidFinishLaunching(_ note: Notification) {
         let config = WKWebViewConfiguration()
@@ -82,8 +83,10 @@ final class Controller: NSObject, NSApplicationDelegate, WKNavigationDelegate, W
     }
 
     // ascentwidget://show — Home's "Open desktop widget" button. A closed app
-    // starts and shows itself anyway; an open one comes back if it was hidden.
+    // starts and shows itself anyway; an open one toggles. The 3 s guard keeps
+    // the launching click from hiding the panel it just opened.
     func application(_ application: NSApplication, open urls: [URL]) {
+        if window.isVisible && Date().timeIntervalSince(started) > 3 { window.orderOut(nil); return }
         window.orderFront(nil)
         if web.url?.path != "/widget" { load() }
     }

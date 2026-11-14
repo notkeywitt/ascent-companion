@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@/auth";
+import { refileLaborReportAfterWrite, ymOfJtInstant } from "@/lib/laborReport";
 import {
   clearJobCostCaches,
   getJobBudget,
@@ -93,6 +94,10 @@ interface EditBody {
    */
   type?: string;
 }
+
+// The answer is quick; the detached Labor Report refile (after()) waits a minute
+// and then files the month, and the function must live that long.
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
   if (!hasGrant()) {
@@ -256,6 +261,15 @@ export async function POST(req: NextRequest) {
     // so every cached per-code total is stale, on this board and Labor Review's.
     clearJobCostCaches();
     await j.record(diffFields(priorAsWritten, { ...fields }, base));
+    // The month's Labor Report mirrors JobTread, so refile it — both the month
+    // the entry was in and the one it moved to — after the answer is sent,
+    // debounced across a burst of edits (src/lib/laborReport.ts).
+    after(() =>
+      refileLaborReportAfterWrite(
+        [ymOfJtInstant(prior?.startedAt), ymOfJtInstant(fields.startedAt)],
+        session?.user?.email ?? "",
+      ),
+    );
     return NextResponse.json({ previewed: false, wrote: true, entry: res });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";

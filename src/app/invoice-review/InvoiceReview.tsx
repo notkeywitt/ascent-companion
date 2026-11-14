@@ -28,6 +28,11 @@ import { buildBrief, buildFindingPrompt } from "@/lib/invoiceReview/brief";
 import { findingPrint, money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
+const driveAmountSearch = (amount: number) =>
+  `https://drive.google.com/drive/search?q=${encodeURIComponent(
+    `"${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+  )}`;
+
 /** Ascent's own findings: the Office/Shop jobs, and mail from the office's own address. */
 function isOfficeGroup(name: string): boolean {
   return name.trim().toLowerCase() === "ascent" || /@ascentbuildingco\.com$/i.test(name.trim());
@@ -202,12 +207,14 @@ function whenChecked(iso: string): string {
   return `on ${then.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-export function InvoiceReview() {
+/** `embedYm`: the Jobs Hub draws this page under its own header — no tab strip
+ *  or title, and the address bar is the hub's to keep. */
+export function InvoiceReview({ embedYm }: { embedYm?: string } = {}) {
   const months = useMemo(monthChoices, []);
   // A month the person picked on another close tab arrives as ?ym; with none,
   // this page keeps its own default.
   const search = useSearchParams();
-  const asked = asYm(search.get("ym"));
+  const asked = embedYm ?? asYm(search.get("ym"));
   // Checks has three sections (stage 2): the month's findings, the bills
   // flagged for a correction (was Bill Corrections) and the non-taxable lines
   // (was Taxable Flags). Each shows only to someone who holds its view.
@@ -573,9 +580,9 @@ export function InvoiceReview() {
   const monthLabel = months.find((m) => m.ym === ym)?.label ?? ym;
 
   return (
-    <div className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <InvoicingTabs ym={ym} />
-      <PageHeader title="Checks" />
+    <div className={embedYm ? "w-full" : "w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6"}>
+      {!embedYm && <InvoicingTabs ym={ym} />}
+      {!embedYm && <PageHeader title="Checks" />}
       <Tabs
         label="Checks sections"
         items={sections.map((x) => ({
@@ -584,7 +591,7 @@ export function InvoiceReview() {
           active: section === x.id,
           onClick: () => {
             setSection(x.id);
-                setUrlParam("section", x.id === "findings" ? "" : x.id);
+                if (!embedYm) setUrlParam("section", x.id === "findings" ? "" : x.id);
           },
         }))}
       />
@@ -611,7 +618,7 @@ export function InvoiceReview() {
               value={ym}
               onChange={(e) => {
                 setYm(e.target.value);
-                setUrlParam("ym", e.target.value);
+                if (!embedYm) setUrlParam("ym", e.target.value);
               }}
               disabled={loading}
             >
@@ -860,6 +867,15 @@ export function InvoiceReview() {
                               >
                                 <Button variant="outline" size="sm">
                                   {f.sourceLabel ?? "Open source"}
+                                </Button>
+                              </a>
+                            ) : null}
+                            {f.kind === "backup-unmatched" && f.amount ? (
+                              // Drive reads PDF text, so the amount finds the same invoice filed
+                              // under another job or month.
+                              <a href={driveAmountSearch(f.amount)} target="_blank" rel="noreferrer">
+                                <Button variant="outline" size="sm">
+                                  Find in Drive
                                 </Button>
                               </a>
                             ) : null}

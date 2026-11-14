@@ -26,6 +26,7 @@ import {
 } from "@/components/ui";
 import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import type { LineEdit } from "@/lib/billLineMath";
+import type { LineOpsView } from "./useLineOps";
 import { round2 } from "@/lib/billLineMath";
 import { isTaxRecoverable, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { money, money0 } from "@/lib/money";
@@ -283,12 +284,21 @@ export interface CodingCardCtl {
       PDF binned (/api/bill-void). Absent = no Delete button. The card runs the
       confirm and the request; the host only decides where to go next. */
   onVoided?: () => void;
+  /** STAGE the void (one save rule): the host's Save writes /api/bill-void.
+      When set, the Void section toggles this instead of writing, and `onVoided`
+      is the host's own after-save hook. */
+  stageVoid?: () => void;
+  /** The staged delete / add / buyback / void, so the rows can say so
+      (useLineOps.ts). Absent on a host that still writes those at once. */
+  lineOps?: LineOpsView;
   /** Why approving is blocked right now (staged coding not yet synced), else
       null. Approving locks a draft's descriptions and quantities in JobTread,
       so unsynced coding has to reach JobTread first. */
   approveBlocked?: string | null;
 
-  /* ---- structural edits: these WRITE immediately on both surfaces ---- */
+  /* ---- structural edits. One save rule (Phase 6): a host that passes
+     `lineOps` STAGES delete, add, buyback and void behind its Save; the bill
+     page still writes them at once. Combine stages on both. ---- */
   isCombinable: (l: CodingLine) => boolean;
   anyCombinable: boolean;
   combineSelected: string[];
@@ -416,6 +426,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     approvingBill,
     approveBlocked,
     onVoided,
+    stageVoid,
+    lineOps,
     isCombinable,
     anyCombinable,
     combineSelected,
@@ -497,6 +509,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
 
   const [voiding, setVoiding] = useState(false);
   const [voidMsg, setVoidMsg] = useState("");
+  const voidStaged = Boolean(bill && lineOps?.voids.has(bill.id));
   const voidBill = async () => {
     if (!bill) return;
     const ok = window.confirm(
@@ -975,21 +988,38 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
       {/* Delete = VOID. Not offered on an invoiced bill: its figures are
           already on the client's invoice. Last, so it is never the first
           thing a thumb lands on. */}
-      {onVoided && writes && !bill.invoiced && (
+      {(stageVoid || onVoided) && writes && !bill.invoiced && (
         <section>
           <SectionLabel className="mb-2">Void</SectionLabel>
           <p className={actionNote}>
-            Voids it in JobTread, removes it from the tracking sheet and bins its PDF.
+            {stageVoid
+              ? "Voids it in JobTread when you save, removes it from the tracking sheet and bins its PDF."
+              : "Voids it in JobTread, removes it from the tracking sheet and bins its PDF."}
           </p>
-          <Button
-            variant="danger"
-            size="sm"
-            className={actionBtn}
-            onClick={() => void voidBill()}
-            disabled={voiding}
-          >
-            {voiding ? "Voiding…" : "Void this bill"}
-          </Button>
+          {stageVoid ? (
+            // STAGED (one save rule): a tap marks the bill, a second tap unmarks it.
+            <Button
+              variant={voidStaged ? "secondary" : "danger"}
+              size="sm"
+              className={actionBtn}
+              onClick={stageVoid}
+            >
+              {voidStaged ? "Undo void" : "Void this bill"}
+            </Button>
+          ) : (
+            <Button
+              variant="danger"
+              size="sm"
+              className={actionBtn}
+              onClick={() => void voidBill()}
+              disabled={voiding}
+            >
+              {voiding ? "Voiding…" : "Void this bill"}
+            </Button>
+          )}
+          {voidStaged && (
+            <p className="mt-1.5 text-[11px] font-semibold text-warn">Voided when you save.</p>
+          )}
           {voidMsg && <p className="mt-1.5 text-[11px] text-danger">{voidMsg}</p>}
         </section>
       )}
@@ -1378,12 +1408,16 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   // would make that sum wrong by the time Save applies it, so the
                   // lines it touches are locked until the merge is saved or undone.
                   const mergeLocked = mergeKeeps || mergeInto;
+                  // Staged structural edits (one save rule): the row stays,
+                  // marked, until Save writes it.
+                  const gone = Boolean(lineOps?.deleted.has(l.id));
+                  const bought = Boolean(lineOps?.bought.has(l.id));
                   return (
                     <li
                       key={l.id}
                       className={`relative py-4 ${
-                        mergeInto ? "opacity-50" : ""
-                      }`}
+                        mergeInto || gone || bought ? "opacity-50" : ""
+                      } ${gone ? "line-through" : ""}`}
                     >
                       <span
                         aria-hidden
@@ -1391,6 +1425,11 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       >
                         {i + 1}
                       </span>
+                      {(gone || bought) && (
+                        <span className="absolute right-0 top-0 text-[10px] font-semibold leading-none text-warn no-underline">
+                          {gone ? "Deleted when you save" : "→ Shop when you save"}
+                        </span>
+                      )}
                       {/* Description. JobTread locks it (with qty/amount) once a
                     bill leaves draft, so those inputs only appear on
                     drafts; re-coding still works in any status. */}
@@ -1468,11 +1507,13 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                               deleteLineById(l.id, edits[l.id]?.name ?? l.name ?? "Line item")
                             }
                             disabled={deletingLineId === l.id}
-                            aria-label="Delete line"
-                            title="Delete this line"
+                            aria-label={gone ? "Undo delete" : "Delete line"}
+                            title={gone ? "Keep this line" : lineOps ? "Delete this line when you save" : "Delete this line"}
                             className="shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-danger disabled:opacity-40 dark:hover:bg-red-950/40"
                           >
-                            {deletingLineId === l.id ? (
+                            {gone ? (
+                              <span className="block text-[11px] font-semibold leading-[14px] no-underline">Undo</span>
+                            ) : deletingLineId === l.id ? (
                               <span className="block h-3.5 w-3.5 text-center text-[10px] leading-[14px]">
                                 …
                               </span>
@@ -1535,6 +1576,34 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   );
                 })}
               </ul>
+
+              {/* Lines staged to be added — on the bill when you save. */}
+              {lineOps && bill && lineOps.adds.some((a) => a.docId === bill.id) && (
+                <ul className="mt-1 space-y-1">
+                  {lineOps.adds
+                    .filter((a) => a.docId === bill.id)
+                    .map((a) => (
+                      <li
+                        key={a.key}
+                        className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-warn/60 px-2.5 py-1.5 text-sm"
+                      >
+                        <span className="min-w-0 flex-1 truncate">
+                          {a.name}
+                          <span className="ml-2 text-[11px] text-neutral-500 dark:text-neutral-400">
+                            {a.quantity} × {money(a.preTaxUnit)} · added when you save
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => lineOps.unstageAdd(a.key)}
+                          className="shrink-0 text-[11px] font-semibold text-accent underline"
+                        >
+                          Undo
+                        </button>
+                      </li>
+                    ))}
+                </ul>
+              )}
 
               {deleteLineMsg && (
                 <Banner tone="neutral" className="mt-2 !px-2 !py-1.5 !text-[11px]">

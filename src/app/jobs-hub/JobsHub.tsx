@@ -11,10 +11,9 @@ import type { NoteRequest } from "@/components/NotesPanel";
 import type { Note, NoteBill } from "@/lib/notes";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
-import { Card, Loading, Segmented, Select, Skeleton, btn } from "@/components/ui";
+import { Button, Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
 import { CheckForBills } from "@/components/CheckForBills";
 import { ApproveAllBills } from "@/components/ApproveAllBills";
@@ -42,6 +41,9 @@ const CustomerPopup = dynamic(() => import("@/app/clients/CustomerPopup").then((
 const BudgetImport = dynamic(() => import("@/app/budget-import/BudgetImport").then((m) => m.BudgetImport));
 const Specs = dynamic(() => import("@/app/specs/Specs").then((m) => m.Specs));
 const HouseManualPage = dynamic(() => import("@/app/house-manual/HouseManual").then((m) => m.HouseManualPage));
+const MonthWork = dynamic(() => import("./MonthWork").then((m) => m.MonthWork));
+const InvoiceReview = dynamic(() => import("@/app/invoice-review/InvoiceReview").then((m) => m.InvoiceReview));
+const InvoicingSummary = dynamic(() => import("@/app/invoicing-summary/InvoicingSummary").then((m) => m.InvoicingSummary));
 
 /**
  * Jobs — the desktop screen for every job at once (owner, 2026-11-01; the
@@ -65,7 +67,9 @@ const HouseManualPage = dynamic(() => import("@/app/house-manual/HouseManual").t
  */
 
 type HubJob = MapJob & { customer?: string | null };
-type Tab = "sheet" | "schedule" | "plans" | "photos" | "punch" | "record" | "budget" | "specs" | "manual";
+// "month" is the all-jobs view (no job picked); "checks" and "status" are the
+// month's invoice review and invoice status, with or without a job.
+type Tab = "sheet" | "schedule" | "plans" | "photos" | "punch" | "record" | "budget" | "specs" | "manual" | "month" | "checks" | "status";
 
 /** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
  *  the list and the totals: overhead, not client work (owner, 2026-11-01). */
@@ -116,10 +120,16 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         .querySelector(`[data-job="${CSS.escape(hoverId)}"]`)
         ?.scrollIntoView({ block: "nearest" });
   }, [hoverId]);
-  const [tab, setTab] = useState<Tab>(canTrackingSheet ? "sheet" : "schedule");
+  // A link from the rail or a finding may name its tab: /jobs-hub?tab=checks.
+  const tabQ = useSearchParams().get("tab");
+  const [tab, setTab] = useState<Tab>(
+    tabQ === "checks" || tabQ === "status" ? tabQ : canTrackingSheet ? "sheet" : "schedule",
+  );
   /** Where the Tracking sheet draws its to-be-invoiced figure and rings: the
    *  job card, beside the map (owner, 2026-11-01). */
   const [summarySlot, setSummarySlot] = useState<HTMLElement | null>(null);
+  // The month card's foot: the sheet sync's result lines land here, under the buttons.
+  const [syncResultSlot, setSyncResultSlot] = useState<HTMLElement | null>(null);
   /** …and the rings' month / job-to-date switch, under the month picker. */
   const [scopeSlot, setScopeSlot] = useState<HTMLElement | null>(null);
   /** …and the rings alone, in the card's own column (owner, 2026-11-06). */
@@ -311,10 +321,11 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
     urlRead.current = true;
     const q = new URLSearchParams(window.location.search);
     const qJob = q.get("jobId");
+    // The month alone rides in too: /trackingsheet?ym= redirects here.
+    const qYm = q.get("ym");
+    if (qYm && /^\d{4}-\d{2}$/.test(qYm)) setPickedYm(qYm);
     if (qJob) {
       if (!jobs.some((j) => j.id === qJob)) return;
-      const qYm = q.get("ym");
-      if (qYm && /^\d{4}-\d{2}$/.test(qYm)) setPickedYm(qYm);
       setSelectedId(qJob);
       if (canTrackingSheet) {
         setTab("sheet");
@@ -342,6 +353,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
     if (!confirmLeaveIfDirty()) return;
     setLaborFocus(null);
     setSelectedId((cur) => (cur === id ? null : id));
+    // The Month tab belongs to "no job"; a picked job opens on its sheet.
+    setTab((t) => (t === "month" ? (canTrackingSheet ? "sheet" : "schedule") : t));
   };
   const files = useJobFiles(selected && (tab === "plans" || tab === "photos") ? selected.id : null);
 
@@ -379,24 +392,41 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
     </div>
   );
 
+  // With no job picked the job tabs have nothing to show: the row is the
+  // month's own — its work, its checks, its invoice status.
+  const canChecks = can("invoice-review");
+  const canStatus = can("invoicing-summary");
+  const shown: Tab = selected || tab === "checks" || tab === "status" ? tab : "month";
+  const monthTabs = [
+    ...(canChecks ? [{ value: "checks" as const, label: "Checks" }] : []),
+    ...(canStatus ? [{ value: "status" as const, label: "Invoice Status" }] : []),
+  ];
   const tabs = (
     <Segmented
       label="Show"
-      value={tab}
+      value={shown}
       onChange={switchTab}
-      options={[
-        ...(canTrackingSheet ? [{ value: "sheet" as const, label: "Tracking sheet" }] : []),
-        { value: "schedule" as const, label: "Schedule" },
-        { value: "plans" as const, label: "Plans" },
-        { value: "photos" as const, label: "Photos" },
-        { value: "punch" as const, label: "Punch List" },
-        // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
-        // Each shows only to someone who holds its view.
-        ...(can("clients") ? [{ value: "record" as const, label: "Job Details" }] : []),
-        ...(can("budget-import") ? [{ value: "budget" as const, label: "Budget Import" }] : []),
-        ...(can("specs") ? [{ value: "specs" as const, label: "Specifications" }] : []),
-        ...(can("house-manual") ? [{ value: "manual" as const, label: "House Manual" }] : []),
-      ]}
+      options={
+        selected
+          ? [
+              ...(canTrackingSheet ? [{ value: "sheet" as const, label: "Tracking sheet" }] : []),
+              ...monthTabs,
+              { value: "schedule" as const, label: "Schedule" },
+              { value: "plans" as const, label: "Plans" },
+              { value: "photos" as const, label: "Photos" },
+              { value: "punch" as const, label: "Punch List" },
+              // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
+              // Each shows only to someone who holds its view.
+              ...(can("clients") ? [{ value: "record" as const, label: "Job Details" }] : []),
+              ...(can("budget-import") ? [{ value: "budget" as const, label: "Budget Import" }] : []),
+              ...(can("specs") ? [{ value: "specs" as const, label: "Specifications" }] : []),
+              ...(can("house-manual") ? [{ value: "manual" as const, label: "House Manual" }] : []),
+            ]
+          : [
+              ...(canTrackingSheet ? [{ value: "month" as const, label: "Month" }] : []),
+              ...monthTabs,
+            ]
+      }
     />
   );
 
@@ -409,6 +439,25 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       {!allTimeOn && monthSelect}
     </div>
   );
+
+  // The picked job's month buttons. The board draws them in the menu that opens
+  // beside Save Changes, so the job card carries none (owner, 2026-11-14).
+  // Opens the hub's own Checks tab; it used to leave for /invoice-review.
+  const checkAllJobs = canChecks ? (
+    <Button variant="secondary" className="min-h-11" onClick={() => switchTab("checks")}>
+      Check All Jobs
+    </Button>
+  ) : null;
+  // No job-scoped "Sheet synced" line: the board draws that one itself.
+  const jobStatuses = selected && ym && !allTimeOn && can("jobs-hub") ? <CheckForBills /> : null;
+  const jobActions =
+    selected && ym && !allTimeOn ? (
+      <>
+        <DraftInvoicingEmail ym={ym} />
+        {checkAllJobs}
+        {can("tracking-sheet") && <SheetSyncButton jtJobId={selected.id} ym={ym} className="min-h-11" />}
+      </>
+    ) : null;
 
   return (
     <main
@@ -471,25 +520,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                   c={details.get(selected.id)!}
                   nameLink={false}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
-                  // Sync at the card's foot, clear of the notes (owner, 2026-11-06).
-                  footer={
-                    ym && !allTimeOn ? (
-                      <div className="flex flex-wrap items-start justify-center gap-2">
-                        <DraftInvoicingEmail ym={ym} />
-                        <SyncAllTrackingSheetsFor ym={ym} jtJobId={selected.id} className="text-center" />
-                        {can("jobs-hub") && <CheckForBills />}
-                        {can("invoice-review") && (
-                          <Link
-                            href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
-                            className={btn("secondary", "md", "min-h-11")}
-                          >
-                            Check All Jobs
-                          </Link>
-                        )}
-                        {can("tracking-sheet") && <SheetSyncButton jtJobId={selected.id} ym={ym} className="min-h-11" />}
-                      </div>
-                    ) : undefined
-                  }
+                  // No buttons on the card: the month's actions are in the menu
+                  // beside Save Changes (`jobActions`, owner 2026-11-14).
                   hub={{
                     total:
                       tab === "sheet" && canTrackingSheet ? <div ref={setSummarySlot} /> : undefined,
@@ -542,21 +574,19 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                     <Skeleton className="h-48 w-full rounded-xl" />
                   )}
                 </div>
-                <div className="flex shrink-0 flex-wrap items-start justify-center gap-2 border-t border-line-soft pt-3">
-                  {/* The month's actions, for the month picked above. */}
-                  <DraftInvoicingEmail ym={ym} />
-                  <SyncAllTrackingSheetsFor ym={ym} />
+                {/* The month's actions, for the month picked above: the status
+                    lines, one row of buttons, then a sync's result lines full
+                    width at the foot (owner, 2026-11-14). Check All Jobs and
+                    Sheet sync settings left this card: the Checks tab and the
+                    Month tab's Company tools hold them (owner, 2026-11-14). */}
+                <div className="flex shrink-0 flex-col items-center gap-2 border-t border-line-soft pt-3">
+                  <SyncAllTrackingSheetsFor ym={ym} className="text-center" resultSlot={syncResultSlot} />
                   {can("jobs-hub") && <CheckForBills />}
-                  <ApproveAllBills ym={ym} />
-                  {can("invoice-review") && (
-                    <Link
-                      href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
-                      className={btn("secondary", "md", "min-h-11")}
-                    >
-                      Check All Jobs
-                    </Link>
-                  )}
-                  {can("tracking-sheet") && <SheetSyncButton ym={ym} className="min-h-11" />}
+                  <div className="flex flex-wrap items-start justify-center gap-2">
+                    <DraftInvoicingEmail ym={ym} />
+                    <ApproveAllBills ym={ym} />
+                  </div>
+                  <div ref={setSyncResultSlot} className="w-full text-center empty:hidden" />
                 </div>
               </Card>
             )}
@@ -603,10 +633,10 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
           </div>
         </div>
 
-        {/* A picked job's tabs, a row of their own under the header: at the
-            card's foot they ran off a narrow screen (owner, 2026-11-03). Too
-            wide still, the row scrolls sideways. */}
-        {selected && (
+        {/* The tabs, a row of their own under the header: at the card's foot
+            they ran off a narrow screen (owner, 2026-11-03). Too wide still,
+            the row scrolls sideways. With no job picked they are the month's. */}
+        {(selected || monthTabs.length > 0 || canTrackingSheet) && (
           <div className="no-scrollbar overflow-x-auto">
             <div className="mx-auto w-max">{tabs}</div>
           </div>
@@ -614,14 +644,20 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
 
         {/* UNDER THE HEADER */}
         {/* The queue and the to-dos that sat here are Home's now (2026-11-13). */}
-        {!selected ? null : tab === "sheet" && canTrackingSheet ? (
+        {shown === "checks" && canChecks ? (
+          ym && <InvoiceReview key={ym} embedYm={ym} />
+        ) : shown === "status" && canStatus ? (
+          ym && <InvoicingSummary key={ym} embedYm={ym} />
+        ) : !selected ? (
+          canTrackingSheet && ym ? <MonthWork ym={ym} /> : null
+        ) : tab === "sheet" && canTrackingSheet ? (
           /* The job's Tracking Sheet, as /trackingsheet draws it, less its
              tabs and header. Keyed by job and month: a new pick is a fresh
              board. Staged coding survives it — the board restores unsynced
              work on load and says so. */
           ym && (
             <Suspense fallback={null}>
-              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, laborFocus, noteDocs, onBillNote, onOpenBill: setOpenDocId }} />
+              <Board key={`${selected.id}-${ym}`} embed={{ jobId: selected.id, ym, actions: jobActions, statuses: jobStatuses, summarySlot, ringsSlot, scopeSlot, onFigureChange: refreshMonth, onScopeChange: setRingScope, focusBill, laborFocus, noteDocs, onBillNote, onOpenBill: setOpenDocId }} />
             </Suspense>
           )
         ) : tab === "plans" ? (

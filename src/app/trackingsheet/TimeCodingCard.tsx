@@ -9,6 +9,8 @@ import { jtTimeUrl } from "@/lib/jtLinks";
 import type { TimeEntryEdit } from "@/lib/codingDraft";
 import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
 import { money } from "@/lib/money";
+import { toast } from "@/components/Toast";
+import { SplitTimeDialog } from "./SplitTimeDialog";
 
 /**
  * THE TIME & LABOR PANEL — the bill coding card's twin, for one time entry.
@@ -156,6 +158,7 @@ export function TimeCodingCard({
   const [payType, setPayType] = useState(staged?.type || entry.type);
   const [saving, setSaving] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [splitting, setSplitting] = useState(false);
   const [msg, setMsg] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
 
   // Another entry clicked: the panel is describing something else now, so every
@@ -411,7 +414,7 @@ export function TimeCodingCard({
       } else if (b.previewed) {
         setMsg({ tone: "info", text: b.message });
       } else {
-        setMsg({ tone: "success", text: "Moved in JobTread." });
+        toast("Moved in JobTread.");
         onSaved();
       }
     } catch (e) {
@@ -443,7 +446,7 @@ export function TimeCodingCard({
       } else if (b.previewed) {
         setMsg({ tone: "info", text: b.message });
       } else {
-        setMsg({ tone: "success", text: "Approved in JobTread." });
+        toast("Approved in JobTread.");
         onSaved();
       }
     } catch (e) {
@@ -762,6 +765,21 @@ export function TimeCodingCard({
           Revert
         </Button>
       </div>
+
+      {writes && !openEntry && !dirty && !staged && !stagedLeafId && entry.userId && (
+        <Button variant="outline" size="sm" onClick={() => setSplitting(true)} className="mt-2 w-full">
+          Split entry
+        </Button>
+      )}
+      {splitting && (
+        <SplitTimeDialog
+          entry={entry}
+          jobId={jobId}
+          codeOptions={codeOptions}
+          onClose={() => setSplitting(false)}
+          onSaved={onSaved}
+        />
+      )}
 
       {/* APPROVING is its own press, under the edit rather than beside it: the
           office reads the entry, fixes what's wrong, and only then says the

@@ -19,7 +19,7 @@
  * ── READ-ONLY, END TO END ───────────────────────────────────────────────────
  * Every check reads. Nothing here writes to Gmail, Calendar, Drive, the Sheet
  * or JobTread. The only things this feature writes are its own `daily_digest`
- * row and the `digest_dismissals` rows the Dismiss button makes — both in the
+ * row and the findings-store dismissals the Dismiss button makes — both in the
  * companion database.
  */
 import { companyDateParts } from "@/lib/billing";

@@ -66,6 +66,7 @@
 import { defineJobCheck } from "../checkTypes";
 import { findingKey, money, withinTolerance, type Finding, type LaborEntryRef } from "../types";
 import { hubHref } from "@/lib/hubUrl";
+import { laborFocusHref } from "@/app/trackingsheet/findingFocus";
 
 export interface LaborRateConfig {
   /**
@@ -333,6 +334,12 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
         )
         .join("; ");
 
+      // The code, and the entries OFF its dominant rate — the ones to look at.
+      const target = {
+        kind: "labor" as const,
+        code: g.code,
+        entryIds: g.entries.filter((x) => x.rate !== dominant).map((x) => x.id),
+      };
       out.push({
         jobId: job.jobId,
         jobName: job.jobName,
@@ -352,14 +359,10 @@ export const laborRateCheck = defineJobCheck<LaborRateConfig>({
           `above are counted here at the rate they will carry once those are fixed, so this is ` +
           `what would still be left.`,
         amount: variance,
-        sourceLink: link,
+        // Opens the labor list already narrowed to the code and those entries.
+        sourceLink: laborFocusHref(job.jobId, month.ym, target),
         sourceLabel: "Open Labor Review",
-        // The code, and the entries OFF its dominant rate — the ones to look at.
-        target: {
-          kind: "labor",
-          code: g.code,
-          entryIds: g.entries.filter((x) => x.rate !== dominant).map((x) => x.id),
-        },
+        target,
       });
     }
 

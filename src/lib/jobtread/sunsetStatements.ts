@@ -571,6 +571,8 @@ export async function getUninvoicedBills(
         cost: t.cost ?? 0,
         code: t.costItem?.costCode?.number ?? undefined,
         codeName: t.costItem?.costCode?.name ?? undefined,
+        costItemId: t.costItem?.id ?? undefined,
+        startedAt: t.startedAt ?? undefined,
       }));
     lines.push({
       key: "time",

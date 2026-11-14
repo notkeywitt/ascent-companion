@@ -14,13 +14,16 @@ import {
   btn,
 } from "@/components/ui";
 import { createTaskRunner } from "@/lib/taskRunner";
+import { timeAgo } from "@/lib/timeAgo";
+import { companyDateParts } from "@/lib/billing";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { Sheet } from "@/components/Sheet";
 
 /**
- * Sheet sync settings — a panel on the Jobs Hub and on Tracking Sheets' all-jobs
- * view since 2026-11-13 (OVERHAUL_PLAN 3.3); it was the /tracking-sheet page,
- * which now redirects to the hub. `SheetSyncButton` opens it.
+ * Sheet sync settings — a panel on the Jobs Hub since 2026-11-13 (OVERHAUL_PLAN
+ * 3.3): the Month tab's Company tools and a picked job's save menu open it. The
+ * hub's month card no longer does (owner, 2026-11-14). It was the /tracking-sheet
+ * page, which now redirects to the hub. `SheetSyncButton` opens it.
  *
  * Google Tracking Sheet — pushes a job's month of sub/vendor invoices into that
  * project's own tracking spreadsheet, replacing the by-hand copy out of the
@@ -147,20 +150,6 @@ const MONTH_NAMES = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-/** "12 minutes ago" — the only thing anyone wants to know about the last run. */
-function timeAgo(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  const mins = Math.round((Date.now() - t) / 60000);
-  if (mins < 1) return "just now";
-  if (mins === 1) return "1 minute ago";
-  if (mins < 60) return `${mins} minutes ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs === 1) return "1 hour ago";
-  if (hrs < 48) return `${hrs} hours ago`;
-  return `${Math.round(hrs / 24)} days ago`;
-}
-
 const money = (n: number) =>
   "$" + (Number(n) || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -182,12 +171,18 @@ const ymLabel = (month: number, year: number) =>
 const invoiceLabel = (month: number, year: number) =>
   month === 12 ? ymLabel(1, year + 1) : ymLabel(month + 1, year);
 
-/** The 24 billing periods ending at the current one — newest first. */
+/**
+ * The billing periods the selects offer, newest first: from today's calendar
+ * month back to 23 months before the held month. The list must reach past the
+ * held month. It once ended there, so a pinned month could never be advanced.
+ */
 function monthOptions(month: number, year: number) {
   const out: { key: string; label: string }[] = [];
-  let m = month;
-  let y = year;
-  for (let i = 0; i < 24; i++) {
+  const today = companyDateParts(new Date());
+  const ahead = Math.max(0, (today.year - year) * 12 + (today.month - month));
+  let m = ahead ? today.month : month;
+  let y = ahead ? today.year : year;
+  for (let i = 0; i < 24 + ahead; i++) {
     out.push({ key: ymKey(m, y), label: ymLabel(m, y) });
     m -= 1;
     if (m < 1) { m = 12; y -= 1; }
@@ -298,12 +293,41 @@ function SheetSyncSettings({ jtJobId, ym: askedYmProp }: { jtJobId?: string; ym?
    * runs, so a month can't roll over mid-close and wipe CURRENT INVOICE before
    * it has been finalized into its reserved block.
    */
+  /** Set by the guard in advancePeriod once it has named the unfinalized
+   *  sheets; the next tap moves anyway. A month change starts the guard over. */
+  const forceAdvance = useRef(false);
+  useEffect(() => {
+    forceAdvance.current = false;
+  }, [pinnedYm]);
+
   const advancePeriod = useCallback(async () => {
     if (!pinnedYm || pinning) return;
     const { month, year } = parseYm(pinnedYm);
     setPinning(true);
     setPinNote("");
     try {
+      // THE GUARD: advancing rewrites CURRENT INVOICE on every wired sheet with
+      // the new month, so the month it leaves must already be finalized into
+      // its block on each of them (the `finalize` stamp, written by Close
+      // month and the finalize op). A sheet that is not is named, and the move
+      // waits for a second tap — the one override the owner may take.
+      if (defaultYm && pinnedYm !== defaultYm && !forceAdvance.current) {
+        const r = await fetch(`/api/month-actions?ym=${encodeURIComponent(defaultYm)}`, { cache: "no-store" });
+        const runs: { action: string; scope: string }[] = r.ok ? ((await r.json()).runs ?? []) : [];
+        const done = new Set(runs.filter((x) => x.action === "finalize").map((x) => x.scope));
+        const missing = jobs.filter((j) => !done.has(j.id)).map((j) => j.label);
+        if (missing.length) {
+          const { month: lm, year: ly } = parseYm(defaultYm);
+          forceAdvance.current = true;
+          setPinNote(
+            `${ymLabel(lm, ly)} is not finalized on ${missing.length} sheet${missing.length === 1 ? "" : "s"}: ` +
+              `${missing.slice(0, 6).join(", ")}${missing.length > 6 ? "…" : ""}. ` +
+              `Close the month on each job first. Tap Advance again to move anyway.`,
+          );
+          return;
+        }
+      }
+      forceAdvance.current = false;
       const res = await fetch("/api/tracking-sheet", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -331,7 +355,7 @@ function SheetSyncSettings({ jtJobId, ym: askedYmProp }: { jtJobId?: string; ym?
     } finally {
       setPinning(false);
     }
-  }, [pinnedYm, pinning, defaultYm]);
+  }, [pinnedYm, pinning, defaultYm, jobs]);
 
   /**
    * Pause or resume the automatic all-projects sync.

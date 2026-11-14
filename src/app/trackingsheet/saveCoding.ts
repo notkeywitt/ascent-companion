@@ -2,7 +2,9 @@ import type { Dispatch, MutableRefObject, SetStateAction } from "react";
 import { billLineMath, recodeLog, round2, type LineChange, type LineEdit, type RecodeEntry } from "@/lib/billLineMath";
 import { discardDraft, type TimeEntryEdit } from "@/lib/codingDraft";
 import { postCombine, type CombineRequest } from "@/lib/combineLines";
+import { toast } from "@/components/Toast";
 import type { BoardPayload, JobBillLine } from "./Board";
+import type { LineOps } from "./useLineOps";
 
 type Setter<T> = Dispatch<SetStateAction<T>>;
 
@@ -24,6 +26,8 @@ export interface SaveCodingInput {
   setCombining: Setter<boolean>;
   setCombineMsg: Setter<string>;
   setCombinePending: Setter<CombineRequest | null>;
+  /** The staged delete / add / buyback / void ops (useLineOps.ts). */
+  lineOps: LineOps;
   setRestoreMsg: Setter<{ kept: number; dropped: number; savedAt: string } | null>;
   draftKey: string;
   load: (opts?: { preserveStaged?: boolean }) => Promise<void>;
@@ -62,6 +66,7 @@ export async function saveCoding(input: SaveCodingInput): Promise<void> {
     setCombining,
     setCombineMsg,
     setCombinePending,
+    lineOps,
     setRestoreMsg,
     draftKey,
     load,
@@ -282,9 +287,17 @@ export async function saveCoding(input: SaveCodingInput): Promise<void> {
       }
     }
 
+    // THE STRUCTURAL OPS GO AFTER THE MERGE: buyback and delete remove lines
+    // the writes above targeted, add puts a new one on, and void ends the
+    // bill. Each op drops itself as it lands, so a partly failed Save keeps
+    // only what failed (useLineOps.ts).
+    const ops = await lineOps.run();
+    failures.push(...ops.failures);
+
     setSyncing(false);
     const parts = [];
     if (ok > 0) parts.push(`${ok} line${ok === 1 ? "" : "s"}`);
+    if (ops.done.length > 0) parts.push(ops.done.join(", "));
     if (timeOk > 0) parts.push(`${timeOk} time ${timeOk === 1 ? "entry" : "entries"}`);
     if (timeEditOk > 0)
       parts.push(`${timeEditOk} entry ${timeEditOk === 1 ? "correction" : "corrections"}`);
@@ -296,7 +309,8 @@ export async function saveCoding(input: SaveCodingInput): Promise<void> {
     const summary = parts.length ? parts.join(" + ") : "0 changes";
     if (combineErr) failures.push(`Combine: ${combineErr}`);
     if (failures.length === 0) {
-      setSyncMsg({ tone: "success", text: `Saved ${summary} to JobTread.` });
+      toast(`Saved ${summary} to JobTread.`);
+      setSyncMsg(null);
       setRestoreMsg(null);
       if (draftKey) discardDraft(draftKey); // it's in JobTread now — nothing left to hold
       await load(); // load() clears staged

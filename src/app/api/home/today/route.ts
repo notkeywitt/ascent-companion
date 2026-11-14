@@ -5,6 +5,7 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
 import { DIGEST_SETTINGS } from "@/lib/digest/settings";
 import { eventWhen } from "@/lib/digest/checks/calendarEvents";
 import { getUpcomingScheduleTasks } from "@/lib/jobtread";
+import { dedupeEvents } from "@/lib/home/dedupeEvents";
 import { orgDay } from "@/lib/orgTime";
 
 /**
@@ -20,6 +21,9 @@ import { orgDay } from "@/lib/orgTime";
 export const dynamic = "force-dynamic";
 
 interface CalEvent {
+  iCalUID?: string;
+  id?: string;
+  end?: string;
   title?: string;
   location?: string;
   allDay?: boolean;
@@ -51,7 +55,7 @@ export async function GET() {
   const calData = calRes.status === "fulfilled" ? calRes.value : null;
   const calError =
     calRes.status === "rejected" ? String(calRes.reason) : calData?.error || (calData?.data?.ok === false ? calData.data.error : "");
-  const events = (calData?.data?.events ?? [])
+  const events = dedupeEvents(calData?.data?.events ?? [])
     .filter((e) => !e.day || e.day === day)
     .map((e) => ({
       title: e.title || "(no title)",

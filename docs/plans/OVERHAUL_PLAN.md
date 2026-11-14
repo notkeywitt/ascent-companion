@@ -424,16 +424,17 @@ finding kinds clear from that list.
 
 ## Phase 6 — EOM automation and one save model (Opus, 1 session; every step **sign-off**)
 
-- [ ] Labor report: regenerate after any labor write, debounced, with `after()` (runs after the response is sent). Show "updated 3 min ago" in place of the button.
-- [ ] Job check: run on open and after each save. Remove "Check this job".
-- [ ] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes.
-- [ ] Document access: grant on bill approval when the job has one customer contact.
-- [ ] One save rule, shown in the UI: an edit that changes money stages behind "Save Changes"; anything else saves at once with a `Toast`. Move approve, void and line add or delete under that rule.
-- [ ] One "Close month" step per job: finalize the sheet, grant access, open the JobTread invoice.
+- [x] Labor report: regenerate after any labor write, debounced, with `after()` (runs after the response is sent). Show "updated 3 min ago" in place of the button. (2026-11-13: `src/lib/laborReport.ts`; the office routes `/api/time-entry`, `/api/time-entry/create`, `/api/labor-review` refile; the crew's clock routes do not.)
+- [x] Job check: run on open and after each save. Remove "Check this job". (2026-11-13: runs on every month load in `Board.tsx`; the card carries "Check again".)
+- [x] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes. (2026-11-13: `src/components/LastRun.tsx`. Timers checked: tag scan 15 min, tracking push 30 min, full sync hourly; the "Run now" tasks are steps of the hourly run; "Refresh" is the digest, on crons at 8:00 and 17:00 UTC. The full-sync and tag-scan stamps come from Apps Script `FULL_SYNC_LAST_RUN` / `INVOICE_SCAN_LAST_RUN`, which show "no run recorded" until that side is deployed.)
+- [x] Document access: grant on bill approval when the job has one customer contact. (2026-11-13: `grantSoleContactAccess` in `after()` on `/api/bill-status`; the dialog stays for a job with no contact or several.)
+- [x] One save rule, shown in the UI: an edit that changes money stages behind "Save Changes"; anything else saves at once with a `Toast`. Move approve, void and line add or delete under that rule. (2026-11-13: `src/app/trackingsheet/useLineOps.ts` stages delete, add, buyback and void on the board and the draft queue; approve, time approve and move, billing month, due date and bill number write at once with a toast. The bill page `/bill/<id>` still writes delete, add, buyback and void at once.)
+- [x] One "Close month" step per job: finalize the sheet, grant access, open the JobTread invoice. (2026-11-13: `src/app/trackingsheet/CloseMonth.tsx` — sheet push, finalize, client access, then the draft invoice through `/api/invoice-draft`, with "Open the invoice ↗". Refused while the timer holds another month. The finalize op stamps `finalize` per sheet; advancing the pinned month on the Tracking Sheet settings names any sheet without that stamp and waits for a second tap. Apps Script `finalizeTrackingSheetMonth` reads the block back and throws on a mismatch — deploy pending.)
 
 Do not add a write that races the hourly mirror.
 
 Done when: one job, one month takes under 8 taps on the happy path.
+Measured 2026-11-13: before, 10 taps (approve, confirm, check this job, labor report, give access, pick contact, sync sheet, finalize, confirm, create invoice link). After: 4 taps (Approve Draft Bills, confirm, Close month, confirm) and the draft invoice opens from the dialog.
 
 ---
 
@@ -450,6 +451,26 @@ hub tabs with embedded pages (Jobs Hub), and `?section=` strips (Inbox, Payroll)
 - [ ] Tools and inventory: a "Supplies" tab on `/tools`. New `supplies` table in the companion database: name, unit, quantity on hand, reorder level, location. Plus and minus buttons, no QR. A row under its reorder level becomes a finding in the inbox and can open a requisition.
 
 Target: about 61 pages to about 35 routes behind 8 hubs.
+
+Built 2026-11-14 (owner's added scope, Jobs Hub first; the four folds and
+Supplies above are not started):
+
+- `/trackingsheet` redirects to `/jobs-hub`. The hub's no-job **Month** tab
+  (`src/app/jobs-hub/MonthWork.tsx`) holds what the all-jobs page held: uncaptured
+  bills, unsaved drafts, the month's bills and labor, company tools.
+- **Checks** and **Invoice Status** are hub tabs, with or without a job
+  (`InvoiceReview` and `InvoicingSummary` take `embedYm`). `/jobs-hub?tab=checks`
+  and `?tab=status` open them. The pages `/invoice-review` and `/invoicing-summary`
+  still exist, because the rail lights a slot by path.
+- The rail has Checks and Invoice Status right after the Invoicing item.
+- The job card has no buttons. Its month buttons ride in `BoardEmbed.actions`
+  and its status lines in `BoardEmbed.statuses`. Over Save Changes they are a
+  menu (lines, then a two-column button grid); on touch, a centred row.
+- "Check All Jobs" on the hub opens the hub's Checks tab.
+- Checked in a browser at 1600px and 390px. Not checked: Invoice Status with
+  data (local has no Apps Script URL).
+- Open: with a job picked, the Checks and Status tabs leave the card's total
+  and rings empty (they belong to the Tracking sheet tab).
 
 ---
 

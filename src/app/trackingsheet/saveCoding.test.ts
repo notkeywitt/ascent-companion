@@ -3,8 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // The draft store talks to storage and the network; Save only needs to know
 // whether it was told to drop the draft.
 vi.mock("@/lib/codingDraft", () => ({ discardDraft: vi.fn() }));
+// The toast host is browser UI; Save only has to say it saved.
+vi.mock("@/components/Toast", () => ({ toast: vi.fn() }));
 
 import { discardDraft } from "@/lib/codingDraft";
+import { toast } from "@/components/Toast";
+import type { LineOps } from "./useLineOps";
 import { saveCoding, type SaveCodingInput } from "./saveCoding";
 import type { BoardPayload } from "./Board";
 
@@ -62,6 +66,22 @@ const data = {
   writesEnabled: true,
 } as unknown as BoardPayload;
 
+/** No staged structural ops; `run` answers with whatever the test wants. */
+function noOps(run: LineOps["run"] = async () => ({ done: [], failures: [], voided: [] })): LineOps {
+  return {
+    view: { deleted: new Map(), bought: new Map(), adds: [], voids: new Map(), unstageAdd: () => {} },
+    count: 0,
+    toggleDelete: () => {},
+    stageAdd: () => {},
+    unstageAdd: () => {},
+    stageBuyback: () => {},
+    unstageBuyback: () => {},
+    toggleVoid: () => {},
+    clear: () => {},
+    run,
+  };
+}
+
 function input(over: Partial<SaveCodingInput> = {}): SaveCodingInput {
   return {
     data,
@@ -80,6 +100,7 @@ function input(over: Partial<SaveCodingInput> = {}): SaveCodingInput {
     setCombining: vi.fn(),
     setCombineMsg: vi.fn(),
     setCombinePending: vi.fn(),
+    lineOps: noOps(),
     setRestoreMsg: vi.fn(),
     draftKey: "job1|2026-09",
     load: vi.fn(async () => {}),
@@ -130,7 +151,29 @@ describe("saveCoding", () => {
     await saveCoding(inp);
     expect(discardDraft).toHaveBeenCalledWith("job1|2026-09");
     expect(inp.load).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(inp.setSyncMsg).mock.calls.at(-1)?.[0]).toMatchObject({ tone: "success" });
+    expect(vi.mocked(toast).mock.calls.at(-1)?.[0]).toMatch(/^Saved /);
+  });
+
+  it("runs the staged structural ops after the line writes and reports what failed", async () => {
+    fetchMock = fakeFetch();
+    vi.stubGlobal("fetch", fetchMock.fn);
+    const order: string[] = [];
+    fetchMock.fn.mockImplementation(async (url: string) => {
+      order.push(url);
+      return { ok: true, json: async () => ({ results: [{ ok: true }] }) } as Response;
+    });
+    const run = vi.fn(async () => {
+      order.push("ops");
+      return { done: ["deleted Excavation"], failures: ["Void Dirt Doctors: refused"], voided: [] };
+    });
+    const inp = input({ lineOps: noOps(run) });
+    await saveCoding(inp);
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(order.at(-1)).toBe("ops");
+    expect(vi.mocked(inp.setSyncMsg).mock.calls.at(-1)?.[0]).toMatchObject({
+      tone: "error",
+      text: expect.stringContaining("Void Dirt Doctors"),
+    });
   });
 
   it("on a partial failure keeps the draft and re-arms its restore", async () => {

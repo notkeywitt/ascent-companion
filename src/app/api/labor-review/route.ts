@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { auth } from "@/auth";
+import { refileLaborReportAfterWrite, ymOfJtInstant } from "@/lib/laborReport";
 import { db, ensureDb } from "@/db";
 import { flaggedTimeEntries } from "@/db/schema";
 import {
@@ -103,6 +104,10 @@ interface WriteResult {
   error?: string;
 }
 
+// The answer is quick; the detached Labor Report refile (after()) waits a minute
+// and then files the month, and the function must live that long.
+export const maxDuration = 300;
+
 export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
@@ -141,6 +146,8 @@ export async function POST(req: NextRequest) {
   });
 
   const results: WriteResult[] = [];
+  /** The calendar months whose Labor Report this batch changes. */
+  const months = new Set<string>();
   for (const c of changes) {
     // Read live per entry: a batch is at most a screen's worth of rows, and the
     // prior cost code is the whole point of the record.
@@ -160,6 +167,7 @@ export async function POST(req: NextRequest) {
     try {
       await updateTimeEntry(cfg, c.id, { costItemId: c.costItemId });
       results.push({ id: c.id, ok: true });
+      months.add(ymOfJtInstant(prior?.startedAt));
       await j.record([event]);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -186,6 +194,8 @@ export async function POST(req: NextRequest) {
     try {
       await updateTimeEntry(cfg, id, { isApproved: true });
       approved.push({ id, ok: true });
+      // The approval mark is a column of the report, so its month refiles too.
+      months.add(ymOfJtInstant((await getTimeEntryJournalSnapshot(cfg, id))?.startedAt));
       await j.record([event]);
     } catch (e) {
       const message = e instanceof Error ? e.message : "Unknown error";
@@ -198,6 +208,12 @@ export async function POST(req: NextRequest) {
   // (this page's rail AND Tracking Sheets') is now stale. An approval counts
   // too: the rail can be read approved-only, so the mark changes the figures.
   if ([...results, ...approved].some((r) => r.ok)) clearJobCostCaches();
+
+  // The month's Labor Report mirrors JobTread, so refile each month touched —
+  // after the answer is sent, debounced across a burst (src/lib/laborReport.ts).
+  if (months.size > 0) {
+    after(() => refileLaborReportAfterWrite(months, session?.user?.email ?? ""));
+  }
 
   return NextResponse.json({ previewed: false, wrote: true, results, approved });
 }

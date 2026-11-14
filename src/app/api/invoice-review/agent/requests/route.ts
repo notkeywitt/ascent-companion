@@ -6,7 +6,7 @@ import { featureRequests } from "@/db/schema";
 import { authorizeAgent } from "@/lib/agentToken";
 
 /**
- * /api/invoice-review/agent/requests — the /queue skill's door to App Feedback
+ * /api/invoice-review/agent/requests — the /queue skill's door to Feature Requests
  * (scripts/queue/agent.mjs). The owner types tweaks on /requests from any
  * device; /queue reads the open ones here and writes back what it did.
  *

@@ -162,6 +162,32 @@ export async function grantDocumentAccess(
 }
 
 /**
+ * Give the job's ONE customer contact access to a bill — what approval does
+ * on its own (OVERHAUL_PLAN Phase 6). With no contact, or more than one, it
+ * does nothing: there is nobody to pick for, and picking is the office's call
+ * through the Document Access dialog. Already shared is left alone. Never
+ * throws: the approval already happened, and the grant is a convenience the
+ * dialog can repeat.
+ *
+ * Returns the contact's name when it granted, "" otherwise.
+ */
+export async function grantSoleContactAccess(cfg: PaveConfig, docId: string): Promise<string> {
+  try {
+    const { jobId, row } = await getDocumentAccess(cfg, docId);
+    if (!jobId) return "";
+    const contacts = await getJobCustomerContacts(cfg, jobId);
+    if (contacts.length !== 1) return "";
+    const [c] = contacts;
+    if (row.membershipIds.includes(c.membershipId)) return "";
+    await grantDocumentAccess(cfg, docId, c.membershipId);
+    return c.name;
+  } catch (e) {
+    console.error("[documentAccess] grant on approval failed", docId, e);
+    return "";
+  }
+}
+
+/**
  * ONE document's access list, plus the job it belongs to. The job is read from
  * the document rather than taken from the caller: it is what decides which
  * customer contacts may be named, so the server must not be told it.

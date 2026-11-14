@@ -133,9 +133,10 @@ export async function getInvoiceStatuses(
     user: { name: string | null } | null;
   };
   const recipients: Record<string, Rcpt[]> = {};
-  // 25 documents a request keeps each one small; a month has about a dozen.
-  for (let i = 0; i < hits.length; i += 25) {
-    const chunk = hits.slice(i, i + 25);
+  // Pave answers 413 when documents × recipient size grows too big: 5 documents
+  // at size 100 failed, 10 at size 10 passed (probed 2026-11-14, October 2026).
+  for (let i = 0; i < hits.length; i += 10) {
+    const chunk = hits.slice(i, i + 10);
     const query: Record<string, unknown> = {};
     chunk.forEach((n, k) => {
       query[`d${k}`] = {
@@ -143,7 +144,7 @@ export async function getInvoiceStatuses(
         $: { id: n.id },
         id: {},
         documentRecipients: {
-          $: { size: 100 },
+          $: { size: 10 },
           nodes: {
             emailDeliveryStatus: {},
             emailDeliveryStatusUpdatedAt: {},

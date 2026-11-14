@@ -26,8 +26,8 @@ import {
 import type { Option } from "@/components/CostCodeSelect";
 import { JobPicker, WORKING_PHASES, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
-import { DocumentAccessDialog } from "@/components/DocumentAccess";
 import { JtLink } from "@/components/JtLink";
+import { CloseMonth } from "./CloseMonth";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
@@ -91,12 +91,14 @@ import { saveCoding } from "./saveCoding";
 import { useBillApproval } from "./useBillApproval";
 import { useRailView } from "./useRailView";
 import { useTrackingPush } from "./useTrackingPush";
+import { useLineOps } from "./useLineOps";
 import { usePreSendCheck } from "./usePreSendCheck";
 import { InvoiceReconcile, reconStatus, type Recon } from "@/components/InvoiceReconcile";
 import { UncapturedBills } from "@/components/UncapturedBills";
 import { BILL_STRIPE_COLOR, billInvoiceState } from "@/lib/billInvoiceState";
 import { billPaidState, driveMainWindowToDoc, type Detail } from "@/components/BillingSummary";
 import { runTrackingSync } from "@/components/TrackingSheetSync";
+import { LastRun } from "@/components/LastRun";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { PreSendCheck, sourceLinkOf, type FindingLink } from "./PreSendCheck";
 import { BillPopup } from "./BillPopup";
@@ -104,7 +106,7 @@ import { InvoicingTabs } from "@/components/InvoicingTabs";
 import type { Selection } from "./DraftWorkbench";
 import { readLaborFocus, withoutFocus, type LaborFocus } from "./findingFocus";
 import type { Finding } from "@/lib/invoiceReview/types";
-import { LaborReportButton } from "@/components/LaborReportButton";
+import { LaborReportStatus } from "@/components/LaborReportButton";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { confirmLeaveIfDirty, useUnsavedChanges } from "@/lib/useUnsavedChanges";
@@ -352,6 +354,10 @@ function useIsBelowXl() {
 export interface BoardEmbed {
   jobId: string;
   ym: string;
+  /** The Jobs page's month buttons and status lines. They join the closing
+   *  actions, in the menu that opens over Save Changes. */
+  actions?: React.ReactNode;
+  statuses?: React.ReactNode;
   /** Where to draw the to-be-invoiced figure and the rings instead of at the
    *  head of the bills column (the Jobs page's job card). */
   summarySlot?: HTMLElement | null;
@@ -482,13 +488,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
 
 
-  /**
-   * Bulk Document Access — the month's vendor bills added to the client's
-   * "Document Access" list in one press, instead of sharing forty documents one
-   * at a time in JobTread. The list itself is <DocumentAccess>, the same
-   * component the bill card uses for a single bill.
-   */
-  const [accessOpen, setAccessOpen] = useState(false);
 
   // The Tracking Sheet push is its own button in the closing row, never a step
   // inside Save. It still needs target resolution and result state held HERE
@@ -501,7 +500,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // reads /api/historical-cost, which carries the same view gate.
   const canSheetGap = can("historical-cost");
   // The job's tracking sheet and the last push into it — ./useTrackingPush.
-  const { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy } = useTrackingPush({
+  const { trackingTarget, trackingChecked, trackingSync, setTrackingSync, trackingBusy, autoSyncAt, pinnedYm } = useTrackingPush({
     canTrack,
     jobId,
     ym,
@@ -509,6 +508,26 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
   // ---- pre-send check (the invoice review's checks, on this job) — ./usePreSendCheck
   const { preSend, preSendRunning, runPreSend, recheck, clear, unclear } = usePreSendCheck({ jobId, ym });
+  /**
+   * The check runs on every month load — the open, and the re-read after each
+   * save — instead of behind a button (Phase 6). A load that lands while a
+   * check is still going queues one more run, not one per load: the route
+   * reads the whole job and the rate limit is the cost.
+   */
+  const canCheck = can("invoice-review");
+  const checkQueued = useRef(false);
+  useEffect(() => {
+    if (!canCheck || !jobId || !data) return;
+    if (preSendRunning) checkQueued.current = true;
+    else runPreSend();
+    // `data` is the trigger: a new payload is a new load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, canCheck, jobId]);
+  useEffect(() => {
+    if (preSendRunning || !checkQueued.current) return;
+    checkQueued.current = false;
+    runPreSend();
+  }, [preSendRunning, runPreSend]);
 
   // The budget column's screen state (search, folds, hide) — ./useRailView.
   const {
@@ -588,6 +607,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   );
 
   const taxDirty = isTaxDirty(taxEdits, data?.bills, billTax);
+  /** The staged structural edits — delete, add, buyback, void. One save rule
+   *  (Phase 6): they change money, so they wait for Save Changes too. */
+  const lineOps = useLineOps();
   const dirty =
     staged.size > 0 ||
     timeStaged.size > 0 ||
@@ -595,11 +617,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     Object.keys(edits).length > 0 ||
     taxDirty ||
     Object.keys(typeEdits).length > 0 ||
-    combinePending !== null;
+    combinePending !== null ||
+    lineOps.count > 0;
   /** Everything Sync would write, for the toolbar's chip. A staged merge counts
    *  as one change however many lines it folds together — it is one decision. */
   const stagedCount =
-    staged.size + timeTouched.size + Object.keys(typeEdits).length + (combinePending ? 1 : 0);
+    staged.size +
+    timeTouched.size +
+    Object.keys(typeEdits).length +
+    (combinePending ? 1 : 0) +
+    lineOps.count;
   // Still worth a prompt — leaving means the coding hasn't reached JobTread —
   // but it no longer says "lose them", because it isn't true any more: the
   // autosave below has already put the work somewhere it survives (see
@@ -1085,6 +1112,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     setNewLine,
     toggleCombineSel,
   } = useLineEdits({
+    lineOps,
     data,
     edits,
     leafOf,
@@ -1278,9 +1306,11 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     },
     approveBill: canApprove ? approveOneBill : undefined,
     approvingBill: approving,
-    onVoided: () => {
-      setOpenDocId(null);
-      void load({ preserveStaged: true });
+    // Void is STAGED like every other money edit; Save writes /api/bill-void
+    // and the re-read drops the bill (denied is the void).
+    lineOps: lineOps.view,
+    stageVoid: () => {
+      if (openBill) lineOps.toggleVoid(openBill.id, openBill.label);
     },
     approveBlocked: dirty ? "Save staged coding changes to JobTread first" : null,
     isCombinable,
@@ -1333,6 +1363,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     setTypeEdits({});
     setCombinePending(null);
     setCombineMsg("");
+    lineOps.clear();
     setSyncMsg(null);
     setRestoreMsg(null);
     // Revert is the one place the office says "I don't want this work" — so it
@@ -1419,6 +1450,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       setCombining,
       setCombineMsg,
       setCombinePending,
+      lineOps,
       setRestoreMsg,
       draftKey,
       load,
@@ -1441,9 +1473,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * forbids.
    */
   const [barHover, setBarHover] = useState(false);
-  // Finalize (moved here from /tracking-sheet) — see finalizeSheet.
-  const [finalizing, setFinalizing] = useState(false);
-  const [finalizeMsg, setFinalizeMsg] = useState("");
   // A touch screen 1024px+ wide (an iPad in landscape) has no hover, so the
   // commit bar never reveals the closing actions. Show the row under the
   // columns there instead, as on a phone.
@@ -1806,65 +1835,41 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * Rendered nothing until we've read whether the job has a sheet, so the label
    * is never wrong. `cls` carries whatever width the row it sits in wants.
    */
-  const finalizeSheet = async (projectId: string) => {
-    if (finalizing) return;
-    if (!window.confirm(`Finalize ${monthLabel(ym)} into this job's tracking sheet? Sync the sheet first if anything changed.`)) return;
-    const [y, m] = ym.split("-").map(Number);
-    setFinalizing(true);
-    setFinalizeMsg("");
-    try {
-      const res = await fetch("/api/tracking-sheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ op: "finalize", projectId, month: m, year: y }),
-      });
-      const j = await res.json();
-      if (!res.ok || j?.ok === false) throw new Error(j?.error || `Request failed (${res.status})`);
-      setFinalizeMsg(`Finalized into the ${j.monthLabel ?? monthLabel(ym)} block.`);
-    } catch (e) {
-      setFinalizeMsg(e instanceof Error ? e.message : "Finalize failed.");
-    } finally {
-      setFinalizing(false);
-    }
-  };
   const trackingSheetAction = (cls: string) => {
     if (!canTrack || !trackingChecked) return null;
     if (trackingTarget) {
       return (
         <>
-        <Button
-          variant="secondary"
-          className={cls}
-          disabled={syncing || trackingBusy}
-          // The sheet reads costCode off the bill lines IN JOBTREAD, so staged
-          // coding that has not been saved simply will not appear in it. Said
-          // here rather than blocking the push: refreshing the sheet from what
-          // JobTread holds today is still a legitimate thing to want.
-          title={
-            dirty
-              ? `Push ${monthLabel(ym)} into ${trackingTarget.label} — your ${stagedCount} staged change${stagedCount === 1 ? "" : "s"} are not saved yet, so the sheet won't show them`
-              : `Push ${monthLabel(ym)} into ${trackingTarget.label}`
+        {/* The 30-minute timer pushes the pinned month into every sheet, so
+            this is its stamp and a retry, not a button (Phase 6). A month the
+            timer does not hold says so: only the retry pushes it. The sheet
+            reads costCode off the bill lines IN JOBTREAD, so staged coding is
+            not in it until saved — said in the detail, not a block. */}
+        <LastRun
+          className={`basis-full text-center ${cls}`}
+          verb={`${trackingTarget.label} synced`}
+          at={autoSyncAt}
+          every="every 30 min"
+          quiet={
+            pinnedYm && pinnedYm !== ym
+              ? `${trackingTarget.label}: the sheet timer is on ${monthLabel(pinnedYm)}, not this month. Sync now pushes this one.`
+              : undefined
           }
-          onClick={() => {
+          retry="Sync now"
+          busy={trackingBusy}
+          busyLabel="Syncing sheet…"
+          detail={
+            dirty
+              ? `${stagedCount} staged change${stagedCount === 1 ? "" : "s"} not saved yet, so not in the sheet.`
+              : undefined
+          }
+          onRetry={() => {
+            if (syncing) return;
             const [y, m] = ym.split("-").map(Number);
             runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
           }}
-        >
-          {trackingBusy ? "Syncing sheet…" : "Sync to Tracking Sheet"}
-        </Button>
-        {/* Finalize, moved here from its own page (CONSOLIDATION_PLAN stage 2):
-            copies the sheet's CURRENT INVOICE column into the month's reserved
-            block. Re-running overwrites that block, never adds a second. */}
-        <Button
-          variant="secondary"
-          className={cls}
-          disabled={syncing || trackingBusy || finalizing}
-          title={`Copy the sheet's CURRENT INVOICE column into the ${monthLabel(ym)} block`}
-          onClick={() => void finalizeSheet(trackingTarget.projectId)}
-        >
-          {finalizing ? "Finalizing…" : "Finalize sheet"}
-        </Button>
-        {finalizeMsg && <span className="basis-full text-center text-xs text-neutral-500 dark:text-neutral-400">{finalizeMsg}</span>}
+        />
+        {/* Finalize is a step of Close month (./CloseMonth) now. */}
         </>
       );
     }
@@ -1932,65 +1937,61 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    * ends the month. The standalone sheet push only appears with NOTHING staged,
    * because Save Changes already runs it as part of the same commit.
    */
-  const closingActions = (
+  // Two blocks (owner, 2026-11-14): the status lines, then the buttons. `panel`
+  // is the desktop menu over Save Changes — lines left, buttons in a grid;
+  // otherwise the touch row under the columns, centred.
+  const closingActions = (panel: boolean) => (
     <>
-      {/* Its route rides the invoice-review gate, so the button does too. */}
-      {can("invoice-review") && (
-        <Button
-          variant="secondary"
-          onClick={runPreSend}
-          disabled={preSendRunning}
-          className="min-h-11"
-        >
-          {preSendRunning ? "Checking…" : preSend.mem ? "Check again" : "Check this job"}
-        </Button>
-      )}
-      {trackingSheetAction("min-h-11")}
-      <Button
-        variant="secondary"
-        className="min-h-11"
-        title={`Add the client to the Document Access list on every ${monthLabel(ym)} bill`}
-        onClick={() => setAccessOpen(true)}
+      {/* The job check has no button: it runs on every month load — open, and
+          after each save — see the effect by usePreSendCheck. Its card carries
+          "Check again". */}
+      <div className={`flex basis-full flex-col gap-1 ${panel ? "[&>*]:!text-left" : ""}`}>
+        {trackingSheetAction("")}
+        {embed?.statuses}
+        {/* Company-wide, not this job — see LaborReportStatus. The office labor
+            routes refile the month on their own after a write, so this is the
+            stamp and a retry, not a button. */}
+        <LaborReportStatus ym={ym} className="text-center" />
+      </div>
+      {/* Document Access has no button here: approval gives it to a job's one
+          contact, Close month covers what is left, and the all-jobs card keeps
+          the dialog for a job with several contacts. */}
+      <div
+        className={
+          panel
+            ? "grid basis-full grid-cols-2 gap-2 [&>*]:w-full"
+            : "flex basis-full flex-wrap items-center justify-center gap-2"
+        }
       >
-        Give Document Access
-      </Button>
-      {/* Company-wide, not this job — see LaborReportButton. It sits here so a
-          labor fix made on this job reaches the Drive Labor sheet without a
-          trip to the all-jobs view. Held while anything is staged: the report
-          reads JobTread, so it would file the month without the unsaved edit. */}
-      <LaborReportButton
-        ym={ym}
-        size="md"
-        disabled={dirty || syncing}
-        buttonClassName="min-h-11"
-        className="items-center text-center"
-      />
+      {embed?.actions}
       {showApprove &&
         (allApproved ? (
-          /* Every bill is approved, so the next step is JobTread's own invoice
-             builder — New → Customer Invoice on the job's documents page pulls
-             exactly these uninvoiced bills. Staged coding still blocks it: an
-             invoice built now would carry the OLD cost codes, so save first. A
-             disabled <a> is not a thing, hence the button/link swap. Hidden
-             entirely once the reconcile banner above is already green — an
-             invoice exists and holds the whole month, so this would only raise a
-             duplicate one; the banner's own "Open invoice" link is the way in
-             from here. */
+          /* Every bill is approved, so the month closes in ONE step — sheet
+             push, finalize, client access, draft invoice (./CloseMonth). Staged
+             coding still blocks it: an invoice built now would carry the OLD
+             cost codes, so save first. Hidden once the reconcile banner above
+             is already green — an invoice exists and holds the whole month, so
+             this would only raise a duplicate one; the banner's own "Open
+             invoice" link is the way in from here. */
           reconReady ? null : dirty ? (
             <Button
               disabled
               title="Save staged coding changes to JobTread first"
               className="min-h-11"
             >
-              Create Invoice in JobTread ↗
+              Close month
             </Button>
           ) : (
-            <JtLink
-              href={`https://app.jobtread.com/jobs/${jobId}/documents`}
-              className={btn("primary", "md", "min-h-11")}
-            >
-              Create Invoice in JobTread ↗
-            </JtLink>
+            <CloseMonth
+              jobId={jobId}
+              ym={ym}
+              month={monthLabel(ym)}
+              jobTitle={jobTitle}
+              target={canTrack && trackingChecked ? trackingTarget : null}
+              pinnedYm={pinnedYm}
+              writes={Boolean(data?.writesEnabled)}
+              onClosed={() => void load({ preserveStaged: true })}
+            />
           )
         ) : (
           <Button
@@ -2005,6 +2006,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             Approve Draft Bills{draftBills.length > 0 ? ` (${draftBills.length})` : ""}
           </Button>
         ))}
+      </div>
     </>
   );
 
@@ -2560,10 +2562,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             touch, where they have their own row under the columns. */}
         {/* Hidden, not unmounted, when the pointer leaves: the Labor Report
             runs for up to four minutes, and unmounting would drop its result. */}
+        {/* A menu over the bar, not a row inside it: a row widened the bar
+            across the page and scattered the lines (owner, 2026-11-14). The
+            `pb-2` gap is inside the bar's hover area, so it stays open on the
+            way up. */}
         <div
-          className={`hidden flex-wrap items-center justify-end gap-2 ${barHover && !noHover ? "lg:flex" : ""}`}
+          className={`absolute bottom-full right-0 hidden w-[26rem] max-w-[calc(100vw-2rem)] pb-2 ${barHover && !noHover ? "lg:block" : ""}`}
         >
-          {closingActions}
+          <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-4 shadow-lg dark:bg-ink-raised">
+            {closingActions(true)}
+          </div>
         </div>
         {dirty && (
           <span className="text-xs font-bold tabular-nums text-warn">
@@ -2785,15 +2793,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             </p>
           )}
       </Dialog>
-    )}
-    {accessOpen && (
-      <DocumentAccessDialog
-        jobId={jobId}
-        ym={ym}
-        monthLabel={monthLabel(ym)}
-        jobTitle={jobTitle}
-        onClose={() => setAccessOpen(false)}
-      />
     )}
     </>
   );
@@ -3093,6 +3092,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         <div className={embed ? "order-last mt-4" : "order-last mt-4 lg:order-none lg:mb-4"}>
           <PreSendCheck
             run={preSend}
+            onRun={runPreSend}
             linkFor={findingLink}
             onRecheck={recheck}
             onClear={clear}
@@ -3111,7 +3111,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {jobId && (
         <div className={`order-last mt-4 border-t border-line pt-4 ${noHover ? "" : "lg:hidden"}`}>
           <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-center gap-2">
-            {closingActions}
+            {closingActions(false)}
           </div>
         </div>
       )}

@@ -5,6 +5,7 @@ import { descriptionForCode, round2, type BillMath, type LineEdit } from "@/lib/
 import { buildCombine, type CombineRequest } from "@/lib/combineLines";
 import type { BillRef, BoardPayload, JobBillLine } from "./Board";
 import { postSplitBill } from "@/lib/splitBillClient";
+import type { LineOps } from "./useLineOps";
 
 /**
  * The open bill's LINE actions on the Tracking Sheets board: Apply a code to
@@ -30,7 +31,10 @@ export function useLineEdits({
   setEdits,
   setStaged,
   setSyncMsg,
+  lineOps,
 }: {
+  /** The staged structural edits — delete, add, buyback, void (useLineOps.ts). */
+  lineOps: LineOps;
   data: BoardPayload | null;
   edits: Record<string, LineEdit | undefined>;
   leafOf: (l: JobBillLine) => string;
@@ -170,87 +174,40 @@ export function useLineEdits({
     setCombineMsg("");
   };
 
-  // Delete a single line from the open bill — ported from the bill page.
-  // WRITES immediately (draft-only; the server gates it), same as Combine.
-  const deleteLineById = async (id: string, label: string) => {
-    if (
-      !window.confirm(`Delete this line?\n\n${label}\n\nThis removes it from the bill in JobTread.`)
-    )
-      return;
-    setDeletingLineId(id);
-    setDeleteLineMsg("");
-    try {
-      const res = await fetch("/api/delete-line", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ docId: openBill?.id, costItemId: id }),
-      });
-      const json = await res.json();
-      if (!res.ok) setDeleteLineMsg(json.error ?? "Delete failed");
-      else if (json.previewed)
-        setDeleteLineMsg("Preview only — writes are OFF. Nothing was deleted in JobTread.");
-      else {
-        setCombineSelected((s) => s.filter((x) => x !== id));
-        setStaged((prev) => {
-          const next = new Map(prev);
-          next.delete(id);
-          return next;
-        });
-        setEdits((prev) => {
-          const next = { ...prev };
-          delete next[id];
-          return next;
-        });
-        await load({ preserveStaged: true });
-      }
-    } catch (e) {
-      setDeleteLineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setDeletingLineId("");
-    }
+  // Delete a single line from the open bill — STAGED (one save rule, Phase 6):
+  // the tap marks the row, a second tap unmarks it, and Save Changes writes
+  // /api/delete-line with the rest (useLineOps.ts).
+  const deleteLineById = (id: string, label: string) => {
+    if (!openBill) return;
+    lineOps.toggleDelete(id, openBill.id, label);
+    setCombineSelected((s) => s.filter((x) => x !== id));
+    setSyncMsg(null);
   };
 
-  // Add a new line to the open bill (createCostItem) — ported from the bill
-  // page. Unit $ is entered PRE-TAX (matching the line editor); gross it up
-  // against the bill's CURRENT previewed subtotal/tax so it lands consistent
-  // with whatever's on screen, including an unsynced tax edit.
-  const addLine = async () => {
+  // Add a new line to the open bill — STAGED. Unit $ is entered PRE-TAX
+  // (matching the line editor); grossed up against the bill's CURRENT
+  // previewed subtotal/tax so it lands consistent with what is on screen,
+  // including an unsynced tax edit. Save Changes writes /api/add-line.
+  const addLine = () => {
     const name = newLine.name.trim();
     if (!name || !openBill) return;
-    setAddLineSaving(true);
+    const qty = Number(newLine.quantity) || 0;
+    const preTaxUnit = Number(newLine.unitCost) || 0;
+    const newSumPreTax = openMath.subtotal + preTaxUnit * qty;
+    const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + openTaxView) / newSumPreTax : 1;
+    lineOps.stageAdd({
+      docId: openBill.id,
+      name,
+      quantity: qty,
+      preTaxUnit,
+      unitCost: round2(preTaxUnit * reTaxAdd),
+      jobCostItemId: newLine.code || undefined,
+      description: descriptionForCode(newLine.code, data?.budget ?? []),
+    });
+    setAddingLine(false);
+    setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
     setAddLineMsg("");
-    try {
-      const description = descriptionForCode(newLine.code, data?.budget ?? []);
-      const qty = Number(newLine.quantity) || 0;
-      const preTaxUnit = Number(newLine.unitCost) || 0;
-      const newSumPreTax = openMath.subtotal + preTaxUnit * qty;
-      const reTaxAdd = newSumPreTax > 0 ? (newSumPreTax + openTaxView) / newSumPreTax : 1;
-      const res = await fetch("/api/add-line", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          docId: openBill.id,
-          name,
-          quantity: qty,
-          unitCost: round2(preTaxUnit * reTaxAdd),
-          jobCostItemId: newLine.code || undefined,
-          description,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setAddLineMsg(json.error ?? "Add failed");
-      else if (json.previewed)
-        setAddLineMsg("Preview only — writes are OFF. Nothing was added to JobTread.");
-      else {
-        setAddingLine(false);
-        setNewLine({ name: "", quantity: "1", unitCost: "0", code: "" });
-        await load({ preserveStaged: true });
-      }
-    } catch (e) {
-      setAddLineMsg(e instanceof Error ? e.message : "Network error");
-    } finally {
-      setAddLineSaving(false);
-    }
+    setSyncMsg(null);
   };
 
   // Buyback WRITES immediately (unlike a recode) — like Combine, it's a
@@ -260,54 +217,19 @@ export function useLineEdits({
   // buybackLine in lib/jobtread.ts for how repeat clicks against the SAME
   // source bill land on the SAME Ascent - Shop bill instead of minting a new
   // one each time.
+  // STAGED (one save rule): the row is marked "→ Shop on save" and Save
+  // Changes writes /api/buyback — see buybackLine in lib/jobtread.ts for how
+  // repeat buybacks against the SAME source bill land on the SAME Shop bill.
   const buybackLineById = async (l: JobBillLine, name: string, extended: number) => {
-    // No confirm here: the card's buyback dialog is the confirmation, and it can
-    // hand over several lines in a row.
-    setBuybackId(l.id);
+    const codeId = leafOf(l);
+    lineOps.stageBuyback({
+      lineId: l.id,
+      docId: l.docId,
+      name,
+      unitCost: round2(extended),
+      description: codeId ? descriptionForCode(codeId, data?.budget ?? []) : undefined,
+    });
     setSyncMsg(null);
-    try {
-      const codeId = leafOf(l);
-      const description = codeId ? descriptionForCode(codeId, data?.budget ?? []) : undefined;
-      const res = await fetch("/api/buyback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceDocId: l.docId,
-          costItemId: l.id,
-          name,
-          unitCost: round2(extended),
-          description,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) setSyncMsg({ tone: "error", text: json.error ?? "Buyback failed." });
-      else if (json.previewed)
-        setSyncMsg({
-          tone: "error",
-          text: "Preview only — writes are OFF. Nothing was moved in JobTread.",
-        });
-      else {
-        setStaged((prev) => {
-          const next = new Map(prev);
-          next.delete(l.id);
-          return next;
-        });
-        setEdits((prev) => {
-          const next = { ...prev };
-          delete next[l.id];
-          return next;
-        });
-        setSyncMsg({
-          tone: "success",
-          text: json.created ? "Moved to a new Shop bill." : "Added to the existing Shop bill.",
-        });
-        await load({ preserveStaged: true });
-      }
-    } catch (e) {
-      setSyncMsg({ tone: "error", text: e instanceof Error ? e.message : "Network error" });
-    } finally {
-      setBuybackId("");
-    }
   };
 
   /** Split a bill (the coding card's ✂ Split bill) — see /api/split-bill. */

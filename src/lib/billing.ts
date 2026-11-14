@@ -55,6 +55,12 @@ export function parseBillingYm(ym: string | null | undefined): BillingPeriod | n
   return { billingMonthNum: month, billingYear: Number(m[1]) };
 }
 
+/** The last day of a billing month, "2026-10-31": the issue date of every
+ *  non-Sunset bill and of the month's client invoice. */
+export function billingMonthEnd(p: BillingPeriod): string {
+  return iso(p.billingYear, p.billingMonthNum, lastDayOfMonth(p.billingYear, p.billingMonthNum));
+}
+
 /** A period as the "2026-09" key every picker and filter matches on. */
 export function ymOf(p: BillingPeriod): string {
   return `${p.billingYear}-${String(p.billingMonthNum).padStart(2, "0")}`;
@@ -157,11 +163,7 @@ export function computeBillDates(
     const dd = new Date(billing.billingYear, billing.billingMonthNum, 10);
     dueDate = iso(dd.getFullYear(), dd.getMonth() + 1, dd.getDate());
   } else {
-    issueDate = iso(
-      billing.billingYear,
-      billing.billingMonthNum,
-      lastDayOfMonth(billing.billingYear, billing.billingMonthNum),
-    );
+    issueDate = billingMonthEnd(billing);
     const raw = String(extractedDueDate ?? "").trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
       dueDate = raw;

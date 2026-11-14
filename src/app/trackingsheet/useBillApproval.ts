@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { BillRef } from "./Board";
+import { toast } from "@/components/Toast";
 
 /**
  * Approving bills on the Tracking Sheets board — one from the coding card, or
@@ -82,11 +83,10 @@ export function useBillApproval({
     setApproving(true);
     const r = await postApproval(b);
     setApproving(false);
-    setApproveMsg(
-      r.failure
-        ? { tone: "error", text: r.failure }
-        : { tone: "success", text: `${r.previewed ? "Would approve" : "Approved"} ${b.label}.` },
-    );
+    // Approving changes no money, so it writes at once and a toast confirms it
+    // (one save rule); a failure stays on the page.
+    if (r.failure) setApproveMsg({ tone: "error", text: r.failure });
+    else toast(`${r.previewed ? "Would approve" : "Approved"} ${b.label}.`);
     // Approving is queue work, so land on the next bill rather than on the one
     // just finished. A failure stays put — the message is about THIS bill.
     if (!r.failure) setOpenDocId(next ? next.id : null);
@@ -113,7 +113,7 @@ export function useBillApproval({
     setApproveOpen(false);
     const verb = previewed ? "Would approve" : "Approved";
     if (failures.length === 0) {
-      setApproveMsg({ tone: "success", text: `${verb} ${ok} bill${ok === 1 ? "" : "s"}.` });
+      toast(`${verb} ${ok} bill${ok === 1 ? "" : "s"}.`);
     } else {
       setApproveMsg({
         tone: "error",

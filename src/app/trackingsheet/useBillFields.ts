@@ -4,6 +4,7 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { BillMoveRequest } from "@/components/BillMove";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
 import { issueDateFor, monthLabel } from "@/lib/billingMonths";
+import { toast } from "@/components/Toast";
 import type { BillRef, BoardPayload } from "./Board";
 
 /**
@@ -89,11 +90,10 @@ export function useBillFields({
       else {
         if (leaves) {
           setOpenDocId(null);
-          setSyncMsg({
-            tone: "success",
-            text: `Moved to ${monthLabel(targetYm)} — it's no longer in ${monthLabel(ym)}.`,
+          toast(`Moved to ${monthLabel(targetYm)}.`, {
+            description: `It's no longer in ${monthLabel(ym)}.`,
           });
-        }
+        } else toast("Billing month saved.");
         await load({ preserveStaged: true });
       }
     } catch (e) {
@@ -123,7 +123,10 @@ export function useBillFields({
       if (!res.ok) setFilingMsg(json.error ?? "Couldn't set the due date.");
       else if (json.previewed)
         setFilingMsg("Preview only — writes are OFF. The due date wasn't changed.");
-      else await load({ preserveStaged: true });
+      else {
+        toast("Due date saved.");
+        await load({ preserveStaged: true });
+      }
     } catch (e) {
       setFilingMsg(e instanceof Error ? e.message : "Network error");
     } finally {
@@ -169,7 +172,7 @@ export function useBillFields({
       else if (json.previewed)
         setFilingMsg("Preview only — writes are OFF. The bill number wasn't changed.");
       else {
-        setFilingMsg("Bill number saved.");
+        toast("Bill number saved.");
         await load({ preserveStaged: true });
       }
     } catch (e) {

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { JobPicker } from "@/components/JobPicker";
+import { timeAgo } from "@/lib/timeAgo";
 import { applyDismissals, dismissalKey } from "@/lib/digest/dismissals";
 import { categoryTone, groupByCategory, type CategoryTone } from "@/lib/digest/grouping";
 import type { DigestCategory } from "@/lib/digest/settings";
@@ -258,14 +259,19 @@ export function DigestFindings() {
       <SectionHeading
         trailing={
           canRefresh && (
-            <button
-              type="button"
-              onClick={refresh}
-              disabled={refreshing}
-              className="text-[11px] font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
-            >
-              {refreshing ? "Refreshing…" : "Refresh"}
-            </button>
+            // The digest runs on its own at 8:00 and 17:00 UTC (vercel.json),
+            // so this is its stamp and a retry, not a button (Phase 6).
+            <span className="text-[11px] text-neutral-500 dark:text-neutral-400">
+              {digest ? `Updated ${timeAgo(digest.generatedAt)} · ` : ""}
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={refreshing}
+                className="font-semibold text-accent hover:underline disabled:opacity-50 dark:text-accent-soft"
+              >
+                {refreshing ? "Refreshing…" : "Refresh"}
+              </button>
+            </span>
           )
         }
       >
