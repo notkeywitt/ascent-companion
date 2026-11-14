@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// NOTE: invoice CREATION is intentionally not an API write. JobTread builds an
-// invoice from unbilled items via a multi-call server-side flow that also sets
-// the bill↔invoice link; reproducing it risks double-billing. The Invoicing tab
-// instead deep-links to JobTread's native builder (see stage/page.tsx).
+// NOTE: invoice CREATION is POST /api/invoice-draft, not this route. One
+// createDocument with `lineItems` and `references` builds the draft and sets
+// the bill↔invoice link (scripts/probe-invoice-create.mjs, 2026-11-13); that
+// route re-reads every reference and voids a draft that missed one.
