@@ -20,6 +20,7 @@ import { recentMonthlyCheckRuns } from "@/lib/invoiceReview/investigations";
 import { reviewWindow } from "@/lib/invoiceReview/schedule";
 import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/settings";
 import { money } from "@/lib/money";
+import { listTimeProblems } from "@/lib/timeSync";
 
 interface PullSource {
   source: string;
@@ -103,6 +104,18 @@ const PULL: PullSource[] = [
         };
       });
     },
+  },
+  {
+    // Time records the sheet says JobTread does not have right. Read from the sheet only.
+    source: "time-sync",
+    load: async () =>
+      (await listTimeProblems()).rows.map((r) => ({
+        key: r.entryId || `${r.employee}|${r.date}|${r.start}`,
+        kind: `time-${r.problem}`,
+        subject: r.employee,
+        title: `${r.employee || "Unknown"} ${r.date}${r.jobLabel ? ` on ${r.jobLabel}` : ""}: ${r.detail}`,
+        link: "/payroll?section=sync",
+      })),
   },
 ];
 

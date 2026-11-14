@@ -12,7 +12,6 @@ import { previousMonth } from "@/lib/homeFacts";
 import { getAllDraftBills, getLastAmazonBillMonth } from "@/lib/jobtread";
 import { listRequests } from "@/lib/leaveService";
 import { reconcileState, type ReconcileResult } from "@/lib/sunsetReconcile";
-import { listTimeProblems } from "@/lib/timeSync";
 import { resolveAllowedViews } from "@/lib/views";
 import { GET as sunsetList } from "@/app/api/sunset-statements/route";
 import { GET as sunsetReconcile } from "@/app/api/sunset-statements/reconcile/route";
@@ -93,16 +92,6 @@ const SOURCES: Source[] = [
       if (r.error || !r.data?.ok) throw new Error(r.error || r.data?.error || "listEmails failed");
       const n = (r.data.emails ?? []).length;
       return { count: n, detail: `${plural(n, "invoice email")} to log` };
-    },
-  },
-  {
-    key: "time-sync",
-    view: "time-sync",
-    label: "Time Sync",
-    href: "/payroll?section=sync",
-    load: async () => {
-      const n = (await listTimeProblems()).problems;
-      return { count: n, detail: `${plural(n, "time record")} JobTread does not have right` };
     },
   },
   {
