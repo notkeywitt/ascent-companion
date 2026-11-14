@@ -19,9 +19,10 @@ import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
 import { Sheet } from "@/components/Sheet";
 
 /**
- * Sheet sync settings — a panel on the Jobs Hub and on Tracking Sheets' all-jobs
- * view since 2026-11-13 (OVERHAUL_PLAN 3.3); it was the /tracking-sheet page,
- * which now redirects to the hub. `SheetSyncButton` opens it.
+ * Sheet sync settings — a panel on the Jobs Hub since 2026-11-13 (OVERHAUL_PLAN
+ * 3.3): the Month tab's Company tools and a picked job's save menu open it. The
+ * hub's month card no longer does (owner, 2026-11-14). It was the /tracking-sheet
+ * page, which now redirects to the hub. `SheetSyncButton` opens it.
  *
  * Google Tracking Sheet — pushes a job's month of sub/vendor invoices into that
  * project's own tracking spreadsheet, replacing the by-hand copy out of the
