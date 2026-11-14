@@ -360,6 +360,7 @@ export function InvoicingSummary({ embedYm }: { embedYm?: string } = {}) {
 
           {notesOpen && (
             <PackageEmailNotes
+              ym={ym}
               jobs={included}
               running={email.running}
               onPatch={(id, note) => patchJob(id, { note })}
