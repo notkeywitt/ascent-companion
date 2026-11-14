@@ -128,6 +128,13 @@ Never change anything. Never record a ruling. A verdict is not a ruling.
 
 ## Step 4b — the legacy clients' Google Tracking Sheets
 
+**The coded run now does this step.** When the digest says `tracking sheets:
+checked in code`, skip the numbered steps below. Each discrepancy is a finding
+of kind `sheet-…`; give it a verdict like any other finding, and take the
+report's Tracking Sheets table from the digest lines. Do the numbered steps
+only when the digest says `NOT checked in code`, or for a job whose sheet a
+warning names as not checked.
+
 The sheets drift from JobTread. The usual causes: the sync missed a bill, a cost
 code has no column or row on the sheet, a spreadsheet formula is broken, or the
 Labor tab prices a code at a different rate than JobTread costed the hours. The

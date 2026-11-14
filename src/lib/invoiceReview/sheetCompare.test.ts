@@ -11,6 +11,7 @@ import {
   totalJtLines,
   type Grid,
 } from "./sheetCompare";
+import { sliceMainTab } from "./sheetEvidence";
 
 // Berger Bunkhouse, October 2026 — the Sub/Vendor tab as get_values returned
 // it on 2026-11-10 (header row trimmed to the codes that matter here).
@@ -205,6 +206,20 @@ describe("findInvoiceColumns", () => {
     const c = findInvoiceColumns(h, 2026, 10);
     expect(c.current).toEqual({ labor: "I", invoices: "J" });
     expect(c.month).toEqual({ labor: "B", invoices: "C" });
+  });
+
+  it("cuts a whole tab read into headers, codes and the money columns", () => {
+    const main: Grid = [
+      ["", "", "", "", "", "", "", "", "CURRENT INVOICE"],
+      ["", "October '26"],
+      ["", "LABOR", "INVOICES", "CONTINGENCY", "TOTAL", "", "", "", "LABOR", "INVOICES"],
+      ["01 51 10", "$1.00", "$300.00", "", "", "", "", "", "$1.00", "$300.00"],
+      ["22 20 00"],
+    ];
+    const cut = sliceMainTab(main, 2026, 10);
+    expect(cut.codes).toEqual([["01 51 10"], ["22 20 00"]]);
+    expect(Object.keys(cut.columns).sort()).toEqual(["B", "C", "I", "J"]);
+    expect(cut.columns.J).toEqual([["$300.00"], [""]]);
   });
 
   it("compares the Tracking Sheet tab's cells to what feeds them", () => {

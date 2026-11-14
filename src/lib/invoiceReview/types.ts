@@ -15,6 +15,9 @@
 
 /** How serious a finding is. `error` = the invoice is probably wrong as it
  *  stands; `warning` = worth a human look; `info` = context, never a problem. */
+import type { SheetIssueKind } from "./sheetCompare";
+import type { SheetEvidence } from "./sheetEvidence";
+
 export type FindingSeverity = "error" | "warning" | "info";
 
 /**
@@ -77,6 +80,8 @@ export type FindingKind =
   | "vendor-silent"
   /** An invoice's markup is off what this customer is normally billed. */
   | "markup-rate-drift"
+  // ── A legacy client's Google Tracking Sheet vs JobTread (sheetCompare.ts) ──
+  | `sheet-${SheetIssueKind}`
   // ── Labor rates: is the month's labor costed at the rate it should be? ────
   /** A time entry is costed at a rate the person's pay type no longer carries. */
   | "labor-rate-stale"
@@ -624,6 +629,12 @@ export interface MonthEvidence {
    *  job whose reconciliation errored). Surfaced so a partial review is never
    *  mistaken for a clean one. */
   warnings: string[];
+  /**
+   * Each legacy client's Google Tracking Sheet compared with JobTread
+   * (sheetEvidence.ts). Absent when the sheets were not read: a one-job check,
+   * or a failed read, which a warning then names. Absent means SKIPPED.
+   */
+  sheets?: SheetEvidence[];
   /**
    * What the months BEFORE this one looked like (norms.ts), attached by the
    * runner before the checks run.

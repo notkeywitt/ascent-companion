@@ -101,6 +101,21 @@ function digest(r) {
     `pass: ${r.investigation ? `${r.investigation.status} (${r.investigation.model}, ${r.investigation.finishedAt || r.investigation.startedAt})` : "none yet"}`,
     "",
   ];
+  if (ev.sheets?.length) {
+    lines.push(`tracking sheets: checked in code (${ev.sheets.length}). Skip Step 4b. Discrepancies are the sheet-* findings below.`);
+    for (const s of ev.sheets) {
+      const r = s.result;
+      lines.push(
+        `  - ${s.label} | bills: JobTread ${money(r.jtTotal)}, sheet ${money(r.sheetTotal)}` +
+          (r.laborJt ? ` | labor: JobTread ${r.laborJt.hours} h ${money(r.laborJt.cost)}` : "") +
+          (r.laborSheet ? `, sheet ${r.laborSheet.hours} h ${money(r.laborSheet.cost)}` : "") +
+          ` | ${r.issues.length} discrepancies | ${s.url}`,
+      );
+    }
+  } else {
+    lines.push("tracking sheets: NOT checked in code. Do Step 4b.");
+  }
+  lines.push("");
   const live = p.findings.filter((f) => !f.suppressedBy);
   lines.push(`findings: ${live.length} live, ${p.findings.length - live.length} ruled out`);
   for (const f of live) {
