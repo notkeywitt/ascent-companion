@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isLaterMonth, planCopy, recordsLabel, sheetsHoldAnotherMonth, syncIsRunning } from "./monthChangeSheets";
+import { closeDue, isLaterMonth, planCopy, prevMonth, recordsLabel } from "./monthChangeSheets";
 
 describe("isLaterMonth", () => {
   it("is true only for a move forward", () => {
@@ -15,6 +15,14 @@ describe("isLaterMonth", () => {
   });
 });
 
+describe("prevMonth", () => {
+  it("steps back one month, across a year", () => {
+    expect(prevMonth("2026-11")).toBe("2026-10");
+    expect(prevMonth("2027-01")).toBe("2026-12");
+    expect(prevMonth("nope")).toBe("");
+  });
+});
+
 describe("recordsLabel", () => {
   it("names the block for the month after the billing month", () => {
     expect(recordsLabel("2026-06")).toBe("July '26");
@@ -23,20 +31,25 @@ describe("recordsLabel", () => {
   });
 });
 
-describe("sheetsHoldAnotherMonth", () => {
-  const running = { triggerInstalled: true, paused: false };
-  const paused = { triggerInstalled: true, paused: true };
-  it("blocks the copy when a running sync holds another month", () => {
-    expect(sheetsHoldAnotherMonth(running, "2026-07", "2026-10")).toBe(true);
+describe("closeDue", () => {
+  it("asks for the month before Home while the sheets are still on it", () => {
+    expect(closeDue("2026-11", "2026-10", false)).toBe("2026-10");
   });
-  it("allows the copy when the running sync holds the closing month", () => {
-    expect(sheetsHoldAnotherMonth(running, "2026-10", "2026-10")).toBe(false);
+  it("asks when the sheets sit on an older, stale month", () => {
+    expect(closeDue("2026-11", "2026-07", false)).toBe("2026-10");
   });
-  it("allows the copy while the sync is paused or not installed", () => {
-    expect(sheetsHoldAnotherMonth(paused, "2026-07", "2026-10")).toBe(false);
-    expect(sheetsHoldAnotherMonth({ triggerInstalled: false }, "2026-07", "2026-10")).toBe(false);
-    expect(sheetsHoldAnotherMonth(null, "2026-07", "2026-10")).toBe(false);
-    expect(syncIsRunning(paused)).toBe(false);
+  it("stops asking once month close is stamped", () => {
+    expect(closeDue("2026-11", "2026-10", true)).toBe("");
+  });
+  it("does not ask when the sheets already moved past the month", () => {
+    // Closed October, went back to October, forward to November again.
+    expect(closeDue("2026-11", "2026-11", false)).toBe("");
+    // Looking around in old months after the sheets moved on.
+    expect(closeDue("2026-09", "2026-11", false)).toBe("");
+  });
+  it("does not ask on a guess", () => {
+    expect(closeDue("2026-11", "", false)).toBe("");
+    expect(closeDue("", "2026-10", false)).toBe("");
   });
 });
 

@@ -7,7 +7,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { MonthPicker } from "@/components/MonthPicker";
-import { MonthChangeSheets } from "@/components/MonthChangeSheets";
+import { MonthChangeSheets, readCloseState } from "@/components/MonthChangeSheets";
 import { isLaterMonth } from "@/lib/monthChangeSheets";
 
 /**
@@ -63,8 +63,11 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   const [saving, setSaving] = useState(false);
   /** Why the last save bounced. The month snaps back, so say why it did. */
   const [err, setErr] = useState("");
-  /** A move to a later month, waiting on the tracking sheets' records copy. */
-  const [closing, setClosing] = useState<{ from: string; to: string } | null>(null);
+  /** The month-close dialog: `move` when the picker is going to `to`, false
+   *  when Home already sits on it (the chip). */
+  const [closing, setClosing] = useState<{ to: string; move: boolean } | null>(null);
+  /** The month before this one, while month close has not run for it. */
+  const [closeDue, setCloseDue] = useState("");
 
   useEffect(() => setToday(new Date()), []);
 
@@ -85,6 +88,20 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
       cancelled = true;
     };
   }, [shows, given]);
+
+  // Is the month before this one still open on the tracking sheets? The chip
+  // below keeps asking until month close has run. A failed read asks nothing.
+  const asksClose = (access.role === "admin" || access.role === "office") && access.can("tracking-sheet");
+  useEffect(() => {
+    if (!asksClose || !ym) return;
+    let cancelled = false;
+    readCloseState(ym)
+      .then((s) => !cancelled && setCloseDue(s.due))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [asksClose, ym]);
 
   // BOTH halves read the COMPANY timezone, not the device's. The billing month
   // has to (a bill uploaded at 11 PM Pacific on the 10th must not count as the
@@ -112,13 +129,14 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   // whole change if that push fails — so a rejection means NOTHING moved, and
   // showing the old month back is the truth rather than a lost edit.
   //
-  // A move to a LATER month closes the month it leaves, so it goes through
-  // MonthChangeSheets first: each tracking sheet's CURRENT INVOICE is copied
-  // into its records before anything moves. A move back, and a role without
-  // the sheets, changes the month directly.
+  // This is the ONE month picker. A move to a LATER month goes through
+  // MonthChangeSheets, which asks to run month close while the month before
+  // the new one is still open on the tracking sheets, and changes the month
+  // without a word when it is not. A move back, and a role without the sheets,
+  // changes the month directly: the sheets never follow a move back.
   function pick(next: string) {
     if (next === ym) return;
-    if (isLaterMonth(ym, next) && access.can("tracking-sheet")) return setClosing({ from: ym, to: next });
+    if (isLaterMonth(ym, next) && asksClose) return setClosing({ to: next, move: true });
     void set(next);
   }
 
@@ -197,11 +215,22 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
           )}
           {closing && (
             <MonthChangeSheets
-              from={closing.from}
               to={closing.to}
+              change={closing.move ? () => set(closing.to) : undefined}
               onCancel={() => setClosing(null)}
-              onChange={() => set(closing.to)}
             />
+          )}
+          {closeDue && canSet && !err && (
+            <div className="mt-1 flex justify-end">
+              <button
+                type="button"
+                className="min-h-8"
+                onClick={() => setClosing({ to: ym, move: false })}
+                aria-label={`Run ${monthLabel(closeDue)} month close`}
+              >
+                <Chip tone="warn">Close {monthLabel(closeDue).replace(/ \d{4}$/, "")}</Chip>
+              </button>
+            </div>
           )}
           {(err || stale || auto) && (
             <div className="mt-1 flex items-center justify-end gap-2">

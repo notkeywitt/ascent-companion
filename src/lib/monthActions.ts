@@ -22,7 +22,10 @@ export type MonthAction =
   | "tracking-sync"
   /** The sheet's month block was written (scope = projectId). */
   | "finalize"
-  | "invoicing-email";
+  | "invoicing-email"
+  /** Month close ran for the tracking sheets (scope "sheets"): every wired
+   *  sheet's records hold the month. See src/lib/monthChangeSheets.ts. */
+  | "month-close";
 
 /**
  * Stamp one run, replacing the last stamp for the same action, scope and month.

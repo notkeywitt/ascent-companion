@@ -5,38 +5,42 @@ import { Button, Dialog, Loading } from "@/components/ui";
 import { runSheetOp } from "@/components/TrackingSheetSync";
 import { monthLabel } from "@/lib/billingMonths";
 import {
+  MONTH_CLOSE_ACTION,
+  MONTH_CLOSE_SCOPE,
+  closeDue,
   planCopy,
   recordsLabel,
-  sheetsHoldAnotherMonth,
-  syncIsRunning,
-  type SheetSyncState,
 } from "@/lib/monthChangeSheets";
 
 /**
- * The home billing month moves to a later month: that closes the month it
- * leaves. Before anything moves, each wired tracking sheet's CURRENT INVOICE
- * is copied into its records (the reserved month block), so the month's
- * figures are kept when the sheets go on to the next month.
+ * Month close for the tracking sheets, asked from the ONE month picker (Home).
+ * Rules and the reasoning: src/lib/monthChangeSheets.ts.
  *
- * Order, and it is the whole point:
- *   1. Copy, per sheet (rules in src/lib/monthChangeSheets.ts):
- *        - a sheet "Close month" already filed for this month is left alone;
- *        - a sheet that already has a block holding this month's figures is
- *          left alone, so the copy never replaces records;
- *        - otherwise CURRENT INVOICE goes into the next free block. While the
- *          automatic sync runs, the sheet is refreshed from JobTread first
- *          (the write the timer makes anyway). While it is paused, the sheet
- *          is copied as it stands.
- *   2. Only when every sheet is copied or already has its records: the sheets'
- *      held month moves to the new month (op "setPeriod").
- *   3. Then the billing month changes (`onChange`).
+ * Opened two ways by `HomeMasthead`:
+ *   - the picker moves forward to `to` (`change` sets the billing month), or
+ *   - Home already sits on `to` and the month before it is still open (the
+ *     "Close <month>" chip; no `change`).
  *
- * A failed copy stops before step 2. "Change month only" then moves the
- * billing month and leaves the sheets held where they are, so no sheet is
- * rewritten with a new month before its records exist.
+ * It reads the sheets' state first. When nothing is due it changes the month
+ * and shows nothing. When the month before `to` is still open it ASKS, and on
+ * a yes runs, in this order:
  *
- * Every write goes through /api/tracking-sheet, which Apps Script serves.
- * Nothing here writes to JobTread.
+ *   1. The sheets' month is set to the closing month (op "setPeriod"), so the
+ *      30-minute sync cannot write another month between the steps below.
+ *   2. Per sheet: one that Close month already filed, or whose records already
+ *      hold the month, is left alone. Otherwise the sheet is refreshed with the
+ *      closing month's bills from JobTread (op "sync"), then CURRENT INVOICE
+ *      is copied into the next free records block (op "finalize"). The refresh
+ *      is what makes the record the right month, whatever the sheet showed.
+ *   3. Only when every sheet has its records: month close is stamped, and the
+ *      sheets move on to `to`.
+ *   4. The billing month changes, when it has not already.
+ *
+ * A failed sheet stops before step 3: the sheets stay on the closing month and
+ * the app keeps asking. "Not now" changes the billing month alone.
+ *
+ * Every sheet write goes through /api/tracking-sheet, which Apps Script
+ * serves. Nothing here writes to JobTread.
  */
 type RowState = "todo" | "running" | "done" | "kept" | "failed";
 interface Row {
@@ -46,77 +50,105 @@ interface Row {
   note?: string;
 }
 
-type Phase = "loading" | "load-failed" | "wrong-month" | "ready" | "running" | "failed" | "changing";
+type Phase = "loading" | "load-failed" | "ask" | "running" | "failed" | "changing";
 
 const MARK: Record<RowState, string> = { todo: "", running: "…", done: "✓", kept: "–", failed: "✕" };
 
+async function setSheetsMonth(ym: string): Promise<void> {
+  const [year, month] = ym.split("-").map(Number);
+  const res = await fetch("/api/tracking-sheet", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ op: "setPeriod", month, year }),
+  });
+  const b = await res.json().catch(() => ({}));
+  if (!res.ok || b?.ok === false) throw new Error(b?.error || `Request failed (${res.status})`);
+}
+
+/** The sheets' month and whether month close is stamped for the month before
+ *  `homeYm`. Throws when the sheets cannot be read. Shared with HomeMasthead. */
+export async function readCloseState(homeYm: string): Promise<{
+  jobs: { id: string; label: string }[];
+  sheetsYm: string;
+  filed: Set<string>;
+  /** The month still to close, or "". */
+  due: string;
+}> {
+  const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
+  const b = await res.json();
+  if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
+  const jobs: { id: string; label: string }[] = b.jobs ?? [];
+  const m = Number(b.defaultMonth);
+  const y = Number(b.defaultYear);
+  const sheetsYm = m && y ? `${y}-${String(m).padStart(2, "0")}` : "";
+  const closing = closeDue(homeYm, sheetsYm, false);
+  if (!closing || jobs.length === 0) return { jobs, sheetsYm, filed: new Set(), due: "" };
+
+  const stamps = await fetch(`/api/month-actions?ym=${encodeURIComponent(closing)}`, { cache: "no-store" });
+  if (!stamps.ok) throw new Error(`Could not read the month's stamps (${stamps.status}).`);
+  const runs: { action: string; scope: string }[] = (await stamps.json()).runs ?? [];
+  const closed = runs.some((r) => r.action === MONTH_CLOSE_ACTION && r.scope === MONTH_CLOSE_SCOPE);
+  return {
+    jobs,
+    sheetsYm,
+    filed: new Set(runs.filter((r) => r.action === "finalize").map((r) => r.scope)),
+    due: closeDue(homeYm, sheetsYm, closed),
+  };
+}
+
 export function MonthChangeSheets({
-  from,
   to,
+  change,
   onCancel,
-  onChange,
 }: {
-  /** The billing month being closed, "2026-10". */
-  from: string;
-  /** The month the selector moves to. */
+  /** The month Home is on, or is moving to, "2026-11". */
   to: string;
+  /** Sets the billing month and reloads; resolves with the error on a failure.
+   *  Left out when Home already sits on `to`. */
+  change?: () => Promise<string | null>;
   onCancel: () => void;
-  /** Sets the billing month and reloads. Resolves with the error on a failure. */
-  onChange: () => Promise<string | null>;
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [rows, setRows] = useState<Row[]>([]);
   const [error, setError] = useState("");
-  const [heldYm, setHeldYm] = useState("");
-  const [running, setRunning] = useState(false);
-  /** Sheets "Close month" or the finalize op already filed for `from`. */
+  /** The month being closed: the month before `to`. */
+  const [closing, setClosing] = useState("");
+  const sheetsYm = useRef("");
+  /** Sheets Close month (or the finalize op) already filed for `closing`. */
   const filed = useRef(new Set<string>());
 
-  const [fy, fm] = from.split("-").map(Number);
-  const [ty, tm] = to.split("-").map(Number);
-  const block = recordsLabel(from);
-
-  const change = useCallback(async () => {
+  const finish = useCallback(async () => {
     setPhase("changing");
-    const why = await onChange();
+    if (!change) return window.location.reload();
+    const why = await change();
     if (why) {
       setError(why);
       setPhase("failed");
     }
-  }, [onChange]);
+  }, [change]);
 
   const load = useCallback(async () => {
     setPhase("loading");
     setError("");
     try {
-      const res = await fetch("/api/tracking-sheet", { cache: "no-store" });
-      const b = await res.json();
-      if (!res.ok) throw new Error(b?.error || `Request failed (${res.status})`);
-      const jobs: { id: string; label: string }[] = b.jobs ?? [];
-      // No wired sheet: there is nothing to copy and nothing to hold.
-      if (jobs.length === 0) return void change();
-
-      const stamps = await fetch(`/api/month-actions?ym=${encodeURIComponent(from)}`, { cache: "no-store" });
-      const runs: { action: string; scope: string }[] = stamps.ok ? ((await stamps.json()).runs ?? []) : [];
-      filed.current = new Set(runs.filter((r) => r.action === "finalize").map((r) => r.scope));
-
-      const m = Number(b.defaultMonth);
-      const y = Number(b.defaultYear);
-      const held = m && y ? `${y}-${String(m).padStart(2, "0")}` : "";
-      const sync = (b.sync ?? null) as SheetSyncState | null;
-      setHeldYm(held);
-      setRunning(syncIsRunning(sync));
-      setRows(jobs.map((j) => ({ id: j.id, label: j.label, state: "todo" })));
-      setPhase(sheetsHoldAnotherMonth(sync, held, from) ? "wrong-month" : "ready");
+      const s = await readCloseState(to);
+      // Nothing to close: the month just changes. From the chip there is
+      // nothing to do at all.
+      if (!s.due) return change ? void finish() : onCancel();
+      sheetsYm.current = s.sheetsYm;
+      filed.current = s.filed;
+      setClosing(s.due);
+      setRows(s.jobs.map((j) => ({ id: j.id, label: j.label, state: "todo" })));
+      setPhase("ask");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not read the tracking sheets.");
       setPhase("load-failed");
     }
-  }, [from, change]);
+  }, [to, change, finish, onCancel]);
 
   useEffect(() => {
     void load();
-    // Read once per open: the dialog mounts fresh for each month change.
+    // Read once per open: the dialog mounts fresh each time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -126,7 +158,20 @@ export function MonthChangeSheets({
   const run = async () => {
     setPhase("running");
     setError("");
-    // A second run takes only the sheets the first one did not finish.
+    const [cy, cm] = closing.split("-").map(Number);
+    const block = recordsLabel(closing);
+    try {
+      // 1. Hold the sheets on the closing month while its records are written.
+      if (sheetsYm.current !== closing) {
+        await setSheetsMonth(closing);
+        sheetsYm.current = closing;
+      }
+    } catch (e) {
+      setError(`Could not set the sheets to ${monthLabel(closing)}: ${e instanceof Error ? e.message : "request failed"}`);
+      return setPhase("failed");
+    }
+
+    // 2. A second run takes only the sheets the first one did not finish.
     const todo = rows.filter((r) => r.state === "todo" || r.state === "failed");
     const outcomes = await Promise.all(
       todo.map(async (r): Promise<boolean> => {
@@ -136,15 +181,15 @@ export function MonthChangeSheets({
             return true;
           }
           mark(r.id, "running");
-          const dry = await runSheetOp(r.id, "finalize", fm, fy, { dryRun: true });
+          const dry = await runSheetOp(r.id, "finalize", cm, cy, { dryRun: true });
           if (planCopy(dry) === "keep") {
-            mark(r.id, "kept", `Already has a ${String(dry.monthLabel || block)} block. Left as it is.`);
+            mark(r.id, "kept", `Records already hold ${String(dry.monthLabel || block)}. Left as they are.`);
             return true;
           }
-          if (running) await runSheetOp(r.id, "sync", fm, fy);
-          const f = await runSheetOp(r.id, "finalize", fm, fy);
+          await runSheetOp(r.id, "sync", cm, cy);
+          const f = await runSheetOp(r.id, "finalize", cm, cy);
           filed.current.add(r.id);
-          mark(r.id, "done", `Copied to ${String(f.monthLabel || block)} at ${String(f.targetRange || "")}.`);
+          mark(r.id, "done", `Filed as ${String(f.monthLabel || block)} at ${String(f.targetRange || "")}.`);
           return true;
         } catch (e) {
           mark(r.id, "failed", e instanceof Error ? e.message : "Something went wrong.");
@@ -154,46 +199,48 @@ export function MonthChangeSheets({
     );
     if (outcomes.includes(false)) return setPhase("failed");
 
-    // Every sheet has its records. Only now may the sheets move on.
-    if (heldYm !== to) {
-      try {
-        const res = await fetch("/api/tracking-sheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ op: "setPeriod", month: tm, year: ty }),
-        });
-        const b = await res.json();
-        if (!res.ok || b?.ok === false) throw new Error(b?.error || `Request failed (${res.status})`);
-        setHeldYm(to);
-      } catch (e) {
-        setError(
-          `The records are copied, but the sheets could not move to ${monthLabel(to)}: ` +
-            `${e instanceof Error ? e.message : "request failed"}`,
-        );
-        return setPhase("failed");
-      }
+    // 3. Every sheet has its records. Stamp the close, then move the sheets on.
+    try {
+      await fetch("/api/month-actions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: MONTH_CLOSE_ACTION, ym: closing }),
+      });
+      await setSheetsMonth(to);
+      sheetsYm.current = to;
+    } catch (e) {
+      setError(
+        `The records are filed, but the sheets could not move to ${monthLabel(to)}: ` +
+          `${e instanceof Error ? e.message : "request failed"}`,
+      );
+      return setPhase("failed");
     }
-    await change();
+    await finish();
   };
 
+  // "Try again" after the sheets already moved on: only the month is left.
+  const retry = () => (phase === "load-failed" ? load() : sheetsYm.current === to ? finish() : run());
+
   const busy = phase === "running" || phase === "changing" || phase === "loading";
-  const heldLabel = heldYm ? monthLabel(heldYm) : "the month they hold now";
+  const closingLabel = closing ? monthLabel(closing) : "the month";
 
   const title =
-    phase === "failed" || phase === "load-failed"
-      ? "The billing month has not changed"
-      : phase === "wrong-month"
-        ? `The sheets are on ${heldLabel}`
-        : `Change the billing month to ${monthLabel(to)}?`;
+    phase === "load-failed"
+      ? "Could not read the tracking sheets"
+      : phase === "failed"
+        ? "Month close stopped"
+        : phase === "loading"
+          ? "Checking the tracking sheets"
+          : `Run ${closingLabel} month close?`;
 
-  const cancel = (
-    <Button variant="secondary" className="min-h-11 w-full" onClick={onCancel} disabled={busy}>
-      Cancel
-    </Button>
-  );
-  const monthOnly = (
-    <Button variant="secondary" className="min-h-11 w-full" onClick={change} disabled={busy}>
-      Change month only
+  const notNow = (
+    <Button
+      variant="secondary"
+      className="min-h-11 w-full"
+      disabled={busy}
+      onClick={change ? finish : onCancel}
+    >
+      {change ? "Not now" : "Cancel"}
     </Button>
   );
 
@@ -203,26 +250,18 @@ export function MonthChangeSheets({
       onClose={onCancel}
       title={title}
       footer={
-        phase === "ready" || phase === "running" || phase === "changing" ? (
+        phase === "loading" ? undefined : (
           <div className="grid w-full grid-cols-2 gap-2">
-            {cancel}
-            <Button className="min-h-11 w-full" onClick={run} disabled={busy}>
-              {phase === "running" ? "Copying…" : phase === "changing" ? "Changing…" : "Copy and change month"}
+            {notNow}
+            <Button className="min-h-11 w-full" disabled={busy} onClick={phase === "ask" ? run : retry}>
+              {phase === "running"
+                ? "Closing…"
+                : phase === "changing"
+                  ? "Finishing…"
+                  : phase === "ask"
+                    ? "Run month close"
+                    : "Try again"}
             </Button>
-          </div>
-        ) : phase === "loading" ? (
-          <div className="grid w-full grid-cols-2 gap-2">{cancel}</div>
-        ) : (
-          <div className="grid w-full grid-cols-3 gap-2">
-            {cancel}
-            {monthOnly}
-            {phase === "wrong-month" ? (
-              <span />
-            ) : (
-              <Button className="min-h-11 w-full" onClick={phase === "load-failed" ? load : run}>
-                Try again
-              </Button>
-            )}
           </div>
         )
       }
@@ -231,29 +270,19 @@ export function MonthChangeSheets({
 
       {phase === "load-failed" && (
         <p className="text-sm">
-          Could not read the tracking sheets, so nothing was copied: {error} &ldquo;Change month only&rdquo;
-          moves the billing month and leaves every sheet as it is.
+          {error} Nothing was written.
+          {change ? ` "Not now" changes the billing month and leaves every sheet as it is.` : ""}
         </p>
       )}
 
-      {phase === "wrong-month" && (
-        <p className="text-sm">
-          The automatic sync holds every sheet on {heldLabel}, not {monthLabel(from)}. Nothing was copied:
-          CURRENT INVOICE does not show {monthLabel(from)}. Set the sheets&apos; month in Sheet sync settings
-          on the Jobs page, then change the month here. &ldquo;Change month only&rdquo; moves the billing
-          month and leaves every sheet as it is.
-        </p>
-      )}
-
-      {(phase === "ready" || phase === "running" || phase === "changing" || phase === "failed") && (
+      {phase !== "loading" && phase !== "load-failed" && (
         <>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            This closes {monthLabel(from)}. First, each tracking sheet&apos;s CURRENT INVOICE is copied into
-            its records as &ldquo;{block}&rdquo;.{" "}
-            {running
-              ? "Each sheet is refreshed from JobTread before its copy."
-              : "The automatic sync is paused, so each sheet is copied as it stands."}{" "}
-            A sheet that already has that block is left as it is. Then the sheets move to {monthLabel(to)}.
+            {closingLabel} is not closed on the tracking sheets. Month close files it into each sheet&apos;s
+            records as &ldquo;{closing ? recordsLabel(closing) : ""}&rdquo;: the sheet gets {closingLabel}&apos;s
+            bills from JobTread, then CURRENT INVOICE is copied. A sheet whose records already hold the month is
+            left as it is. Then the sheets move to {monthLabel(to)}.
+            {change ? ` "Not now" changes the billing month only, and the app asks again.` : ""}
           </p>
           <ol className="mt-3 max-h-64 space-y-1.5 overflow-y-auto text-sm">
             {rows.map((r) => (
@@ -272,9 +301,7 @@ export function MonthChangeSheets({
           </ol>
           {phase === "failed" && (
             <p role="alert" className="mt-3 text-sm text-danger">
-              {error ||
-                `Some sheets were not copied. The sheets stay on ${heldLabel}. ` +
-                  `"Change month only" moves the billing month and leaves them there.`}
+              {error || `Some sheets were not filed. The sheets stay on ${closingLabel}, and the app keeps asking.`}
             </p>
           )}
         </>

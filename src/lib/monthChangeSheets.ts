@@ -1,21 +1,43 @@
 /**
- * Changing the home billing month to a later month closes the month it leaves.
- * Before the month moves, each wired tracking sheet's CURRENT INVOICE is copied
- * into its records (the reserved month block). These are the rules; the dialog
- * that runs them is `src/components/MonthChangeSheets.tsx`.
+ * Month close for the tracking sheets, driven by the ONE month picker (Home).
  *
- * Client-safe and pure. Pinned by `monthChangeSheets.test.ts`.
+ * Moving the home billing month to month N closes month N-1. Month close files
+ * N-1 into each wired tracking sheet's records (the reserved month block), then
+ * moves the sheets on to N. The app asks until it has run: on every move
+ * forward, and with a chip on Home while the month before it is still open.
+ *
+ * The month a record is written for never comes from what the picker held a
+ * moment ago. It is always "the month before the one Home is going to", the
+ * sheet is refreshed with THAT month's bills from JobTread before the copy,
+ * and a sheet whose records already hold the month is left alone. So switching
+ * back and forth cannot file one month's figures under another month's label.
+ *
+ * These are the rules; the dialog that runs them is
+ * `src/components/MonthChangeSheets.tsx`. Client-safe and pure. Pinned by
+ * `monthChangeSheets.test.ts`.
  */
 
-const SHORT_MONTHS = [
+const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
 
+const YM = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/** The stamp month close leaves in `month_action_runs` (action, scope). */
+export const MONTH_CLOSE_ACTION = "month-close";
+export const MONTH_CLOSE_SCOPE = "sheets";
+
 /** True when `to` is a later billing month than `from`. Both are "YYYY-MM". */
 export function isLaterMonth(from: string, to: string): boolean {
-  const ym = /^\d{4}-(0[1-9]|1[0-2])$/;
-  return ym.test(from) && ym.test(to) && to > from;
+  return YM.test(from) && YM.test(to) && to > from;
+}
+
+/** "2026-11" → "2026-10"; "2026-01" → "2025-12". "" when not a month. */
+export function prevMonth(ym: string): string {
+  if (!YM.test(ym)) return "";
+  const [y, m] = ym.split("-").map(Number);
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, "0")}`;
 }
 
 /**
@@ -26,35 +48,29 @@ export function isLaterMonth(from: string, to: string): boolean {
  */
 export function recordsLabel(ym: string): string {
   const [y, m] = ym.split("-").map(Number);
-  if (!SHORT_MONTHS[m - 1]) return ym;
+  if (!MONTH_NAMES[m - 1]) return ym;
   const month = m === 12 ? 1 : m + 1;
   const year = m === 12 ? y + 1 : y;
-  return `${SHORT_MONTHS[month - 1]} '${String(year).slice(-2)}`;
-}
-
-/** The automatic sync's state, as GET /api/tracking-sheet reports it. */
-export interface SheetSyncState {
-  paused?: boolean;
-  triggerInstalled?: boolean;
-}
-
-/** True when the 30-minute sync rewrites the sheets: installed and not paused. */
-export function syncIsRunning(sync: SheetSyncState | null | undefined): boolean {
-  return sync?.triggerInstalled === true && sync.paused !== true;
+  return `${MONTH_NAMES[month - 1]} '${String(year).slice(-2)}`;
 }
 
 /**
- * True when CURRENT INVOICE cannot be the month being closed: the sync is
- * running and holds every sheet on another month. A copy would then file the
- * wrong month's figures under the closing month's label, so none is made.
- * A paused sync writes nothing, so the sheets hold what the office left there.
+ * The month that month close must still file while Home is on (or going to)
+ * `homeYm`, or "" when there is nothing to ask.
+ *
+ * It is the month before `homeYm`, and it is due when:
+ *   - month close has not been stamped for it, and
+ *   - the sheets have not moved past it (`sheetsYm`, the month the automatic
+ *     sync writes, is not later). After a close the sheets sit on `homeYm`, so
+ *     looking back at an older month never asks again.
+ *
+ * `sheetsYm` unknown ("") means the state could not be read: nothing is due,
+ * because a close must not run on a guess.
  */
-export function sheetsHoldAnotherMonth(
-  sync: SheetSyncState | null | undefined,
-  heldYm: string,
-  closingYm: string,
-): boolean {
-  return syncIsRunning(sync) && !!heldYm && heldYm !== closingYm;
+export function closeDue(homeYm: string, sheetsYm: string, closed: boolean): string {
+  const closing = prevMonth(homeYm);
+  if (!closing || closed || !YM.test(sheetsYm)) return "";
+  return sheetsYm <= closing ? closing : "";
 }
 
 /** What a finalize dry run reports about the block the copy would land in. */
@@ -64,9 +80,9 @@ export interface FinalizeDryRun {
 }
 
 /**
- * "keep" when the sheet already has a block for the month that holds figures:
- * the copy would replace records, so the block is left as it is. "copy"
- * otherwise (a free block, or a labelled block that is still empty).
+ * "keep" when the sheet's records already hold figures for the month: the copy
+ * would replace records, so the block is left as it is. "copy" otherwise (a
+ * free block, or a labelled block that is still empty).
  */
 export function planCopy(dry: FinalizeDryRun): "keep" | "copy" {
   return dry.mode === "overwrote-existing-month-block" && dry.overwroteValues === true ? "keep" : "copy";
