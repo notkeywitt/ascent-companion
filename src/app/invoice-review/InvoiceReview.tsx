@@ -28,6 +28,11 @@ import { buildBrief } from "@/lib/invoiceReview/brief";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding, ReviewPayload, RulingScope } from "@/lib/invoiceReview/types";
 
+const driveAmountSearch = (amount: number) =>
+  `https://drive.google.com/drive/search?q=${encodeURIComponent(
+    `"${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}"`,
+  )}`;
+
 /** Ascent's own findings: the Office/Shop jobs, and mail from the office's own address. */
 function isOfficeGroup(name: string): boolean {
   return name.trim().toLowerCase() === "ascent" || /@ascentbuildingco\.com$/i.test(name.trim());
@@ -826,6 +831,15 @@ export function InvoiceReview() {
                               >
                                 <Button variant="outline" size="sm">
                                   {f.sourceLabel ?? "Open source"}
+                                </Button>
+                              </a>
+                            ) : null}
+                            {f.kind === "backup-unmatched" && f.amount ? (
+                              // Drive reads PDF text, so the amount finds the same invoice filed
+                              // under another job or month.
+                              <a href={driveAmountSearch(f.amount)} target="_blank" rel="noreferrer">
+                                <Button variant="outline" size="sm">
+                                  Find in Drive
                                 </Button>
                               </a>
                             ) : null}
