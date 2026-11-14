@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   checkLaborMonth,
   closeProgress,
+  closedMonthWarning,
   laborLabel,
   planCopy,
   planSheet,
@@ -94,6 +95,17 @@ describe("the month", () => {
     expect(sheetWriteBlocked("2026-10", "2026-10")).toBe("");
     expect(sheetWriteBlocked("2026-09", "2026-10")).toMatch(/September '26 is closed/);
     expect(sheetWriteBlocked("2026-11", "2026-10")).toMatch(/opens when October '26 closes/);
+  });
+  it("lets a sheet the close skipped close an earlier month late", () => {
+    expect(sheetWriteBlocked("2026-09", "2026-10", false)).toBe("");
+    expect(sheetWriteBlocked("2026-09", "2026-10", true)).toMatch(/closed/);
+    expect(sheetWriteBlocked("2026-11", "2026-10", false)).toMatch(/opens when/);
+    expect(sheetWriteBlocked("2026-08", "2026-10", false)).toMatch(/closed/);
+  });
+  it("warns on a billing month the sheets have closed", () => {
+    expect(closedMonthWarning("2026-09", "2026-10")).toMatch(/September '26 is closed/);
+    expect(closedMonthWarning("2026-10", "2026-10")).toBe("");
+    expect(closedMonthWarning("2026-11", "2026-10")).toBe("");
   });
   it("catches a stored month up to the month before Home's", () => {
     expect(sheetsCatchUp("2026-07", "2026-11")).toBe("2026-10");

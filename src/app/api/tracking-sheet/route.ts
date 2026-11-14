@@ -2,7 +2,9 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callAppsScript } from "@/lib/appsScript";
-import { recordMonthAction } from "@/lib/monthActions";
+import { getMonthAction, recordMonthAction } from "@/lib/monthActions";
+import { sheetWriteBlocked } from "@/lib/monthClose";
+import { advanceSheets, planOneSheet, SHEET_JOBS_TAG, type SheetJob } from "@/lib/monthCloseServer";
 
 // Proxy to the Apps Script web app's per-project tracking-sheet actions
 // (TrackingSheets.js). Apps Script holds the Sheets grants — the Assistant is UI
@@ -38,8 +40,6 @@ const ACTION_FOR_OP: Record<string, string> = {
 const ORG_WIDE_OPS = new Set(["setPeriod", "setPaused"]);
 /** Ops that name a billing period. setPaused is the one that does not. */
 const PERIOD_OPS = new Set(["sync", "finalize", "setPeriod"]);
-
-const SHEET_JOBS_TAG = "tracking-sheet-jobs";
 
 /** What a failed read throws, so unstable_cache stores nothing for it. */
 class SheetJobsError extends Error {
@@ -112,6 +112,40 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // THE MONTH CLOSE RULES (src/lib/monthClose.ts), here so every button that
+  // writes a sheet obeys them. A sync or finalize writes only the sheets'
+  // month, or an earlier month on a sheet the close skipped. A finalize runs
+  // only when the close would copy: never over a block that already holds the
+  // month, never with another month's labor, never on a sheet wired twice.
+  const ym = `${year}-${String(month).padStart(2, "0")}`;
+  if ((op === "sync" || op === "finalize") && body.dryRun !== true) {
+    let list: Record<string, unknown>;
+    try {
+      list = (await getSheetJobs()) as Record<string, unknown>;
+    } catch (e) {
+      if (e instanceof SheetJobsError) return NextResponse.json({ error: e.message }, { status: e.status });
+      throw e;
+    }
+    const sheetsYm = `${list.defaultYear}-${String(list.defaultMonth).padStart(2, "0")}`;
+    const filed = (await getMonthAction("finalize", projectId, ym).catch(() => undefined)) !== undefined;
+    const why = sheetWriteBlocked(ym, sheetsYm, filed);
+    if (why) return NextResponse.json({ error: why }, { status: 409 });
+    if (op === "finalize") {
+      const job = ((list.jobs as SheetJob[]) ?? []).find((j) => j.id === projectId);
+      if (!job) return NextResponse.json({ error: "No tracking sheet is wired to that project." }, { status: 404 });
+      const shared = ((list.shared as { projects?: { projectId: string }[] }[]) ?? []).some((s) =>
+        (s.projects ?? []).some((p) => String(p.projectId) === projectId),
+      );
+      const one = await planOneSheet(job, ym, shared);
+      if (one.plan.action !== "copy") {
+        return NextResponse.json(
+          { error: one.plan.reasons.join(" ") || "The close would not file this sheet.", plan: one.plan },
+          { status: 409 },
+        );
+      }
+    }
+  }
+
   const res = await callAppsScript<Record<string, unknown>>(
     {
       action,
@@ -151,6 +185,16 @@ export async function POST(req: NextRequest) {
       session?.user?.email ?? "",
       op === "finalize" ? String(b.monthLabel ?? "") : "",
     );
+  }
+  // The last sheet filed moves the sheets to the next month.
+  if (op === "finalize" && body.dryRun !== true) {
+    try {
+      const advanced = await advanceSheets(ym);
+      if (advanced) revalidateTag(SHEET_JOBS_TAG);
+      return NextResponse.json({ ...b, advanced });
+    } catch (e) {
+      return NextResponse.json({ ...b, advanced: "", advanceError: e instanceof Error ? e.message : String(e) });
+    }
   }
   return NextResponse.json(b);
 }

@@ -11,6 +11,7 @@ import { autoSyncOf } from "@/app/trackingsheet/useTrackingPush";
 import { createTaskRunner } from "@/lib/taskRunner";
 import { monthLabel } from "@/lib/billingMonths";
 import { money } from "@/lib/money";
+import { sheetWriteBlocked } from "@/lib/monthClose";
 
 /**
  * "Push this job's month into its Google Tracking Sheet."
@@ -254,6 +255,8 @@ export function TrackingSheetSyncFor({
   const canTrack = access.can("tracking-sheet");
   const [target, setTarget] = useState<TrackingTarget | null>(null);
   const [state, setState] = useState<TrackingSyncState | undefined>(undefined);
+  /** The sheets' month: a sheet write runs only in it (src/lib/monthClose.ts). */
+  const [sheetsYm, setSheetsYm] = useState("");
 
   useEffect(() => {
     if (!canTrack || !jtJobId) return;
@@ -268,6 +271,7 @@ export function TrackingSheetSyncFor({
           (j) => j.jtJobId === jtJobId,
         );
         if (hit) setTarget({ projectId: hit.id, label: hit.label, url: hit.url });
+        setSheetsYm(autoSyncOf(b).pinnedYm);
       } catch {
         /* non-fatal */
       }
@@ -288,6 +292,10 @@ export function TrackingSheetSyncFor({
   }, [target, ym]);
 
   if (!target) return null;
+  const blocked = sheetWriteBlocked(ym, sheetsYm);
+  if (blocked) {
+    return <p className={`text-[12px] text-neutral-500 dark:text-neutral-400 ${className ?? ""}`}>{blocked}</p>;
+  }
   return (
     <TrackingSheetSync
       state={state}
@@ -367,9 +375,12 @@ export function SyncAllTrackingSheetsFor({
     setLabor({});
   }, [ym]);
 
+  // A sheet write runs only in the sheets' month (src/lib/monthClose.ts). The
+  // Labor Report is a Drive file, not a sheet, so it refiles for any month.
+  const sheetBlock = sheetWriteBlocked(ym, auto.pinnedYm);
   const start = useCallback(() => {
     const [y, m] = ym.split("-").map(Number);
-    for (const t of targets) {
+    for (const t of sheetBlock ? [] : targets) {
       const key = t.projectId;
       runTrackingSync(key, m, y, (s) => {
         setStates((prev) => ({ ...prev, [key]: s }));
@@ -386,7 +397,7 @@ export function SyncAllTrackingSheetsFor({
         (e) => setLabor({ error: e instanceof Error ? e.message : "Labor report failed" }),
       );
     }
-  }, [targets, ym, canReport, onDone]);
+  }, [targets, ym, canReport, onDone, sheetBlock]);
 
   const summary = useMemo(() => {
     let queued = 0,
@@ -455,14 +466,10 @@ export function SyncAllTrackingSheetsFor({
           is not on has no time to show, so the line says where the timer is. */}
       <LastRun
         verb={jtJobId ? "Sheet synced" : "Tracking sheets synced"}
-        quiet={
-          auto.pinnedYm && !pinned
-            ? `The sheet timer is on ${monthLabel(auto.pinnedYm)}, not this month. Sync now pushes this one.`
-            : undefined
-        }
-        at={auto.at}
+        quiet={sheetBlock || undefined}
+        at={pinned ? auto.at : null}
         every="every 30 min"
-        retry="Sync now"
+        retry={sheetBlock ? (canReport ? "Refile the Labor Report" : "") : "Sync now"}
         busy={busy}
         busyLabel={`Syncing ${summary.done + summary.error}/${summary.total}…`}
         onRetry={start}

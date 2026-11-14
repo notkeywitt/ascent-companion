@@ -200,14 +200,28 @@ export function closeProgress(jobIds: string[], closed: Set<string>): { closed: 
 
 /**
  * A hub action that writes a tracking sheet runs only for the sheets' month.
- * Any other month is either closed (its block is the record) or not open yet.
- * Returns why it is unavailable, or "" when it may run.
+ * A later month is not open yet. An earlier month is closed and its record
+ * block stays as filed, except on a sheet the close skipped: `filed` false
+ * lets that one sheet close the month just before the sheets' month late.
+ * Returns why the write is unavailable, or "" when it may run.
  */
-export function sheetWriteBlocked(hubYm: string, sheetsYm: string): string {
+export function sheetWriteBlocked(hubYm: string, sheetsYm: string, filed?: boolean): string {
   if (!isYm(hubYm) || !isYm(sheetsYm) || hubYm === sheetsYm) return "";
-  return hubYm < sheetsYm
-    ? `${shortMonth(hubYm)} is closed on the tracking sheets. Its record block stays as filed.`
-    : `The tracking sheets are on ${shortMonth(sheetsYm)}. ${shortMonth(hubYm)} opens when ${shortMonth(sheetsYm)} closes.`;
+  if (hubYm > sheetsYm) {
+    return `The tracking sheets are on ${shortMonth(sheetsYm)}. ${shortMonth(hubYm)} opens when ${shortMonth(sheetsYm)} closes.`;
+  }
+  if (filed === false && hubYm === prevMonth(sheetsYm)) return "";
+  return `${shortMonth(hubYm)} is closed on the tracking sheets. Its record block stays as filed.`;
+}
+
+/**
+ * Home's billing month set to a month the sheets have closed: the warning to
+ * show, or "". New bills file into Home's month, and a bill filed into a closed
+ * month is not in that month's record block.
+ */
+export function closedMonthWarning(ym: string, sheetsYm: string): string {
+  if (!isYm(ym) || !isYm(sheetsYm) || ym >= sheetsYm) return "";
+  return `${shortMonth(ym)} is closed on the tracking sheets. A bill filed into it is not in its record block.`;
 }
 
 /**
