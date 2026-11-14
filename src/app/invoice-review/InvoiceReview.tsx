@@ -651,6 +651,7 @@ export function InvoiceReview() {
             <Banner tone="error" className="mt-3">
               <span className="font-medium">The scheduled check failed {whenChecked(runs[0].at)}.</span>{" "}
               {runs[0].message}
+              {runs[0].log ? " Its log is under Scheduled runs, below." : null}
             </Banner>
           ) : null}
 

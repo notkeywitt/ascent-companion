@@ -63,14 +63,26 @@ cd "$REPO" || exit 1
   --allowedTools \
     "Bash(node scripts/monthly-check/agent.mjs:*)" \
     "Read" "Grep" "Glob" \
-    "Write(./.monthly-check/**)" \
-    "mcp__claude_ai_JobTread_x_Ascent__query" \
+    "Edit(./.monthly-check/**)" "Write(./.monthly-check/**)" \
+    "mcp__jobtread__query" "mcp__claude_ai_JobTread_x_Ascent__query" \
     "mcp__claude_ai_Gmail__search_threads" "mcp__claude_ai_Gmail__get_thread" "mcp__claude_ai_Gmail__get_message" \
     "mcp__claude_ai_Google_Drive__search_files" "mcp__claude_ai_Google_Drive__get_file_metadata" \
     "mcp__claude_ai_Google_Drive__read_file_content" \
     "mcp__claude_ai_Google_Sheets__get_values" "mcp__claude_ai_Google_Sheets__get_spreadsheet" \
   2>&1 | tee "$RUNLOG"
 STATUS=${PIPESTATUS[0]}
+
+# Exit 0 is not proof: a headless run that hits a blocker can stop to ask a
+# question and still exit 0, leaving the month claimed and nothing posted.
+# Only a pass the app records as done counts. Anything else is released so
+# the next hourly run can claim the month again.
+if [ "$STATUS" -eq 0 ]; then
+  PASS="$(node "$HERE/agent.mjs" pass "$YM" 2>/dev/null || echo unknown)"
+  if [ "$PASS" != "done" ]; then
+    [ "$PASS" = "running" ] && node "$HERE/agent.mjs" fail "$YM" "The run ended without posting its pass." >/dev/null 2>&1
+    STATUS=3
+  fi
+fi
 
 if [ "$STATUS" -eq 0 ]; then
   touch "$STAMP"
