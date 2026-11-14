@@ -67,11 +67,11 @@ describe("the bottom bar", () => {
     ]);
   });
 
-  it("gives office and admin the same bar: Home, Invoicing, Tools, Miles, Time", () => {
+  it("gives office and admin the same bar: Home, Jobs, Tools, Miles, Time", () => {
     for (const role of ["office", "admin"] as const) {
       expect(barFor(role, canFor(role)).map((i) => i.label), role).toEqual([
         "Home",
-        "Invoicing",
+        "Jobs",
         "Tools",
         "Miles",
         "Time",
@@ -92,7 +92,7 @@ describe("the bottom bar", () => {
     const items = barFor("office", canFor("office"));
     expect(activeBarKey(items, "/mileage-tracker")).toBe("mileage");
     expect(activeBarKey(items, "/employee-time")).toBe("employee-time");
-    expect(activeBarKey(items, "/invoice-review")).toBe("close");
+    expect(activeBarKey(items, "/jobs-hub")).toBe("jobs-hub");
     expect(activeBarKey(items, "/")).toBe("today");
   });
 });
@@ -235,7 +235,7 @@ describe("the phone bar's drawer", () => {
   it("follows the rail's order, then lists every other page, Safety Meeting last", () => {
     const keys = drawerFor("office", can("office")).map((i) => i.key);
     expect(keys.at(-1)).toBe("safety-meeting");
-    expect(keys.slice(0, 7)).toEqual(["invoice-review", "invoicing-summary", "employees", "clients", "leads", "vendors", "time-sync"]);
+    expect(keys.slice(0, 8)).toEqual(["close", "invoice-review", "invoicing-summary", "employees", "job-board", "leads", "vendors", "time-sync"]);
     expect(keys).toEqual(expect.arrayContaining(["incoming", "search"]));
   });
 });
