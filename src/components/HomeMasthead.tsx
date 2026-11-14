@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Chip, MetaLine, SectionLabel } from "@/components/ui";
+import { Button, Chip, Dialog, MetaLine, SectionLabel } from "@/components/ui";
 import { PeakMark } from "@/components/PageTitle";
 import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { MonthPicker } from "@/components/MonthPicker";
 import { MonthCloseChip } from "@/components/MonthClose";
+import { closedMonthWarning } from "@/lib/monthClose";
 
 /**
  * The head of the iPad home console — a dateline, and where the billing month
@@ -62,6 +63,10 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   const [saving, setSaving] = useState(false);
   /** Why the last save bounced. The month snaps back, so say why it did. */
   const [err, setErr] = useState("");
+  /** The tracking sheets' month, from the month-close chip. "" until it reads. */
+  const [sheetsYm, setSheetsYm] = useState("");
+  /** A pick into a closed month, waiting on the warning. */
+  const [confirmYm, setConfirmYm] = useState("");
 
   useEffect(() => setToday(new Date()), []);
 
@@ -108,8 +113,18 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   // The route sets this month in the Apps Script project too, and refuses the
   // whole change if that push fails — so a rejection means NOTHING moved, and
   // showing the old month back is the truth rather than a lost edit.
+  //
+  // A month the tracking sheets have closed asks first (warn, not block):
+  // bills filed into it miss that month's record block (src/lib/monthClose.ts).
+  function pick(next: string) {
+    if (next === ym) return;
+    if (closedMonthWarning(next, sheetsYm)) return setConfirmYm(next);
+    void set(next);
+  }
+
   async function set(next: string) {
     if (next === ym) return;
+    setConfirmYm("");
     setSaving(true);
     setErr("");
     const prev = ym;
@@ -163,7 +178,7 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
               <MonthPicker
                 value={ym}
                 options={months}
-                onChange={set}
+                onChange={pick}
                 disabled={saving}
                 ariaLabel="Billing month — every non-Sunset bill files into this month"
                 className={stale ? "text-danger" : ""}
@@ -198,8 +213,28 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
           {/* Where the tracking sheets' month close stands (src/components/MonthClose.tsx). */}
           {ym && access.can("tracking-sheet") && (
             <div className="mt-1 flex justify-end">
-              <MonthCloseChip homeYm={ym} />
+              <MonthCloseChip homeYm={ym} onSheetsYm={setSheetsYm} />
             </div>
+          )}
+          {closedMonthWarning(ym, sheetsYm) && (
+            <p className="mt-1 max-w-xs text-[12px] text-warn">{closedMonthWarning(ym, sheetsYm)}</p>
+          )}
+          {confirmYm && (
+            <Dialog
+              onClose={() => setConfirmYm("")}
+              title={`Move to ${monthLabel(confirmYm)}?`}
+              description={closedMonthWarning(confirmYm, sheetsYm)}
+              footer={
+                <div className="grid w-full grid-cols-2 gap-2">
+                  <Button variant="secondary" className="min-h-11 w-full" onClick={() => setConfirmYm("")}>
+                    Cancel
+                  </Button>
+                  <Button className="min-h-11 w-full" onClick={() => void set(confirmYm)}>
+                    Move anyway
+                  </Button>
+                </div>
+              }
+            />
           )}
         </div>
       )}

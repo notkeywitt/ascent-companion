@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Button, Card, Chip, Dialog, MetaLine, Select, btn } from "@/components/ui";
 import { Sheet } from "@/components/Sheet";
 import { money } from "@/lib/money";
-import { closeProgress, recordsLabel, sheetsCatchUp, shortMonth } from "@/lib/monthClose";
+import { closeProgress, nextMonth, recordsLabel, sheetsCatchUp, shortMonth } from "@/lib/monthClose";
+import { runSheetOp } from "@/components/TrackingSheetSync";
 import type { MonthClosePreview, MonthCloseRow } from "@/app/api/month-close/route";
 
 /**
@@ -50,7 +51,14 @@ async function readChip(): Promise<ChipState> {
   };
 }
 
-export function MonthCloseChip({ homeYm }: { homeYm: string }) {
+export function MonthCloseChip({
+  homeYm,
+  onSheetsYm,
+}: {
+  homeYm: string;
+  /** Tells Home the sheets' month, for its closed-month warning. */
+  onSheetsYm?: (ym: string) => void;
+}) {
   const [state, setState] = useState<ChipState | null>(null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState(false);
@@ -59,9 +67,12 @@ export function MonthCloseChip({ homeYm }: { homeYm: string }) {
   const load = useCallback(() => {
     setErr("");
     readChip()
-      .then(setState)
+      .then((s) => {
+        setState(s);
+        onSheetsYm?.(s.sheetsYm);
+      })
       .catch((e) => setErr(e instanceof Error ? e.message : "Couldn't read the tracking sheets."));
-  }, []);
+  }, [onSheetsYm]);
   useEffect(load, [load]);
 
   if (err) return <span className="text-[12px] text-danger">Tracking sheets: {err}</span>;
@@ -195,6 +206,61 @@ export function MonthClosePanel({ ym, jobs }: { ym: string; jobs: SheetJob[] }) 
     ? (["copy", "filed", "skip"] as const).map((a) => preview.rows.filter((r) => r.plan.action === a).length)
     : null;
 
+  // "Close the rest": every sheet, for the sheets' month, not yet closed.
+  const [confirmRest, setConfirmRest] = useState(false);
+  const [restBusy, setRestBusy] = useState(false);
+  const [restDone, setRestDone] = useState<string>("");
+  const [rowState, setRowState] = useState<Record<string, string>>({});
+  const canCloseRest =
+    !!preview && !projectId && preview.ym === preview.sheetsYm && !preview.progress.done && !restDone;
+
+  const closeRest = async () => {
+    if (!preview) return;
+    setConfirmRest(false);
+    setRestBusy(true);
+    const [y, m] = preview.ym.split("-").map(Number);
+    const say = (id: string, s: string) => setRowState((prev) => ({ ...prev, [id]: s }));
+    for (const r of preview.rows) {
+      if (r.closedAt) continue;
+      try {
+        if (r.plan.action === "filed") {
+          const res = await fetch("/api/month-close", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ op: "markFiled", projectId: r.projectId, ym: preview.ym }),
+          }).then((x) => x.json());
+          if (res?.error) throw new Error(res.error);
+          say(r.projectId, "Already filed. Left as it is.");
+        } else if (r.plan.action === "copy") {
+          say(r.projectId, "Refreshing the bills…");
+          await runSheetOp(r.projectId, "sync", m, y);
+          say(r.projectId, "Filing…");
+          const f = await runSheetOp(r.projectId, "finalize", m, y);
+          say(r.projectId, `Filed as "${f.monthLabel ?? ""}" at ${f.targetRange ?? ""}.`);
+        } else {
+          say(r.projectId, "Skipped. Not filed.");
+        }
+      } catch (e) {
+        say(r.projectId, `Failed: ${e instanceof Error ? e.message : "unknown error"}`);
+      }
+    }
+    const adv = await fetch("/api/month-close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ op: "advance", ym: preview.ym, force: true }),
+    })
+      .then((x) => x.json())
+      .catch(() => ({ error: "The sheets' month did not move." }));
+    setRestBusy(false);
+    setRestDone(
+      adv?.error
+        ? `The sheets' month did not move: ${adv.error}`
+        : adv?.advanced
+          ? `The sheets moved to ${shortMonth(String(adv.advanced))}.`
+          : "The sheets' month did not move.",
+    );
+  };
+
   return (
     <div className="space-y-3">
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
@@ -237,18 +303,63 @@ export function MonthClosePanel({ ym, jobs }: { ym: string; jobs: SheetJob[] }) 
               preview.paused ? "Automatic sync paused" : "Automatic sync running",
             ]}
           />
+          {canCloseRest && (
+            <Button variant="secondary" className="min-h-11 w-full" onClick={() => setConfirmRest(true)} disabled={restBusy}>
+              {restBusy ? "Closing the rest…" : `Close the rest of ${shortMonth(preview.ym)}`}
+            </Button>
+          )}
+          {restDone && <p className="text-sm font-semibold">{restDone}</p>}
           <Card pad={false} className="divide-y divide-line-soft overflow-hidden">
             {preview.rows.map((r) => (
-              <PreviewRow key={r.projectId} row={r} />
+              <PreviewRow key={r.projectId} row={r} result={rowState[r.projectId]} />
             ))}
           </Card>
         </>
+      )}
+      {confirmRest && preview && counts && (
+        <Dialog
+          onClose={() => setConfirmRest(false)}
+          title={`Close the rest of ${shortMonth(preview.ym)}?`}
+          description={`Files every open sheet into "${recordsLabel(preview.ym)}", then moves the sheets to ${shortMonth(nextMonth(preview.ym))}.`}
+          footer={
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button variant="secondary" className="min-h-11 w-full" onClick={() => setConfirmRest(false)}>
+                Cancel
+              </Button>
+              <Button className="min-h-11 w-full" onClick={closeRest}>
+                Close the rest
+              </Button>
+            </div>
+          }
+        >
+          <ul className="space-y-1 text-sm">
+            <li>
+              {preview.rows.filter((r) => r.plan.action === "copy" && !r.closedAt).length} sheets: refresh the bills from
+              JobTread, then file CURRENT INVOICE.
+            </li>
+            <li>{counts[1]} sheets already hold the month. They stay as they are.</li>
+            {counts[2] > 0 && (
+              <li className="text-danger">
+                {counts[2]} skipped and not filed:{" "}
+                {preview.rows
+                  .filter((r) => r.plan.action === "skip")
+                  .map((r) => r.label)
+                  .join(", ")}
+                . Each can close {shortMonth(preview.ym)} later from its own Close month.
+              </li>
+            )}
+          </ul>
+          <p className="mt-3 text-[12px] text-warn">
+            Run {shortMonth(preview.ym)}&apos;s monthly check first: its sheet compare reads CURRENT INVOICE. Once the
+            sheets move, the Invoicing Package and the invoicing summary follow {shortMonth(nextMonth(preview.ym))}.
+          </p>
+        </Dialog>
       )}
     </div>
   );
 }
 
-function PreviewRow({ row }: { row: MonthCloseRow }) {
+function PreviewRow({ row, result }: { row: MonthCloseRow; result?: string }) {
   const chip = ACTION_CHIP[row.plan.action];
   const billsOff = row.sheet && row.jt && Math.abs(row.sheet.bills - row.jt.bills) >= 0.01;
   const hoursOff = row.sheet && row.jt && Math.abs(row.sheet.laborHours - row.jt.laborHours) >= 0.01;
@@ -283,6 +394,7 @@ function PreviewRow({ row }: { row: MonthCloseRow }) {
         </dl>
       )}
       <ul className="mt-1.5 space-y-0.5 text-[12px]">
+        {result && <li className={result.startsWith("Failed") ? "text-danger" : "font-semibold"}>{result}</li>}
         {row.plan.reasons.map((r) => (
           <li key={r} className={row.plan.action === "skip" ? "text-danger" : "text-neutral-500 dark:text-neutral-400"}>
             {r}

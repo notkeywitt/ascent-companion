@@ -30,6 +30,7 @@ import type { LineOpsView } from "./useLineOps";
 import { round2 } from "@/lib/billLineMath";
 import { isTaxRecoverable, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { money, money0 } from "@/lib/money";
+import { ClosedMonthNote } from "@/components/ClosedMonthNote";
 export { money, money0 };
 
 /**
@@ -884,6 +885,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 </option>
               ))}
             </Select>
+            <ClosedMonthNote ym={(bill.issueDate ?? "").slice(0, 7)} />
           </div>
           {/* Draft-only: JobTread locks a committed bill, and the move is a
               delete+recreate. The picker is an action, not a selection — what

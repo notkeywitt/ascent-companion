@@ -32,7 +32,7 @@ export function LastRun({
   at: string | null | undefined;
   /** "every 30 min", "hourly" — left out when the host has no timer to name. */
   every?: string;
-  /** The retry link's label: "Sync now", "Check now". */
+  /** The retry link's label: "Sync now", "Check now". "" hides the retry. */
   retry: string;
   onRetry: () => void;
   busy?: boolean;
@@ -54,15 +54,19 @@ export function LastRun({
           </>
         )}
       </span>
-      {" · "}
-      <button
-        type="button"
-        onClick={onRetry}
-        disabled={busy}
-        className="text-accent underline disabled:no-underline disabled:opacity-60"
-      >
-        {busy ? (busyLabel ?? "Running…") : retry}
-      </button>
+      {retry && (
+        <>
+          {" · "}
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={busy}
+            className="text-accent underline disabled:no-underline disabled:opacity-60"
+          >
+            {busy ? (busyLabel ?? "Running…") : retry}
+          </button>
+        </>
+      )}
       {detail && <span className="ml-2">{detail}</span>}
       {error && (
         <span role="alert" className="ml-2 text-danger">

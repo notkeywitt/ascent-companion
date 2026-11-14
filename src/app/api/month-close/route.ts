@@ -1,42 +1,42 @@
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
-import { callAppsScript } from "@/lib/appsScript";
+import { auth } from "@/auth";
 import { getPaveConfig } from "@/lib/config";
 import { getBillLinesForJob, getJobBillsForMonth, getJobTimeEntriesForMonth } from "@/lib/jobtread";
-import { listMonthActions } from "@/lib/monthActions";
+import { closeProgress, isYm, type LaborMonthCheck, type SheetPlan } from "@/lib/monthClose";
 import {
-  checkLaborMonth,
-  closeProgress,
-  isYm,
-  planSheet,
-  type FinalizeDryRun,
-  type SheetPlan,
-  type LaborMonthCheck,
-} from "@/lib/monthClose";
-import { readLabor, readSubVendor, totalJtLabor, totalJtLines, type Grid } from "@/lib/invoiceReview/sheetCompare";
+  advanceSheets,
+  filedStamps,
+  markFiled,
+  planOneSheet,
+  readSheetList,
+  SHEET_JOBS_TAG,
+  type SheetJob,
+} from "@/lib/monthCloseServer";
+import { readLabor, readSubVendor, totalJtLabor, totalJtLines } from "@/lib/invoiceReview/sheetCompare";
 
 /**
- * GET ?ym=YYYY-MM[&projectId=…] — the month close PREVIEW. Writes nothing.
+ * The tracking-sheet month close. Rules: src/lib/monthClose.ts.
  *
- * For each wired tracking sheet (or the one `projectId`): what the close would
- * do (copy into a block, leave a filed block, or skip a broken sheet), the
- * target block from a finalize dry run, the Labor tab's month check, and the
- * sheet's bills and labor beside JobTread's. Rules: src/lib/monthClose.ts.
+ * GET ?ym=YYYY-MM[&projectId=…] — the PREVIEW. Writes nothing. For each wired
+ *   sheet (or the one `projectId`): what the close would do (copy into a
+ *   block, leave a filed block, or skip a broken sheet), the target block from
+ *   a finalize dry run, the Labor tab's month check, and the sheet's bills and
+ *   labor beside JobTread's. `ym` defaults to the sheets' month.
  *
- * `ym` defaults to the sheets' month (the active period Apps Script holds).
- * Every Apps Script call here is a read or a dry run: `listTrackingSheetJobs`,
- * `readTrackingSheet`, `finalizeTrackingSheet` with dryRun. Gated with the
- * Tracking Sheets view (src/lib/views.ts).
+ * POST { op:"markFiled", projectId, ym } — a sheet whose block already holds
+ *   the month counts as closed. Re-checked here first.
+ * POST { op:"advance", ym, force? } — move the sheets to the next month once
+ *   every sheet has `ym` filed; `force` is "close the rest", which moves them
+ *   with the skipped sheets named. Stores the month only; writes no sheet.
+ *
+ * The sheet writes themselves (sync, finalize) stay on /api/tracking-sheet,
+ * which applies the same rules. Gated with the Tracking Sheets view
+ * (src/lib/views.ts).
  */
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
-
-interface Job {
-  id: string;
-  label: string;
-  jtJobId: string;
-  url: string;
-}
 
 export interface MonthCloseRow {
   projectId: string;
@@ -79,104 +79,69 @@ async function pool<T, R>(items: T[], limit: number, fn: (t: T) => Promise<R>): 
   return out;
 }
 
+async function jtFigures(job: SheetJob, year: number, month: number): Promise<MonthCloseRow["jt"]> {
+  const cfg = getPaveConfig();
+  const [bills, entries] = await Promise.all([
+    getJobBillsForMonth(cfg, job.jtJobId, year, month, true, true),
+    getJobTimeEntriesForMonth(cfg, job.jtJobId, year, month),
+  ]);
+  const lines = await getBillLinesForJob(cfg, job.jtJobId, bills.map((x) => x.id));
+  const t = totalJtLines(bills, lines);
+  const labor = Object.values(totalJtLabor(entries));
+  const sum = (k: "hours" | "cost" | "unapprovedHours") =>
+    Math.round(labor.reduce((s, v) => s + v[k], 0) * 100) / 100;
+  return {
+    bills: t.total,
+    uncoded: t.uncoded.length,
+    laborHours: sum("hours"),
+    laborCost: sum("cost"),
+    unapprovedHours: sum("unapprovedHours"),
+  };
+}
+
 export async function GET(req: NextRequest) {
   const asked = req.nextUrl.searchParams.get("ym") ?? "";
   const onlyProject = req.nextUrl.searchParams.get("projectId") ?? "";
   if (asked && !isYm(asked)) return NextResponse.json({ error: 'Pass ym as "YYYY-MM".' }, { status: 400 });
 
-  const list = await callAppsScript<Record<string, unknown>>({ action: "listTrackingSheetJobs" });
-  if (list.error) return NextResponse.json({ error: list.error }, { status: list.status });
-  const b = list.data!;
-  if (b.ok !== true) return NextResponse.json({ error: String(b.error || "Apps Script rejected the request.") }, { status: 502 });
-
-  const sheetsYm = `${b.defaultYear}-${String(b.defaultMonth).padStart(2, "0")}`;
-  const ym = asked || sheetsYm;
-  const [year, month] = ym.split("-").map(Number);
-  const paused = (b.sync as { paused?: boolean } | undefined)?.paused === true;
-
-  const shared = new Set<string>();
-  for (const s of (b.shared as { projects?: { projectId: string }[] }[]) ?? []) {
-    for (const p of s.projects ?? []) shared.add(String(p.projectId));
+  let list;
+  try {
+    list = await readSheetList();
+  } catch (e) {
+    return NextResponse.json({ error: errMsg(e) }, { status: 502 });
   }
-  const all = ((b.jobs as Job[]) ?? []).filter((j) => j.id && j.url);
-  const jobs = onlyProject ? all.filter((j) => j.id === onlyProject) : all;
+  const ym = asked || list.sheetsYm;
+  const [year, month] = ym.split("-").map(Number);
+  const jobs = onlyProject ? list.jobs.filter((j) => j.id === onlyProject) : list.jobs;
   if (onlyProject && !jobs.length) {
     return NextResponse.json({ error: "No tracking sheet is wired to that project." }, { status: 404 });
   }
+  const stamps = await filedStamps(ym).catch(() => new Map<string, string>());
 
-  const stamps = new Map<string, string>();
-  try {
-    for (const r of await listMonthActions(ym)) if (r.action === "finalize") stamps.set(r.scope, r.at);
-  } catch {
-    /* No stamps is not a reason to refuse the preview. */
-  }
-
-  const cfg = getPaveConfig();
   const rows = await pool(jobs, 4, async (job): Promise<MonthCloseRow> => {
-    const [read, dry, jt] = await Promise.all([
-      callAppsScript<Record<string, unknown>>({ action: "readTrackingSheet", jtJobId: job.jtJobId }, { retry: true, timeoutMs: 60_000 })
-        .then((r) => {
-          if (r.error || r.data?.ok !== true) throw new Error(r.error || String(r.data?.error ?? "no answer"));
-          return { subVendor: (r.data.subVendor as Grid) ?? [], labor: (r.data.labor as Grid) ?? [] };
-        })
-        .catch((e) => ({ error: errMsg(e) })),
-      // A dry run: finalize reports the block it would write and writes nothing.
-      callAppsScript<Record<string, unknown>>(
-        { action: "finalizeTrackingSheet", projectId: job.id, month, year, dryRun: true },
-        { retry: true, timeoutMs: 60_000 },
-      )
-        .then((r) => {
-          if (r.error || r.data?.ok !== true) throw new Error(r.error || String(r.data?.error ?? "no answer"));
-          return r.data as FinalizeDryRun;
-        })
-        .catch((e) => ({ error: errMsg(e) })),
-      (async () => {
-        const [bills, entries] = await Promise.all([
-          getJobBillsForMonth(cfg, job.jtJobId, year, month, true, true),
-          getJobTimeEntriesForMonth(cfg, job.jtJobId, year, month),
-        ]);
-        const lines = await getBillLinesForJob(cfg, job.jtJobId, bills.map((x) => x.id));
-        const t = totalJtLines(bills, lines);
-        const labor = Object.values(totalJtLabor(entries));
-        const sum = (k: "hours" | "cost" | "unapprovedHours") => Math.round(labor.reduce((s, v) => s + v[k], 0) * 100) / 100;
-        return {
-          bills: t.total,
-          uncoded: t.uncoded.length,
-          laborHours: sum("hours"),
-          laborCost: sum("cost"),
-          unapprovedHours: sum("unapprovedHours"),
-        };
-      })().catch(() => null),
+    const [one, jt] = await Promise.all([
+      planOneSheet(job, ym, list.shared.has(job.id)),
+      jtFigures(job, year, month).catch(() => null),
     ]);
-
-    const readOk = !("error" in read);
-    const labor = checkLaborMonth(readOk ? read.labor : null, ym);
-    const dryOk = !("error" in dry);
-    const plan = planSheet({
-      shared: shared.has(job.id),
-      readError: readOk ? undefined : `The sheet could not be read: ${read.error}`,
-      finalizeError: dryOk ? undefined : dry.error,
-      dry: dryOk ? dry : undefined,
-      labor,
-    });
     let sheet: MonthCloseRow["sheet"] = null;
-    if (readOk) {
-      const l = readLabor(read.labor);
-      sheet = { bills: readSubVendor(read.subVendor).rowsTotal, laborHours: l.hoursTotal, laborCost: l.costTotal };
+    if (one.read) {
+      const l = readLabor(one.read.labor);
+      sheet = { bills: readSubVendor(one.read.subVendor).rowsTotal, laborHours: l.hoursTotal, laborCost: l.costTotal };
     }
+    const d = one.dry;
     return {
       projectId: job.id,
       jtJobId: job.jtJobId,
       label: job.label,
       url: job.url,
-      plan,
-      labor,
-      block: dryOk
+      plan: one.plan,
+      labor: one.labor,
+      block: d
         ? {
-            label: String(dry.monthLabel ?? ""),
-            range: String(dry.targetRange ?? ""),
-            labelCell: String(dry.labelCell ?? ""),
-            blocksRemaining: typeof dry.blocksRemaining === "number" ? dry.blocksRemaining : null,
+            label: String(d.monthLabel ?? ""),
+            range: String(d.targetRange ?? ""),
+            labelCell: String(d.labelCell ?? ""),
+            blocksRemaining: typeof d.blocksRemaining === "number" ? d.blocksRemaining : null,
           }
         : null,
       sheet,
@@ -189,10 +154,49 @@ export async function GET(req: NextRequest) {
   const closed = new Set(rows.filter((r) => r.closedAt || r.plan.action === "filed").map((r) => r.projectId));
   const body: MonthClosePreview = {
     ym,
-    sheetsYm,
-    paused,
+    sheetsYm: list.sheetsYm,
+    paused: list.paused,
     rows,
     progress: closeProgress(rows.map((r) => r.projectId), closed),
   };
   return NextResponse.json(body);
+}
+
+export async function POST(req: NextRequest) {
+  let body: Record<string, unknown>;
+  try {
+    body = (await req.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  }
+  const op = String(body.op || "");
+  const ym = String(body.ym || "");
+  if (!isYm(ym)) return NextResponse.json({ error: 'Pass ym as "YYYY-MM".' }, { status: 400 });
+  const session = await auth();
+  const by = session?.user?.email ?? "";
+
+  try {
+    if (op === "markFiled") {
+      const projectId = String(body.projectId || "");
+      const list = await readSheetList();
+      const job = list.jobs.find((j) => j.id === projectId);
+      if (!job) return NextResponse.json({ error: "No tracking sheet is wired to that project." }, { status: 404 });
+      const one = await planOneSheet(job, ym, list.shared.has(job.id));
+      if (one.plan.action !== "filed") {
+        return NextResponse.json({ error: "That sheet's block does not hold the month yet." }, { status: 409 });
+      }
+      await markFiled(projectId, ym, by, String(one.dry?.monthLabel ?? ""));
+      const advanced = await advanceSheets(ym);
+      if (advanced) revalidateTag(SHEET_JOBS_TAG);
+      return NextResponse.json({ ok: true, advanced });
+    }
+    if (op === "advance") {
+      const advanced = await advanceSheets(ym, { force: body.force === true });
+      if (advanced) revalidateTag(SHEET_JOBS_TAG);
+      return NextResponse.json({ ok: true, advanced });
+    }
+  } catch (e) {
+    return NextResponse.json({ error: errMsg(e) }, { status: 502 });
+  }
+  return NextResponse.json({ error: `Unknown op "${op}". Expected markFiled or advance.` }, { status: 400 });
 }

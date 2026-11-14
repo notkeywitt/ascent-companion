@@ -35,7 +35,7 @@ export function MonthWork({ ym }: { ym: string }) {
             {can("tracking-sheet") && (
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-line-soft px-4 py-3">
                 <span className="min-w-0 flex-1 text-[12px] text-neutral-500 dark:text-neutral-400">
-                  Pause the automatic tracking-sheet sync, or pin the month the sheets hold.
+                  Pause or resume the automatic tracking-sheet sync.
                 </span>
                 <SheetSyncButton ym={ym} className="min-h-11 shrink-0" />
               </div>

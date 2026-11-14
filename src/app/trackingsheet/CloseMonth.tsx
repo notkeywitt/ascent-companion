@@ -5,32 +5,38 @@ import { Button, Dialog, btn } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import { runSheetOp, type TrackingTarget } from "@/components/TrackingSheetSync";
 import { money } from "@/lib/money";
+import { sheetWriteBlocked, shortMonth } from "@/lib/monthClose";
+import type { MonthClosePreview } from "@/app/api/month-close/route";
 
 /**
  * "Close month" — ONE step per job, once every bill is approved and nothing
  * is staged (OVERHAUL_PLAN Phase 6). It runs, in order, through the routes
  * the separate buttons used to call:
  *
- *   1. push the month into the job's Google tracking sheet (op "sync"),
- *   2. finalize the sheet: copy CURRENT INVOICE into the month's reserved
- *      block (op "finalize"; the route stamps `finalize` for the month, which
- *      the pin-advance guard reads),
+ *   1. refresh the job's Google tracking sheet with the month's bills from
+ *      JobTread (op "sync"),
+ *   2. file the sheet: copy CURRENT INVOICE into the next free record block
+ *      (op "finalize"; the route stamps `finalize`, and the last sheet filed
+ *      moves the sheets to the next month),
  *   3. give the job's one customer contact Document Access to any bill of the
  *      month still missing it (/api/document-access),
  *   4. create the month's client invoice as a DRAFT in JobTread
  *      (/api/invoice-draft) and offer to open it.
  *
- * Steps 1 and 2 are skipped for a job with no tracking sheet. They run under
- * the shared per-project runner, back to back, so the 30-minute push cannot
- * land between them. A failed step stops the run; the steps that landed say
- * so, and running it again overwrites rather than duplicates (the finalize
- * block is re-written, the grant skips bills already shared) — except the
- * draft invoice, which is only created once an invoice does not exist yet,
- * and the host hides this button once one does.
+ * THE ONE CLOSE (the tracking-sheet month close, src/lib/monthClose.ts).
+ * Steps 1 and 2 run only when the close preview (/api/month-close) says
+ * "copy". A block that already holds the month is left as it is, and both
+ * steps are skipped. A broken sheet (another month's labor, no free block, a
+ * sheet wired to two jobs) is named, not filed, and steps 3 and 4 still run.
+ * /api/tracking-sheet re-checks the same rules on the write.
  *
- * Refused when the timer holds another month: the sheet's CURRENT INVOICE
- * would be pushed with this month and rewritten with the pinned one within
- * 30 minutes, and finalize must copy this month's figures.
+ * Steps 1 and 2 are skipped for a job with no tracking sheet. They run under
+ * the shared per-project runner, back to back. A failed step stops the run.
+ * The draft invoice is only created once an invoice does not exist yet, and
+ * the host hides this button once one does.
+ *
+ * A month after the sheets' month is not open yet: the button is disabled
+ * with the reason.
  */
 type StepState = "todo" | "running" | "done" | "skipped" | "failed";
 interface Step {
@@ -41,8 +47,8 @@ interface Step {
 }
 
 const STEPS: Omit<Step, "state">[] = [
-  { key: "sync", label: "Push the month into the tracking sheet" },
-  { key: "finalize", label: "Finalize the sheet's month block" },
+  { key: "sync", label: "Refresh the tracking sheet's bills from JobTread" },
+  { key: "finalize", label: "File CURRENT INVOICE into the record block" },
   { key: "access", label: "Give the client access to the month's bills" },
   { key: "invoice", label: "Create the draft invoice in JobTread" },
 ];
@@ -85,7 +91,8 @@ export function CloseMonth({
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<Step[]>([]);
   const [invoice, setInvoice] = useState<{ url?: string; price?: number } | null>(null);
-  const pinnedElsewhere = Boolean(target && pinnedYm && pinnedYm !== ym);
+  // One month at a time: a month after the sheets' month is not open yet.
+  const notOpen = Boolean(target && pinnedYm && ym > pinnedYm);
 
   const mark = (key: Step["key"], state: StepState, note?: string) =>
     setSteps((prev) => prev.map((s) => (s.key === key ? { ...s, state, note } : s)));
@@ -97,12 +104,35 @@ export function CloseMonth({
     const [y, m] = ym.split("-").map(Number);
     try {
       if (target) {
-        mark("sync", "running");
-        const r = await runSheetOp(target.projectId, "sync", m, y);
-        mark("sync", "done", `${r.rowCount ?? 0} rows · ${money(Number(r.total) || 0)}`);
-        mark("finalize", "running");
-        const f = await runSheetOp(target.projectId, "finalize", m, y);
-        mark("finalize", "done", f.note ? String(f.note).replace(/ in [\d.]+s\.$/, "") : undefined);
+        // The preview decides: copy, leave a filed block, or skip a broken
+        // sheet (src/lib/monthClose.ts). A skipped sheet does not stop the
+        // client access or the draft invoice.
+        mark("sync", "running", "Checking the sheet…");
+        const q = new URLSearchParams({ ym, projectId: target.projectId }).toString();
+        const pv = await fetch(`/api/month-close?${q}`, { cache: "no-store" }).then((r) => r.json());
+        if (pv?.error) throw new Error(pv.error);
+        const row = (pv as MonthClosePreview).rows?.[0];
+        if (!row) throw new Error("The sheet could not be checked.");
+        if (row.plan.action === "filed") {
+          mark("sync", "skipped", "The month is already filed on the sheet.");
+          if (!row.closedAt) await postJson("/api/month-close", { op: "markFiled", projectId: target.projectId, ym });
+          mark("finalize", "skipped", row.plan.reasons.join(" "));
+        } else if (row.plan.action === "skip") {
+          mark("sync", "skipped", "Not filed. Fix the sheet, then close again.");
+          mark("finalize", "failed", row.plan.reasons.join(" "));
+        } else {
+          mark("sync", "running");
+          const r = await runSheetOp(target.projectId, "sync", m, y);
+          mark("sync", "done", `${r.rowCount ?? 0} rows · ${money(Number(r.total) || 0)}`);
+          mark("finalize", "running");
+          const f = await runSheetOp(target.projectId, "finalize", m, y);
+          mark(
+            "finalize",
+            "done",
+            `Filed as "${f.monthLabel ?? ""}" at ${f.targetRange ?? ""}.` +
+              (f.advanced ? ` Every sheet is closed: the sheets moved to ${shortMonth(String(f.advanced))}.` : ""),
+          );
+        }
       } else {
         mark("sync", "skipped", "No tracking sheet on this job.");
         mark("finalize", "skipped");
@@ -150,23 +180,27 @@ export function CloseMonth({
     <>
       <Button
         className="min-h-11"
-        disabled={pinnedElsewhere}
-        title={pinnedElsewhere ? `The tracking sheets hold ${pinnedYm}, not ${ym}. Advance the month on the Tracking Sheet settings first.` : undefined}
+        disabled={notOpen}
         onClick={() => setOpen(true)}
       >
         Close month
       </Button>
+      {notOpen && (
+        <p className="basis-full text-center text-[12px] text-neutral-500 dark:text-neutral-400">
+          {sheetWriteBlocked(ym, pinnedYm)}
+        </p>
+      )}
       {open && (
         <Dialog
           busy={busy}
           onClose={close}
-          title={finished ? (failed ? "Close month stopped" : "Month closed") : `Close ${month}?`}
+          title={finished ? (failed ? "Close month needs a fix" : "Month closed") : `Close ${month}?`}
           description={
             <>
               {month}
               {jobTitle ? ` · ${jobTitle}` : ""}.{" "}
               {target
-                ? "Pushes the month into the tracking sheet, finalizes the sheet, gives the client access to the bills, and creates the draft invoice in JobTread."
+                ? "Checks the tracking sheet, refreshes its bills from JobTread, files CURRENT INVOICE into its next record block, gives the client access to the bills, and creates the draft invoice in JobTread. A block that already holds the month is left as it is."
                 : "Gives the client access to the bills and creates the draft invoice in JobTread."}{" "}
               The invoice stays a draft: review and send it there.
             </>

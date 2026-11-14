@@ -28,6 +28,7 @@ import { JobPicker, WORKING_PHASES, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
 import { JtLink } from "@/components/JtLink";
 import { CloseMonth } from "./CloseMonth";
+import { sheetWriteBlocked } from "@/lib/monthClose";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
 import {
@@ -1850,12 +1851,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           verb={`${trackingTarget.label} synced`}
           at={autoSyncAt}
           every="every 30 min"
-          quiet={
-            pinnedYm && pinnedYm !== ym
-              ? `${trackingTarget.label}: the sheet timer is on ${monthLabel(pinnedYm)}, not this month. Sync now pushes this one.`
-              : undefined
-          }
-          retry="Sync now"
+          // A sheet write runs only in the sheets' month (src/lib/monthClose.ts);
+          // any other month says why and offers no retry.
+          quiet={sheetWriteBlocked(ym, pinnedYm) || undefined}
+          retry={sheetWriteBlocked(ym, pinnedYm) ? "" : "Sync now"}
           busy={trackingBusy}
           busyLabel="Syncing sheet…"
           detail={
