@@ -187,12 +187,14 @@ function whenChecked(iso: string): string {
   return `on ${then.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
 }
 
-export function InvoiceReview() {
+/** `embedYm`: the Jobs Hub draws this page under its own header — no tab strip
+ *  or title, and the address bar is the hub's to keep. */
+export function InvoiceReview({ embedYm }: { embedYm?: string } = {}) {
   const months = useMemo(monthChoices, []);
   // A month the person picked on another close tab arrives as ?ym; with none,
   // this page keeps its own default.
   const search = useSearchParams();
-  const asked = asYm(search.get("ym"));
+  const asked = embedYm ?? asYm(search.get("ym"));
   // Checks has three sections (stage 2): the month's findings, the bills
   // flagged for a correction (was Bill Corrections) and the non-taxable lines
   // (was Taxable Flags). Each shows only to someone who holds its view.
@@ -540,9 +542,9 @@ export function InvoiceReview() {
   const monthLabel = months.find((m) => m.ym === ym)?.label ?? ym;
 
   return (
-    <div className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <InvoicingTabs ym={ym} />
-      <PageHeader title="Checks" />
+    <div className={embedYm ? "w-full" : "w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6"}>
+      {!embedYm && <InvoicingTabs ym={ym} />}
+      {!embedYm && <PageHeader title="Checks" />}
       <Tabs
         label="Checks sections"
         items={sections.map((x) => ({
@@ -551,7 +553,7 @@ export function InvoiceReview() {
           active: section === x.id,
           onClick: () => {
             setSection(x.id);
-                setUrlParam("section", x.id === "findings" ? "" : x.id);
+                if (!embedYm) setUrlParam("section", x.id === "findings" ? "" : x.id);
           },
         }))}
       />
@@ -578,7 +580,7 @@ export function InvoiceReview() {
               value={ym}
               onChange={(e) => {
                 setYm(e.target.value);
-                setUrlParam("ym", e.target.value);
+                if (!embedYm) setUrlParam("ym", e.target.value);
               }}
               disabled={loading}
             >

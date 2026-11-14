@@ -452,6 +452,26 @@ hub tabs with embedded pages (Jobs Hub), and `?section=` strips (Inbox, Payroll)
 
 Target: about 61 pages to about 35 routes behind 8 hubs.
 
+Built 2026-11-14 (owner's added scope, Jobs Hub first; the four folds and
+Supplies above are not started):
+
+- `/trackingsheet` redirects to `/jobs-hub`. The hub's no-job **Month** tab
+  (`src/app/jobs-hub/MonthWork.tsx`) holds what the all-jobs page held: uncaptured
+  bills, unsaved drafts, the month's bills and labor, company tools.
+- **Checks** and **Invoice Status** are hub tabs, with or without a job
+  (`InvoiceReview` and `InvoicingSummary` take `embedYm`). `/jobs-hub?tab=checks`
+  and `?tab=status` open them. The pages `/invoice-review` and `/invoicing-summary`
+  still exist, because the rail lights a slot by path.
+- The rail has Checks and Invoice Status right after the Invoicing item.
+- The job card has no buttons. Its month buttons ride in `BoardEmbed.actions`
+  and its status lines in `BoardEmbed.statuses`. Over Save Changes they are a
+  menu (lines, then a two-column button grid); on touch, a centred row.
+- "Check All Jobs" on the hub opens the hub's Checks tab.
+- Checked in a browser at 1600px and 390px. Not checked: Invoice Status with
+  data (local has no Apps Script URL).
+- Open: with a job picked, the Checks and Status tabs leave the card's total
+  and rings empty (they belong to the Tracking sheet tab).
+
 ---
 
 ## Decisions (owner, 2026-11-13)

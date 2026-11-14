@@ -80,6 +80,9 @@ const nextConfig = {
       // Sheet sync settings is a panel on the hub now (OVERHAUL_PLAN 3.3).
       { source: "/tracking-sheet", destination: "/jobs-hub", permanent: false },
       { source: "/trackingsheet", has: [{ type: "query", key: "jobId" }], destination: "/jobs-hub", permanent: false },
+      // The all-jobs month (bills, labor, drafts, company tools) is the hub's
+      // Month view now (OVERHAUL_PLAN Phase 7).
+      { source: "/trackingsheet", destination: "/jobs-hub", permanent: false },
       // One Incoming Bills inbox (CONSOLIDATION_PLAN.md stage 3).
       { source: "/needs-project", destination: "/email?section=stuck", permanent: false },
       { source: "/vendor-mail", destination: "/email?section=mail", permanent: false },
