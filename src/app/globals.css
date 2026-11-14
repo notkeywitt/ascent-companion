@@ -432,24 +432,25 @@ html[data-rail="hidden"] {
   --rail-w: 0px;
 }
 /* From `pad` up the rail does not leave: it shrinks to an icon strip. Labels
-   and sub-pages go; every icon stays. Width tracks --rail-w. */
+   and sub-pages go; every icon stays. Width tracks --rail-w. A mouse resting
+   on the strip opens it (`data-peek`, TabBar.tsx), so these rules skip it. */
 @media (min-width: 744px) {
   html[data-rail="hidden"] {
     --rail-w: 56px;
   }
-  html[data-rail="hidden"] .rail-nav {
+  html[data-rail="hidden"] .rail-nav:not([data-peek]) {
     width: 56px;
     padding-left: 0.25rem;
     padding-right: 0.25rem;
   }
-  html[data-rail="hidden"] .rail-nav .rail-label {
+  html[data-rail="hidden"] .rail-nav:not([data-peek]) .rail-label {
     display: none;
   }
-  html[data-rail="hidden"] .rail-nav a,
-  html[data-rail="hidden"] .rail-nav button {
+  html[data-rail="hidden"] .rail-nav:not([data-peek]) a,
+  html[data-rail="hidden"] .rail-nav:not([data-peek]) button {
     justify-content: center;
   }
-  html[data-rail="hidden"] .rail-nav .rail-foot {
+  html[data-rail="hidden"] .rail-nav:not([data-peek]) .rail-foot {
     flex-direction: column;
   }
 }
