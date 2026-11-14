@@ -8,6 +8,7 @@ import { runLaborReport } from "@/components/LaborReportButton";
 import { LastRun } from "@/components/LastRun";
 import { autoSyncOf } from "@/app/trackingsheet/useTrackingPush";
 import { createTaskRunner } from "@/lib/taskRunner";
+import { monthLabel } from "@/lib/billingMonths";
 import { money } from "@/lib/money";
 
 /**
@@ -409,19 +410,21 @@ export function SyncAllTrackingSheetsFor({
   if (!canTrack || targets.length === 0) return null;
   const pinned = auto.pinnedYm === ym;
   return (
-    <div className={className}>
+    // `basis-full`: in a wrapping row of buttons this line takes a row of its own.
+    <div className={`basis-full ${className ?? ""}`}>
       {/* The 30-minute timer pushes the pinned month into every sheet, so this
           is its stamp and a retry (Phase 6). The retry also refiles the month's
-          Labor Report, which the sheets read their labor from. */}
+          Labor Report, which the sheets read their labor from. A month the timer
+          is not on has no time to show, so the line says where the timer is. */}
       <LastRun
         verb={jtJobId ? "Sheet synced" : "Tracking sheets synced"}
-        at={pinned ? auto.at : null}
-        every={pinned ? "every 30 min" : undefined}
-        detail={
+        quiet={
           auto.pinnedYm && !pinned
-            ? "The timer holds another month; only Sync now pushes this one."
+            ? `The sheet timer is on ${monthLabel(auto.pinnedYm)}, not this month. Sync now pushes this one.`
             : undefined
         }
+        at={auto.at}
+        every="every 30 min"
         retry="Sync now"
         busy={busy}
         busyLabel={`Syncing ${summary.done + summary.error}/${summary.total}…`}

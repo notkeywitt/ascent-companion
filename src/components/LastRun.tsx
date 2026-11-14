@@ -21,8 +21,12 @@ export function LastRun({
   busyLabel,
   detail,
   error,
+  quiet,
   className = "",
 }: {
+  /** Replaces the whole sentence, for a line with no time to give ("The timer
+   *  is on September, not this month."). The retry still shows. */
+  quiet?: string;
   /** Past tense, capitalised: "Synced", "Checked for bills", "Updated". */
   verb: string;
   at: string | null | undefined;
@@ -41,9 +45,14 @@ export function LastRun({
   return (
     <div className={`text-[12px] text-neutral-500 dark:text-neutral-400 ${className}`}>
       <span>
-        {verb}{" "}
-        {at === undefined ? "…" : at ? timeAgo(at) : "— no run recorded"}
-        {every ? ` (${every})` : ""}
+        {quiet ? (
+          quiet
+        ) : (
+          <>
+            {verb} {at === undefined ? "…" : at ? timeAgo(at) : "— no run recorded"}
+            {every ? ` (${every})` : ""}
+          </>
+        )}
       </span>
       {" · "}
       <button
