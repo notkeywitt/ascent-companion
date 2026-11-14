@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "19wm-18rq2lp";
+export const SCHEMA_FINGERPRINT = "1ag2-1mcl3qo";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1690,6 +1690,17 @@ async function applySchema() {
     SELECT 'invoice-review', ym, key, kind, job_id, severity, title, first_seen_at, last_seen_at
     FROM invoice_review_finding_state
     WHERE resolved_at = '' AND ym >= strftime('%Y-%m', 'now', '-2 months')
+  `);
+  // The digest's dismissals move into the store (OVERHAUL_PLAN Phase 5, step 3).
+  // A resolved row that keeps the dismissal: the next digest run reopens the
+  // item still dismissed. OR IGNORE keeps a re-run, and an undo, from
+  // overwriting a row. digest_dismissals itself stays until the owner's ok.
+  await getClient().execute(`
+    INSERT OR IGNORE INTO findings
+      (source, scope, key, kind, severity, title, first_seen_at, last_seen_at, resolved_at, dismissed_by, dismissed_at)
+    SELECT 'digest', check_id, key, check_id, 'info', title, dismissed_at, dismissed_at, dismissed_at, dismissed_by, dismissed_at
+    FROM digest_dismissals
+    WHERE active = 1 AND dismissed_by <> ''
   `);
 }
 

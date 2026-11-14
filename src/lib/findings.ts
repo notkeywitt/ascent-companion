@@ -160,3 +160,46 @@ export async function list(
       (a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1) || b.firstSeenAt.localeCompare(a.firstSeenAt),
     );
 }
+
+/** Keys of every row of `source` that carries a dismissal, open or resolved. */
+export async function dismissedKeys(source: string): Promise<Set<string>> {
+  await ensureDb();
+  const rows = await rawDb().execute({
+    sql: "SELECT key FROM findings WHERE source = ? AND dismissed_by <> ''",
+    args: [source],
+  });
+  return new Set(rows.rows.map((r) => String(r.key)));
+}
+
+/**
+ * Dismiss by identity, for a caller that holds the key and not the row id.
+ * With no row yet, it makes a resolved one: the next report reopens it, still
+ * dismissed.
+ */
+export async function dismissByKey(
+  source: string,
+  scope: string,
+  key: string,
+  by: string,
+  title = "",
+  now = new Date().toISOString(),
+): Promise<void> {
+  await ensureDb();
+  await rawDb().execute({
+    sql:
+      "INSERT INTO findings (source, scope, key, kind, severity, title, first_seen_at, last_seen_at, resolved_at, dismissed_by, dismissed_at) " +
+      "VALUES (?, ?, ?, ?, 'info', ?, ?, ?, ?, ?, ?) " +
+      "ON CONFLICT (source, scope, key) DO UPDATE SET dismissed_by = excluded.dismissed_by, dismissed_at = excluded.dismissed_at",
+    args: [source, scope, key, scope, title.slice(0, 400), now, now, now, by, now],
+  });
+}
+
+/** Undo a dismissal by identity. No row means nothing to undo. */
+export async function restoreByKey(source: string, scope: string, key: string): Promise<void> {
+  await ensureDb();
+  await rawDb().execute({
+    sql:
+      "UPDATE findings SET dismissed_by = '', dismissed_at = '', dismiss_reason = '' WHERE source = ? AND scope = ? AND key = ?",
+    args: [source, scope, key],
+  });
+}
