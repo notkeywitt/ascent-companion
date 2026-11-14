@@ -488,7 +488,7 @@ export const VIEWS: ViewDef[] = [
   // admin-only one (see ADMIN_MENU below) and the chips render only when the
   // route answers. The numbers live in server-only env vars, never in the DB.
   { id: "bank-details", label: "Bank Details", group: "System", paths: ["/api/bank-details"] },
-  { id: "requests", label: "App Feedback", group: "System", paths: ["/requests"] },
+  { id: "requests", label: "Feature Requests", group: "System", paths: ["/requests"] },
   // The Daily Digest card on the home launcher. No page of its own — the card
   // lives on "/", which EVERY role loads, so the gate is what keeps the morning
   // report (unbilled dollars, inbox subject lines, the office calendar) off a
@@ -624,7 +624,7 @@ const FIELD_VIEWS: string[] = [
   "help",
   "lopezrocks",
   "onboarding",
-  // App Feedback, for every role since 2026-09-29 (owner decision 8): Help
+  // Feature Requests, for every role since 2026-09-29 (owner decision 8): Help
   // already told field and leads to send it. Changing a request's status stays
   // office/admin, checked in /api/feature-requests/[id].
   "requests",

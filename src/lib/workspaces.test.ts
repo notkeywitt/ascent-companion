@@ -149,6 +149,15 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/employee-time")).toBe("time");
     expect(activeBarKey(rail, "/tools")).toBe("tools");
   });
+  it("lists Feature Requests right under Help, on the rail and in the drawer", () => {
+    for (const role of ["office", "field"] as const) {
+      const rail = railFor(role, can(role)).map((i) => i.key);
+      expect(rail.indexOf("requests")).toBe(rail.indexOf("help") + 1);
+      const drawer = drawerFor(role, can(role)).map((i) => i.key);
+      expect(drawer.indexOf("requests")).toBe(drawer.indexOf("help") + 1);
+    }
+    expect(activeBarKey(railFor("office", can("office")), "/requests")).toBe("requests");
+  });
   it("lights the parent workspace on a job page or a bill", () => {
     const rail = railFor("office", can("office"));
     expect(activeBarKey(rail, "/jobs")).toBe("clients");

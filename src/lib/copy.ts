@@ -236,10 +236,10 @@ export const COPY: Record<string, CopyEntry> = {
     label: "Notices — description",
     group: "Home — Utilities",
   },
-  "home.dest.requests.label": { text: "App Feedback", label: "App Feedback — name", group: "Home — Utilities" },
+  "home.dest.requests.label": { text: "Feature Requests", label: "Feature Requests — name", group: "Home — Utilities" },
   "home.dest.requests.desc": {
     text: "Ask for fixes and new features",
-    label: "App Feedback — description",
+    label: "Feature Requests — description",
     group: "Home — Utilities",
   },
   "home.dest.actions.label": { text: "Actions", label: "Actions — name", group: "Home — Utilities" },

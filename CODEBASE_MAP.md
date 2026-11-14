@@ -169,7 +169,7 @@ Not application code. Overview in `CLAUDE.md` → "Shipping".
 | `.githooks/pre-push` | Refuses a direct push to `main`. |
 | `scripts/land.sh` + `.github/workflows/lander.yml` | The lander. Merges every `ready/*` branch onto `main`, verifies once, pushes `main` once. A branch that conflicts or fails moves to `stuck/<name>`. |
 | `src/app/changelog/page.tsx` | Reads `git log` at build time (view `changelog`, System group). |
-| `.claude/skills/queue/` | `/queue` — works the App Feedback requests through `scripts/queue/agent.mjs` and `/api/invoice-review/agent/requests`. |
+| `.claude/skills/queue/` | `/queue` — works the Feature Requests requests through `scripts/queue/agent.mjs` and `/api/invoice-review/agent/requests`. |
 | `.claude/skills/tweak/` | `/tweak` — one small change: worktree, edit, typecheck, ship. |
 
 ## The theme editor

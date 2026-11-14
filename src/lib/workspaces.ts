@@ -150,7 +150,7 @@ export const WORKSPACES: Workspace[] = [
     desc: "How the app works, what changed, and where to ask for more.",
     tabs: [
       tab("help", "/help", "Help", "How to do the things this app does, step by step"),
-      tab("requests", "/requests", "App Feedback", "Ask for fixes and new features"),
+      tab("requests", "/requests", "Feature Requests", "Ask for fixes and new features"),
     ],
   },
   {
@@ -510,6 +510,12 @@ export function railFor(
     if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`)) continue;
     if (tabs.every((t) => rail.some((i) => i.view === t.view && !i.workspace))) continue;
     rail.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
+    // Feature Requests as its own entry right under Help (owner, 2026-11-14):
+    // one tap from any page, on the rail and in the phone drawer.
+    const req = ws.id === "help" ? tabs.find((t) => t.view === "requests") : undefined;
+    if (req && !hide.has(`page:${req.view}`) && !rail.some((i) => i.view === req.view && !i.workspace)) {
+      rail.push({ key: req.view, label: req.label, href: req.href, view: req.view, covers: [req.href] });
+    }
   }
   const ordered = applyOrder(rail, menu.order ?? []);
   if (ordered.length > topCount && topCount > 0) ordered[topCount] = { ...ordered[topCount], gap: true };
