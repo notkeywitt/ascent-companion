@@ -17,6 +17,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
 import { CheckForBills } from "@/components/CheckForBills";
+import { ApproveAllBills } from "@/components/ApproveAllBills";
 import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { SheetSyncButton } from "@/components/SheetSyncSettings";
 import { monthJobRows, monthWarrantyRow, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
@@ -546,6 +547,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                   <DraftInvoicingEmail ym={ym} />
                   <SyncAllTrackingSheetsFor ym={ym} />
                   {can("jobs-hub") && <CheckForBills />}
+                  <ApproveAllBills ym={ym} />
                   {can("invoice-review") && (
                     <Link
                       href={`/invoice-review?ym=${encodeURIComponent(ym)}`}
