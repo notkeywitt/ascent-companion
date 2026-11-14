@@ -20,6 +20,8 @@ export type MonthAction =
   | "labor-report"
   | "labor-report-due"
   | "tracking-sync"
+  /** The sheet's month block was written (scope = projectId). */
+  | "finalize"
   | "invoicing-email";
 
 /**

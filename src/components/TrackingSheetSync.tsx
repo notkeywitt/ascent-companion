@@ -172,6 +172,35 @@ export function TrackingSheetSync({
   );
 }
 
+/**
+ * One sheet op, awaited, under the shared per-project runner — so a Close
+ * month's sync and finalize run back to back and never overlap a "Sync now"
+ * from the same tab. Throws with the route's error.
+ */
+export function runSheetOp(
+  projectId: string,
+  op: "sync" | "finalize",
+  month: number,
+  year: number,
+): Promise<Record<string, any>> {
+  return new Promise((resolve, reject) => {
+    void trackingRunner.run(projectId, async () => {
+      try {
+        const res = await fetch("/api/tracking-sheet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ op, projectId, month, year }),
+        });
+        const b = await res.json();
+        if (!res.ok || b?.ok === false) throw new Error(b?.error || `Request failed (${res.status})`);
+        resolve(b);
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error("Something went wrong."));
+      }
+    });
+  });
+}
+
 /** Kick off one project's sync, reporting progress through `set`. */
 export function runTrackingSync(
   projectId: string,
