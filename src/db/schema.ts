@@ -1155,6 +1155,9 @@ export const invoiceReviewDispositions = sqliteTable("invoice_review_disposition
   /** Which model produced this, so a change in quality is attributable. */
   model: text("model").notNull().default(""),
   createdAt: text("created_at").notNull(),
+  /** `findingPrint` of the finding the verdict was written against. "" on rows
+   *  older than the column: those carry forward as they always did. */
+  seen: text("seen").notNull().default(""),
 });
 
 export type InvoiceReviewDispositionRow = typeof invoiceReviewDispositions.$inferSelect;

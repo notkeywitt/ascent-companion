@@ -6,7 +6,14 @@ import { currentBillingPeriod } from "@/lib/billingMonth";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getBillLinesForJob, getJobBillsForMonth, getJobTimeEntriesForMonth } from "@/lib/jobtread";
 import { DIGEST_GLOBAL } from "@/lib/digest/settings";
-import { VERDICTS, saveDispositions, type DispositionInput } from "@/lib/invoiceReview/dispositions";
+import {
+  VERDICTS,
+  attachDispositions,
+  readDispositions,
+  saveDispositions,
+  type DispositionInput,
+} from "@/lib/invoiceReview/dispositions";
+import { findingPrint } from "@/lib/invoiceReview/types";
 import { parseYm } from "@/lib/invoiceReview/evidence";
 import { activeInstructions } from "@/lib/invoiceReview/instructions";
 import {
@@ -91,12 +98,21 @@ export async function GET(req: NextRequest) {
   if (action === "read") {
     const ym = monthOf(req.nextUrl.searchParams.get("ym"));
     if (!ym) return NextResponse.json({ error: "Pass ym=YYYY-MM." }, { status: 400 });
-    const [run, history, instructions, investigation] = await Promise.all([
+    const [run, history, instructions, investigation, verdicts] = await Promise.all([
       readLatestRun(ym),
       listRuns(ym, 20),
       activeInstructions().catch(() => []),
       readInvestigation(ym),
+      readDispositions(ym),
     ]);
+    // The filed run carries the verdicts as they stood when it ran. A pass
+    // that finished since then must count, or the next pass redoes its work.
+    if (run?.payload) {
+      run.payload.findings = attachDispositions(
+        run.payload.findings.map(({ disposition: _old, ...f }) => f),
+        verdicts,
+      );
+    }
     return NextResponse.json({
       ym,
       storedAt: run?.ranAt ?? null,
@@ -235,7 +251,7 @@ export async function POST(req: NextRequest) {
   if (action === "finish") {
     const run = await readLatestRun(ym);
     if (!run?.payload) return NextResponse.json({ error: `No filed run for ${ym}.` }, { status: 404 });
-    const known = new Set(run.payload.findings.map((f) => f.key));
+    const known = new Map(run.payload.findings.map((f) => [f.key, findingPrint(f)]));
 
     const raw = Array.isArray(body.dispositions) ? body.dispositions : [];
     const items: DispositionInput[] = [];
@@ -252,6 +268,7 @@ export async function POST(req: NextRequest) {
         verdict: verdict as DispositionInput["verdict"],
         why: text(r.why),
         suggestedAction: text(r.suggestedAction),
+        seen: known.get(key),
       });
     }
 
