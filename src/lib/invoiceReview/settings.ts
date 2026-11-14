@@ -43,6 +43,7 @@ import type { DuplicateBillConfig } from "./checks/duplicateBill";
 import type { DuplicateDraftConfig } from "./checks/duplicateDraft";
 import type { DuplicateWideConfig } from "./checks/duplicateWide";
 import type { DuplicateCrossJobConfig } from "./checks/duplicateCrossJob";
+import type { TrackingSheetConfig } from "./checks/trackingSheet";
 import type { InvoiceLinesConfig } from "./checks/invoiceLines";
 import type { LineCodeMismatchConfig } from "./checks/lineCodeMismatch";
 import type { TaxDoubledConfig } from "./checks/taxDoubled";
@@ -88,6 +89,7 @@ export interface InvoiceReviewSettings {
     "tax-doubled": SettingsBlock<TaxDoubledConfig>;
     "duplicate-wide": SettingsBlock<DuplicateWideConfig>;
     "duplicate-cross-job": SettingsBlock<DuplicateCrossJobConfig>;
+    "tracking-sheet": SettingsBlock<TrackingSheetConfig>;
     "invoice-lines": SettingsBlock<InvoiceLinesConfig>;
     "line-code-mismatch": SettingsBlock<LineCodeMismatchConfig>;
   };
@@ -222,6 +224,7 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         minCost: 15,
       },
     },
+    "tracking-sheet": { enabled: true, config: {} },
     "invoice-lines": {
       enabled: true,
       config: {

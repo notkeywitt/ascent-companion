@@ -68,6 +68,7 @@ import {
 
 import { isSalesTaxLine, SALES_TAX_CSI } from "@/lib/salesTax";
 import { cents, isNeverInvoiced } from "./types";
+import { loadSheetEvidence, type SheetEvidence } from "./sheetEvidence";
 import type {
   BackupFile,
   BillEmail,
@@ -872,6 +873,15 @@ export async function loadMonthEvidence(
         }))
       : null;
 
+  // The Tracking Sheets, for the whole month only: a one-job check has no use
+  // for the other sheets. Starts now for the same reason the mailbox does.
+  const sheetsPending = opts.onlyJobIds?.length
+    ? null
+    : loadSheetEvidence(cfg, year, month).catch((e) => ({
+        sheets: [] as SheetEvidence[],
+        warnings: [`Tracking Sheets were not checked — ${e instanceof Error ? e.message : "unknown error"}`],
+      }));
+
   const fullRoster = await getMonthlyInvoiceJobs(cfg, year, month, true, true);
   const only = opts.onlyJobIds?.length ? new Set(opts.onlyJobIds) : null;
   const roster = only ? fullRoster.filter((r) => only.has(r.jobId)) : fullRoster;
@@ -1057,11 +1067,15 @@ export async function loadMonthEvidence(
     }
   }
 
+  const sheetRead = sheetsPending ? await sheetsPending : null;
+  if (sheetRead) warnings.push(...sheetRead.warnings);
+
   return {
     ym,
     year,
     month,
     monthLabel,
+    ...(sheetRead?.sheets.length ? { sheets: sheetRead.sheets } : {}),
     folderRoot: billingFolderRoot(year, month),
     laborRates: laborRateCard.rates,
     emailChecked,
