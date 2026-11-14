@@ -6,6 +6,7 @@ import { Dialog } from "@/components/Dialog";
 import { Banner, Button, SectionLabel } from "@/components/ui";
 import { billingMonths } from "@/lib/billingMonths";
 import { money } from "@/lib/money";
+import { toast } from "@/components/Toast";
 
 type Draft = { id: string; vendor: string; cost: number; isExpense: boolean; jobName?: string };
 
@@ -66,11 +67,12 @@ export function ApproveAllBills({ ym }: { ym: string }) {
     setBusy(false);
     setDrafts(null);
     const verb = previewed ? "Would approve" : "Approved";
-    setMsg(
-      failures.length === 0
-        ? { tone: "success", text: `${verb} ${ok} bill${ok === 1 ? "" : "s"}.` }
-        : { tone: "error", text: `${verb} ${ok}, ${failures.length} failed: ${failures.slice(0, 2).join("; ")}` },
-    );
+    if (failures.length === 0) toast(`${verb} ${ok} bill${ok === 1 ? "" : "s"}.`);
+    else
+      setMsg({
+        tone: "error",
+        text: `${verb} ${ok}, ${failures.length} failed: ${failures.slice(0, 2).join("; ")}`,
+      });
   };
 
   const total = drafts?.reduce((s, b) => s + b.cost, 0) ?? 0;

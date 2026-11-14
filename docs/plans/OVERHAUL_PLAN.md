@@ -428,7 +428,7 @@ finding kinds clear from that list.
 - [x] Job check: run on open and after each save. Remove "Check this job". (2026-11-13: runs on every month load in `Board.tsx`; the card carries "Check again".)
 - [x] Replace "Check for Bills", "Sync to Tracking Sheet", "Sync Drive", "Refresh" and "Run now" with a last-run time and a small retry link. Their timers already run every 15, 30 or 60 minutes. (2026-11-13: `src/components/LastRun.tsx`. Timers checked: tag scan 15 min, tracking push 30 min, full sync hourly; the "Run now" tasks are steps of the hourly run; "Refresh" is the digest, on crons at 8:00 and 17:00 UTC. The full-sync and tag-scan stamps come from Apps Script `FULL_SYNC_LAST_RUN` / `INVOICE_SCAN_LAST_RUN`, which show "no run recorded" until that side is deployed.)
 - [ ] Document access: grant on bill approval when the job has one customer contact.
-- [ ] One save rule, shown in the UI: an edit that changes money stages behind "Save Changes"; anything else saves at once with a `Toast`. Move approve, void and line add or delete under that rule.
+- [x] One save rule, shown in the UI: an edit that changes money stages behind "Save Changes"; anything else saves at once with a `Toast`. Move approve, void and line add or delete under that rule. (2026-11-13: `src/app/trackingsheet/useLineOps.ts` stages delete, add, buyback and void on the board and the draft queue; approve, time approve and move, billing month, due date and bill number write at once with a toast. The bill page `/bill/<id>` still writes delete, add, buyback and void at once.)
 - [ ] One "Close month" step per job: finalize the sheet, grant access, open the JobTread invoice.
 
 Do not add a write that races the hourly mirror.

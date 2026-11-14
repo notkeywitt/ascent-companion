@@ -9,6 +9,7 @@ import { jtTimeUrl } from "@/lib/jtLinks";
 import type { TimeEntryEdit } from "@/lib/codingDraft";
 import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
 import { money } from "@/lib/money";
+import { toast } from "@/components/Toast";
 
 /**
  * THE TIME & LABOR PANEL — the bill coding card's twin, for one time entry.
@@ -411,7 +412,7 @@ export function TimeCodingCard({
       } else if (b.previewed) {
         setMsg({ tone: "info", text: b.message });
       } else {
-        setMsg({ tone: "success", text: "Moved in JobTread." });
+        toast("Moved in JobTread.");
         onSaved();
       }
     } catch (e) {
@@ -443,7 +444,7 @@ export function TimeCodingCard({
       } else if (b.previewed) {
         setMsg({ tone: "info", text: b.message });
       } else {
-        setMsg({ tone: "success", text: "Approved in JobTread." });
+        toast("Approved in JobTread.");
         onSaved();
       }
     } catch (e) {
