@@ -56,7 +56,7 @@ export function CheckForBills() {
 
   return (
     <LastRun
-      className="text-center"
+      className="basis-full text-center"
       verb="Checked for bills"
       at={at}
       every="every 15 min"

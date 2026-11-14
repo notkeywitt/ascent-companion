@@ -1845,16 +1845,19 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           className={`basis-full text-center ${cls}`}
           verb={`${trackingTarget.label} synced`}
           at={autoSyncAt}
-          every={pinnedYm === ym ? "every 30 min" : undefined}
+          every="every 30 min"
+          quiet={
+            pinnedYm && pinnedYm !== ym
+              ? `${trackingTarget.label}: the sheet timer is on ${monthLabel(pinnedYm)}, not this month. Sync now pushes this one.`
+              : undefined
+          }
           retry="Sync now"
           busy={trackingBusy}
           busyLabel="Syncing sheet…"
           detail={
-            pinnedYm && pinnedYm !== ym
-              ? `The timer holds ${monthLabel(pinnedYm)}, not this month.`
-              : dirty
-                ? `${stagedCount} staged change${stagedCount === 1 ? "" : "s"} not saved yet, so not in the sheet.`
-                : undefined
+            dirty
+              ? `${stagedCount} staged change${stagedCount === 1 ? "" : "s"} not saved yet, so not in the sheet.`
+              : undefined
           }
           onRetry={() => {
             if (syncing) return;
