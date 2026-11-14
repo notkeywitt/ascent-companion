@@ -277,6 +277,17 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
   const [reviewFlaggedAt, setReviewFlaggedAt] = useState("");
   const [reviewSaving, setReviewSaving] = useState(false);
   const [reviewMsg, setReviewMsg] = useState("");
+  // Split from / split into another bill — do the pieces still add up? Read
+  // from /api/split-bill (GET). Null = never split, or a role without the gate.
+  const [split, setSplit] = useState<{
+    pieces: { docId: string; externalId: string }[];
+    originalTotal: number;
+    total: number;
+    totalDiff: number;
+    lineCount: number;
+    lineDiff: number;
+    matches: boolean;
+  } | null>(null);
   const [addingLine, setAddingLine] = useState(false);
   const [newLine, setNewLine] = useState({ name: "", quantity: "1", unitCost: "0", code: "" });
   const [addLineSaving, setAddLineSaving] = useState(false);
@@ -867,6 +878,21 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
       alive = false;
     };
   }, [docId]);
+
+  // Re-read after every bill load, so a split just made or a piece just edited shows.
+  useEffect(() => {
+    if (!lines) return;
+    let alive = true;
+    fetch(`/api/split-bill?docId=${encodeURIComponent(docId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive) setSplit(j?.split ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [docId, lines]);
 
   // Set/clear the "Needs review" flag with the current note. Companion-local
   // (writes to saved_bills), never a JobTread write — works with writes OFF.
@@ -1530,6 +1556,17 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             value={money(total)}
             sub={`${lines.length} ${lines.length === 1 ? "line" : "lines"}`}
           />
+        )}
+
+        {split && (
+          <Banner tone={split.matches ? "neutral" : "warning"} className="mt-3 !px-3 !py-2.5 !text-xs">
+            Split bill: {split.pieces.map((p) => p.externalId || p.docId).join(" + ")} sum to {money(split.total)}
+            {split.matches
+              ? `, matches the original ${money(split.originalTotal)}.`
+              : `, differs from the original ${money(split.originalTotal)} by ${money(split.totalDiff)}${
+                  split.lineDiff ? ` and ${split.lineDiff > 0 ? "+" : ""}${split.lineDiff} lines` : ""
+                }.`}
+          </Banner>
         )}
 
         {saveMsg && (
