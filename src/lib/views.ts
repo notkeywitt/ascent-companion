@@ -105,6 +105,8 @@ export const VIEWS: ViewDef[] = [
       "/api/buyback",
       "/api/reassign-job",
       "/api/bill-void",
+      // "Create draft invoice" — creates a customer invoice in JobTread.
+      "/api/invoice-draft",
       // Bulk "Document Access" — adds a customer contact to the ACE list on a
       // month's vendor bills, so it must not be callable by a role that cannot
       // see the month.
