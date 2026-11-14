@@ -1,7 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   clearJobCostCaches,
   getBillJournalSnapshot,
+  grantSoleContactAccess,
   isExpenseDoc,
   expenseAccountFor,
   setBillFields,
@@ -16,6 +17,10 @@ type Status = (typeof ALLOWED)[number];
 
 // Set a bill's status. "approved" = Approve for payment / Record payment (pushes
 // to QuickBooks). Gated by the writes flag.
+// The detached Document Access grant (after()) needs the function alive a
+// few seconds past the answer.
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   if (!hasGrant()) {
     return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
@@ -92,6 +97,11 @@ export async function POST(req: NextRequest) {
     // approved/pending bills count toward cost-to-complete; drafts don't — so any
     // status change moves the job's actuals.
     clearJobCostCaches();
+    // Leaving draft is the moment the bill becomes the client's business, so
+    // the job's one customer contact gets Document Access to it now, after
+    // the answer is sent (OVERHAUL_PLAN Phase 6). A job with no contact or
+    // several keeps the dialog. Aces are not mirrored, so nothing races.
+    if (status !== "draft") after(() => grantSoleContactAccess(cfg, docId).then(() => undefined));
     return NextResponse.json({ wrote: true, status: saved });
   } catch (e) {
     return NextResponse.json(

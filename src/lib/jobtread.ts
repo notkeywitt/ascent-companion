@@ -285,6 +285,7 @@ export {
   getJobCustomerContacts,
   getMonthBillAccess,
   grantDocumentAccess,
+  grantSoleContactAccess,
   getDocumentAccess,
 } from "./jobtread/documentAccess";
 export type {
