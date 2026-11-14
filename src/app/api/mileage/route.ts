@@ -6,6 +6,7 @@ import { reverseGeocode } from "@/lib/mileageRoute";
 import { readJtUserLink } from "@/lib/jtUserLink";
 import { mileageDbWrites, mirrorMileageWrite } from "@/lib/sheetTables";
 import { scopeMileageList, seesAllMileage, type MileageList } from "@/lib/mileageScope";
+import { claimSave, closeOpenTrip, finishSave } from "@/lib/mileageSaves";
 
 // Proxy to the Apps Script web app's mileage actions. The one-tap flow captures
 // two GPS points + timestamps on the phone; this route turns them into an
@@ -30,6 +31,12 @@ import { scopeMileageList, seesAllMileage, type MileageList } from "@/lib/mileag
 //        → { ok, tripId, miles, date }                         (hand-entered — no GPS)
 //        The addresses come from /api/mileage/route-miles when the driver had
 //        Google figure the miles. A round trip saves as From → To → From.
+//
+// ONE ROW PER TRIP. The phone keeps a save it has not seen confirmed and sends
+// it again later (lib/mileageOutbox.ts), so a POST with a `clientKey` is
+// claimed first (lib/mileageSaves.ts): a key already saved answers the first
+// reply again (200), a key still saving answers 409, and a key whose first save
+// ended unknown is looked up on the sheet before anything is written.
 //
 // Distance is the route Google would drive between the two endpoints — accurate
 // for a simple A→B trip, not a traced path. If Directions is unavailable the
@@ -210,12 +217,16 @@ export async function POST(req: NextRequest) {
   const session = await auth();
   const loggedBy = session?.user?.email ?? "";
 
+  const clientKey = String(body.clientKey ?? "").trim();
+
   // Manual entry: miles typed by hand, no GPS — no Directions call, just log it.
   if (body.manual === true) {
     const miles = Number(body.miles);
     if (!Number.isFinite(miles) || miles <= 0) {
       return NextResponse.json({ error: "Enter the miles driven (greater than 0)." }, { status: 400 });
     }
+    const early = await claimed(clientKey, loggedBy, body);
+    if (early) return early;
     const manual = await callAppsScript({
       action: "logMileage",
       manual: true,
@@ -229,7 +240,11 @@ export async function POST(req: NextRequest) {
       ...manualRoute(body),
       clientKey: String(body.clientKey ?? ""),
     });
-    if (manual.error) return NextResponse.json({ error: manual.error }, { status: manual.status });
+    if (manual.error) {
+      await finishSave(clientKey, "failed");
+      return NextResponse.json({ error: manual.error }, { status: manual.status });
+    }
+    await settled(clientKey, loggedBy, manual.data);
     copyToDb(manual.data, loggedBy);
     return NextResponse.json(manual.data, { status: 200 });
   }
@@ -260,6 +275,9 @@ export async function POST(req: NextRequest) {
     .map((w) => ({ lat: Number((w as Record<string, unknown>)?.lat), lng: Number((w as Record<string, unknown>)?.lng) }))
     .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
 
+  const early = await claimed(clientKey, loggedBy, body);
+  if (early) return early;
+
   const dir = await drivingDistance({ lat: startLat, lng: startLng }, { lat: endLat, lng: endLng }, waypoints, stopPoints);
 
   const result = await callAppsScript({
@@ -282,24 +300,50 @@ export async function POST(req: NextRequest) {
     stops,
     via: dir.via,
     polyline: dir.polyline,
-    clientKey: String(body.clientKey ?? ""),
+    clientKey,
   });
-  if (result.error) return NextResponse.json({ error: result.error }, { status: result.status });
+  if (result.error) {
+    await finishSave(clientKey, "failed");
+    return NextResponse.json({ error: result.error }, { status: result.status });
+  }
   copyToDb(result.data, loggedBy);
 
   // Merge the computed address/miles/stops + any warning into the reply so the
   // summary screen can show them (and its map) without a second round-trip.
   const data = (result.data ?? {}) as Record<string, unknown>;
-  return NextResponse.json(
-    {
-      ...data,
-      startAddress: dir.startAddress,
-      endAddress: dir.endAddress,
-      via: dir.via,
-      stops,
-      polyline: dir.polyline,
-      warning: dir.warning,
-    },
-    { status: 200 },
-  );
+  const reply = {
+    ...data,
+    startAddress: dir.startAddress,
+    endAddress: dir.endAddress,
+    via: dir.via,
+    stops,
+    polyline: dir.polyline,
+    warning: dir.warning,
+  };
+  await settled(clientKey, loggedBy, reply);
+  return NextResponse.json(reply, { status: 200 });
+}
+
+/** The reply for a key that must not be saved again, or null to go ahead. */
+async function claimed(clientKey: string, email: string, body: Record<string, unknown>) {
+  const c = await claimSave(clientKey, email, body);
+  if (c.kind === "saved") {
+    await closeOpenTrip(email, clientKey);
+    return NextResponse.json(c.result, { status: 200 });
+  }
+  if (c.kind === "busy") {
+    return NextResponse.json({ error: "This trip is still saving.", busy: true }, { status: 409 });
+  }
+  if (c.kind === "unchecked") return NextResponse.json({ error: c.error }, { status: 503 });
+  return null;
+}
+
+/** Record the outcome of an Apps Script save that answered. */
+async function settled(clientKey: string, email: string, data: unknown) {
+  if ((data as { ok?: boolean } | null)?.ok === false) {
+    await finishSave(clientKey, "failed");
+    return;
+  }
+  await finishSave(clientKey, "saved", data);
+  await closeOpenTrip(email, clientKey);
 }

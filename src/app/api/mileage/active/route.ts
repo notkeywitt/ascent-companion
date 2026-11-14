@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
 import { mileageOpenTrips } from "@/db/schema";
 import { OPEN_TRIP_TTL_DAYS, parseTrip } from "@/lib/mileageTrip";
+import { isSaved } from "@/lib/mileageSaves";
 
 /**
  * The OPEN mileage trip — started, not yet ended.
@@ -49,6 +50,11 @@ export async function GET() {
       .where(eq(mileageOpenTrips.email, email))
       .limit(1);
     const trip = rows[0] ? parseTrip(JSON.parse(rows[0].payload)) : null;
+    // A late backup push can land after the trip was saved. That trip is over.
+    if (trip && (await isSaved(trip.tripKey))) {
+      await db.delete(mileageOpenTrips).where(eq(mileageOpenTrips.email, email));
+      return NextResponse.json({ trip: null });
+    }
     return NextResponse.json({ trip });
   } catch {
     // The backup must never break the page: the phone's own copy is the one that
@@ -76,6 +82,8 @@ export async function POST(req: NextRequest) {
 
   try {
     await ensureDb();
+    // The trip was already saved (a backup push that arrived late): keep nothing.
+    if (await isSaved(trip.tripKey)) return NextResponse.json({ ok: true });
     const updatedAt = new Date().toISOString();
     await db
       .insert(mileageOpenTrips)
