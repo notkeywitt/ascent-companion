@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { StuckVendorBanner } from "@/components/StuckVendors";
-import { NeedsProjectBanner, useNeedsProjectCount } from "@/components/NeedsProject";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead, type MastheadMonth } from "@/components/HomeMasthead";
@@ -46,12 +45,10 @@ function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
 /** FIELD and LEAD. */
 function CrewHome({ month }: { month: MastheadMonth }) {
   const access = useAccess();
-  const needsProject = useNeedsProjectCount();
   // Home's notices, up in the masthead (owner, 2026-11-02). Each self-hides.
   const notices = (
     <>
       <StuckVendorBanner compact />
-      <NeedsProjectBanner state={needsProject} compact />
     </>
   );
 

@@ -96,19 +96,6 @@ const SOURCES: Source[] = [
     },
   },
   {
-    key: "needs-project",
-    view: "needs-project",
-    officeOnly: true,
-    label: "Bills with no job",
-    href: "/needs-project",
-    load: async () => {
-      const r = await callAppsScript<{ items?: unknown[]; error?: string }>({ action: "listNeedsProject" });
-      if (r.error || r.data?.error) throw new Error(r.error || r.data?.error);
-      const n = (r.data?.items ?? []).length;
-      return { count: n, detail: `${plural(n, "bill")} not in JobTread until a job is picked` };
-    },
-  },
-  {
     key: "corrections",
     view: "bill-review",
     label: "Bill Corrections",

@@ -18,6 +18,7 @@ import { report, type FindingInput } from "@/lib/findings";
 import { recentMonthlyCheckRuns } from "@/lib/invoiceReview/investigations";
 import { reviewWindow } from "@/lib/invoiceReview/schedule";
 import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/settings";
+import { money } from "@/lib/money";
 
 interface PullSource {
   source: string;
@@ -42,6 +43,23 @@ const PULL: PullSource[] = [
         subject: v.vendor,
         title: `${v.vendor}: ${v.count} bill${v.count === 1 ? "" : "s"} cannot reach JobTread${v.reason ? ` — ${v.reason}` : ""}`,
         link: "/email?section=stuck",
+      }));
+    },
+  },
+  {
+    // Bills held for a job decision: no job picked, so not in JobTread yet.
+    source: "needs-project",
+    load: async () => {
+      const r = await callAppsScriptOrThrow<{ items?: { expId: string; vendor?: string; amount?: number }[] }>(
+        { action: "listNeedsProject" },
+        { timeoutMs: TIMEOUT_MS },
+      );
+      return (r.items ?? []).map((b) => ({
+        key: b.expId,
+        kind: "needs-project",
+        subject: b.vendor || "Unknown vendor",
+        title: `${b.vendor || "Unknown vendor"} ${money(b.amount ?? 0)}: no job picked, so it is not in JobTread`,
+        link: "/needs-project",
       }));
     },
   },
