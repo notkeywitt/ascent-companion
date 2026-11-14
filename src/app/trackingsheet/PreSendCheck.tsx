@@ -25,12 +25,16 @@ import type { JobRun } from "./usePreSendCheck";
  */
 export function PreSendCheck({
   run,
+  onRun,
   linkFor,
   onRecheck,
   onClear,
   onUnclear,
 }: {
   run: JobRun;
+  /** Re-run the whole job — the "Check again" link. The check runs on its own
+   *  on every month load, so this is the retry, not the way in. */
+  onRun: () => void;
 } & FindingActions) {
   const mem = run.mem;
   const result = mem?.result ?? null;
@@ -44,7 +48,16 @@ export function PreSendCheck({
         className="mb-2"
         trailing={
           <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-            {run.state !== "idle" ? "Checking…" : mem ? `Checked ${checkedAtLabel(mem.at)}` : ""}
+            {run.state !== "idle" ? (
+              "Checking…"
+            ) : (
+              <>
+                {mem ? `Checked ${checkedAtLabel(mem.at)} · ` : ""}
+                <button type="button" onClick={onRun} className="text-accent underline">
+                  Check again
+                </button>
+              </>
+            )}
           </span>
         }
       >

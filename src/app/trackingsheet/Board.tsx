@@ -509,6 +509,26 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
 
   // ---- pre-send check (the invoice review's checks, on this job) — ./usePreSendCheck
   const { preSend, preSendRunning, runPreSend, recheck, clear, unclear } = usePreSendCheck({ jobId, ym });
+  /**
+   * The check runs on every month load — the open, and the re-read after each
+   * save — instead of behind a button (Phase 6). A load that lands while a
+   * check is still going queues one more run, not one per load: the route
+   * reads the whole job and the rate limit is the cost.
+   */
+  const canCheck = can("invoice-review");
+  const checkQueued = useRef(false);
+  useEffect(() => {
+    if (!canCheck || !jobId || !data) return;
+    if (preSendRunning) checkQueued.current = true;
+    else runPreSend();
+    // `data` is the trigger: a new payload is a new load.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, canCheck, jobId]);
+  useEffect(() => {
+    if (preSendRunning || !checkQueued.current) return;
+    checkQueued.current = false;
+    runPreSend();
+  }, [preSendRunning, runPreSend]);
 
   // The budget column's screen state (search, folds, hide) — ./useRailView.
   const {
@@ -1934,17 +1954,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    */
   const closingActions = (
     <>
-      {/* Its route rides the invoice-review gate, so the button does too. */}
-      {can("invoice-review") && (
-        <Button
-          variant="secondary"
-          onClick={runPreSend}
-          disabled={preSendRunning}
-          className="min-h-11"
-        >
-          {preSendRunning ? "Checking…" : preSend.mem ? "Check again" : "Check this job"}
-        </Button>
-      )}
+      {/* The job check has no button: it runs on every month load — open, and
+          after each save — see the effect by usePreSendCheck. Its card carries
+          "Check again". */}
       {trackingSheetAction("min-h-11")}
       <Button
         variant="secondary"
@@ -3086,6 +3098,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         <div className={embed ? "order-last mt-4" : "order-last mt-4 lg:order-none lg:mb-4"}>
           <PreSendCheck
             run={preSend}
+            onRun={runPreSend}
             linkFor={findingLink}
             onRecheck={recheck}
             onClear={clear}
