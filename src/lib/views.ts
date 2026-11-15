@@ -181,7 +181,9 @@ export const VIEWS: ViewDef[] = [
     id: "invoicing-summary",
     label: "Invoice Status",
     group: "Financials",
-    paths: ["/invoicing-summary", "/api/invoicing-summary"],
+    // The job check is the same read the Tracking Sheets card makes; the page
+    // shows its per-check marks and the app-versus-JobTread figures.
+    paths: ["/invoicing-summary", "/api/invoicing-summary", "/api/invoice-review/job"],
   },
   // The queue of bills flagged "Needs review" — billing corrections the app
   // can't make (paid / invoiced / QuickBooks-pushed bills). Office+admin. The
