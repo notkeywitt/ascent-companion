@@ -1,5 +1,6 @@
 "use client";
 
+import { YearRibbon } from "@/components/YearRibbon";
 import { hubPath, parseHubPath } from "@/lib/hubUrl";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -643,6 +644,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         )}
 
         {/* UNDER THE HEADER */}
+        {/* The picked job's year: crew hours above, vendor bills below. From
+            `pad` up only; a phone never fetches it. */}
+        {selected && <YearRibbon key={`ribbon-${selected.id}`} jobId={selected.id} />}
         {/* The queue and the to-dos that sat here are Home's now (2026-11-13). */}
         {shown === "checks" && canChecks ? (
           ym && <InvoiceReview key={ym} embedYm={ym} />

@@ -10,6 +10,7 @@ import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead, type MastheadMonth } from "@/components/HomeMasthead";
 import { OfficeHome } from "@/components/OfficeHome";
 import { TodayQueue } from "@/components/TodayQueue";
+import { YearRibbon } from "@/components/YearRibbon";
 import type { HomeLayout } from "@/lib/homeWidgets";
 
 /**
@@ -36,6 +37,8 @@ function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
       <main className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5">
         <HomeMasthead month={month} />
         <OfficeHome layout={layout} />
+        {/* The year so far, docked to the foot of the screen on every width. */}
+        <YearRibbon dock />
       </main>
     );
   }
