@@ -191,10 +191,12 @@ export function TimeOffView({ office, embedded = false }: { office: boolean; emb
           {loading ? (
             <Loading label="Loading balances…" />
           ) : (
-            <div className="mt-5 space-y-5">
+            <div className="mt-5 space-y-5 xl:grid xl:grid-cols-2 xl:items-start xl:gap-5 xl:space-y-0">
               <RequestsQueueCard onChanged={load} />
               <AccrualCard onDone={load} setBanner={(t) => { setNote(t.note); setError(t.error); }} />
-              <BalancesCard byEmployee={byEmployee} roster={roster} onChanged={load} />
+              <div className="xl:col-span-2">
+                <BalancesCard byEmployee={byEmployee} roster={roster} onChanged={load} />
+              </div>
               <ImportBalancesCard roster={roster} onChanged={load} />
               <PoliciesCard policies={policies} onSaved={load} />
             </div>
@@ -286,10 +288,12 @@ function SelfServiceSection() {
             })}
           </div>
           {note && <Banner tone="warning" className="mt-3">{note}</Banner>}
-          {me && (
-            <RequestForm policies={policies} onDone={load} />
-          )}
-          <MyRequests requests={requests} />
+          <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+            {me && (
+              <RequestForm policies={policies} onDone={load} />
+            )}
+            <MyRequests requests={requests} />
+          </div>
         </>
       )}
     </Card>
@@ -1274,5 +1278,5 @@ function PolicyRow({ policy, onSaved }: { policy: Policy; onSaved: () => void })
 
 /** A page of its own, or a section of Payroll (/payroll). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }
