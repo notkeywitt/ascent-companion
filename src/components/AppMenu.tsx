@@ -41,6 +41,9 @@ import {
  * Assistant, Appearance, alerts and Sign out. The sidebar already lists the
  * pages, and pinning is a phone-bar thing.
  *
+ * On a phone the menu has no button of its own: TabBar's swipe-up drawer opens
+ * it (`open` + `onOpenChange`; owner, 2026-11-15). The header's ☰ is gone.
+ *
  * The menu is a `Sheet` (OVERHAUL_PLAN 3.3): a bottom sheet on a phone, a side
  * panel from `pad` up. Sheet portals to <body>, which it must: the header
  * carries `backdrop-blur`, and a filtered element would contain the overlay.
@@ -79,8 +82,13 @@ export function AppMenu({
   qs = "",
   account = false,
   pages = false,
+  open: openProp,
+  onOpenChange,
 }: {
   qs?: string;
+  /** Controlled by the phone bar's drawer: no trigger button is drawn. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   account?: boolean;
   /** Account drawer only: also list one row per workspace. The office phone has
    *  no ☰ (owner, 2026-10-18), so this is its way to an off-bar page. */
@@ -90,15 +98,20 @@ export function AppMenu({
   const c = useCopy();
   const copyEdit = useCopyEdit();
   const pathname = usePathname();
-  const [open, setOpen] = useState(false);
+  const controlled = openProp !== undefined;
+  const [openState, setOpenState] = useState(false);
+  const open = controlled ? openProp : openState;
+  const setOpen = (v: boolean) => (controlled ? onOpenChange?.(v) : setOpenState(v));
   const kloi = useKloi();
   const [pinning, setPinning] = useState(false);
   const [pin, setPinState] = useState("");
 
   // A menu whose whole job is to navigate has to close when it does.
   useEffect(() => {
-    setOpen(false);
+    setOpenState(false);
+    onOpenChange?.(false);
     setPinning(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   useEffect(() => {
@@ -156,7 +169,7 @@ export function AppMenu({
 
   return (
     <>
-      {account ? (
+      {controlled ? null : account ? (
         // Styled as one of the sidebar's own items (TabBar's rail links).
         <button
           type="button"
