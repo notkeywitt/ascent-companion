@@ -30,8 +30,8 @@ import {
  * It sits faded behind a header line, filling it:
  *   Home       `HomeMasthead`'s `backdrop`, from `/api/home/ribbon` (the
  *              largest jobs plus "Other").
- *   Jobs page  `HubRibbonHeader`, from `/api/jobs-hub/ribbon` (every job).
- *              `focusId` keeps the picked job's line and fades the rest.
+ *   Jobs page  the same `HomeMasthead`, from `/api/jobs-hub/ribbon` (every
+ *              job), the picked job in place of the date. `focusId` keeps the picked job's line and fades the rest.
  *
  * It draws itself from January to today once, when it loads; the labels come
  * in when the line is drawn. It hides itself when the read fails or holds nothing.

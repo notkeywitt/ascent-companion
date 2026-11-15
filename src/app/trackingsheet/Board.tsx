@@ -391,13 +391,13 @@ export interface BoardEmbed {
 
 /**
  * Where the screen's chrome ends: the app header, plus the Jobs Hub's pinned
- * job name from `pad` up (HubRibbonHeader, pinned flush under the header).
+ * job name from `pad` up (HomeMasthead `pinned`, flush under the header).
  * Below `pad` that header scrolls away, so only the app header counts.
  */
 function chromeBottom(): number {
   const header =
     parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--appheader-h")) || 0;
-  const pin = document.querySelector<HTMLElement>("main > header[style]");
+  const pin = document.querySelector<HTMLElement>("main > header[data-pinned]");
   if (!pin || getComputedStyle(pin).position !== "sticky") return header;
   return header + pin.offsetHeight;
 }
