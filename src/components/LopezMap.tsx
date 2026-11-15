@@ -11,8 +11,27 @@ import {
   PHASE_COLORS,
   phaseColor,
   placeJobs,
+  project,
   type MapJob,
 } from "@/lib/lopezMap";
+
+/**
+ * A point drawn over the dots: the trip's start and end, and where the person
+ * is now. Start and end get a ring and a short label; "here" is a blue dot.
+ */
+export interface MapMark {
+  kind: "start" | "end" | "here";
+  lat: number;
+  lng: number;
+  /** The hover text — the place's name or address. */
+  title?: string;
+}
+
+const MARK_COLOR: Record<MapMark["kind"], string> = {
+  start: "var(--viz-4)",
+  end: "var(--viz-8)",
+  here: "var(--viz-1)",
+};
 
 /**
  * A flat map of Lopez Island with each job as a dot, coloured by its Phase.
@@ -33,7 +52,10 @@ export function LopezMap({
   label = "Map of Lopez Island with job locations",
   focusId = null,
   zoom = 3,
+  marks = [],
 }: {
+  /** Start, end and "you are here", drawn on top of the job dots. */
+  marks?: MapMark[];
   /** The job to zoom in on, centred (the Jobs page's picked job). The dots,
    *  rings and roads keep their size on screen; only the island grows. */
   focusId?: string | null;
@@ -163,6 +185,47 @@ export function LopezMap({
                   {n}
                 </text>
               )}
+            </g>
+          );
+        })}
+        {marks.map((m) => {
+          const pt = project(m.lat, m.lng);
+          if (!pt) return null;
+          if (m.kind === "here") {
+            return (
+              <g key="here" pointerEvents="none">
+                <circle cx={pt.x} cy={pt.y} r={22 * s} fill={MARK_COLOR.here} opacity={0.2} />
+                <circle cx={pt.x} cy={pt.y} r={9 * s} fill={MARK_COLOR.here} className="stroke-white dark:stroke-ink-raised" strokeWidth={3 * s}>
+                  <title>{m.title ?? "You are here"}</title>
+                </circle>
+              </g>
+            );
+          }
+          const c = MARK_COLOR[m.kind];
+          // The label sits on the side with room, so it never runs off the island's box.
+          const left = pt.x > MAP_W * 0.65;
+          return (
+            <g key={m.kind}>
+              <circle cx={pt.x} cy={pt.y} r={24 * s} fill="none" stroke={c} strokeWidth={5 * s} />
+              <circle cx={pt.x} cy={pt.y} r={12 * s} fill={c} className="stroke-white dark:stroke-ink-raised" strokeWidth={3 * s}>
+                <title>{m.title ?? (m.kind === "start" ? "Start" : "End")}</title>
+              </circle>
+              <text
+                x={left ? pt.x - 30 * s : pt.x + 30 * s}
+                y={pt.y}
+                textAnchor={left ? "end" : "start"}
+                dominantBaseline="central"
+                fontSize={22 * s}
+                fontWeight={700}
+                fill={c}
+                className="stroke-white dark:stroke-ink-raised"
+                strokeWidth={5 * s}
+                paintOrder="stroke"
+                pointerEvents="none"
+                aria-hidden
+              >
+                {m.kind === "start" ? "Start" : "End"}
+              </text>
             </g>
           );
         })}

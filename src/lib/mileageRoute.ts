@@ -53,6 +53,23 @@ export async function reverseGeocode(pt: { lat: number; lng: number }, key: stri
   }
 }
 
+// Geocode a street address to a point (Geocoding API). Best-effort: null on
+// any failure, so a missing point only leaves a place off the map.
+export async function geocode(address: string, key: string): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const params = new URLSearchParams({ address, key });
+    const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params}`);
+    const data = (await res.json()) as {
+      status?: string;
+      results?: { geometry?: { location?: { lat?: number; lng?: number } } }[];
+    };
+    const loc = data.status === "OK" ? data.results?.[0]?.geometry?.location : undefined;
+    return typeof loc?.lat === "number" && typeof loc?.lng === "number" ? { lat: loc.lat, lng: loc.lng } : null;
+  } catch {
+    return null;
+  }
+}
+
 export type RouteMilesResult =
   | { ok: true; oneWayMiles: number; startAddress: string; endAddress: string }
   | { ok: false; error: string };

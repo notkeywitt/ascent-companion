@@ -2,8 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import dynamic from "next/dynamic";
+
 import { Dialog } from "@/components/ui";
 import { JobPicker } from "@/components/JobPicker";
+import type { MapJob } from "@/lib/lopezMap";
+import type { MapMark } from "@/components/LopezMap";
+import type { KnownPlacePoint } from "@/lib/knownPlacePoints";
 import {
   clearLocalTrip,
   clearServerTrip,
@@ -66,6 +71,12 @@ import {
  * driver can leave this screen, or close the app, right after End.
  */
 
+// The island map carries the coastline and road paths; load it on its own.
+const LopezMap = dynamic(() => import("@/components/LopezMap").then((m) => m.LopezMap), {
+  ssr: false,
+  loading: () => <div className="h-full" />,
+});
+
 interface Employee {
   name: string;
   position: string;
@@ -78,6 +89,8 @@ interface JobRef {
   name: string;
   customer?: string;
   address?: string;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 interface Project {
@@ -352,8 +365,11 @@ export function MileageClient({
   sessionUser,
   initialDriver,
   initialJobs,
+  knownPlaces = [],
 }: {
   sessionUser: { name: string; email: string };
+  /** The crew's regular stops as map points (lib/knownPlacePoints). */
+  knownPlaces?: KnownPlacePoint[];
   /** The roster name from the cached sign-in link; "" sends the client to the roster. */
   initialDriver: string;
   initialJobs: JobRef[];
@@ -1017,6 +1033,109 @@ export function MileageClient({
 
   const loopMatch = useMemo(() => resolvePlace(loopDest, jobs), [loopDest, jobs]);
 
+  // --- The map --------------------------------------------------------------
+  // Where the person is now. Read only when location is already allowed, so
+  // the map never raises the permission prompt; Start and "Use where I am" do.
+  const [here, setHere] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation || !navigator.permissions) return;
+    let watch: number | null = null;
+    let status: PermissionStatus | null = null;
+    let gone = false;
+    const begin = () => {
+      if (watch != null || gone) return;
+      watch = navigator.geolocation.watchPosition(
+        (pos) => setHere({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 15000, timeout: 20000 },
+      );
+    };
+    const stop = () => {
+      if (watch != null) navigator.geolocation.clearWatch(watch);
+      watch = null;
+    };
+    navigator.permissions
+      .query({ name: "geolocation" })
+      .then((st) => {
+        if (gone) return;
+        status = st;
+        if (st.state === "granted") begin();
+        st.onchange = () => {
+          if (st.state === "granted") begin();
+          else {
+            stop();
+            setHere(null);
+          }
+        };
+      })
+      .catch(() => {});
+    return () => {
+      gone = true;
+      stop();
+      if (status) status.onchange = null;
+    };
+  }, []);
+
+  // The saved addresses: the crew's regular stops, plus the Office and Shop
+  // jobs (ordinary jobs under the "Ascent" customer).
+  const savedPlaces = useMemo<MapJob[]>(
+    () => [
+      ...knownPlaces.map((p) => ({ id: `place:${p.label}`, name: p.label, lat: p.lat, lng: p.lng })),
+      ...jobs
+        .filter((j) => /^ascent\b/i.test((j.customer ?? "").trim()))
+        .map((j) => ({ id: j.id, name: jobRefLabel(j), lat: j.lat, lng: j.lng })),
+    ],
+    [knownPlaces, jobs],
+  );
+
+  // A From/To text as a map point: "lat,lng", a job, a saved place, or an
+  // address that is a job's or a saved place's. A typed address has no point.
+  const pointOf = useCallback(
+    (text: string, match: PlaceMatch): { lat: number; lng: number } | null => {
+      const t = text.trim();
+      if (!t) return null;
+      if (isLatLng(t)) {
+        const [lat, lng] = t.split(",").map(Number);
+        return { lat, lng };
+      }
+      const ofJob = (j: JobRef | undefined) => (j && j.lat != null && j.lng != null ? { lat: j.lat, lng: j.lng } : null);
+      if (match.kind === "named") {
+        if (match.job) return ofJob(jobs.find((j) => j.id === match.job!.id));
+        const k = knownPlaces.find((p) => p.label === match.label);
+        if (k) return { lat: k.lat, lng: k.lng };
+      }
+      const addr = t.toLowerCase();
+      const j = jobs.find((x) => jobAddr(x).toLowerCase() === addr && x.lat != null);
+      if (j) return ofJob(j);
+      const k = knownPlaces.find((p) => p.address.toLowerCase() === addr);
+      return k ? { lat: k.lat, lng: k.lng } : null;
+    },
+    [jobs, knownPlaces],
+  );
+
+  // Start and end, highlighted. Record: the trip's start (or where you are
+  // before it starts) to the picked job. By hand: From to To.
+  const marks = useMemo<MapMark[]>(() => {
+    const out: MapMark[] = [];
+    if (tab === "manual") {
+      const a = pointOf(fromPlace, fromMatch);
+      const b = pointOf(toPlace, toMatch);
+      if (a) out.push({ kind: "start", ...a, title: fromPlace });
+      if (b) out.push({ kind: "end", ...b, title: toPlace });
+    } else {
+      if (phase === "active" && start) {
+        out.push({ kind: "start", lat: start.startLat, lng: start.startLng, title: "Trip start" });
+      } else if (here) {
+        out.push({ kind: "start", ...here, title: "Start: where you are" });
+      }
+      const j = jobs.find((x) => x.id === jobId);
+      if (j && j.lat != null && j.lng != null) out.push({ kind: "end", lat: j.lat, lng: j.lng, title: jobRefLabel(j) });
+    }
+    const now = here ?? (phase === "active" ? trail[trail.length - 1] : null);
+    if (now) out.push({ kind: "here", lat: now.lat, lng: now.lng });
+    return out;
+  }, [tab, phase, start, here, jobs, jobId, trail, fromPlace, toPlace, fromMatch, toMatch, pointOf]);
+
   function onRoundTrip(on: boolean) {
     setRoundTrip(on);
     if (oneWay != null) setMiles(String(tripMiles(oneWay, on)));
@@ -1187,6 +1306,21 @@ export function MileageClient({
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
       <PageHeader title="Miles" />
 
+      {/* The island, first: saved places in grey, start and end ringed, you in blue. */}
+      {tab !== "history" && (
+        <div className="mb-4 h-[34vh] min-h-[220px] [&_svg]:min-h-0 [&_svg]:flex-1">
+          <LopezMap
+            jobs={savedPlaces}
+            marks={marks}
+            legend={false}
+            pad={6}
+            color="var(--viz-other)"
+            className="h-full"
+            label="Map of Lopez Island with saved places and the trip's start and end"
+          />
+        </div>
+      )}
+
       {/* Record | By hand | Logged miles — one tap apart, as on the time page. */}
       <Segmented
         label="Miles view"
@@ -1252,7 +1386,7 @@ export function MileageClient({
             type="button"
             onClick={startTrip}
             disabled={busy || !driver}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-2xl bg-accent px-4 py-4 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Getting your location…" : "Start trip"}
           </button>
@@ -1301,9 +1435,7 @@ export function MileageClient({
                 />
               </div>
             </div>
-          </Card>
 
-          <Card className="space-y-3">
             <div>
               <div className="flex items-baseline justify-between">
                 <Label htmlFor="mlg-from">From</Label>
@@ -1378,17 +1510,17 @@ export function MileageClient({
                 placeholder="e.g. 24.5"
               />
             </div>
-          </Card>
 
-          <Card>
-            <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
-            <Textarea
-              id="mlg-purpose-m"
-              rows={2}
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              placeholder="e.g. material pickup, client meeting"
-            />
+            <div>
+              <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
+              <Textarea
+                id="mlg-purpose-m"
+                rows={2}
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="e.g. material pickup, client meeting"
+              />
+            </div>
           </Card>
 
           <button
