@@ -12,6 +12,7 @@ import type { NoteRequest } from "@/components/NotesPanel";
 import type { Note, NoteBill } from "@/lib/notes";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
+import { HeaderTitle } from "@/components/HeaderTitle";
 import { Button, Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import dynamic from "next/dynamic";
@@ -468,6 +469,16 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       className="w-full px-4 pb-10 pt-5 pad:px-7"
       style={{ minHeight: heldHeight }}
     >
+      {/* The picked job's name stays in view: in the header bar on a phone, pinned
+          at the top left of the page from `pad` up (owner, 2026-11-15). */}
+      {selected && (
+        <>
+          <HeaderTitle>{jobLabel(selected)}</HeaderTitle>
+          <h1 className="sticky sticky-below-header z-10 -mx-7 mb-3 hidden truncate bg-cream/95 px-7 py-1.5 text-xl font-bold tracking-tight backdrop-blur pad:block dark:bg-ink/95">
+            {jobLabel(selected)}
+          </h1>
+        </>
+      )}
       <div className="min-w-0 space-y-6">
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the

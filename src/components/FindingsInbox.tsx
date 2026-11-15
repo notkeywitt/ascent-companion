@@ -141,7 +141,7 @@ export function FindingsInbox({ limit }: { limit?: number }) {
       })}
 
       {limit && open.length > shown.length && (
-        <Link href="/attention" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-2">
+        <Link href="/office" className="inline-flex min-h-11 items-center text-sm font-semibold underline underline-offset-2">
           See all {open.length}
         </Link>
       )}

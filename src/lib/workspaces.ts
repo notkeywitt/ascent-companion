@@ -125,11 +125,9 @@ export const WORKSPACES: Workspace[] = [
   {
     id: "office",
     title: "Office",
-    desc: "The Office job, the team's notices, and the script jobs.",
+    desc: "The Office job, its warnings and notices, and the script jobs.",
     tabs: [
-      tab("attention", "/attention", "Needs Attention", "Every open warning in one list — fix, snooze or dismiss"),
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
-      tab("notices", "/notices", "Notices", "Post a banner to the team — now or scheduled"),
     ],
   },
   {
@@ -187,6 +185,8 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  attention: "a section of the Office Dashboard (/office); /attention redirects",
+  notices: "a section of the Office Dashboard (/office); /notices redirects",
   changelog: "Help's What's new tab (PageTabs on /help)",
   "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
@@ -271,12 +271,13 @@ export type BarSlot =
  * place of Clients (owner decision 2). A slot the person cannot open is skipped.
  */
 export const BARS: Record<Role, BarSlot[]> = {
+  // Home took Time Off's slot (owner, 2026-11-15). Time Off stays in the menu.
   field: [
+    { kind: "today" },
     { kind: "tab", view: "employee-time" },
     { kind: "tab", view: "mileage" },
     { kind: "tab", view: "tools" },
     { kind: "tab", view: "requisitions" },
-    { kind: "tab", view: "time-off" },
   ],
   lead: [
     { kind: "today" },

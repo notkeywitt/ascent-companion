@@ -91,6 +91,7 @@ interface JobRef {
   address?: string;
   lat?: number | null;
   lng?: number | null;
+  phase?: string | null;
 }
 
 interface Project {
@@ -490,7 +491,7 @@ export function MileageClient({
       })();
     }
     if (!initialJobs.length) {
-      fetch("/api/jobs")
+      fetch("/api/jobs?withPhase=1")
         .then((r) => r.json())
         .then((j) => setJobs(j.jobs ?? []))
         .catch(() => {});
@@ -1081,9 +1082,7 @@ export function MileageClient({
   const savedPlaces = useMemo<MapJob[]>(
     () => [
       ...knownPlaces.map((p) => ({ id: `place:${p.label}`, name: p.label, lat: p.lat, lng: p.lng })),
-      ...jobs
-        .filter((j) => /^ascent\b/i.test((j.customer ?? "").trim()))
-        .map((j) => ({ id: j.id, name: jobRefLabel(j), lat: j.lat, lng: j.lng })),
+      ...jobs.map((j) => ({ id: j.id, name: jobRefLabel(j), phase: j.phase, lat: j.lat, lng: j.lng })),
     ],
     [knownPlaces, jobs],
   );
@@ -1303,20 +1302,19 @@ export function MileageClient({
   }
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader title="Miles" />
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-3 pad:pt-6">
+      <PageHeader title="Miles" className="pad:mb-5 max-pad:mb-0" />
 
       {/* The island, first: saved places in grey, start and end ringed, you in blue. */}
       {tab !== "history" && (
-        <div className="mb-4 h-[34vh] min-h-[220px] [&_svg]:min-h-0 [&_svg]:flex-1">
+        <div className="-mx-3 mb-2 h-[30vh] min-h-[200px] pad:mx-0 pad:mb-4 pad:h-[34vh] [&_svg]:min-h-0 [&_svg]:flex-1">
           <LopezMap
             jobs={savedPlaces}
             marks={marks}
             legend={false}
             pad={6}
-            color="var(--viz-other)"
             className="h-full"
-            label="Map of Lopez Island with saved places and the trip's start and end"
+            label="Map of Lopez Island with jobs, saved places and the trip's start and end"
           />
         </div>
       )}
@@ -1386,7 +1384,7 @@ export function MileageClient({
             type="button"
             onClick={startTrip}
             disabled={busy || !driver}
-            className="w-full rounded-2xl bg-accent px-4 py-4 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="sticky bottom-[calc(var(--tabbar-h)+0.75rem)] z-10 w-full rounded-2xl bg-accent px-4 py-4 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Getting your location…" : "Start trip"}
           </button>
