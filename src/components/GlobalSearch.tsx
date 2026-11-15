@@ -97,6 +97,9 @@ export function GlobalSearch() {
 
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  // PHONE: the box is an icon until tapped, then a field over the header row.
+  // From `pad` the box is always out and this changes nothing.
+  const [expanded, setExpanded] = useState(false);
   // The vendor and job lists load the first time the box opens, not with every
   // page: most page views never search (OVERHAUL_PLAN Phase 4, request count).
   const [wanted, setWanted] = useState(false);
@@ -121,6 +124,7 @@ export function GlobalSearch() {
   // Close whenever the route changes — a result was tapped, or the user left.
   useEffect(() => {
     setOpen(false);
+    setExpanded(false);
     setQuery("");
   }, [pathname]);
 
@@ -262,6 +266,11 @@ export function GlobalSearch() {
   const billNumberQuery = canSeeVendors && /^\d+$/.test(query.trim()) ? query.trim() : null;
 
   const close = useCallback(() => setOpen(false), []);
+  const collapse = useCallback(() => {
+    setOpen(false);
+    setExpanded(false);
+    setQuery("");
+  }, []);
 
   const hasAnything =
     pageMatches.length > 0 ||
@@ -320,31 +329,63 @@ export function GlobalSearch() {
   }, [showPanel]);
 
   return (
-    <div ref={boxRef} className="relative min-w-0 flex-1 pad:max-w-xl">
-      <span
-        aria-hidden
-        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
+    <>
+      {!expanded && (
+        <button
+          type="button"
+          aria-label="Search"
+          onClick={() => setExpanded(true)}
+          className="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition active:bg-accent/10 dark:text-neutral-300 pad:hidden"
+        >
+          <SearchIcon className="h-5 w-5" />
+        </button>
+      )}
+      <div
+        ref={boxRef}
+        className={
+          expanded
+            ? "absolute inset-0 z-10 flex items-center gap-1 bg-cream px-2 dark:bg-ink pad:static pad:z-auto pad:block pad:min-w-0 pad:flex-1 pad:max-w-xl pad:bg-transparent pad:px-0 dark:pad:bg-transparent"
+            : "relative hidden min-w-0 flex-1 pad:block pad:max-w-xl"
+        }
       >
-        <SearchIcon className="h-4 w-4" />
-      </span>
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === "Escape") {
-            setOpen(false);
-            (e.target as HTMLInputElement).blur();
-          }
-        }}
-        placeholder="Search pages, jobs, vendors, bills…"
-        aria-label="Search pages, help topics, jobs, vendors, addresses, bills and line items"
-        className={`${inputCls} h-9 pl-8 text-[13px]`}
-      />
+        <div className="relative min-w-0 flex-1">
+          <span
+            aria-hidden
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-400"
+          >
+            <SearchIcon className="h-4 w-4" />
+          </span>
+          <input
+            type="search"
+            autoFocus={expanded}
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                if (expanded) collapse();
+                else setOpen(false);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            placeholder="Search pages, jobs, vendors, bills…"
+            aria-label="Search pages, help topics, jobs, vendors, addresses, bills and line items"
+            className={`${inputCls} h-9 pl-8 text-[13px]`}
+          />
+        </div>
+        {expanded && (
+          <button
+            type="button"
+            aria-label="Close search"
+            onClick={collapse}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg text-neutral-500 transition active:bg-accent/10 pad:hidden"
+          >
+            ✕
+          </button>
+        )}
 
       {/* THE RESULTS PANEL — portalled to <body>, positioned from the measured
           box rect.
@@ -484,7 +525,8 @@ export function GlobalSearch() {
           </div>,
           document.body,
         )}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Popover } from "@/components/Menu";
-import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
+import { ToolsTabs, toolsTitle } from "@/components/ToolsTabs";
 import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
 import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
@@ -159,8 +159,9 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-6xl">
+      <ToolsTabs current="tool-schedule" />
       <PageHeader
-        titleSlot={<ToolsTitleMenu current="tool-schedule" />}
+        title={toolsTitle("tool-schedule")}
         actions={
           canEdit ? (
             <>
