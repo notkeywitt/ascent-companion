@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { LopezMap } from "@/components/LopezMap";
-import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
+import { ToolsTabs, toolsTitle } from "@/components/ToolsTabs";
 import { Banner, Button, Checkbox, Dialog, Label, Loading, PageHeader, inputCls, Select } from "@/components/ui";
 import type { MapJob } from "@/lib/lopezMap";
 import { ToolLinks, putTrailer } from "./ToolLinks";
@@ -1056,8 +1056,9 @@ export default function ToolsPage() {
       {/* Desktop: the page in a left column, the Lopez map filling the right. */}
       <div className="xl:grid xl:grid-cols-[minmax(0,46rem)_minmax(0,1fr)] xl:gap-8">
       <div className="min-w-0">
+      <ToolsTabs current="tools" />
       <PageHeader
-        titleSlot={<ToolsTitleMenu current="tools" />}
+        title={toolsTitle("tools")}
         actions={
           <>
             <Button

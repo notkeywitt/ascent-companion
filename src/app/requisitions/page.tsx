@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { JobPicker } from "@/components/JobPicker";
-import { ToolsTitleMenu } from "@/components/ToolsTitleMenu";
+import { ToolsTabs, toolsTitle } from "@/components/ToolsTabs";
 import { markRequisitionsSeen } from "@/lib/requisitionsSeen";
 import {
   Banner,
@@ -199,8 +199,9 @@ function Requisitions() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+      <ToolsTabs current="requisitions" />
       <PageHeader
-        titleSlot={<ToolsTitleMenu current="requisitions" />}
+        title={toolsTitle("requisitions")}
         description={
           isOffice
             ? "Requests from the field to buy or approve. Move each through its status."

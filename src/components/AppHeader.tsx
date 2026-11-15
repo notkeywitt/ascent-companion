@@ -5,7 +5,10 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { HEADER_TITLE_SLOT } from "@/components/HeaderTitle";
 import { LinkPendingOverlay } from "@/components/LinkPending";
+import { useCopy } from "@/components/CopyProvider";
+import { locate } from "@/lib/workspaces";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAccess } from "@/components/AccessProvider";
 import { btn } from "@/components/ui";
@@ -34,6 +37,7 @@ export function AppHeader() {
   const pathname = usePathname();
   const search = useSearchParams();
   const access = useAccess();
+  const c = useCopy();
   const jobId = search.get("jobId") ?? "";
 
   // Admin-only deploy stamp: when the bundle in THIS tab was built, frozen in
@@ -79,6 +83,10 @@ export function AppHeader() {
 
   // /add-bill keeps the job in context when there is one, so the button lands on
   // the job you are looking at rather than an empty form.
+  // The page's name, for a phone's title area, when the page sets none itself.
+  const found = locate(pathname);
+  const fallbackTitle = pathname === "/" ? "Home" : found ? c(`home.dest.${found.tab.view}.label`) || found.tab.label : "";
+
   const addHref = jobId ? `/add-bill?jobId=${encodeURIComponent(jobId)}` : "/add-bill";
 
   return (
@@ -92,7 +100,7 @@ export function AppHeader() {
       ref={measure}
       className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
     >
-      <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
+      <div className="relative flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
         {/* No back button: back is a swipe right from the screen's left
             edge (SwipeBack, installed app). A browser tab has its own. */}
         {/* `inline-flex` on the BUTTON, not just the logo: a <button> lays its
@@ -105,10 +113,18 @@ export function AppHeader() {
           <AscentLogo className="hidden sm:inline-flex" />
           <AscentLogo wordmark={false} className="sm:hidden" />
         </ThemeToggle>
-        {/* The only flexible item — it absorbs whatever the buttons leave. The
-            spacer keeps the rest right-aligned for the field role, which has no
-            search box. */}
-        {access.role === "field" ? <div className="min-w-0 flex-1" /> : <GlobalSearch />}
+        {/* PHONE: the page's title sits here (HeaderTitle portals into it; the
+            name from lib/workspaces shows when a page sets none). From `pad`
+            the page draws its own heading and this area is gone. */}
+        <div id={HEADER_TITLE_SLOT} className="flex min-w-0 flex-1 items-center pl-1 pad:hidden">
+          <span className="truncate text-[17px] font-bold leading-tight tracking-tight [&:not(:only-child)]:hidden">
+            {fallbackTitle}
+          </span>
+        </div>
+        {/* From `pad`, the flexible item — it absorbs whatever the buttons leave.
+            The spacer keeps the rest right-aligned for the field role, which has
+            no search box. On a phone the search is an icon that opens a field. */}
+        {access.role === "field" ? <div className="hidden min-w-0 flex-1 pad:block" /> : <GlobalSearch />}
         {/* /add-bill rides the "recode" (Tracking Sheets) gate — without the
             same check here the middleware bounces the person back to home. */}
         {access.can("recode") && (

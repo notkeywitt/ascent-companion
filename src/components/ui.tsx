@@ -14,7 +14,7 @@
  */
 
 import Link from "next/link";
-import { PageTitle, PeakMark } from "@/components/PageTitle";
+import { PageTitle } from "@/components/PageTitle";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { Spinner } from "@/components/Spinner";
 import { StickyActionBar } from "@/components/StickyActionBar";
@@ -876,7 +876,6 @@ export function EmptyState({
     <div
       className={`rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700 ${className}`}
     >
-      <PeakMark className="mx-auto mb-2.5 h-4 w-[26px] opacity-70" color="#8D8D8B" />
       <p className="text-sm text-neutral-500">{children}</p>
     </div>
   );
@@ -963,7 +962,7 @@ export function PageHeader({
     <header className={`mb-5 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         {titleSlot ?? <PageTitle className="min-w-0">{title}</PageTitle>}
-        {actions && <div className={`flex ${actionsClassName}`}>{actions}</div>}
+        {actions && <div className={`flex ml-auto ${actionsClassName}`}>{actions}</div>}
       </div>
       {description && <p className="mt-1 text-sm text-neutral-500">{description}</p>}
     </header>

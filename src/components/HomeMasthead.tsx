@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { Button, Chip, Dialog, MetaLine, SectionLabel } from "@/components/ui";
-import { PeakMark } from "@/components/PageTitle";
 import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
@@ -162,7 +161,6 @@ export function HomeMasthead({
       <div className="relative hidden min-w-0 pad:block">
         <SectionLabel>Home</SectionLabel>
         <div className="mt-1 flex items-center gap-2.5">
-          <PeakMark className="h-3.5 w-[22px] shrink-0" />
           {/* min-h keeps the band's height across the one frame before the
               effect above knows what day it is. */}
           <h1 className="min-h-[26px] text-[21px] font-bold leading-tight tracking-tight">

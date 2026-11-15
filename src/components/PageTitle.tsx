@@ -1,3 +1,5 @@
+import { HeaderTitle } from "@/components/HeaderTitle";
+
 /**
  * Page heading with the Ascent "peak" mark — carries the logo motif into the
  * page bodies as a consistent brand signature. The mark is brand ochre in both
@@ -29,12 +31,16 @@ export function PageTitle({
   size?: "xl" | "2xl";
   className?: string;
 }) {
+  // On a phone the title lives in the header bar (HeaderTitle); the page's own
+  // heading shows from `pad` up. The header's logo is the page's one mountain.
   return (
-    <div className={"flex items-center gap-2.5 " + className}>
-      <PeakMark className={size === "2xl" ? "h-4 w-[26px] shrink-0" : "h-3.5 w-[22px] shrink-0"} />
-      <h1 className={(size === "2xl" ? "text-2xl" : "text-xl") + " font-bold tracking-tight"}>
-        {children}
-      </h1>
-    </div>
+    <>
+      <HeaderTitle>{children}</HeaderTitle>
+      <div className={"hidden items-center pad:flex " + className}>
+        <h1 className={(size === "2xl" ? "text-2xl" : "text-xl") + " font-bold tracking-tight"}>
+          {children}
+        </h1>
+      </div>
+    </>
   );
 }
