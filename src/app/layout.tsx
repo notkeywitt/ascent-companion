@@ -153,7 +153,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
-        {/* The app-open cover: the logo on black, painted before anything else
+        {/* The app-open cover: the loading line, painted before anything else
             and cleared once the app is interactive. */}
         <SplashScreen />
         {/* The same screen for a page transition — from the tap until the next

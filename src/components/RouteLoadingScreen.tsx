@@ -9,7 +9,7 @@ import { isLeaveCancelled } from "@/lib/useUnsavedChanges";
 const MAX_MS = 8000;
 
 /**
- * The page-transition cover: the same logo-on-black screen, shown from the tap
+ * The page-transition cover: the same loading-line screen, shown from the tap
  * on an in-app link until the next page renders.
  *
  * Why this exists next to `src/app/loading.tsx`: that file is the App Router's
@@ -21,7 +21,7 @@ const MAX_MS = 8000;
  *
  * It reads the pending navigation from the DOM click, and clears it when
  * `usePathname()` reports the new route has committed. The cover itself fades
- * in only after 180ms (see `.loading-screen-in`), so the many navigations that
+ * in only after 400ms (see `.loading-screen-in`), so the many navigations that
  * finish sooner than the eye show nothing but the tapped button's own spinner.
  *
  * The listener runs in the CAPTURE phase on purpose: `<Link>` calls
