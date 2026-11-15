@@ -642,7 +642,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                 </optgroup>
               ))}
             </Select>
-            <div className="min-h-64 flex-1 landscape:min-h-0 2xl:min-h-0 max-2xl:portrait:h-[min(16rem,35svh)] max-2xl:portrait:min-h-0 max-2xl:portrait:flex-none">{map}</div>
+            <div className="min-h-64 flex-1 pt-2 landscape:min-h-0 landscape:pt-0 2xl:min-h-0 max-2xl:portrait:h-[min(16rem,35svh)] max-2xl:portrait:min-h-0 max-2xl:portrait:flex-none">{map}</div>
           </div>
         </div>
 

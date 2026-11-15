@@ -35,7 +35,7 @@ export function HubRibbonHeader({ title, focusId }: { title: string | null; focu
     // Pinned FLUSH under the app header (owner, 2026-11-15): `sticky-below-header`
     // leaves 0.5rem of the page showing through between the two.
     <header
-      className="relative z-10 mb-3 flex min-h-14 items-end border-b border-line bg-cream/95 pb-2 backdrop-blur pad:sticky pad:-mx-7 pad:min-h-20 pad:px-7 dark:bg-ink/95"
+      className="relative z-10 mb-6 flex min-h-16 items-end overflow-hidden border-b border-line bg-cream/95 pb-2 backdrop-blur pad:sticky pad:-mx-7 pad:mb-3 pad:min-h-20 pad:overflow-visible pad:px-7 dark:bg-ink/95"
       style={{ top: "var(--appheader-h)" }}
     >
       <YearRibbon url="/api/jobs-hub/ribbon" focusId={focusId} />
