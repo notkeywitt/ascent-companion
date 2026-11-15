@@ -576,8 +576,32 @@ function NoteForm({
   const listId = `note-names-${initial.jobId || "all"}`;
   return (
     <div className="space-y-2 rounded-lg border border-line bg-white p-3 dark:bg-ink-raised">
+      <div
+        role="separator"
+        aria-label="Drag to resize the note box"
+        className="-mt-1 flex h-4 cursor-ns-resize touch-none items-center justify-center"
+        onPointerDown={(e) => {
+          const box = e.currentTarget.nextElementSibling as HTMLTextAreaElement | null;
+          if (!box) return;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          const y0 = e.clientY;
+          const h0 = box.offsetHeight;
+          const move = (m: PointerEvent) => {
+            box.style.height = `${Math.max(60, h0 + y0 - m.clientY)}px`;
+          };
+          const up = () => {
+            window.removeEventListener("pointermove", move);
+            window.removeEventListener("pointerup", up);
+          };
+          window.addEventListener("pointermove", move);
+          window.addEventListener("pointerup", up);
+        }}
+      >
+        <span className="h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+      </div>
       <Textarea
         autoFocus
+        className="resize-none"
         rows={3}
         value={body}
         onChange={(e) => setBody(e.target.value)}

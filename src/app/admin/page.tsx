@@ -28,6 +28,11 @@ import {
 } from "@/lib/workspaces";
 import { ROLE_LABEL, PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { startPreview, stopPreview } from "@/lib/previewClient";
+import { useAccess } from "@/components/AccessProvider";
+import AscentBotPage from "../ascentbot/page";
+import PageCopyPage from "./copy/page";
+import LogsPage from "../logs/page";
+import HistoricalCostPage from "../historical-cost/page";
 import { ActivityPanel } from "./ActivityPanel";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
 import { BuildFooter } from "./BuildFooter";
@@ -55,33 +60,49 @@ const GROUPED = GROUP_ORDER.map((g) => ({
   views: VIEWS.filter((v) => v.group === g),
 })).filter((g) => g.views.length > 0);
 
+type AdminTab = "access" | "activity" | "digest" | "ascentbot" | "look" | "audit" | "historical";
+
+// One picker for every Admin page. The first three are this page's own panels;
+// the rest are the pages that used to be separate Admin menu rows.
+const ADMIN_TABS: { id: AdminTab; label: string; view: string }[] = [
+  { id: "access", label: "Access", view: "admin" },
+  { id: "activity", label: "Activity", view: "admin" },
+  { id: "digest", label: "Digest", view: "admin" },
+  { id: "ascentbot", label: "AscentBot", view: "ascentbot" },
+  { id: "look", label: "Look & Text", view: "page-copy" },
+  { id: "audit", label: "Audit", view: "logs" },
+  { id: "historical", label: "Historical Cost Import", view: "historical-cost" },
+];
+
 export default function AdminPage() {
   // No Notices tab since 2026-09-29: /notices is the one place to post one.
-  const [tab, setTab] = useState<"access" | "activity" | "digest">("access");
+  const { can } = useAccess();
+  const [tab, setTab] = useState<AdminTab>("access");
+  const tabs = ADMIN_TABS.filter((t) => can(t.view));
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
-      <PageHeader
-        title="Access"
-        description="Who can sign in, what each person can see, how the panel is being used, and the Daily Digest's settings."
-        className="!mb-4"
-      />
-      <div className="mb-5 inline-flex rounded-lg border border-line p-0.5 ">
-        <TabButton active={tab === "access"} onClick={() => setTab("access")}>
-          Access
-        </TabButton>
-        <TabButton active={tab === "activity"} onClick={() => setTab("activity")}>
-          Activity
-        </TabButton>
-        <TabButton active={tab === "digest"} onClick={() => setTab("digest")}>
-          Digest
-        </TabButton>
+      <PageHeader title="Admin" className="!mb-4" />
+      <div className="mb-5 inline-flex max-w-full flex-wrap rounded-lg border border-line p-0.5 ">
+        {tabs.map((t) => (
+          <TabButton key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
+            {t.label}
+          </TabButton>
+        ))}
       </div>
       {tab === "access" ? (
         <AccessPanel />
       ) : tab === "activity" ? (
         <ActivityPanel />
-      ) : (
+      ) : tab === "digest" ? (
         <DigestSettingsPanel />
+      ) : tab === "ascentbot" ? (
+        <AscentBotPage />
+      ) : tab === "look" ? (
+        <PageCopyPage />
+      ) : tab === "audit" ? (
+        <LogsPage />
+      ) : (
+        <HistoricalCostPage />
       )}
       <BuildFooter />
     </main>

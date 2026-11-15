@@ -14,7 +14,6 @@ import { AppMenu } from "@/components/AppMenu";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import {
-  CUSTOMER_SECTIONS,
   BAR_PIN_EVENT,
   BAR_PIN_KEY,
   MENU_SINGLE_WORKSPACES,
@@ -323,8 +322,9 @@ export function TabBar() {
     if (next) document.documentElement.dataset.rail = "hidden";
     else delete document.documentElement.dataset.rail;
     try {
-      if (next) localStorage.setItem("railHidden", "1");
-      else localStorage.removeItem("railHidden");
+      // Collapsed is the default; "0" records a pinned-open rail.
+      if (next) localStorage.removeItem("railHidden");
+      else localStorage.setItem("railHidden", "0");
     } catch {}
   };
   useEffect(() => setOpen(false), [pathname]);
@@ -460,30 +460,6 @@ export function TabBar() {
         {rail.map((t) => {
           const on = t.key === railActive;
           const Icon = ICONS[t.key] ?? PinIcon;
-          const ws =
-            t.workspace && !MENU_SINGLE_WORKSPACES.has(t.workspace)
-              ? WORKSPACES.find((w) => w.id === t.workspace)
-              : undefined;
-          const isHere = (href: string) => pathname === href || pathname.startsWith(href + "/");
-          // A page the rail already lists as its own item (Payroll) is not
-          // repeated under its workspace; one page left needs no second level.
-          const own = ws
-            ? reachableTabs(ws, access.can).filter(
-                (tab) => !RAIL_OFF_VIEWS.has(tab.view) && !rail.some((r) => !r.workspace && r.view === tab.view),
-              )
-            : [];
-          const pages = own.length > 1 ? own : [];
-          // Customers is one page with two sections: list them under it once it
-          // is open (/leads?section=). The first section is the page's default.
-          const sections =
-            !t.workspace && t.view === "leads"
-              ? CUSTOMER_SECTIONS.filter((x) => access.can(x.view))
-              : [];
-          const sectionNow = search.get("section") ?? "";
-          const sectionOn = (id: string) =>
-            sectionNow ? sectionNow === id : id === sections[0]?.id;
-          // From 2xl the fill moves down to the page itself, so one row is lit.
-          const childLit = pages.some((tab) => isHere(tab.href));
           return (
             <div key={t.key} className={`group ${t.gap ? "mt-5" : ""}`}>
               <Link
@@ -492,7 +468,7 @@ export function TabBar() {
                 onClick={guard}
                 className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
                   on
-                    ? `bg-accent/10 text-accent dark:text-accent-soft ${childLit ? "wide:bg-transparent" : ""}`
+                    ? `bg-accent/10 text-accent dark:text-accent-soft`
                     : "text-neutral-500 hover:text-accent dark:text-neutral-400"
                 }`}
               >
@@ -500,48 +476,6 @@ export function TabBar() {
                 <span className="rail-label min-w-0">{labelOf(t)}</span>
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
               </Link>
-              {sections.length > 1 && (
-                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:group-hover:block">
-                  {sections.map((x, i) => (
-                    <Link
-                      key={x.id}
-                      href={i === 0 ? t.href : `${t.href}?section=${x.id}`}
-                      onClick={guard}
-                      aria-current={sectionOn(x.id) ? "page" : undefined}
-                      className={`block truncate rounded-lg px-2 py-1.5 text-[13px] transition ${
-                        sectionOn(x.id)
-                          ? "bg-accent/10 font-semibold text-accent dark:text-accent-soft"
-                          : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                      }`}
-                    >
-                      {x.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-              {/* The sidebar's second level: the current workspace's pages. */}
-              {pages.length > 0 && (
-                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:group-hover:block">
-                  {pages.map((tab) => {
-                    const here = isHere(tab.href);
-                    return (
-                      <Link
-                        key={tab.view}
-                        href={tab.href + carryJobAndMonth(search)}
-                        onClick={guard}
-                        aria-current={here ? "page" : undefined}
-                        className={`block truncate rounded-lg px-2 py-1.5 text-[13px] transition ${
-                          here
-                            ? "bg-accent/10 font-semibold text-accent dark:text-accent-soft"
-                            : "text-neutral-500 hover:text-accent dark:text-neutral-400"
-                        }`}
-                      >
-                        {c(`home.dest.${tab.view}.label`) || tab.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           );
         })}
