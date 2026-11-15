@@ -113,8 +113,12 @@ After the last wave:
 npm run typecheck && npm test && npm run build
 ```
 
-Fix what fails. Remove each agent worktree (`git worktree remove <path>`) and
-delete its local `batch/*` branch once merged.
+Fix what fails. A worktree-isolated session cannot remove the agents'
+worktrees. List their paths in the report; the owner clears them with
+`git worktree prune` after removing the folders, or leaves them.
+
+A later wave whose files do not overlap a still-running group may start
+before that group finishes. Start it from the batch branch as merged so far.
 
 ## Step 7 — look, then ship once
 
