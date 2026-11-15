@@ -57,6 +57,7 @@ export async function GET() {
       when: eventWhen(e),
       allDay: !!e.allDay,
       start: e.start ?? "",
+      end: e.end ?? "",
       where: e.location ?? "",
       calendar: e.calendarName ?? "",
     }))

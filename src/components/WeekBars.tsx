@@ -14,6 +14,9 @@ import {
   Textarea,
   btn,
 } from "@/components/ui";
+import { DayAgenda, toMin, type DayEntry } from "@/components/DayAgenda";
+import { WEEK_LOOKS, WeekAgenda, WeekGrid, WeekStrip, type WeekLook } from "@/components/WeekViews";
+import { orgParts } from "@/lib/orgTime";
 import { jtScheduleUrl, jtToDoUrl } from "@/lib/jtLinks";
 import {
   nearness,
@@ -59,6 +62,9 @@ interface CalEvent {
   day: string;
   title: string;
   when: string;
+  allDay?: boolean;
+  start?: string;
+  end?: string;
   where: string;
   calendar: string;
 }
@@ -114,6 +120,12 @@ export function WeekBars() {
   const [pick, setPick] = useState<WeekPick | null>(null);
   const [editing, setEditing] = useState<PickedItem | null>(null);
   const [events, setEvents] = useState<CalEvent[]>([]);
+  // Workshop: the design options for this card. `?week=agenda|strip|grid` opens one.
+  const [look, setLook] = useState<WeekLook | "bars">("bars");
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("week");
+    if (WEEK_LOOKS.some((l) => l.id === q)) setLook(q as WeekLook);
+  }, []);
 
   useEffect(() => {
     const stop = new AbortController();
@@ -205,7 +217,9 @@ export function WeekBars() {
 
         {events.length > 0 && (
           <>
-            <span className="flex h-8 items-center justify-end pr-2 text-neutral-500">Calendar</span>
+            <span className="flex h-8 items-center justify-end pr-2 text-neutral-500">
+              Calendar
+            </span>
             {data.dates.map((d, i) => {
               const n = eventsOn(i).length;
               if (!n) return <span key={d} className="h-8" />;
@@ -228,7 +242,9 @@ export function WeekBars() {
                 </button>
               );
             })}
-            <span className="flex h-8 items-center justify-end text-neutral-500">{events.length}</span>
+            <span className="flex h-8 items-center justify-end text-neutral-500">
+              {events.length}
+            </span>
           </>
         )}
 
@@ -247,52 +263,99 @@ export function WeekBars() {
       </div>
     );
 
-  return (
-    <div className="grid gap-4 pad:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      {/* The week, which flips over to the edit form. */}
-      <div className="[perspective:1600px]">
-        <div
-          className={`relative min-h-[19rem] transition-transform duration-500 [transform-style:preserve-3d] motion-reduce:transition-none ${
-            editing ? "[transform:rotateY(180deg)]" : ""
-          }`}
+  const picker = (
+    <div role="group" aria-label="Week layout" className="mb-3 flex flex-wrap gap-1">
+      {[{ id: "bars" as const, label: "Bars" }, ...WEEK_LOOKS].map((l) => (
+        <Button
+          key={l.id}
+          variant={look === l.id ? "secondary" : "ghost"}
+          size="xs"
+          onClick={() => setLook(l.id)}
         >
-          <div className="[backface-visibility:hidden]" inert={!!editing}>
-            {grid}
-            {hidden > 0 && (
-              <div className="mt-2 text-[11px] text-neutral-500">
-                {hidden} more {hidden === 1 ? "job" : "jobs"}: tap a day to see them.
-              </div>
-            )}
-          </div>
+          {l.label}
+        </Button>
+      ))}
+    </div>
+  );
+  if (look !== "bars") {
+    const View = { agenda: WeekAgenda, strip: WeekStrip, grid: WeekGrid }[look];
+    return (
+      <div>
+        {picker}
+        {editing ? (
+          <ItemForm
+            key={`${editing.item.kind}-${editing.item.id}`}
+            entry={editing}
+            editable={editable}
+            onClose={() => setEditing(null)}
+            onSaved={(patch) => {
+              setData(patchItem(data, editing.item.kind, editing.item.id, patch));
+              setEditing(null);
+            }}
+          />
+        ) : (
+          <View
+            data={data}
+            events={events}
+            today={today}
+            nowMin={toMin(orgParts(new Date().toISOString()).time) ?? 0}
+            editingKey=""
+            onEdit={setEditing}
+          />
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {picker}
+      <div className="grid gap-4 pad:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        {/* The week, which flips over to the edit form. */}
+        <div className="[perspective:1600px]">
           <div
-            className="absolute inset-0 overflow-y-auto [backface-visibility:hidden] [transform:rotateY(180deg)]"
-            inert={!editing}
+            className={`relative min-h-[19rem] transition-transform duration-500 [transform-style:preserve-3d] motion-reduce:transition-none ${
+              editing ? "[transform:rotateY(180deg)]" : ""
+            }`}
           >
-            {editing && (
-              <ItemForm
-                key={`${editing.item.kind}-${editing.item.id}`}
-                entry={editing}
-                editable={editable}
-                onClose={() => setEditing(null)}
-                onSaved={(patch) => {
-                  setData(patchItem(data, editing.item.kind, editing.item.id, patch));
-                  setEditing(null);
-                }}
-              />
-            )}
+            <div className="[backface-visibility:hidden]" inert={!!editing}>
+              {grid}
+              {hidden > 0 && (
+                <div className="mt-2 text-[11px] text-neutral-500">
+                  {hidden} more {hidden === 1 ? "job" : "jobs"}: tap a day to see them.
+                </div>
+              )}
+            </div>
+            <div
+              className="absolute inset-0 overflow-y-auto [backface-visibility:hidden] [transform:rotateY(180deg)]"
+              inert={!editing}
+            >
+              {editing && (
+                <ItemForm
+                  key={`${editing.item.kind}-${editing.item.id}`}
+                  entry={editing}
+                  editable={editable}
+                  onClose={() => setEditing(null)}
+                  onSaved={(patch) => {
+                    setData(patchItem(data, editing.item.kind, editing.item.id, patch));
+                    setEditing(null);
+                  }}
+                />
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <Details
-        data={data}
-        sel={sel}
-        events={sel.job === null && sel.day !== null ? eventsOn(sel.day) : []}
-        isToday={pick === null}
-        onToday={() => choose({ job: null, day: today })}
-        editingKey={editing ? `${editing.job.id}:${editing.item.kind}:${editing.item.id}` : ""}
-        onEdit={setEditing}
-      />
+        <Details
+          data={data}
+          sel={sel}
+          events={sel.job === null && sel.day !== null ? eventsOn(sel.day) : []}
+          isToday={pick === null}
+          onToday={() => choose({ job: null, day: today })}
+          editingKey={editing ? `${editing.job.id}:${editing.item.kind}:${editing.item.id}` : ""}
+          onEdit={setEditing}
+        />
+      </div>
     </div>
   );
 }
@@ -387,6 +450,38 @@ function Details({
   const job = sel.job === null ? null : (data.jobs.find((j) => j.id === sel.job) ?? null);
   const day = sel.day === null ? null : data.dates[sel.day];
   const rows = pickedItems(data, sel);
+  // A day with no job picked reads as a calendar; a job or the whole week stays a list.
+  const calendar = sel.job === null && sel.day !== null;
+  const dayEntries: DayEntry[] = calendar
+    ? [
+        ...events.map((e, k) => ({
+          key: `ev${k}`,
+          title: e.title,
+          kind: "event" as const,
+          meta: [e.allDay ? "All day" : null, e.where || null, e.calendar || null],
+          start: e.allDay ? null : toMin(orgParts(e.start).time),
+          end: e.allDay ? null : toMin(orgParts(e.end).time),
+        })),
+        ...rows.map((r) => ({
+          key: `${r.job.id}:${r.item.kind}:${r.item.id}`,
+          title: r.item.name,
+          kind: r.item.kind,
+          meta: [
+            r.job.name,
+            r.item.kind === "todo"
+              ? null
+              : r.item.start === r.item.end
+                ? null
+                : `${shortDate(r.item.start)} – ${shortDate(r.item.end)}`,
+            r.item.startTime && r.item.endTime ? `${r.item.startTime}–${r.item.endTime}` : null,
+          ],
+          start: toMin(r.item.startTime),
+          end: toMin(r.item.endTime),
+          row: r,
+        })),
+      ]
+    : [];
+  const nowMin = day === data.today ? toMin(orgParts(new Date().toISOString()).time) : null;
   const title = job ? job.name : day ? dayLabel(day) : "";
   const sub = job && day ? dayLabel(day) : job ? "This week" : isToday ? "Today" : "";
 
@@ -411,52 +506,68 @@ function Details({
           </Button>
         )}
       </div>
-      {events.length > 0 && (
-        <ul className="max-h-40 shrink-0 divide-y divide-line-soft overflow-y-auto">
-          {events.map((e, k) => (
-            <li key={k} className="px-1 py-1.5">
-              <span className="block truncate text-[13px] font-medium">{e.title}</span>
-              <MetaLine items={["Calendar", e.when, e.where || null, e.calendar || null]} />
-            </li>
-          ))}
-        </ul>
-      )}
-      {rows.length === 0 ? (
-        <p className="text-[12px] text-neutral-500">Nothing on the schedule.</p>
+      {calendar ? (
+        dayEntries.length === 0 ? (
+          <p className="text-[12px] text-neutral-500">Nothing on the schedule.</p>
+        ) : (
+          <DayAgenda
+            entries={dayEntries}
+            look={nowMin === null ? "agenda" : "now"}
+            nowMin={nowMin}
+            editingKey={editingKey}
+            onEdit={onEdit}
+          />
+        )
       ) : (
-        <ul className="min-h-0 flex-1 divide-y divide-line-soft overflow-y-auto">
-          {rows.map((r) => {
-            const key = `${r.job.id}:${r.item.kind}:${r.item.id}`;
-            const when =
-              r.item.kind === "todo"
-                ? `Due ${shortDate(r.item.end)}`
-                : r.item.start === r.item.end
-                  ? shortDate(r.item.start)
-                  : `${shortDate(r.item.start)} – ${shortDate(r.item.end)}`;
-            return (
-              <li key={key}>
-                <button
-                  type="button"
-                  onClick={() => onEdit(r)}
-                  aria-pressed={key === editingKey}
-                  className={`block min-h-11 w-full rounded-md px-1 py-1.5 text-left hover:bg-line-soft ${
-                    key === editingKey ? "bg-accent/10" : ""
-                  }`}
-                >
-                  <span className="block truncate text-[13px] font-medium">{r.item.name}</span>
-                  <MetaLine
-                    items={[
-                      r.item.kind === "task" ? "Task" : "To-do",
-                      job ? null : r.job.name,
-                      day && r.item.kind === "todo" ? null : when,
-                      r.item.phase || null,
-                    ]}
-                  />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          {events.length > 0 && (
+            <ul className="max-h-40 shrink-0 divide-y divide-line-soft overflow-y-auto">
+              {events.map((e, k) => (
+                <li key={k} className="px-1 py-1.5">
+                  <span className="block truncate text-[13px] font-medium">{e.title}</span>
+                  <MetaLine items={["Calendar", e.when, e.where || null, e.calendar || null]} />
+                </li>
+              ))}
+            </ul>
+          )}
+          {rows.length === 0 ? (
+            <p className="text-[12px] text-neutral-500">Nothing on the schedule.</p>
+          ) : (
+            <ul className="min-h-0 flex-1 divide-y divide-line-soft overflow-y-auto">
+              {rows.map((r) => {
+                const key = `${r.job.id}:${r.item.kind}:${r.item.id}`;
+                const when =
+                  r.item.kind === "todo"
+                    ? `Due ${shortDate(r.item.end)}`
+                    : r.item.start === r.item.end
+                      ? shortDate(r.item.start)
+                      : `${shortDate(r.item.start)} – ${shortDate(r.item.end)}`;
+                return (
+                  <li key={key}>
+                    <button
+                      type="button"
+                      onClick={() => onEdit(r)}
+                      aria-pressed={key === editingKey}
+                      className={`block min-h-11 w-full rounded-md px-1 py-1.5 text-left hover:bg-line-soft ${
+                        key === editingKey ? "bg-accent/10" : ""
+                      }`}
+                    >
+                      <span className="block truncate text-[13px] font-medium">{r.item.name}</span>
+                      <MetaLine
+                        items={[
+                          r.item.kind === "task" ? "Task" : "To-do",
+                          job ? null : r.job.name,
+                          day && r.item.kind === "todo" ? null : when,
+                          r.item.phase || null,
+                        ]}
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
       )}
     </section>
   );

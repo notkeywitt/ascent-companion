@@ -24,6 +24,9 @@ export interface WeekItem {
   /** A task's span, YYYY-MM-DD. A to-do's start and end are both its due day. */
   start: string;
   end: string;
+  /** Clock times, "HH:MM" 24-hour; "" when the task has none (a to-do never does). */
+  startTime: string;
+  endTime: string;
   /** Its JobTread description. */
   description: string;
 }
@@ -53,6 +56,8 @@ interface TaskIn {
   phase?: string;
   startDate: string;
   endDate: string;
+  startTime?: string;
+  endTime?: string;
   jobId: string;
   jobName: string;
   description?: string;
@@ -66,6 +71,9 @@ interface ToDoIn {
   jobName?: string | null;
   description?: string;
 }
+
+/** "07:30:00" → "07:30"; anything else → "". */
+const hhmm = (t?: string | null) => (t && /^\d{2}:\d{2}/.test(t) ? t.slice(0, 5) : "");
 
 const DAY_MS = 86_400_000;
 const parse = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
@@ -110,6 +118,9 @@ export function buildWeekActivity(
           phase: t.phase ?? "",
           start: t.startDate,
           end: t.endDate,
+          // A multi-day task keeps its times on its first and last day only.
+          startTime: d === t.startDate ? hhmm(t.startTime) : "",
+          endTime: d === t.endDate ? hhmm(t.endTime) : "",
           description: t.description ?? "",
         });
     });
@@ -125,6 +136,8 @@ export function buildWeekActivity(
       phase: "",
       start: due,
       end: due,
+      startTime: "",
+      endTime: "",
       description: t.description ?? "",
     });
   }
