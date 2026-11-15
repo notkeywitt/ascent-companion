@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWeekActivity, nearness, patchToDo, pickedItems, weekDates } from "./weekActivity";
+import { buildWeekActivity, itemEditPatch, nearness, patchItem, pickedItems, weekDates } from "./weekActivity";
 
 describe("weekDates", () => {
   it("runs Sunday to Saturday around a mid-week day", () => {
@@ -79,7 +79,7 @@ describe("buildWeekActivity", () => {
   });
 });
 
-describe("pickedItems and patchToDo", () => {
+describe("pickedItems and patchItem", () => {
   const w = buildWeekActivity(
     "2026-11-17",
     [
@@ -106,13 +106,43 @@ describe("pickedItems and patchToDo", () => {
   });
 
   it("moves, renames and removes an edited to-do", () => {
-    const moved = patchToDo(w, "d1", { due: "2026-11-19", name: "Order glass" });
+    const moved = patchItem(w, "todo", "d1", { end: "2026-11-19", name: "Order glass" });
     const a = moved.jobs.find((j) => j.id === "a")!;
     expect(a.days[2].map((i) => i.id)).toEqual(["t1"]);
     expect(a.days[4].map((i) => i.name)).toEqual(["Framing", "Order glass"]);
     expect(a.total).toBe(8);
-    expect(patchToDo(w, "d1", { done: true }).jobs.find((j) => j.id === "a")!.total).toBe(7);
-    expect(patchToDo(w, "d2", { due: "2026-12-01" }).jobs.find((j) => j.id === "b")!.total).toBe(0);
+    expect(patchItem(w, "todo", "d1", { done: true }).jobs.find((j) => j.id === "a")!.total).toBe(7);
+    expect(patchItem(w, "todo", "d2", { end: "2026-12-01" }).jobs.find((j) => j.id === "b")!.total).toBe(0);
+  });
+
+  it("re-spans an edited task and removes it when done", () => {
+    const a = (x: typeof w) => x.jobs.find((j) => j.id === "a")!;
+    const moved = patchItem(w, "task", "t1", { start: "2026-11-18", end: "2026-11-19" });
+    expect(a(moved).days.map((d) => d.filter((i) => i.id === "t1").length)).toEqual([0, 0, 0, 1, 1, 0, 0]);
+    expect(a(patchItem(w, "task", "t1", { done: true })).total).toBe(1);
+  });
+});
+
+describe("itemEditPatch", () => {
+  it("passes only the allowed fields", () => {
+    expect(itemEditPatch("task", { name: " Frame ", start: "2026-11-16", end: "2026-11-18", progress: 0.3, id: "x" })).toEqual({
+      name: "Frame",
+      startDate: "2026-11-16",
+      dueDate: "2026-11-18",
+    });
+    expect(itemEditPatch("todo", { end: "", done: true, description: null })).toEqual({
+      dueDate: null,
+      done: true,
+      description: null,
+    });
+    expect(itemEditPatch("todo", { start: "2026-11-16" })).toBe("Nothing to change.");
+  });
+
+  it("refuses a bad name or bad dates", () => {
+    expect(itemEditPatch("todo", { name: "  " })).toBe("It needs a name.");
+    expect(itemEditPatch("task", { end: "2026-11-18" })).toBe("A schedule task needs a start and an end.");
+    expect(itemEditPatch("task", { start: "2026-11-19", end: "2026-11-18" })).toBe("The start is after the end.");
+    expect(itemEditPatch("todo", { end: "11/18/2026" })).toBe("Unreadable date: 11/18/2026");
   });
 });
 

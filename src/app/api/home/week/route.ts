@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import {
-  OFFICE_JOB_ID,
   getJobs,
   getOpenToDosCached,
   getUpcomingScheduleTasks,
@@ -19,8 +18,8 @@ import { buildWeekActivity, weekDates } from "@/lib/weekActivity";
  * `buildWeekActivity` (src/lib/weekActivity.ts). A failed jobs read only drops
  * the customer from the label.
  *
- * `officeJobId` tells the widget which to-dos it may edit: the one to-do edit
- * route, PATCH /api/office/todos, refuses a to-do on any other job.
+ * Edits go through PATCH /api/home/week/task; the calendar events through
+ * GET /api/home/week/events.
  *
  * "Today" is the ORG's day, not the server's (a Vercel lambda runs in UTC).
  * Gated by the `home` view (src/lib/views.ts), like every /api/home read.
@@ -41,10 +40,7 @@ export async function GET() {
       getJobs(cfg).catch(() => []),
     ]);
     const customers = new Map(jobs.filter((j) => j.customer).map((j) => [j.id, j.customer!]));
-    return NextResponse.json({
-      ...buildWeekActivity(today, tasks, todos, customers),
-      officeJobId: OFFICE_JOB_ID,
-    });
+    return NextResponse.json(buildWeekActivity(today, tasks, todos, customers));
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unknown error" },
