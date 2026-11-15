@@ -203,3 +203,68 @@ export async function restoreByKey(source: string, scope: string, key: string): 
     args: [source, scope, key],
   });
 }
+
+/** One row of the Admin → Activity table: how a (source, kind) fared. */
+export interface KindStats {
+  source: string;
+  kind: string;
+  seen: number;
+  open: number;
+  selfResolved: number;
+  dismissed: number;
+  snoozed: number;
+}
+
+/**
+ * Count findings by (source, kind). Each finding lands in exactly one bucket,
+ * checked in this order: dismissed, then resolved (the source stopped
+ * reporting it), then snoozed now, else open. So the four sum to `seen`.
+ */
+export function tallyKinds(
+  rows: { source: string; kind: string; resolved: boolean; dismissed: boolean; snoozed: boolean }[],
+): KindStats[] {
+  const by = new Map<string, KindStats>();
+  for (const r of rows) {
+    const k = `${r.source}\u0000${r.kind}`;
+    let g = by.get(k);
+    if (!g) by.set(k, (g = { source: r.source, kind: r.kind, seen: 0, open: 0, selfResolved: 0, dismissed: 0, snoozed: 0 }));
+    g.seen += 1;
+    if (r.dismissed) g.dismissed += 1;
+    else if (r.resolved) g.selfResolved += 1;
+    else if (r.snoozed) g.snoozed += 1;
+    else g.open += 1;
+  }
+  return [...by.values()].sort((a, b) => b.seen - a.seen);
+}
+
+/**
+ * Read-only counts for Admin → Activity, for findings first seen in the last
+ * `days`. Invoice-review rows older than the `findings` store come from
+ * `invoice_review_finding_state`; a (month, key) already in `findings` is not
+ * counted twice. Those old rows have no snooze, and "set aside" (the ruling it
+ * carried when last seen) stands in for dismissed.
+ */
+export async function findingKindStats(days = 90): Promise<KindStats[]> {
+  await ensureDb();
+  const now = new Date().toISOString();
+  const since = new Date(Date.now() - days * 86400000).toISOString();
+  const res = await rawDb().execute({
+    sql:
+      "SELECT source, kind, resolved_at <> '' AS r, dismissed_by <> '' AS d, snoozed_until > ? AS s " +
+      "FROM findings WHERE first_seen_at >= ? " +
+      "UNION ALL " +
+      "SELECT 'invoice-review', kind, resolved_at <> '', was_suppressed, 0 FROM invoice_review_finding_state st " +
+      "WHERE first_seen_at >= ? AND NOT EXISTS (SELECT 1 FROM findings f " +
+      "WHERE f.source = 'invoice-review' AND f.scope = st.ym AND f.key = st.key)",
+    args: [now, since, since],
+  });
+  return tallyKinds(
+    res.rows.map((x) => ({
+      source: String(x.source),
+      kind: String(x.kind),
+      resolved: Number(x.r) === 1,
+      dismissed: Number(x.d) === 1,
+      snoozed: Number(x.s) === 1,
+    })),
+  );
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, envAllowed } from "@/auth";
+import { findingKindStats } from "@/lib/findings";
 import { getUsageSummary } from "@/lib/usage";
 import { VIEWS } from "@/lib/views";
 
@@ -31,5 +32,6 @@ export async function GET(req: NextRequest) {
   const days = [7, 30, 90].includes(raw) ? raw : 30;
 
   const summary = await getUsageSummary(days, labelFor);
-  return NextResponse.json(summary);
+  // Fixed 90-day window, not `days`: the owner reads it to pick inline fixes.
+  return NextResponse.json({ ...summary, findingKinds: await findingKindStats(90) });
 }

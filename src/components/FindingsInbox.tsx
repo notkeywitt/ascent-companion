@@ -21,7 +21,7 @@ import type { FindingDisposition } from "@/lib/invoiceReview/types";
 type Row = FindingRow & { hidden: boolean; verdict: FindingDisposition | null };
 
 /** A source's heading. A source with no entry shows its id. */
-const SOURCE_LABEL: Record<string, string> = {
+export const SOURCE_LABEL: Record<string, string> = {
   "invoice-review": "Invoice review",
   "stuck-vendors": "Stuck vendors",
   "needs-project": "Bills with no job",

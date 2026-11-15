@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { SOURCE_LABEL } from "@/components/FindingsInbox";
 import { Banner, Button, Loading, SectionLabel, Select } from "@/components/ui";
 
 interface TopView {
@@ -37,7 +38,17 @@ interface RecentActivity {
   recodes: RecodeEntry[];
   at: string;
 }
+interface KindStats {
+  source: string;
+  kind: string;
+  seen: number;
+  open: number;
+  selfResolved: number;
+  dismissed: number;
+  snoozed: number;
+}
 interface UsageSummary {
+  findingKinds?: KindStats[];
   days: number;
   since: string;
   totals: { activeUsers: number; logins: number; views: number; codings: number };
@@ -271,6 +282,47 @@ export function ActivityPanel() {
 
           </div>
           </div>
+
+          <SectionLabel className="mb-1 mt-6">Warnings, last 90 days</SectionLabel>
+          {(data.findingKinds ?? []).length === 0 ? (
+            <p className="text-sm text-neutral-500">No findings yet.</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-line bg-white dark:bg-ink-raised">
+              <table className="w-full text-sm">
+                <thead className="text-left text-[11px] text-neutral-500">
+                  <tr>
+                    <th className="px-3 py-1.5 font-medium">Warning</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Seen</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Open</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Self-resolved</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Dismissed</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Snoozed</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line-soft dark:divide-white/10">
+                  {data.findingKinds!.map((k) => (
+                    <tr key={`${k.source}/${k.kind}`}>
+                      <td className="px-3 py-1.5">
+                        {SOURCE_LABEL[k.source] ?? k.source}
+                        {k.kind && <span className="text-neutral-500"> · {k.kind}</span>}
+                      </td>
+                      <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{k.seen}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{k.open}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{k.selfResolved}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{k.dismissed}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{k.snoozed}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="mt-1 text-xs text-neutral-400">
+            Findings first seen in the last 90 days. Each finding counts once: Dismissed (any dismissal), else
+            Self-resolved (the source stopped reporting it), else Snoozed (hidden now), else Open. The four add up
+            to Seen. Invoice review also counts months before the inbox existed; for those, Dismissed means it
+            carried a ruling when last seen, and Snoozed is always 0.
+          </p>
 
           <p className="mt-4 text-xs text-neutral-400">
             Activity older than 180 days is dropped automatically.
