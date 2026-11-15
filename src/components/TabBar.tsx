@@ -37,9 +37,8 @@ import {
  * header's ☰ menu carries everything else.
  *
  * THE DRAWER (owner, 2026-10-29/30; on `Sheet` since 2026-11-13, OVERHAUL_PLAN
- * 3.3): every page the bar has no room for, three to a row (`drawerFor`). A
- * swipe up on the bar opens it at half
- * height; it drags up to full. A swipe down, a tap outside, Escape or any
+ * 3.3): the ☰ menu (`AppMenu`), since 2026-11-15. A swipe up on the bar opens
+ * it at half height; it drags up to full. A swipe down, a tap outside, Escape or any
  * navigation closes it. Phone only: the rail already lists everything.
  *
  * PINNED: a person can pin one page from the ☰ menu (per device). It takes the
@@ -395,7 +394,7 @@ export function TabBar() {
         onTouchEnd={(e) => {
           const start = touchY.current;
           touchY.current = null;
-          if (more.length && start !== null && start - e.changedTouches[0].clientY > 30)
+          if (start !== null && start - e.changedTouches[0].clientY > 30)
             setOpen(true);
         }}
       >
@@ -434,38 +433,14 @@ export function TabBar() {
         </div>
       </nav>
 
-      {/* The drawer: the pages the bar has no room for, three to a row, 24px
-          icons and 13px labels. */}
-      {more.length > 0 && (
-        <Sheet open={open} onClose={() => setOpen(false)} label="More pages">
-          <div className="grid grid-cols-3 gap-1 pb-2 pt-1">
-            {more.map((t) => {
-              const on = t.covers.some((href) => isHereRoot(href));
-              const Icon = ICONS[t.key] ?? DocumentIcon;
-              return (
-                <Link
-                  key={t.key}
-                  href={t.href + qs}
-                  aria-current={on ? "page" : undefined}
-                  onClick={(e) => {
-                    guard(e);
-                    if (!e.defaultPrevented) setOpen(false);
-                  }}
-                  className={`relative flex min-h-[5.5rem] flex-col items-center justify-center gap-2 rounded-xl px-1 py-2 text-center text-[13px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 [&_svg]:h-6 [&_svg]:w-6 ${
-                    on
-                      ? "bg-black/5 text-neutral-900 dark:bg-white/10 dark:text-white"
-                      : "text-neutral-600 hover:text-neutral-900 dark:text-white/70 dark:hover:text-white"
-                  }`}
-                >
-                  <Icon />
-                  <span className="line-clamp-2">{labelOf(t)}</span>
-                  <LinkPendingOverlay spinnerClassName="h-5 w-5" />
-                </Link>
-              );
-            })}
-          </div>
-        </Sheet>
-      )}
+      {/* The drawer: the ☰ menu, opened by a swipe up on the bar. Phone only. */}
+      <div className="pad:hidden">
+        {access.role === "office" ? (
+          <AppMenu account pages qs={qs} open={open} onOpenChange={setOpen} />
+        ) : (
+          <AppMenu qs={qs} open={open} onOpenChange={setOpen} />
+        )}
+      </div>
 
       {/* iPAD AND UP: a rail down the left edge with every workspace; from 2xl
           a sidebar that also lists the current workspace's pages. Its width is

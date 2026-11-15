@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { AscentLogo } from "@/components/AscentLogo";
 import { GlobalSearch } from "@/components/GlobalSearch";
-import { AppMenu } from "@/components/AppMenu";
 import { LinkPendingOverlay } from "@/components/LinkPending";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAccess } from "@/components/AccessProvider";
@@ -81,9 +80,6 @@ export function AppHeader() {
   // /add-bill keeps the job in context when there is one, so the button lands on
   // the job you are looking at rather than an empty form.
   const addHref = jobId ? `/add-bill?jobId=${encodeURIComponent(jobId)}` : "/add-bill";
-  // The selected job travels with every menu link, exactly as it does through
-  // the launcher and the tab bar.
-  const qs = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
 
   return (
     /* `pt-[env(safe-area-inset-top)]`: the page is drawn edge to edge
@@ -97,14 +93,6 @@ export function AppHeader() {
       className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
     >
       <div className="flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
-        {/* Every page this person can open, by workspace — on a phone only. From
-            `pad` up the sidebar lists the workspaces and carries the Account
-            item, so ☰ went away there (owner, 2026-10-13). The OFFICE role has
-            no ☰ at any width (owner, 2026-10-18): it gets the sidebar's Account
-            item instead, so Appearance and Sign out stay one tap away. */}
-        <div className="pad:hidden">
-          {access.role === "office" ? <AppMenu account pages qs={qs} /> : <AppMenu qs={qs} />}
-        </div>
         {/* No back button: back is a swipe right from the screen's left
             edge (SwipeBack, installed app). A browser tab has its own. */}
         {/* `inline-flex` on the BUTTON, not just the logo: a <button> lays its
