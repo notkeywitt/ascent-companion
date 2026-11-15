@@ -656,6 +656,11 @@ textarea:focus-visible {
 .loading-line-late {
   animation-delay: 400ms;
 }
+/* Page changes: the line runs at double speed (LINE_FAST_CYCLE_MS) and eases
+   in and out harder, so it visibly speeds up and settles on each stroke. */
+.loading-line-fast {
+  animation-timing-function: cubic-bezier(0.7, 0, 0.3, 1);
+}
 .loading-line-tail {
   height: 1.5px;
   margin-bottom: -0.75px; /* centre the line on the base, like the ridge stroke */
