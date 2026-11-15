@@ -270,13 +270,13 @@ Apps Script queues (no Apps Script URL in `.env.local`).
 ## Phase 5 — One inbox for every warning (Opus for the schema, Sonnet for the rollout; 1 to 2 sessions)
 
 - [x] One `findings` store. Generalize `invoice_review_finding_state`: kind, severity, subject, first seen, last seen, resolved, snoozed until, dismissed by.
-- [ ] One dismissal mechanism replaces the five in use. (The mechanism exists. The five old stores still run; see the mapping table below.)
+- [ ] One dismissal mechanism replaces the five in use. (2026-11-15: moved `digest_dismissals`, `notice_reads` and `lswdd.payReminder.dismissed`. Kept on purpose, with the reason in "Second half — 2026-11-15" below: Apps Script `dismissUncaptured` / `dismissNeedsProject`, the pre-send `cleared` list, `timeBug.dismissedOn`, `ascent.stuckVendors.dismissed`.)
 - [x] One "Needs attention" page built on `Notice`. Each row has: what is wrong, the fix button, snooze, dismiss.
-- [ ] Each source writes into the store: stuck vendors, needs project, uncaptured bills, flagged bills, time sync, pre-send check, Sunset duplicates, invoice review. (Done: invoice review, stuck vendors. The rest are listed below.)
+- [x] Each source writes into the store: stuck vendors, needs project, uncaptured bills, flagged bills, time sync, pre-send check, Sunset duplicates, invoice review. (2026-11-15: all of them, plus Sunset unreconciled, tracking sheet risks, billing month stale, LSWDD pay reminder and notices.)
 - [ ] Inline fixes for the finding kinds that occur most. Count them from `invoice_review_finding_state` first. Each fix reuses an existing write route. **Sign-off** per fix.
 - [x] Show the Mac check's verdicts (`invoice_review_dispositions`) on each finding. Today they change nothing on screen.
 - [x] Show when the Mac check last ran (`monthly_check_runs`) and warn when it is late.
-- [ ] Replace the 28 hand-rolled amber and red boxes with `Notice`.
+- [ ] Replace the 28 hand-rolled amber and red boxes with `Notice`. (2026-11-15, the inbox's own files: `UncapturedBills` now heads with a `Notice`. The amber marks left in `Notices.tsx` and `StuckVendors.tsx` are icon badges, not notices. The rest is a separate session's work.)
 
 ### Handoff — first half built 2026-11-13
 
@@ -416,6 +416,34 @@ with the owner whether they move.
 The Mac check already runs unattended (launchd, headless Opus on the Claude
 subscription, posting to `/api/invoice-review/agent`). The missing part is the
 surface, not the runner.
+
+### Second half — 2026-11-15
+
+**Sources added**
+
+| Source id | How | Scope | Where |
+|---|---|---|---|
+| `sunset-unreconciled` | push, after a reconcile read that answered | `""` | `src/app/api/sunset-statements/reconcile/route.ts`. Home's `sunset` row is gone. Rows refresh when someone opens `/payments`. |
+| `tracking-sheet-risks` | push, after a sync that returned `unmatched` | the Apps Script project id | `src/app/api/tracking-sheet/route.ts` |
+| `billing-month` | pull | `""` | `src/lib/findingSources.ts` |
+| `lswdd-pay` | push, from the pop-up's read | the reader's email | `src/app/api/lswdd/reminder/route.ts` (new, gated by `/api/lswdd`) |
+| `notices` | push, from the feed read | the reader's email | `src/app/api/notices/route.ts`. Only a notice the reader can clear (✕ or popup); a standing banner is not a row. |
+
+**Roles.** No per-row view check was needed. `/api/findings` stays office and
+admin. A per-user row shows only to its reader. Field and lead keep their own
+surfaces (`NoticeCenter`, the LSWDD pop-up), which now read and write the same
+rows, so a dismissal in either place holds in both.
+
+**Old stores**
+
+| Old store | Result |
+|---|---|
+| `notice_reads` | Moved. `applySchema` copied its rows into `findings` as dismissed rows. Nothing reads or writes it now; the admin "seen by" count reads `findings`. **Ready to drop, owner's call.** |
+| `lswdd.payReminder.dismissed` | Moved. "Later" snoozes the reader's row to the next company midnight, on every device. |
+| Apps Script `dismissUncaptured` / `dismissNeedsProject` | Kept. It stamps the sheet row "Dismissed", which is what takes the bill out of the Apps Script queues. The store already follows it: the next pull leaves the row out and it resolves. An inbox dismissal cannot replace it without a sheet write and has no undo there. |
+| `ascent.presend.v1:<ym>:<jobId>` | Kept. It is mostly a per-device cache of the last run and its "fixed" list; `cleared` is a device-only note, not a ruling. An inbox dismissal of a pre-send row already stands (b6294382). Moving `cleared` needs `usePreSendCheck.ts`, the job route and a write path for leads (`recode`) into the office's shared rows. |
+| `timeBug.dismissedOn` | Kept. It hides the floating clock widget, not a warning, for every role, beside the widget's other per-device settings. |
+| `ascent.stuckVendors.dismissed` | Kept. The pop-up's "Later" is one person's interruption control. The stuck-vendor rows are company-wide, so a snooze there would hide them from every office user's inbox for a day. |
 
 Done when: every warning in the app is a row in one list, and the most common
 finding kinds clear from that list.

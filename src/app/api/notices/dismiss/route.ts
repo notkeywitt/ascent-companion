@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db, ensureDb } from "@/db";
-import { noticeReads } from "@/db/schema";
 import { auth } from "@/auth";
+import { dismissByKey } from "@/lib/findings";
 
 /**
- * POST /api/notices/dismiss { id } — the reader acknowledges a notice. Writes the
- * (notice, email) read mark that keeps it out of the feed from now on; a repeat
- * dismiss is a harmless no-op. The email comes from the session, never the body.
+ * POST /api/notices/dismiss { id } — the reader acknowledges a notice. Dismisses
+ * the reader's own row in the findings store (source "notices", scope = their
+ * email), which keeps it out of the feed and the inbox from now on; a repeat
+ * dismiss is harmless. The email comes from the session, never the body.
  */
 export async function POST(req: NextRequest) {
   const session = await auth();
@@ -19,11 +19,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "id required" }, { status: 400 });
   }
 
-  await ensureDb();
-  await db
-    .insert(noticeReads)
-    .values({ noticeId: id, email, readAt: new Date().toISOString() })
-    .onConflictDoNothing();
-
+  await dismissByKey("notices", email, String(id), email);
   return NextResponse.json({ ok: true });
 }

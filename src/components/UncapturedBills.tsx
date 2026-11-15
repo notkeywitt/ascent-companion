@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { JobPicker } from "@/components/JobPicker";
 import { LinkVendor } from "@/components/LinkVendor";
-import { Banner, Button, Chip, CountBadge, Input, Select, Spinner } from "@/components/ui";
+import { Banner, Button, Chip, CountBadge, Input, Notice, Select, Spinner } from "@/components/ui";
 import { money } from "@/lib/money";
 import { CoiDot } from "@/components/CoiDot";
 
@@ -293,37 +293,32 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
   }
 
   return (
-    <section className="mb-4 overflow-hidden rounded-xl border border-amber-300 bg-amber-50/60 dark:border-amber-900/60 dark:bg-amber-950/20">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-      >
-        <span className="min-w-0">
-          <span className="flex items-center gap-2 font-semibold text-amber-900 dark:text-amber-200">
+    <section className="mb-4">
+      <Notice
+        title={
+          <span className="flex items-center gap-2">
             Not in JobTread
-            {shown.length > 0 && <CountBadge n={shown.length} />}
+            <CountBadge n={shown.length} />
           </span>
-          <span className="mt-0.5 block text-xs text-amber-800/80 dark:text-amber-200/70">
-            {money(total)} of ingested bills never pushed — missing from{" "}
-            {jobId ? "this job’s invoice" : "these invoices"}
+        }
+        action={{ label: open ? "Hide" : "Review", onClick: () => setOpen((o) => !o) }}
+      >
+        <span className="block text-xs">
+          {money(total)} of ingested bills never pushed — missing from{" "}
+          {jobId ? "this job’s invoice" : "these invoices"}
+        </span>
+        {/* Same scan stamp the all-clear state carries, so a stale or partial
+            read is as visible here as it is there. */}
+        {scan && (
+          <span className="mt-0.5 block text-[11px] opacity-70">
+            of {scan.scanned.toLocaleString("en-US")} checked
+            {scan.since ? ` since ${scan.since}` : ""} · {scan.at}
           </span>
-          {/* Same scan stamp the all-clear state carries, so a stale or partial
-              read is as visible here as it is there. */}
-          {scan && (
-            <span className="mt-0.5 block text-[11px] text-amber-800/60 dark:text-amber-200/50">
-              of {scan.scanned.toLocaleString("en-US")} checked
-              {scan.since ? ` since ${scan.since}` : ""} · {scan.at}
-            </span>
-          )}
-        </span>
-        <span className="shrink-0 text-sm font-semibold text-amber-900 dark:text-amber-200">
-          {open ? "Hide" : "Review"}
-        </span>
-      </button>
+        )}
+      </Notice>
 
       {open && (
-        <div className="border-t border-amber-200 px-3 pb-3 pt-3 dark:border-amber-900/60">
+        <div className="pt-3">
           {error && <Banner tone="error">{error}</Banner>}
 
           <ul className="space-y-2">

@@ -1,5 +1,3 @@
-import { NextRequest } from "next/server";
-
 import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
 import { featureRequests } from "@/db/schema";
@@ -11,10 +9,7 @@ import { monthLabel } from "@/lib/billingMonths";
 import { previousMonth } from "@/lib/homeFacts";
 import { getAllDraftBills, getLastAmazonBillMonth } from "@/lib/jobtread";
 import { listRequests } from "@/lib/leaveService";
-import { reconcileState, type ReconcileResult } from "@/lib/sunsetReconcile";
 import { resolveAllowedViews } from "@/lib/views";
-import { GET as sunsetList } from "@/app/api/sunset-statements/route";
-import { GET as sunsetReconcile } from "@/app/api/sunset-statements/reconcile/route";
 
 /**
  * NEEDS ATTENTION — every queue waiting on the reader, counted on the server in
@@ -120,26 +115,6 @@ const SOURCES: Source[] = [
       if (r.error || r.data?.error) throw new Error(r.error || r.data?.error);
       const open = (r.data?.requisitions ?? []).filter((x) => !x.Status || x.Status === "Requested");
       return { count: open.length, detail: `${plural(open.length, "request")} to order`, ids: open.map((x) => x.ReqID ?? "") };
-    },
-  },
-  {
-    key: "sunset",
-    view: "payments",
-    officeOnly: true,
-    label: "Sunset",
-    href: "/payments",
-    // The two routes the Payments page reads, called in process: the list
-    // route also refreshes the statement cache, and that logic lives there.
-    load: async () => {
-      const [list, recon] = await Promise.all([
-        sunsetList(new NextRequest("http://local/api/sunset-statements?status=unpaid")).then((r) => r.json()),
-        sunsetReconcile().then((r) => r.json()),
-      ]);
-      if (list?.error || recon?.ok === false) throw new Error("sunset read failed");
-      const rcBy = (recon.reconciliation ?? {}) as Record<string, ReconcileResult>;
-      const rows = (list.items ?? []) as { expId: string; extractedAt: string; net: string; total: string }[];
-      const n = rows.filter((s) => !reconcileState(s, rcBy[s.expId]).reconciled).length;
-      return { count: n, detail: `${plural(n, "unpaid statement")} not reconciled` };
     },
   },
   {

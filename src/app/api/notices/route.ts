@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { notices, noticeReads } from "@/db/schema";
+import { notices, type Notice } from "@/db/schema";
 import { auth } from "@/auth";
+import { list, report } from "@/lib/findings";
 import { audienceMatches, isLive } from "@/lib/notices";
+
+const SOURCE = "notices";
+/** The reader can clear it: it has a ✕, or it is a popup (always dismissible). */
+const canClear = (n: Notice) => n.dismissible || n.display === "popup";
 
 /**
  * GET /api/notices — the reader's feed: notices that are LIVE right now, aimed
@@ -31,18 +36,28 @@ export async function GET() {
     .where(eq(notices.active, true))
     .orderBy(desc(notices.id));
 
-  const readRows = await db
-    .select({ noticeId: noticeReads.noticeId })
-    .from(noticeReads)
-    .where(eq(noticeReads.email, email));
-  const readIds = new Set(readRows.map((r) => r.noticeId));
-
   // One `now` for the whole request, so two notices sharing an edge of the same
   // window can't disagree about whether it has passed.
   const now = Date.now();
-  const forMe = active.filter(
-    (n) => !readIds.has(n.id) && isLive(n, now) && audienceMatches(n, { email, role }),
+  const live = active.filter((n) => isLive(n, now) && audienceMatches(n, { email, role }));
+
+  // The reader's own rows in the findings store (scope = their email). Only a
+  // notice the reader can clear goes in: a standing banner has no ✕, so it is
+  // not a row anyone could dismiss. A dismissal survives the notice ending
+  // and starting again, as the old read mark did.
+  const clearable = live.filter(canClear);
+  await report(
+    SOURCE,
+    clearable.map((n) => ({
+      key: String(n.id),
+      kind: "notice",
+      severity: n.tone === "warning" ? "warning" : "info",
+      title: n.title,
+    })),
+    email,
   );
+  const open = new Set((await list({ source: SOURCE, scope: email, reader: email })).map((r) => r.key));
+  const forMe = live.filter((n) => !canClear(n) || open.has(String(n.id)));
 
   return NextResponse.json({
     notices: forMe.map((n) => ({

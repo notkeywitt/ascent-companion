@@ -31,6 +31,11 @@ const SOURCE_LABEL: Record<string, string> = {
   "pre-send": "Before you send",
   "sunset-duplicates": "Sunset duplicates",
   digest: "Daily digest",
+  "sunset-unreconciled": "Sunset statements",
+  "tracking-sheet-risks": "Tracking sheet columns",
+  "billing-month": "Billing month",
+  "lswdd-pay": "LSWDD payment",
+  notices: "Notices",
 };
 
 const TONE: Record<string, BannerTone> = { error: "error", warning: "warning", info: "info" };
