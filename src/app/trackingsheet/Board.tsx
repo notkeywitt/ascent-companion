@@ -389,6 +389,19 @@ export interface BoardEmbed {
   onBillNote?: (bill: { docId: string; label: string }, noteId?: number) => void;
 }
 
+/**
+ * Where the screen's chrome ends: the app header, plus the Jobs Hub's pinned
+ * job name from `pad` up (HubRibbonHeader, pinned flush under the header).
+ * Below `pad` that header scrolls away, so only the app header counts.
+ */
+function chromeBottom(): number {
+  const header =
+    parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--appheader-h")) || 0;
+  const pin = document.querySelector<HTMLElement>("main > header[style]");
+  if (!pin || getComputedStyle(pin).position !== "sticky") return header;
+  return header + pin.offsetHeight;
+}
+
 export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   // Office-edited wording (Admin → Page Text); see src/lib/copy.ts.
   const c = useCopy();
@@ -957,24 +970,29 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     () => [...nonSunsetBills, ...sunsetBills],
     [nonSunsetBills, sunsetBills],
   );
-  // THE CARD OPENS AT THE TOP OF THE WINDOW (owner, 2026-10-11). The coding
-  // column scrolls with the page, so the card is pushed down to whatever part
-  // of the column is on screen when a bill or time entry is opened. It used to
-  // land beside the clicked row (2026-09-29). Measured on open only: a refresh
-  // while you work down a long card must not move it.
-  const [openTop, setOpenTop] = useState(0);
-  useLayoutEffect(() => {
+  // THE CARD PINS AT THE TOP OF THE WINDOW (owner, 2026-11-15). The coding
+  // column is sticky from xl, so the open bill stays put while the list beside
+  // it scrolls with the page. Opening a bill or a time entry scrolls the page
+  // until the column meets its pin, so the card is on screen at once with the
+  // scan and the fields — unless the page is already past that point, where the
+  // pin already holds it. `stickyTop` clears the app header AND, on the Jobs
+  // Hub from `pad` up, the pinned job name; measured on open only.
+  const [stickyTop, setStickyTop] = useState(0);
+  const scrollToWorkbench = useCallback(() => {
     const col = codingColRef.current;
-    if (!col || (!openDocId && !openTimeId)) return setOpenTop(0);
-    const header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--appheader-h")) || 0;
-    // The Jobs Hub pins the job's name under the header from `pad` up: clear it too.
-    const pin = document.querySelector<HTMLElement>("main h1.sticky");
-    const pinned = pin && pin.offsetParent ? pin.offsetHeight : 0;
-    setOpenTop(Math.max(0, header + pinned + 8 - col.getBoundingClientRect().top));
-  }, [openDocId, openTimeId]);
+    if (!col || !col.offsetParent) return 0;
+    const top = chromeBottom() + 8;
+    setStickyTop(top);
+    const gap = col.getBoundingClientRect().top - top;
+    if (gap > 1) window.scrollBy({ top: gap });
+    return top;
+  }, []);
+  useLayoutEffect(() => {
+    if (openDocId || openTimeId) scrollToWorkbench();
+  }, [openDocId, openTimeId, scrollToWorkbench]);
 
   // Previous / next through the list, in the order it reads down the page.
-  // The page does not scroll, so the card and its buttons stay put on screen.
+  // The column is pinned, so the card and its buttons stay put on screen.
   const openIndex = orderedBills.findIndex((b) => b.id === openDocId);
   const stepBill = (dir: 1 | -1) => {
     const next = orderedBills[openIndex + dir];
@@ -1294,7 +1312,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     setDueDate: (d) => void setDueDate(d),
     dueDateSaving,
     setBillType: stageBillType,
-    scrollWithPage: true,
     review: {
       flagged: review.flagged,
       note: review.note,
@@ -1906,8 +1923,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       driveMainWindowToDoc(jobId, b.id);
       setOpenTimeId(null);
       setOpenDocId(b.id);
-      // No scrollIntoView: the card opens where the window is (`openTop`), and a
-      // page scroll after that measure would carry it out of view.
+      // The open effect scrolls the page to the pinned column.
       return;
     }
     setBillPopup({ docId: billId, jobId, label, jobName: jobTitle });
@@ -2408,12 +2424,18 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   const codingCol = (
     <>
     {/* ─────────── RIGHT: coding drawer ─────────── */}
-    {/* NOT sticky, and the card is not capped (`scrollWithPage`): the
-        owner asked for the bill to scroll with the page rather than
-        inside a window (2026-09-28). A sticky column taller than the
-        viewport would strand its own bottom, so the two go together.
-        An open bill or time entry card is pushed down to the top of the window (`openTop`). */}
-    <section ref={codingColRef} className="scroll-below-header hidden min-w-0 xl:block">
+    {/* STICKY from xl, and the card is capped (BillCodingCard's `boxed`): the
+        open bill stays in place while the list beside it scrolls with the page
+        (owner, 2026-11-15; it scrolled with the page from 2026-09-28). `self-start`
+        so the item is its own height, or a stretched item has nowhere to travel.
+        `--appheader-h` is overridden on this column so `.max-h-below-header`
+        inside the card measures from the pin, which also clears the Jobs Hub's
+        job name. */}
+    <section
+      ref={codingColRef}
+      className="hidden min-w-0 xl:sticky xl:block xl:self-start"
+      style={stickyTop ? ({ top: stickyTop, "--appheader-h": `${stickyTop - 8}px` } as React.CSSProperties) : undefined}
+    >
       {/* One column, three subjects, in order of how specific the claim
           is: ONE entry being edited (a row clicked), then a SELECTION
           being recoded, then the bills. The office codes labor exactly where it
@@ -2421,7 +2443,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           recode drawer is the same component Labor Review shows, so the
           two pages move a week of hours identically. */}
       {openTime && !belowXl ? (
-        <div style={{ paddingTop: openTop }}>
+        <div>
           {/* No section title: the card names the person and the entry,
               and a "Labor" caption over it only repeated the block
               the entry was clicked in. */}
@@ -2470,7 +2492,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           />
         </>
       ) : (
-        <div style={{ paddingTop: openTop }}>
+        <div>
           {!embed && openBill && openIndex >= 0 && (
             <div className="mb-2 flex items-center justify-between gap-2 text-[12px]">
               <button
@@ -3069,7 +3091,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             dropHandlers={dropHandlers}
             headroomMostLeft={headroomMostLeft}
             jobId={jobId}
-            openCodeDrill={openCodeDrill}
+            openCodeDrill={(code) => {
+              scrollToWorkbench();
+              openCodeDrill(code);
+            }}
             railCollapsed={railCollapsed}
             railGroups={railGroups}
             railHidden={railHidden}
@@ -3079,7 +3104,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             setHeadroomMostLeft={setHeadroomMostLeft}
             setRailCollapsed={setRailCollapsed}
             tightestCodes={tightestCodes}
-            toggleDiv={toggleDiv}
+            toggleDiv={(code) => {
+              scrollToWorkbench();
+              toggleDiv(code);
+            }}
             toggleRailHidden={toggleRailHidden}
             trackingTarget={trackingTarget}
           />
