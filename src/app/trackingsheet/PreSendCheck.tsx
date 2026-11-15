@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { Banner, Card, Chip, SectionHeading } from "@/components/ui";
 import { money } from "@/lib/invoiceReview/types";
 import type { Finding } from "@/lib/invoiceReview/types";
@@ -41,11 +42,16 @@ export function PreSendCheck({
   const open = mem ? openFindings(mem) : [];
   const { errors, warnings } = mem ? tally(mem) : { errors: 0, warnings: 0 };
   const settled = mem ? mem.fixed.length + clearedCount(mem) : 0;
+  // The heading folds the findings away (owner, 2026-11-15); the tally in the
+  // banner is the one line that stays.
+  const [shown, setShown] = useState(true);
 
   return (
     <Card className="mb-4">
       <SectionHeading
-        className="mb-2"
+        className={shown ? "mb-2" : ""}
+        onToggle={() => setShown((v) => !v)}
+        open={shown}
         trailing={
           <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
             {run.state !== "idle" ? (
@@ -64,13 +70,13 @@ export function PreSendCheck({
         Before you send
       </SectionHeading>
 
-      {run.error ? (
+      {run.error && shown ? (
         <Banner tone="error" className="mt-1">
           {run.error}
         </Banner>
       ) : null}
 
-      {result && mem ? (
+      {result && mem && shown ? (
         <>
           {/* A gate that could not read the job must never render as a clean one. */}
           {result.evidenceWarnings.length ? (
