@@ -7,8 +7,9 @@
  * one column or both.
  */
 
+// "today" was dropped 2026-11-14 (This week replaced it). A saved layout that
+// still names it loses it in `normalizeLayout`, which drops unknown ids.
 export const WIDGETS = [
-  { id: "today", label: "Today" },
   { id: "week", label: "This week" },
   { id: "todos", label: "To-dos" },
   { id: "invoicing", label: "Monthly invoicing", view: "invoicing-summary" },
@@ -27,6 +28,9 @@ const IDS = WIDGETS.map((w) => w.id) as WidgetId[];
 
 export const DEFAULT_LAYOUT: HomeLayout = { order: IDS, hidden: [], wide: ["invoicing"] };
 
+/** This week always takes both columns: its details panel needs the room. */
+export const isWide = (l: HomeLayout, id: WidgetId) => id === "week" || l.wide.includes(id);
+
 const isId = (v: unknown): v is WidgetId => IDS.includes(v as WidgetId);
 const ids = (v: unknown): WidgetId[] => (Array.isArray(v) ? [...new Set(v.filter(isId))] : []);
 
@@ -40,5 +44,9 @@ export function normalizeLayout(raw: unknown): HomeLayout {
   const r = raw as Record<string, unknown>;
   const order = ids(r.order);
   for (const id of IDS) if (!order.includes(id)) order.push(id);
-  return { order, hidden: ids(r.hidden), wide: Array.isArray(r.wide) ? ids(r.wide) : DEFAULT_LAYOUT.wide };
+  return {
+    order,
+    hidden: ids(r.hidden),
+    wide: Array.isArray(r.wide) ? ids(r.wide) : DEFAULT_LAYOUT.wide,
+  };
 }

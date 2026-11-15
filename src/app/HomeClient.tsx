@@ -20,7 +20,7 @@ import type { HomeLayout } from "@/lib/homeWidgets";
  * person's widget layout.
  *
  * ADMIN and OFFICE get OfficeHome (OVERHAUL_PLAN Phase 4, 2026-11-13): one
- * "Needs attention" count, the Today strip, one to-do list, the phone's four
+ * "Needs attention" count, the This week widget, one to-do list, the phone's four
  * action buttons and the desktop widgets. Nothing on it repeats a page: the
  * stuck-vendor and no-job banners became rows under "Needs attention" (the
  * stuck-vendor pop-up still finds you on any page), and the Jobs page's
