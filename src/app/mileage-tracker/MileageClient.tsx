@@ -1258,7 +1258,8 @@ export function MileageClient({
   }, [filterMonth, filterUser]);
 
   useEffect(() => {
-    if (tab === "history") loadHistory();
+    // From lg the logged miles sit under the form, so load them on any tab.
+    if (tab === "history" || window.matchMedia("(min-width: 1024px)").matches) loadHistory();
   }, [tab, loadHistory]);
 
   const totalMiles = useMemo(() => {
@@ -1302,12 +1303,14 @@ export function MileageClient({
   }
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-3 pad:pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-3 pad:pt-6 lg:max-w-[1600px]">
       <PageHeader title="Miles" className="pad:mb-5 max-pad:mb-0" />
 
+      {/* lg+: form and logged miles on the left, the map on the right. */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
+
       {/* The island, first: saved places in grey, start and end ringed, you in blue. */}
-      {tab !== "history" && (
-        <div className="-mx-3 mb-2 h-[30vh] min-h-[200px] pad:mx-0 pad:mb-4 pad:h-[34vh] [&_svg]:min-h-0 [&_svg]:flex-1">
+      <div className={`${tab === "history" ? "max-lg:hidden " : ""}-mx-3 mb-2 h-[30vh] min-h-[200px] pad:mx-0 pad:mb-4 pad:h-[34vh] lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:h-[calc(100dvh-8rem)] [&_svg]:min-h-0 [&_svg]:flex-1`}>
           <LopezMap
             jobs={savedPlaces}
             marks={marks}
@@ -1316,9 +1319,9 @@ export function MileageClient({
             className="h-full"
             label="Map of Lopez Island with jobs, saved places and the trip's start and end"
           />
-        </div>
-      )}
+      </div>
 
+      <div className="lg:col-start-1 lg:row-start-1">
       {/* Record | By hand | Logged miles — one tap apart, as on the time page. */}
       <Segmented
         label="Miles view"
@@ -1714,8 +1717,8 @@ export function MileageClient({
       )}
 
       {/* ------------------------------------------------------------ HISTORY */}
-      {tab === "history" && (
-        <div className="space-y-4">
+      {(
+        <div className={`space-y-4 ${tab === "history" ? "" : "max-lg:hidden lg:mt-8 lg:border-t lg:border-neutral-200 lg:pt-6 dark:lg:border-white/10"}`}>
           <Card className="space-y-3">
             {isAdmin && (
               <div>
@@ -1849,6 +1852,8 @@ export function MileageClient({
           )}
         </div>
       )}
+      </div>
+      </div>
 
       {tab === "record" && phase === "idle" && !driver && !err && (
         <div className="mt-4">
