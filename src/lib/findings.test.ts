@@ -73,4 +73,27 @@ describe("findings store", () => {
     expect((await f.dismissedKeys("dk")).size).toBe(0);
     expect(await f.list({ source: "dk" })).toHaveLength(1);
   });
+
+  it("counts kinds once, merging old invoice-review history", async () => {
+    const f = await import("./findings");
+    const { rawDb } = await import("@/db");
+    await f.report("stats-src", [{ key: "a", title: "A", kind: "k" }, { key: "b", title: "B", kind: "k" }, { key: "c", title: "C", kind: "k" }]);
+    await new Promise((r) => setTimeout(r, 5)); // resolve compares timestamps
+    await f.report("stats-src", [{ key: "a", title: "A", kind: "k" }, { key: "b", title: "B", kind: "k" }]); // c resolves
+    const rows = await f.list({ source: "stats-src" });
+    await f.dismiss(rows.find((r) => r.key === "a")!.id, "x@y.z");
+    const old = "2026-01-01T00:00:00.000Z";
+    const ins = (ym: string, key: string, sup: number, res: string) =>
+      rawDb().execute({
+        sql: "INSERT INTO invoice_review_finding_state (ym, key, kind, first_seen_at, last_seen_at, resolved_at, was_suppressed) VALUES (?,?,?,?,?,?,?)",
+        args: [ym, key, "dup", new Date().toISOString(), old, res, sup],
+      });
+    await f.report("invoice-review", [{ key: "m", title: "M", kind: "dup" }], "2026-10");
+    await ins("2026-10", "m", 0, ""); // already in findings: not counted twice
+    await ins("2026-05", "n", 0, old); // old, resolved
+    await ins("2026-05", "o", 1, ""); // old, set aside
+    const stats = await f.findingKindStats();
+    expect(stats.find((s) => s.source === "stats-src")).toMatchObject({ seen: 3, open: 1, selfResolved: 1, dismissed: 1, snoozed: 0 });
+    expect(stats.find((s) => s.source === "invoice-review")).toMatchObject({ seen: 3, open: 1, selfResolved: 1, dismissed: 1 });
+  });
 });

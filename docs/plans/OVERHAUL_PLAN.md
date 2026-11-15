@@ -274,6 +274,7 @@ Apps Script queues (no Apps Script URL in `.env.local`).
 - [x] One "Needs attention" page built on `Notice`. Each row has: what is wrong, the fix button, snooze, dismiss.
 - [x] Each source writes into the store: stuck vendors, needs project, uncaptured bills, flagged bills, time sync, pre-send check, Sunset duplicates, invoice review. (2026-11-15: all of them, plus Sunset unreconciled, tracking sheet risks, billing month stale, LSWDD pay reminder and notices.)
 - [ ] Inline fixes for the finding kinds that occur most. Count them from `invoice_review_finding_state` first. Each fix reuses an existing write route. **Sign-off** per fix.
+  - The count is in Admin → Activity, "Warnings, last 90 days" (`findingKindStats` in `src/lib/findings.ts`). It merges `invoice_review_finding_state`.
 - [x] Show the Mac check's verdicts (`invoice_review_dispositions`) on each finding. Today they change nothing on screen.
 - [x] Show when the Mac check last ran (`monthly_check_runs`) and warn when it is late.
 - [ ] Replace the 28 hand-rolled amber and red boxes with `Notice`. (2026-11-15, the inbox's own files: `UncapturedBills` now heads with a `Notice`. The amber marks left in `Notices.tsx` and `StuckVendors.tsx` are icon badges, not notices. The rest is a separate session's work.)
