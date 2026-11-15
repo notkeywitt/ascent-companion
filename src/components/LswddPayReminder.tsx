@@ -6,11 +6,19 @@ import { usePathname } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { Dialog } from "@/components/Dialog";
 import { Button, btn } from "@/components/ui";
-import { companyToday, lswddStatementBills } from "@/lib/homeFacts";
-import { lswddDayLabel, lswddPayReminder } from "@/lib/lswddPay";
+import { cached, forgetFact } from "@/lib/homeFacts";
+import { lswddDayLabel } from "@/lib/lswddPay";
 import { money } from "@/lib/money";
 
-const DISMISS_KEY = "lswdd.payReminder.dismissed";
+const FACT = "lswdd-reminder";
+
+interface Reminder {
+  lastPayDay: string;
+  overdue: boolean;
+  unpaid: number;
+  total: number;
+  today: string;
+}
 
 /**
  * The pop-up that says "Pay LSWDD by <day>". Mounted once in the root layout.
@@ -18,8 +26,11 @@ const DISMISS_KEY = "lswdd.payReminder.dismissed";
  * The statement is due the 10th, and LSWDD is open Friday to Monday only. The
  * pop-up starts the day before the last open day on or before the due date
  * (`lswddPayReminder`, src/lib/lswddPay.ts) and keeps coming back each day
- * until every bill on the newest statement is paid. "Later" hides it for the
- * rest of the day on this device.
+ * until every bill on the newest statement is paid.
+ *
+ * /api/lswdd/reminder decides, and puts the reminder in the reader's own row
+ * of the findings inbox. "Later" snoozes that row until midnight, on every
+ * device; a snooze or dismissal in the inbox hides the pop-up too.
  *
  * Shown only to a role with the `lswdd` view, and not on /lswdd itself — that
  * page shows the same bills.
@@ -28,39 +39,18 @@ export function LswddPayReminder() {
   const access = useAccess();
   const pathname = usePathname();
   const allowed = access.can("lswdd");
-  const [state, setState] = useState<{
-    lastPayDay: string;
-    overdue: boolean;
-    unpaid: number;
-    total: number;
-    today: string;
-  } | null>(null);
-  const [dismissed, setDismissed] = useState(true);
+  const [state, setState] = useState<Reminder | null>(null);
 
   useEffect(() => {
     if (!allowed) return;
     let alive = true;
-    const today = companyToday();
-    try {
-      setDismissed(localStorage.getItem(DISMISS_KEY) === today);
-    } catch {
-      setDismissed(false);
-    }
-    lswddStatementBills()
-      .then((s) => {
-        const open = s.bills.filter((b) => b.payState !== "paid");
-        const r = lswddPayReminder({ today, dueDate: s.dueDate, unpaid: open.length });
-        if (!alive) return;
-        setState(
-          r
-            ? {
-                ...r,
-                unpaid: open.length,
-                total: open.reduce((n, b) => n + b.cost - b.amountPaid, 0),
-                today,
-              }
-            : null,
-        );
+    cached(FACT, 10 * 60_000, async () => {
+      const r = await fetch("/api/lswdd/reminder");
+      if (!r.ok) throw new Error(String(r.status));
+      return ((await r.json()).reminder ?? null) as Reminder | null;
+    })
+      .then((r) => {
+        if (alive) setState(r);
       })
       .catch(() => {
         /* a failed read shows nothing — never a false alarm */
@@ -71,15 +61,12 @@ export function LswddPayReminder() {
   }, [allowed]);
 
   const dismiss = useCallback(() => {
-    try {
-      if (state) localStorage.setItem(DISMISS_KEY, state.today);
-    } catch {
-      /* storage blocked — hidden until the next load */
-    }
-    setDismissed(true);
-  }, [state]);
+    setState(null);
+    forgetFact(FACT);
+    fetch("/api/lswdd/reminder", { method: "POST" }).catch(() => {});
+  }, []);
 
-  if (!allowed || !state || dismissed || pathname?.startsWith("/lswdd")) return null;
+  if (!allowed || !state || pathname?.startsWith("/lswdd")) return null;
 
   const day = lswddDayLabel(state.lastPayDay);
   const title = state.overdue
