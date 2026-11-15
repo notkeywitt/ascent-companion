@@ -326,3 +326,4 @@ export type {
 } from "./jobtread/depositChecks";
 export { getLswddStatementBills } from "./jobtread/lswddBills";
 export type { LswddBill, LswddStatementBills } from "./jobtread/lswddBills";
+export { getYearRibbonRows } from "./jobtread/yearRibbon";
