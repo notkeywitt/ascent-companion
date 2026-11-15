@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { hubHref } from "@/lib/hubUrl";
 import { useSearchParams } from "next/navigation";
 import { InvoicingTabs } from "@/components/InvoicingTabs";
 import { useAccess } from "@/components/AccessProvider";
@@ -209,7 +210,7 @@ function whenChecked(iso: string): string {
 
 /** `embedYm`: the Jobs Hub draws this page under its own header — no tab strip
  *  or title, and the address bar is the hub's to keep. */
-export function InvoiceReview({ embedYm }: { embedYm?: string } = {}) {
+export function InvoiceReview({ embedYm, focusJobId }: { embedYm?: string; focusJobId?: string } = {}) {
   const months = useMemo(monthChoices, []);
   // A month the person picked on another close tab arrives as ?ym; with none,
   // this page keeps its own default.
@@ -558,6 +559,16 @@ export function InvoiceReview({ embedYm }: { embedYm?: string } = {}) {
     return [...all.filter(([k]) => !isOfficeGroup(k)), ...all.filter(([k]) => isOfficeGroup(k))];
   }, [shown]);
 
+  // The hub opens Checks on a job: scroll to its first finding once the list is drawn.
+  useEffect(() => {
+    if (!focusJobId || loading) return;
+    const t = setTimeout(
+      () => document.querySelector(`[data-job="${CSS.escape(focusJobId)}"]`)?.scrollIntoView({ block: "center", behavior: "smooth" }),
+      150,
+    );
+    return () => clearTimeout(t);
+  }, [focusJobId, loading, data]);
+
   // Groups whose fold the viewer has flipped from its default.
   const [flipped, setFlipped] = useState<Set<string>>(new Set());
   const isFolded = (name: string) => isOfficeGroup(name) !== flipped.has(name);
@@ -783,7 +794,8 @@ export function InvoiceReview({ embedYm }: { embedYm?: string } = {}) {
                   return (
                     <div
                       key={f.key}
-                      className={i ? "border-t border-line-soft" : undefined}
+                      data-job={f.jobId}
+                      className={`${i ? "border-t border-line-soft" : ""} ${focusJobId && f.jobId === focusJobId ? "bg-accent/10" : ""}`}
                     >
                       <button
                         type="button"
@@ -859,6 +871,13 @@ export function InvoiceReview({ embedYm }: { embedYm?: string } = {}) {
                           ) : null}
 
                           <div className="mt-3 flex flex-wrap gap-2">
+                            {!embedYm && f.jobId ? (
+                              <a href={hubHref(f.jobId, ym, { tab: "checks" })}>
+                                <Button variant="outline" size="sm">
+                                  Open in Jobs Hub
+                                </Button>
+                              </a>
+                            ) : null}
                             {f.sourceLink ? (
                               <a
                                 href={f.sourceLink}
