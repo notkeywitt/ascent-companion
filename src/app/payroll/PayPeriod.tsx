@@ -57,7 +57,7 @@ export function PayPeriod() {
   };
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
       <Card className="flex flex-wrap items-center gap-2">
         <Select
           aria-label="Month"

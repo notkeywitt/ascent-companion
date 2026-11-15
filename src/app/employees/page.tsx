@@ -386,7 +386,7 @@ export default function EmployeesPage() {
   }, [jtUsers]);
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Employees"
         className="!mb-3"

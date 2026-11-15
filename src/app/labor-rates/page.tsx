@@ -360,7 +360,7 @@ export default function LaborRatesPage() {
   }
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Pay Rates"
         className="!mb-3"
@@ -371,7 +371,8 @@ export default function LaborRatesPage() {
       {loading && <Loading label="Loading rates…" />}
 
       {!loading && (
-        <>
+        <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-8">
+          <div className="min-w-0">
           {/* ---- Catalog (grouped) ---- */}
           <section className="mb-8">
             <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-neutral-500">Rate catalog</h2>
@@ -401,6 +402,7 @@ export default function LaborRatesPage() {
 
           {/* ---- Employee + job + cost code → pay type, read by the time page ---- */}
           {!jtErr && <PayTypeRules members={members} />}
+          </div>
 
           {/* ---- Employees ---- */}
           {jtErr ? (
@@ -470,7 +472,7 @@ export default function LaborRatesPage() {
               </div>
             </section>
           )}
-        </>
+        </div>
       )}
 
       {/* ---- per-member editor modal (exact replace, ordered) ---- */}
