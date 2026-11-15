@@ -125,11 +125,9 @@ export const WORKSPACES: Workspace[] = [
   {
     id: "office",
     title: "Office",
-    desc: "The Office job, the team's notices, and the script jobs.",
+    desc: "The Office job, its warnings and notices, and the script jobs.",
     tabs: [
-      tab("attention", "/attention", "Needs Attention", "Every open warning in one list — fix, snooze or dismiss"),
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
-      tab("notices", "/notices", "Notices", "Post a banner to the team — now or scheduled"),
     ],
   },
   {
@@ -187,6 +185,8 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  attention: "a section of the Office Dashboard (/office); /attention redirects",
+  notices: "a section of the Office Dashboard (/office); /notices redirects",
   changelog: "Help's What's new tab (PageTabs on /help)",
   "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",

@@ -61,7 +61,7 @@ const SOURCES: Source[] = [
     key: "findings",
     view: "attention",
     label: "Warnings",
-    href: "/attention",
+    href: "/office",
     load: async (email) => {
       await refreshSources();
       const n = (await listFindings({ reader: email })).length;
