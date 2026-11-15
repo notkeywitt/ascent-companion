@@ -65,6 +65,8 @@ export function BillsBrowser() {
   const [sort, setSort] = useState<BillSort>("date");
   const [groupBy, setGroupBy] = useState<BillGroupBy>("none");
   const [showReviewed, setShowReviewed] = useState(true);
+  // Flips the sort's natural direction (and the order of the groups).
+  const [reverse, setReverse] = useState(false);
 
   // Re-read the list when a bill was written in the panel (saved, approved,
   // voided) — an approved bill is no longer a draft and leaves the list.
@@ -97,7 +99,7 @@ export function BillsBrowser() {
       ),
     [bills, q, showReviewed],
   );
-  const groups = useMemo(() => groupBills(shown, sort, groupBy), [shown, sort, groupBy]);
+  const groups = useMemo(() => groupBills(shown, sort, groupBy, reverse), [shown, sort, groupBy, reverse]);
 
   // Going down the list: warm the next few bills (and the one above) in the
   // order shown, one at a time so they never crowd the open bill's own read.
@@ -137,13 +139,13 @@ export function BillsBrowser() {
     );
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-[96rem] pb-24 pt-6">
+    <div className="w-full">
 
       <SplitView
         onClose={() => select("")}
         backLabel="Back to bills"
         empty="Pick a bill to see it here."
-        cols="lg:grid-cols-[18rem_minmax(0,1fr)]"
+        cols="lg:grid-cols-[22rem_minmax(0,1fr)]"
         detail={openId ? <BillView key={openId} docId={openId} embedded /> : null}
         list={
           // No page header: the open bill's title is the page's title.
@@ -163,9 +165,20 @@ export function BillsBrowser() {
                 onChange={setSort}
                 options={[
                   { value: "date", label: "Date" },
-                  { value: "name", label: "Name" },
+                  { value: "name", label: "Vendor" },
+                  { value: "job", label: "Job" },
+                  { value: "amount", label: "Amount" },
                 ]}
               />
+              <button
+                type="button"
+                onClick={() => setReverse((r) => !r)}
+                aria-pressed={reverse}
+                title="Reverse the sort order"
+                className="min-h-11 rounded-lg border border-neutral-200 px-3 text-sm font-semibold dark:border-white/10"
+              >
+                {reverse ? "Reversed ↑" : "Normal ↓"}
+              </button>
               <Segmented<BillGroupBy>
                 label="Group bills"
                 value={groupBy}
@@ -174,6 +187,9 @@ export function BillsBrowser() {
                   { value: "none", label: "All" },
                   { value: "job", label: "Job" },
                   { value: "vendor", label: "Vendor" },
+                  { value: "month", label: "Month" },
+                  { value: "date", label: "Date" },
+                  { value: "code", label: "To code" },
                 ]}
               />
               <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
@@ -235,6 +251,6 @@ export function BillsBrowser() {
           </div>
         }
       />
-    </main>
+    </div>
   );
 }
