@@ -1,7 +1,6 @@
 /**
- * Home's week bars (owner, 2026-11-15): how busy each job is on each day of
- * this week, and what the details panel lists for a pick. Client-safe: no
- * Pave import.
+ * Home's This week card (WeekAhead.tsx): what is on each job each day, with
+ * clock times where JobTread holds them. Client-safe: no Pave import.
  *
  * A day's count for a job is
  *   - every open schedule task on the job whose span covers that day, plus
@@ -10,8 +9,9 @@
  * A schedule task is work in progress on each day it spans. A to-do is one
  * thing to finish, so it counts once, on the day it is due.
  *
- * The week runs Sunday to Saturday, in the org's time zone (the route passes
- * the org's day).
+ * The days are the caller's (`dates`): the card reads today and the next six
+ * (`nextDates`); the default is Sunday to Saturday. All in the org's time zone
+ * (the route passes the org's day).
  */
 import type { ToDoPatch } from "@/lib/jobtread/tasks";
 
@@ -86,6 +86,12 @@ export function weekDates(day: string): string[] {
   return Array.from({ length: 7 }, (_, i) => iso(sunday + i * DAY_MS));
 }
 
+/** Today and the six days after it (YYYY-MM-DD): Home's rolling week. */
+export function nextDates(day: string): string[] {
+  const t = parse(day);
+  return Array.from({ length: 7 }, (_, i) => iso(t + i * DAY_MS));
+}
+
 /** "Customer - Job"; the job name alone when the customer is unknown. */
 export const customerJob = (customer: string | undefined, job: string) =>
   customer ? `${customer} - ${job}` : job;
@@ -96,8 +102,8 @@ export function buildWeekActivity(
   tasks: TaskIn[],
   todos: ToDoIn[],
   customers: Map<string, string> = new Map(),
+  dates: string[] = weekDates(today),
 ): WeekActivity {
-  const dates = weekDates(today);
   const jobs = new Map<string, WeekJob>();
   const job = (id: string, name: string) => {
     let j = jobs.get(id);

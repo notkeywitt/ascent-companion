@@ -20,7 +20,7 @@ import { AttentionList, useAttention } from "@/components/TodayQueue";
 import { HomeActions, useUsed } from "@/components/HomeActions";
 import { HubLeadsCard } from "@/components/HubLeadsCard";
 import { PaymentMark, liveTotals, useInvoicingSummary } from "@/app/invoicing-summary/summary";
-import { WeekBars } from "@/components/WeekBars";
+import { WeekAhead } from "@/components/WeekAhead";
 import { WIDGETS, isWide, type HomeLayout, type WidgetId } from "@/lib/homeWidgets";
 import type { HomeTodo } from "@/lib/homeTodos";
 import { jtToDoUrl } from "@/lib/jtLinks";
@@ -320,11 +320,11 @@ export function TodosWidget() {
 
 /* ------------------------------------------------------------------- week */
 
-/** This week, job by job, Sunday to Saturday: the week bars (WeekBars.tsx). */
+/** The next seven days from now, time left to right (WeekAhead.tsx). */
 function WeekWidget() {
   return (
     <WidgetCard title="This week">
-      <WeekBars />
+      <WeekAhead />
     </WidgetCard>
   );
 }

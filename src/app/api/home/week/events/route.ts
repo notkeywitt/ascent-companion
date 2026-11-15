@@ -5,16 +5,15 @@ import { DIGEST_SETTINGS } from "@/lib/digest/settings";
 import { eventWhen } from "@/lib/digest/checks/calendarEvents";
 import { dedupeEvents } from "@/lib/home/dedupeEvents";
 import { orgDay } from "@/lib/orgTime";
-import { weekDates } from "@/lib/weekActivity";
+import { nextDates } from "@/lib/weekActivity";
 
 /**
  * GET /api/home/week/events → { events } — the shared office calendars for the
- * rest of this week, for the This Week widget. Read-only: the same Apps Script
- * call and calendar list as the digest's calendar check (the script holds
- * calendar.readonly).
+ * next seven days, today first, for the This week card. Read-only: the same
+ * Apps Script call and calendar list as the digest's calendar check (the
+ * script holds calendar.readonly).
  *
- * The Apps Script read starts at today, so days already gone this week show no
- * events. Its own route, so a slow script never holds up the week's bars.
+ * Its own route, so a slow script never holds up the card's tasks.
  * Gated by the `home` view (src/lib/views.ts).
  */
 export const dynamic = "force-dynamic";
@@ -35,12 +34,12 @@ interface CalEvent {
 
 export async function GET() {
   const today = orgDay(new Date().toISOString());
-  const dates = weekDates(today);
+  const dates = nextDates(today);
   const cal = DIGEST_SETTINGS["calendar-events"].config;
   const r = await callAppsScript<{ ok?: boolean; error?: string; events?: CalEvent[] }>(
     {
       action: "digestCalendar",
-      days: 7 - dates.indexOf(today),
+      days: 7,
       calendarIds: cal.calendarIds,
       calendarNames: cal.calendarNames,
       includePrimary: cal.includePrimary,
