@@ -36,7 +36,7 @@ export function Inbox() {
   });
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader title="Inbox" description="Bills arriving by email, at each stage." />
       <Tabs
         label="Inbox sections"
@@ -53,15 +53,17 @@ export function Inbox() {
       {section === "log" && can("email") && <EmailInvoices embedded />}
       {/* The email scans, from the retired Actions page (stage 6). */}
       {section === "log" && can("actions") && (
-        <div className="mt-8">
+        <div className="mt-8 lg:max-w-4xl">
           <ScriptJobs
             title="Scan the mailbox now"
             keys={["frequentEmailScan", "scanJtInvoiceCaptureTags", "scanJtTodoCaptureTags"]}
           />
         </div>
       )}
-      {section === "stuck" && can("needs-project") && <NotInJobTread embedded />}
-      {section === "mail" && can("vendor-mail") && <VendorMail embedded />}
+      <div className="lg:max-w-4xl">
+        {section === "stuck" && can("needs-project") && <NotInJobTread embedded />}
+        {section === "mail" && can("vendor-mail") && <VendorMail embedded />}
+      </div>
     </main>
   );
 }

@@ -118,7 +118,7 @@ export function DigestSettingsPanel() {
       )}
       {loading && <Loading label="Loading digest settings…" />}
 
-      <div className="space-y-5">
+      <div className="space-y-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:space-y-0 lg:gap-y-5 2xl:grid-cols-3">
         {groups.map(([category, items]) => (
           <div key={category}>
             <SectionLabel className="mb-2">{categoryLabel(category)}</SectionLabel>

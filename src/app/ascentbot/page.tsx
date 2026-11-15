@@ -16,12 +16,12 @@ import { SignalChats } from "./SignalChats";
  */
 export default function AscentBotPage() {
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-3xl xl:max-w-[1600px]">
       <PageHeader
         title="AscentBot"
         description="Who may ask AscentBot in Google Chat, and what their answers may draw on."
       />
-      <div className="space-y-8">
+      <div className="space-y-8 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-12 xl:space-y-0">
         <AscentBotAccess />
         <SignalChats />
       </div>

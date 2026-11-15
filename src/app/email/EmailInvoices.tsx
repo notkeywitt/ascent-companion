@@ -343,7 +343,7 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
         <EmptyState>Nothing to log — the inbox is clear.</EmptyState>
       )}
 
-      <ul className="space-y-3">
+      <ul className="space-y-3 xl:grid xl:grid-cols-2 xl:items-start xl:gap-4 xl:space-y-0 2xl:grid-cols-3">
         {visible.map((row) => {
           const result = results[row.messageId];
           const done = isDone(row.messageId);
@@ -648,5 +648,5 @@ function CodeBillLink({ jtJobId, expId }: { jtJobId: string; expId: string }) {
 
 /** A page of its own, or a section of the Incoming Bills inbox (/email). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">{children}</main>;
 }
