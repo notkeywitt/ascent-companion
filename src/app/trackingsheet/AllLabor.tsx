@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAccess } from "@/components/AccessProvider";
 import { Banner, Card, Loading } from "@/components/ui";
 import {
   TimeEntryList,
@@ -44,6 +46,7 @@ export function AllLabor({
   groupBy: "none" | "vendor" | "job";
 }) {
   const router = useRouter();
+  const { can } = useAccess();
   const [entries, setEntries] = useState<TimeEntryRow[] | null>(null);
   const [error, setError] = useState("");
   const [open, setOpen] = useState(false);
@@ -119,6 +122,15 @@ export function AllLabor({
           <div className="shrink-0 self-center">
             <TimeGroupSwitch filters={filters} withJob />
           </div>
+        )}
+        {/* The full labor review for this month, every job (/labor). */}
+        {can("labor") && (
+          <Link
+            href={`/labor?period=month&date=${ym}-01`}
+            className="shrink-0 text-xs font-semibold text-accent transition hover:underline"
+          >
+            Labor ↗
+          </Link>
         )}
         <span className="shrink-0 text-sm font-semibold tabular-nums">
           {money(total)} · {hoursLabel(hours)}

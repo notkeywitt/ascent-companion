@@ -94,6 +94,7 @@ export const WORKSPACES: Workspace[] = [
       tab("employee-time", "/employee-time", "Time", "Log and review your hours"),
       // Payroll: time off, sync gaps and labor import as sections (stage 5).
       tab("time-sync", "/payroll", "Payroll", "Time off to approve, time JobTread doesn't have right, and the month's labor"),
+      tab("labor", "/labor", "Labor", "Review each job's time by employee, cost code and pay rate"),
     ],
   },
   {
@@ -417,6 +418,8 @@ const DESK_TOP: BarSlot[] = [
   // Vendors under Jobs at the owner's ask (2026-10-26).
   { kind: "tab", view: "vendors" },
   { kind: "workspace", id: "time" },
+  // Labor, the labor review across every job (owner, 2026-11-15).
+  { kind: "tab", view: "labor" },
   // Tools on the rail too (owner, 2026-10-29), as on the phone bar.
   { kind: "tab", view: "tools" },
 ];

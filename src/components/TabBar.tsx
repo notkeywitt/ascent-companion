@@ -269,6 +269,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   vendors: StoreIcon,
   "time-off": CalendarIcon,
   "time-sync": PayrollIcon,
+  labor: ClockIcon,
   "invoice-review": CheckIcon,
   "invoicing-summary": DocumentIcon,
   "new-hires": UserPlusIcon,
