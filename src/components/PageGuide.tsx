@@ -12,7 +12,7 @@ import { appScrollBy } from "@/lib/appScroll";
  * THE HELP OVERLAY — "what is that thing on the screen?", answered on the
  * screen it is about.
  *
- * A mark in the bottom-left corner of every page opens it. The app itself is
+ * A mark in the bottom-left corner of every page opens it (iPad width only). The app itself is
  * not screenshotted or redrawn: it is SCALED IN PLACE (one transform on
  * `#app-shell`) into the top-right of the overlay, so what the reader studies
  * is the live page they were just using — their job, their month, their data.
@@ -244,8 +244,9 @@ export function PageGuide() {
         aria-label="Help for this page"
         // Above the bottom bar AND any commit bar, and right of the iPad rail:
         // at bottom-0 it sat on the bar's first tab, one mis-tap from Help.
+        // Hidden on phones (owner's request): iPad width only.
         style={{ bottom: "calc(var(--actionbar-bottom) + var(--actionbar-h))", left: "var(--rail-w)" }}
-        className="fixed z-40 flex h-8 w-8 items-center justify-center text-sm text-neutral-400/70 transition hover:text-accent lg:hidden"
+        className="fixed z-40 hidden h-8 w-8 items-center justify-center text-sm text-neutral-400/70 transition hover:text-accent pad:flex lg:hidden"
       >
         ?
       </button>
