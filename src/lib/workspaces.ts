@@ -94,6 +94,7 @@ export const WORKSPACES: Workspace[] = [
       tab("employee-time", "/employee-time", "Time", "Log and review your hours"),
       // Payroll: time off, sync gaps and labor import as sections (stage 5).
       tab("time-sync", "/payroll", "Payroll", "Time off to approve, time JobTread doesn't have right, and the month's labor"),
+      tab("labor", "/labor", "Labor", "Review each job's time by employee, cost code and pay rate"),
     ],
   },
   {
@@ -107,9 +108,6 @@ export const WORKSPACES: Workspace[] = [
       // Stuck (was Not in JobTread) and Check mail (was Mail Check) are its
       // sections; /needs-project and /vendor-mail redirect.
       tab("email", "/email", "Inbox", "Invoice emails to log, stuck bills, and the vendor mail check"),
-      tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
-      tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
-      tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
     ],
   },
   {
@@ -125,11 +123,9 @@ export const WORKSPACES: Workspace[] = [
   {
     id: "office",
     title: "Office",
-    desc: "The Office job, the team's notices, and the script jobs.",
+    desc: "The Office job, its warnings and notices, and the script jobs.",
     tabs: [
-      tab("attention", "/attention", "Needs Attention", "Every open warning in one list — fix, snooze or dismiss"),
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
-      tab("notices", "/notices", "Notices", "Post a banner to the team — now or scheduled"),
     ],
   },
   {
@@ -186,7 +182,19 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("house-manual", "/house-manual", "House Manual", "A homeowner's manual to paste into Squarespace"),
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
+/** The Bills dashboard's statement tabs: on no menu (its tab row reaches them),
+ *  but still found by the header search, so a lead (Sunset, no Bills) has a way in. */
+export const BILLS_TABS: WorkspaceTab[] = [
+  tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
+  tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
+  tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
+];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  payments: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
+  lswdd: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
+  "amazon-import": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
+  attention: "a section of the Office Dashboard (/office); /attention redirects",
+  notices: "a section of the Office Dashboard (/office); /notices redirects",
   changelog: "Help's What's new tab (PageTabs on /help)",
   "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
@@ -402,13 +410,13 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
  * office — the owner's order (2026-10-16). Every other workspace follows after a
  * space. A role with no entry here keeps its bar as the top group.
  */
+/** Pages and workspaces the desktop rail leaves out (owner, 2026-11-14). They stay in the ☰ menu, search and links. */
+export const RAIL_OFF_VIEWS = new Set(["invoice-review", "invoicing-summary", "time-sync"]);
+const RAIL_OFF_WORKSPACES = new Set(["mywork"]);
+
 const DESK_TOP: BarSlot[] = [
   { kind: "today" },
   { kind: "workspace", id: "close" },
-  // Checks and Status under Tracking Sheets (owner, 2026-11-14): the two pages
-  // the month closes through, one tap each. The hub draws them as tabs too.
-  { kind: "tab", view: "invoice-review" },
-  { kind: "tab", view: "invoicing-summary" },
   { kind: "workspace", id: "employees" },
   { kind: "workspace", id: "clients" },
   // Customers on the rail (owner, 2026-11-11): the tab strip is gone, so this is
@@ -417,9 +425,8 @@ const DESK_TOP: BarSlot[] = [
   // Vendors under Jobs at the owner's ask (2026-10-26).
   { kind: "tab", view: "vendors" },
   { kind: "workspace", id: "time" },
-  // Payroll as its own icon under Time (owner, 2026-11-09): the Time page's
-  // strip is gone on a phone, so the rail and the drawer carry it.
-  { kind: "tab", view: "time-sync" },
+  // Labor, the labor review across every job (owner, 2026-11-15).
+  { kind: "tab", view: "labor" },
   // Tools on the rail too (owner, 2026-10-29), as on the phone bar.
   { kind: "tab", view: "tools" },
 ];
@@ -510,7 +517,7 @@ export function railFor(
   for (const ws of WORKSPACES) {
     const tabs = reachableTabs(ws, can);
     // Skip a workspace already on the rail, or one whose every page already is.
-    if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`)) continue;
+    if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`) || RAIL_OFF_WORKSPACES.has(ws.id)) continue;
     if (tabs.every((t) => rail.some((i) => i.view === t.view && !i.workspace))) continue;
     rail.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
     // Feature Requests as its own entry right under Help (owner, 2026-11-14):
@@ -559,6 +566,7 @@ export function activeBarKey(items: BarItem[], pathname: string): string {
  */
 const PARENT_WORKSPACE: [string, string][] = [
   ...JOB_PAGES.map((t) => [t.href, "clients"] as [string, string]),
+  ...BILLS_TABS.map((t) => [t.href, "incoming"] as [string, string]),
   ["/bill", "close"],
   ["/add-bill", "close"],
 ];

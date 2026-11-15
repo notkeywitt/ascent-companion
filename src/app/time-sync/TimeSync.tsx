@@ -258,6 +258,7 @@ export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
                 </Button>
               </Card>
 
+              <div className="space-y-5 xl:grid xl:grid-cols-2 xl:items-start xl:gap-5 xl:space-y-0">
               {groups.map(({ problem, rows }) => (
                 <Card key={problem} pad={false}>
                   <div className="px-4 pt-4">
@@ -366,6 +367,7 @@ export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
                   </ul>
                 </Card>
               )}
+              </div>
 
               {windowNote && <p className="px-1 text-xs text-neutral-500">{windowNote}</p>}
 
@@ -390,5 +392,5 @@ export function TimeSync({ embedded = false }: { embedded?: boolean } = {}) {
 
 /** A page of its own, or a section of Payroll (/payroll). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">{children}</main>;
 }

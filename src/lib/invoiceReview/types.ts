@@ -350,7 +350,7 @@ export interface BillRef {
   /**
    * Non-denied, NON-DRAFT invoice ids this bill sits on — has the client
    * actually been billed for it. The `qbo-never-approved` check reads this:
-   * a bill on a live client invoice while still `pending` means the client
+   * a bill on a live client invoice while still `draft` means the client
    * was billed for a cost the ledger hasn't recorded, which isn't true yet
    * while the only invoice is a draft.
    */

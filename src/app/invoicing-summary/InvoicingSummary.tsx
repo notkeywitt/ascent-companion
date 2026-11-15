@@ -3,6 +3,7 @@
 import { InvoicingTabs } from "@/components/InvoicingTabs";
 import { PackageEmailButton, PackageEmailNotes, PackageEmailResult, usePackageEmail } from "@/components/PackageEmail";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { hubHref } from "@/lib/hubUrl";
 import { setUrlParam, urlYm } from "@/lib/urlParam";
 import {
   Banner,
@@ -100,7 +101,7 @@ const FILTERS: { key: Filter; label: string; test: (j: JobRow) => boolean }[] = 
 
 /** `embedYm`: the Jobs Hub draws this under its own header — no tab strip, and
  *  the address bar is the hub's to keep. */
-export function InvoicingSummary({ embedYm }: { embedYm?: string } = {}) {
+export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; focusJobId?: string } = {}) {
   const [ym, setYm] = useState(embedYm ?? "");
   const email = usePackageEmail(ym);
   const [filter, setFilter] = useState<Filter>("all");
@@ -331,6 +332,8 @@ export function InvoicingSummary({ embedYm }: { embedYm?: string } = {}) {
                   <JobItem
                     key={j.jtJobId}
                     job={j}
+                    focus={focusJobId === j.jtJobId}
+                    ym={embedYm ? "" : ym}
                     saving={savingField.startsWith(j.jtJobId)}
                     onPatch={(patch) => patchJob(j.jtJobId, patch)}
                     onSave={(field, patch) =>
@@ -426,20 +429,29 @@ function DeliveryMark({ status }: { status: InvoiceStatus }) {
  */
 function JobItem({
   job,
+  focus,
+  ym,
   saving,
   onPatch,
   onSave,
 }: {
   job: JobRow;
+  focus: boolean;
+  /** Set on the standalone page only: it adds a link into the Jobs Hub. */
+  ym: string;
   saving: boolean;
   onPatch: (patch: Partial<JobRow>) => void;
   onSave: (field: string, patch: Record<string, unknown>) => void;
 }) {
   const [open, setOpen] = useState(false);
   const s = job.status;
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (focus) row.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [focus]);
 
   return (
-    <div className={`px-4 py-3 ${job.include ? "" : "opacity-60"}`}>
+    <div ref={row} className={`px-4 py-3 ${job.include ? "" : "opacity-60"} ${focus ? "bg-accent/10" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{job.jobLabel}</p>
@@ -504,6 +516,11 @@ function JobItem({
           <a key="app" className="underline" href={job.links.appTracking}>
             Tracking Sheets
           </a>,
+          ym ? (
+            <a key="hub" className="underline" href={hubHref(job.jtJobId, ym, { tab: "status" })}>
+              Open in Jobs Hub
+            </a>
+          ) : null,
           job.trackingSheetUrl ? (
             <a key="sheet" className="underline" href={job.trackingSheetUrl} target="_blank" rel="noreferrer">
               Sheet ↗

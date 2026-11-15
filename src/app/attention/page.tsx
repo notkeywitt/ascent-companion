@@ -1,17 +1,6 @@
-import { FindingsInbox } from "@/components/FindingsInbox";
-import { PageHeader } from "@/components/ui";
+import { redirect } from "next/navigation";
 
-/**
- * Needs attention — the one inbox for every warning (lib/findings).
- *
- * Gated by the `attention` view id (office + admin by default). The list is a
- * client component and talks only to /api/findings.
- */
+/** Needs attention moved onto the Office dashboard (2026-11-14). Stored links land there. */
 export default function AttentionPage() {
-  return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader title="Needs attention" description="Every open warning in one list. Fix it, hide it for a day, or dismiss it." />
-      <FindingsInbox />
-    </main>
-  );
+  redirect("/office");
 }

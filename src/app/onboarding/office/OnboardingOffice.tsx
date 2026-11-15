@@ -110,12 +110,16 @@ export function OnboardingOffice() {
   return (
     <Shell>
       {err && <Banner tone="error" className="mb-4">{err}</Banner>}
+      <div className="lg:grid lg:grid-cols-[minmax(22rem,2fr)_3fr] lg:items-start lg:gap-x-8">
+      <div className="lg:col-start-1 lg:row-start-1">
       {data.isAdmin ? (
         <Invite onDone={load} />
       ) : (
         <p className="mb-6 text-sm text-neutral-500">Only an admin can invite a new hire, because an invite adds a sign-in.</p>
       )}
+      </div>
 
+      <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
       <SectionHeading className="mb-2">New hires</SectionHeading>
       {data.intakes.length === 0 ? (
         <EmptyState className="mb-6">No one invited yet.</EmptyState>
@@ -150,8 +154,12 @@ export function OnboardingOffice() {
           })}
         </ListCard>
       )}
+      </div>
 
+      <div className="lg:col-start-1 lg:row-start-2">
       <Forms forms={data.forms} onEdit={setEditing} onChanged={load} />
+      </div>
+      </div>
 
       {hire && <HireDialog hire={hire} forms={data.forms} onClose={() => setOpen(null)} onChanged={load} />}
       {form && (
@@ -170,7 +178,7 @@ export function OnboardingOffice() {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-3">
+    <main className="mx-auto w-full max-w-2xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pb-24 pt-3">
       <PageHeader title="New Hires" />
       {children}
     </main>

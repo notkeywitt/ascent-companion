@@ -151,7 +151,7 @@ export default function SafetyMeetingPage() {
   // ---- Success screen -----------------------------------------------------
   if (result?.ok) {
     return (
-      <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+      <main className="w-full max-w-2xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
         <PageHeader title="Safety Meeting" className="!mb-0" />
         <div className={"mt-4 " + cardCls}>
           <div className="text-lg font-semibold text-ok">
@@ -187,7 +187,7 @@ export default function SafetyMeetingPage() {
 
   // ---- Capture screen -----------------------------------------------------
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Safety Meeting"
         className="!mb-4"
@@ -199,8 +199,9 @@ export default function SafetyMeetingPage() {
         </Banner>
       )}
 
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-6">
       {/* Meeting header */}
-      <section className={"mb-4 space-y-2 " + cardCls}>
+      <section className={"mb-4 space-y-2 lg:col-start-1 lg:row-span-3 lg:row-start-1 " + cardCls}>
         <Label className="!mb-0">Date</Label>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
 
@@ -253,7 +254,7 @@ export default function SafetyMeetingPage() {
 
       {/* Attendee count + list */}
       {attendees.length > 0 && (
-        <section className={"mb-4 " + cardCls}>
+        <section className={"mb-4 lg:col-start-2 lg:row-start-2 " + cardCls}>
           <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
             Signed in ({attendees.length})
           </div>
@@ -279,7 +280,7 @@ export default function SafetyMeetingPage() {
       )}
 
       {/* Current signer */}
-      <section className={"mb-4 space-y-2 " + cardCls}>
+      <section className={"mb-4 space-y-2 lg:col-start-2 lg:row-start-1 " + cardCls}>
         <Label className="!mb-0">Attendee</Label>
         <Select
           value={currentName}
@@ -313,6 +314,7 @@ export default function SafetyMeetingPage() {
         </div>
       </section>
 
+      <div className="lg:col-start-2 lg:row-start-3">
       {saveErr && (
         <Banner tone="error" className="mb-3">
           {saveErr}
@@ -329,6 +331,8 @@ export default function SafetyMeetingPage() {
           ? "Saving…"
           : `Save meeting${attendees.length ? ` (${attendees.length})` : ""}`}
       </Button>
+      </div>
+      </div>
     </main>
   );
 }

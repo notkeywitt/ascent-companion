@@ -81,7 +81,7 @@ export default function ArAgingPage() {
   );
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 py-6 lg:max-w-[1600px]">
       <PageHeader
         title="Receivables"
         description="Unpaid client invoices, oldest first. Balances come from JobTread, which derives them from QuickBooks — nothing here is recomputed."
@@ -98,7 +98,9 @@ export default function ArAgingPage() {
       ) : !data ? null : data.invoiceCount === 0 ? (
         <EmptyState>Nothing is outstanding. Every live client invoice is paid in full.</EmptyState>
       ) : (
-        <>
+        <div className="lg:grid lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[28rem_minmax(0,1fr)]">
+          {/* Left on desktop: the totals and the age buckets. Phone: stacked first. */}
+          <div className="lg:sticky lg:top-4">
           <StatementBlock
             label="Overdue"
             value={money(data.totalOverdue)}
@@ -126,7 +128,24 @@ export default function ArAgingPage() {
             </Card>
           </div>
 
-          <ChipScroller className="mt-5">
+          {data.unageable.length > 0 && (
+            <>
+              <SectionHeading className="mt-6">Cannot be aged</SectionHeading>
+              <Card className="mt-2">
+                <p className="text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-300">
+                  {data.unageable.length} invoice{data.unageable.length === 1 ? "" : "s"} worth{" "}
+                  {money(data.unageable.reduce((s, i) => s + i.balance, 0))} carry neither a due
+                  date nor a readable issue date. They count toward what is outstanding and never
+                  toward what is overdue — dating them in JobTread is what moves them into a
+                  bucket.
+                </p>
+              </Card>
+            </>
+          )}
+          </div>
+
+          <div className="min-w-0">
+          <ChipScroller className="mt-5 lg:mt-0">
             <FilterChip on={!byCustomer} onClick={() => setByCustomer(false)}>
               Invoices
             </FilterChip>
@@ -229,21 +248,8 @@ export default function ArAgingPage() {
             </>
           )}
 
-          {data.unageable.length > 0 && (
-            <>
-              <SectionHeading className="mt-6">Cannot be aged</SectionHeading>
-              <Card className="mt-2">
-                <p className="text-[13px] leading-relaxed text-neutral-600 dark:text-neutral-300">
-                  {data.unageable.length} invoice{data.unageable.length === 1 ? "" : "s"} worth{" "}
-                  {money(data.unageable.reduce((s, i) => s + i.balance, 0))} carry neither a due
-                  date nor a readable issue date. They count toward what is outstanding and never
-                  toward what is overdue — dating them in JobTread is what moves them into a
-                  bucket.
-                </p>
-              </Card>
-            </>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </main>
   );

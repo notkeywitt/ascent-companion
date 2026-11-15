@@ -764,7 +764,7 @@ export default function ExpenditureBrowser() {
   };
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader
         title="Bill Archive"
         description="Every bill in the Expenditure sheet, including the years before JobTread."
@@ -793,7 +793,9 @@ export default function ExpenditureBrowser() {
       )}
 
       {bills.length > 0 && (
-        <>
+        <div className="lg:grid lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start lg:gap-x-8 xl:grid-cols-[26rem_minmax(0,1fr)]">
+          {/* Left on desktop: the total and the filters. Phone: stacked above the tree. */}
+          <div className="lg:sticky lg:top-4">
           <StatementBlock
             label={filtersOn ? "Matching" : "Archive total"}
             value={moneyShort(total)}
@@ -873,8 +875,9 @@ export default function ExpenditureBrowser() {
               )}
             </div>
           </div>
+          </div>
 
-          <div className="mt-5 space-y-2">
+          <div className="mt-5 min-w-0 space-y-2 lg:mt-0">
             <SectionHeading
               trailing={
                 <span className="text-[11px] tabular-nums text-neutral-500">
@@ -975,7 +978,7 @@ export default function ExpenditureBrowser() {
               </div>
             )}
           </div>
-        </>
+        </div>
       )}
     </main>
   );

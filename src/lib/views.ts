@@ -464,16 +464,23 @@ export const VIEWS: ViewDef[] = [
   // the page borrows the one its first-loaded section already needs. Each
   // section still checks its own view.
   { id: "time-sync", label: "Payroll", group: "Office", paths: ["/payroll", "/time-sync", "/api/time-sync"] },
+  // Labor — the weekly / half-month / monthly labor review across every job.
+  // Office + admin. Its read is its own route. Its writes are /api/time-entry
+  // and /api/time-entry/create, and its budget read is /api/jobs/cost-detail.
+  // Those stay OFF this list on purpose: a path belongs to one view (the
+  // longest match wins), and listing them here would take them away from
+  // Tracking Sheets ("recode"), which leads hold, and from a lead's job panel.
+  { id: "labor", label: "Labor", group: "Office", paths: ["/labor", "/api/labor"] },
   // Notices — AUTHORING the announcements every user sees (banner under the
   // header, or popup). Office + admin: telling the team something is office
   // work, so this is deliberately NOT in ADMIN_MENU, unlike the access console.
   // The authoring API rides the same gate as the page. The READER's feed
   // (/api/notices + /api/notices/dismiss) is ungated on purpose — every role
   // must be able to receive a notice and clear it.
-  { id: "notices", label: "Notices", group: "Office", paths: ["/notices", "/api/admin/notices"] },
+  { id: "notices", label: "Notices", group: "Office", paths: ["/api/admin/notices"] },
   // The one inbox for every warning (OVERHAUL_PLAN Phase 5, 2026-11-13).
   // /api/findings also snoozes and dismisses, so it rides the same gate.
-  { id: "attention", label: "Needs Attention", group: "Office", paths: ["/attention", "/api/findings"] },
+  { id: "attention", label: "Needs Attention", group: "Office", paths: ["/api/findings"] },
   // System
   // Bulk-writes a real JobTread draft bill — admin only, not office (unlike
   // every other Financials view). The API prefix is listed alongside so a

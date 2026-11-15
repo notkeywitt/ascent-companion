@@ -112,6 +112,8 @@ branches and the last commits on `main`. `git log origin/main` has the rest.
 - The default model is Sonnet (`.claude/settings.json`). Use Opus for a design
   decision, a schema change, the lander, or a "Stop and ask" change.
 - A one-file change: `/tweak`. The owner's typed requests: `/queue`.
+- A pasted list of several changes: the `batch` skill. It groups them, runs a
+  subagent per group and ships the whole list as one deploy.
 
 ## Stack & where things live
 

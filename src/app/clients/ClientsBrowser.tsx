@@ -246,6 +246,7 @@ export function ClientsBrowser({
         </button>
       )}
 
+      <div className="max-w-4xl">
       {view.kind === "job" && (
         <JobPanel
           jobId={view.id}
@@ -264,6 +265,8 @@ export function ClientsBrowser({
           onSaved={() => loadDirectory()}
         />
       )}
+
+      </div>
 
       {view.kind === "list" && (
         <div className="space-y-5">
@@ -312,6 +315,7 @@ export function ClientsBrowser({
 
           {directory && (
             <>
+              <div className="space-y-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:space-y-0">
               <section className="space-y-2">
                 <SectionHeading
                   trailing={
@@ -372,6 +376,7 @@ export function ClientsBrowser({
                   </ListCard>
                 )}
               </section>
+              </div>
 
               {directory.orphanJobs.length > 0 && (
                 <MetaLine
@@ -390,5 +395,5 @@ export function ClientsBrowser({
 
 /** A page of its own, or a section of Customers (/leads). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">{children}</main>;
 }

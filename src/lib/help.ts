@@ -901,7 +901,7 @@ export const HELP: HelpSection[] = [
         id: "notice",
         q: "How do I tell the whole team something?",
         view: "notices",
-        href: "/notices",
+        href: "/office",
         keywords: ["notice", "announcement", "banner", "popup", "message the team"],
         steps: [
           "Open **Notices**.",

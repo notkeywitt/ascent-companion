@@ -21,7 +21,7 @@ import { HomeActions, useUsed } from "@/components/HomeActions";
 import { HubLeadsCard } from "@/components/HubLeadsCard";
 import { PaymentMark, liveTotals, useInvoicingSummary } from "@/app/invoicing-summary/summary";
 import { WeekBars } from "@/components/WeekBars";
-import { WIDGETS, type HomeLayout, type WidgetId } from "@/lib/homeWidgets";
+import { WIDGETS, isWide, type HomeLayout, type WidgetId } from "@/lib/homeWidgets";
 import type { HomeTodo } from "@/lib/homeTodos";
 import { jtToDoUrl } from "@/lib/jtLinks";
 import { fmtDate } from "@/lib/leadBoard";
@@ -31,13 +31,14 @@ import { money0 } from "@/lib/money";
  * Home for ADMIN and OFFICE (OVERHAUL_PLAN Phase 4, 2026-11-13). Field and lead
  * keep their own Home (HomeClient.tsx).
  *
- *   Both:    one "Needs attention" count, the Today strip, one to-do list.
+ *   Both:    one "Needs attention" count, the This week widget, one to-do list.
  *   Phone:   four big action buttons (HomeActions), under the count.
- *   Desktop: widgets — Today, To-dos, Monthly invoicing, Newest leads — that
- *            each person shows, hides, orders and sizes (saved per user in
- *            `home_layouts`, read on the server and passed in).
+ *   Desktop: widgets — This week, To-dos, Monthly invoicing, Newest leads —
+ *            that each person shows, hides, orders and sizes (saved per user
+ *            in `home_layouts`, read on the server and passed in). This week
+ *            is always full width (owner, 2026-11-14: it replaced Today).
  *
- * Requests on load: /api/attention, /api/home/today, /api/home/todos, and on a
+ * Requests on load: /api/attention, /api/home/week (+ /week/events), /api/home/todos, and on a
  * desktop /api/invoicing-summary and /api/leads when those widgets show. A
  * phone never fetches the desktop widgets: the screen width is read before any
  * widget mounts.
@@ -119,7 +120,6 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
 
       {desktop === false && (
         <>
-          {allowed("today") && <TodayWidget />}
           {allowed("week") && <WeekWidget />}
           {allowed("todos") && <TodosWidget />}
         </>
@@ -130,10 +130,8 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
           {layout.order
             .filter((id) => !layout.hidden.includes(id) && allowed(id))
             .map((id) => (
-              <div key={id} className={`min-w-0 ${layout.wide.includes(id) ? "col-span-2" : ""}`}>
-                {id === "today" ? (
-                  <TodayWidget />
-                ) : id === "week" ? (
+              <div key={id} className={`min-w-0 ${isWide(layout, id) ? "col-span-2" : ""}`}>
+                {id === "week" ? (
                   <WeekWidget />
                 ) : id === "todos" ? (
                   <TodosWidget />
@@ -157,7 +155,10 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
               }}
             />
           )}
-          <Link href="/requests" className="mt-3 block min-h-11 py-2 text-[12px] font-semibold text-accent">
+          <Link
+            href="/requests"
+            className="mt-3 block min-h-11 py-2 text-[12px] font-semibold text-accent"
+          >
             See all requests
           </Link>
         </Sheet>
@@ -218,94 +219,6 @@ function NeedsAttention() {
         </Sheet>
       )}
     </>
-  );
-}
-
-/* ----------------------------------------------------------------- today */
-
-interface Today {
-  day: string;
-  events: {
-    title: string;
-    when: string;
-    allDay: boolean;
-    start: string;
-    where: string;
-    calendar: string;
-  }[];
-  schedule: { id: string; name: string; jobId: string; jobName: string; phase: string }[];
-  errors: { calendar: string; schedule: string };
-}
-
-/** Today's office calendar and JobTread schedule, in one card. */
-function TodayWidget() {
-  const [d, setD] = useState<Today | null>(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/home/today", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then((j: Today) => alive && setD(j))
-      .catch(() => alive && setFailed(true));
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  const events = [...(d?.events ?? [])].sort(
-    (a, b) => Number(b.allDay) - Number(a.allDay) || a.start.localeCompare(b.start),
-  );
-  const nothing = d && events.length === 0 && d.schedule.length === 0;
-
-  return (
-    <WidgetCard title="Today">
-      {failed ? (
-        <p className="text-[12px] text-neutral-500">
-          Could not read today&rsquo;s calendar or schedule.
-        </p>
-      ) : !d ? (
-        <Skeleton className="h-20 w-full rounded-lg" />
-      ) : nothing ? (
-        <p className="text-[12px] text-neutral-500">
-          Nothing on the calendar or the JobTread schedule today.
-        </p>
-      ) : (
-        <ul className="divide-y divide-line-soft">
-          {events.map((e, i) => (
-            <li key={`e${i}`} className="flex gap-3 py-1.5">
-              <span className="w-[4.5rem] shrink-0 text-[12px] pad:w-24 tabular-nums text-neutral-500">
-                {e.when}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">{e.title}</span>
-                <MetaLine items={[e.calendar, e.where || null]} />
-              </span>
-            </li>
-          ))}
-          {d.schedule.map((t) => (
-            <li key={t.id} className="flex gap-3 py-1.5">
-              <span className="w-[4.5rem] shrink-0 text-[12px] pad:w-24 text-neutral-500">JobTread</span>
-              <a
-                href={`https://app.jobtread.com/jobs/${t.jobId}/schedule`}
-                target="_blank"
-                rel="noreferrer"
-                className="min-w-0 flex-1 hover:text-accent"
-              >
-                <span className="block truncate text-[13px] font-medium">{t.name}</span>
-                <MetaLine items={[t.jobName, t.phase || null]} />
-              </a>
-            </li>
-          ))}
-        </ul>
-      )}
-      {d && (d.errors.calendar || d.errors.schedule) && (
-        <p className="mt-1 text-[11px] text-warn">
-          {d.errors.calendar
-            ? "The calendar could not be read."
-            : "The JobTread schedule could not be read."}
-        </p>
-      )}
-    </WidgetCard>
   );
 }
 
@@ -523,7 +436,8 @@ function WidgetSettings({
   return (
     <Sheet open={open} onClose={onClose} title="Arrange Home">
       <p className="mb-3 text-[12px] text-neutral-500">
-        Saved for your account. A phone always shows Today and To-dos.
+        Saved for your account. A phone always shows This week and To-dos. This week is always full
+        width.
       </p>
       <ul className="divide-y divide-line-soft">
         {rows.map((id, i) => (
@@ -534,17 +448,19 @@ function WidgetSettings({
               label={WIDGETS.find((w) => w.id === id)!.label}
               className="min-w-0 flex-1"
             />
-            <Segmented
-              label="Size"
-              value={layout.wide.includes(id) ? "wide" : "half"}
-              onChange={(v) =>
-                void save({ ...layout, wide: toggle(layout.wide, id, v === "wide") })
-              }
-              options={[
-                { value: "half", label: "Half" },
-                { value: "wide", label: "Full" },
-              ]}
-            />
+            {id !== "week" && (
+              <Segmented
+                label="Size"
+                value={layout.wide.includes(id) ? "wide" : "half"}
+                onChange={(v) =>
+                  void save({ ...layout, wide: toggle(layout.wide, id, v === "wide") })
+                }
+                options={[
+                  { value: "half", label: "Half" },
+                  { value: "wide", label: "Full" },
+                ]}
+              />
+            )}
             <IconButton label="Move up" disabled={i === 0} onClick={() => move(id, -1)}>
               ↑
             </IconButton>

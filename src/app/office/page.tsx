@@ -29,6 +29,7 @@ import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
 import { AscentDetails } from "./AscentDetails";
 import { OfficeImages } from "./OfficeImages";
+import { OfficeFeeds } from "./OfficeFeeds";
 import { CoiDot } from "@/components/CoiDot";
 
 /**
@@ -61,35 +62,42 @@ export default async function OfficePage({
   const ym = `${billingYear}-${String(billingMonthNum).padStart(2, "0")}`;
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
       <PageHeader title="Office Dashboard" />
 
       {!hasGrant() ? (
         <Banner tone="error">JT_GRANT_KEY is not set. Add it to .env.local and restart.</Banner>
       ) : (
         <>
-          {/* The to-do list left 2026-10-18 (CONSOLIDATION_PLAN.md stage 6):
-              Home shows the same list, editable, under the same view. */}
-          <section className="mb-6">
-            <SectionHeading>Ascent Details</SectionHeading>
-            <Suspense fallback={<Loading label="Loading details…" />}>
-              <AscentDetailsSection />
-            </Suspense>
-          </section>
+          {/* Desktop: warnings and notices | details and bills | files. Phones stack. */}
+          <div className="grid items-start gap-x-8 lg:grid-cols-2 xl:grid-cols-3">
+            <div className="min-w-0">
+              <OfficeFeeds />
+            </div>
 
-          <section className="mb-6">
-            <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
-            <Suspense fallback={<Loading label="Loading bills…" />}>
-              <Bills year={billingYear} month={billingMonthNum} />
-            </Suspense>
-          </section>
+            <div className="min-w-0">
+              <section className="mb-6">
+                <SectionHeading>Ascent Details</SectionHeading>
+                <Suspense fallback={<Loading label="Loading details…" />}>
+                  <AscentDetailsSection />
+                </Suspense>
+              </section>
 
-          <section>
-            <SectionHeading trailing={<JtLink href={`${jobUrl}/files`} />}>Files</SectionHeading>
-            <Suspense key={folder} fallback={<Loading label="Loading files…" />}>
-              <Files folder={folder} />
-            </Suspense>
-          </section>
+              <section className="mb-6">
+                <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
+                <Suspense fallback={<Loading label="Loading bills…" />}>
+                  <Bills year={billingYear} month={billingMonthNum} />
+                </Suspense>
+              </section>
+            </div>
+
+            <section className="min-w-0 lg:col-span-2 xl:col-span-1">
+              <SectionHeading trailing={<JtLink href={`${jobUrl}/files`} />}>Files</SectionHeading>
+              <Suspense key={folder} fallback={<Loading label="Loading files…" />}>
+                <Files folder={folder} />
+              </Suspense>
+            </section>
+          </div>
         </>
       )}
     </main>

@@ -116,17 +116,17 @@ describe("qbo-push — the flag", () => {
 });
 
 describe("qbo-push — never approved", () => {
-  it("reports a pending bill that is already on a SENT client invoice", () => {
-    const found = run(job([bill({ id: "b1", status: "pending", sentInvoiceIds: ["inv-1"] })]));
+  it("reports a draft bill that is already on a SENT client invoice", () => {
+    const found = run(job([bill({ id: "b1", status: "draft", sentInvoiceIds: ["inv-1"] })]));
     expect(found).toHaveLength(1);
     expect(found[0].kind).toBe("qbo-never-approved");
   });
 
-  it("says nothing about a pending bill that has not been invoiced", () => {
-    // Pending and unbilled is ordinary work in progress — the coding queue's
+  it("says nothing about a draft bill that has not been invoiced", () => {
+    // Draft and unbilled is ordinary work in progress — the coding queue's
     // normal state, and draft-bills already speaks for what is left behind.
     expect(
-      run(job([bill({ id: "b1", status: "pending", invoiceIds: [], sentInvoiceIds: [] })])),
+      run(job([bill({ id: "b1", status: "draft", invoiceIds: [], sentInvoiceIds: [] })])),
     ).toHaveLength(0);
   });
 
@@ -139,17 +139,25 @@ describe("qbo-push — never approved", () => {
     // `sentInvoiceIds` is empty, because that invoice has not gone out, and
     // that is the field this finding must key off.
     const found = run(
-      job([bill({ id: "b1", status: "pending", invoiceIds: ["inv-1"], sentInvoiceIds: [] })]),
+      job([bill({ id: "b1", status: "draft", invoiceIds: ["inv-1"], sentInvoiceIds: [] })]),
     );
     expect(found).toHaveLength(0);
   });
 
   it("fires once the invoice leaves draft", () => {
     const found = run(
-      job([bill({ id: "b1", status: "pending", invoiceIds: ["inv-1"], sentInvoiceIds: ["inv-1"] })]),
+      job([bill({ id: "b1", status: "draft", invoiceIds: ["inv-1"], sentInvoiceIds: ["inv-1"] })]),
     );
     expect(found).toHaveLength(1);
     expect(found[0].kind).toBe("qbo-never-approved");
+  });
+
+  it("says nothing about a Payable bill on an invoice", () => {
+    // Pave "pending" is JobTread Payable: approved and pushed. Preferred
+    // Plumbing Bill 002-413 was reported as never approved in this state.
+    expect(
+      run(job([bill({ id: "b1", status: "pending", sentInvoiceIds: ["inv-1"] })])),
+    ).toHaveLength(0);
   });
 
   it("says nothing about an approved bill on an invoice", () => {
@@ -161,7 +169,7 @@ describe("qbo-push — never approved", () => {
   it("can be turned off without disabling the flag finding", () => {
     const config = { ...CONFIG, reportNeverApproved: false };
     expect(
-      run(job([bill({ id: "b1", status: "pending", sentInvoiceIds: ["inv-1"] })]), config),
+      run(job([bill({ id: "b1", status: "draft", sentInvoiceIds: ["inv-1"] })]), config),
     ).toHaveLength(0);
     expect(run(job([bill({ id: "b1", qboIsIgnored: true })]), config)).toHaveLength(1);
   });

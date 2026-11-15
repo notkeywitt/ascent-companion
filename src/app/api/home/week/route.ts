@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { getPaveConfig, hasGrant } from "@/lib/config";
-import { getOpenToDosCached, getUpcomingScheduleTasks } from "@/lib/jobtread";
+import {
+  getJobs,
+  getOpenToDosCached,
+  getUpcomingScheduleTasks,
+} from "@/lib/jobtread";
 import { orgDay } from "@/lib/orgTime";
 import { buildWeekActivity, weekDates } from "@/lib/weekActivity";
 
@@ -8,9 +12,14 @@ import { buildWeekActivity, weekDates } from "@/lib/weekActivity";
  * GET /api/home/week → this week's activity per job, Sunday to Saturday —
  * Home's week bars. Read-only.
  *
- * Two cached reads: the open schedule tasks that overlap the week, and the
- * org's open to-dos. How they become a count per job per day is
- * `buildWeekActivity` (src/lib/weekActivity.ts).
+ * Three cached reads: the open schedule tasks that overlap the week, the org's
+ * open to-dos, and the open jobs (for each job's customer, so a row reads
+ * "Customer - Job"). How they become a count per job per day is
+ * `buildWeekActivity` (src/lib/weekActivity.ts). A failed jobs read only drops
+ * the customer from the label.
+ *
+ * Edits go through PATCH /api/home/week/task; the calendar events through
+ * GET /api/home/week/events.
  *
  * "Today" is the ORG's day, not the server's (a Vercel lambda runs in UTC).
  * Gated by the `home` view (src/lib/views.ts), like every /api/home read.
@@ -25,12 +34,17 @@ export async function GET() {
     const cfg = getPaveConfig();
     const today = orgDay(new Date().toISOString());
     const dates = weekDates(today);
-    const [tasks, todos] = await Promise.all([
+    const [tasks, todos, jobs] = await Promise.all([
       getUpcomingScheduleTasks(cfg, dates[0], dates[6]),
       getOpenToDosCached(cfg),
+      getJobs(cfg).catch(() => []),
     ]);
-    return NextResponse.json(buildWeekActivity(today, tasks, todos));
+    const customers = new Map(jobs.filter((j) => j.customer).map((j) => [j.id, j.customer!]));
+    return NextResponse.json(buildWeekActivity(today, tasks, todos, customers));
   } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 502 });
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Unknown error" },
+      { status: 502 },
+    );
   }
 }

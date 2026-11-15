@@ -386,7 +386,7 @@ export default function EmployeesPage() {
   }, [jtUsers]);
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
       <PageHeader
         title="Employees"
         className="!mb-3"
@@ -398,6 +398,15 @@ export default function EmployeesPage() {
           className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400 pad:hidden"
         >
           New Hires
+        </Link>
+      )}
+
+      {access.can("labor-rates") && (
+        <Link
+          href="/labor-rates"
+          className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
+        >
+          Pay Rates
         </Link>
       )}
 

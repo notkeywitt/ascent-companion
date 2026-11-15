@@ -198,7 +198,7 @@ function Requisitions() {
   }
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
       <ToolsTabs current="requisitions" />
       <PageHeader
         title={toolsTitle("requisitions")}
@@ -219,9 +219,10 @@ function Requisitions() {
         }
       />
 
+      <div className={showNew ? "lg:grid lg:grid-cols-[24rem_minmax(0,1fr)] lg:items-start lg:gap-6" : ""}>
       {/* New-request form */}
       {showNew && (
-        <Card className="mb-5 space-y-3">
+        <Card className="mb-5 space-y-3 lg:sticky lg:top-4">
           <div>
             <Label>Title</Label>
             <input
@@ -324,6 +325,7 @@ function Requisitions() {
         </Card>
       )}
 
+      <div className="min-w-0">
       {/* Office-only status filter */}
       {isOffice && !loading && rows.length > 0 && (
         <div className="mb-3 flex items-center gap-2">
@@ -362,7 +364,7 @@ function Requisitions() {
       ) : (
         // One hairline list, not a card per request (CONSOLIDATION_PLAN look rule 1).
         <Card pad={false} className="overflow-hidden">
-        <ul className="divide-y divide-line-soft">
+        <ul className="divide-y divide-line-soft xl:grid xl:grid-cols-2 xl:divide-y-0 xl:[&>li]:border-t xl:[&>li]:border-line-soft">
           {rows.map((r) => (
             <RequisitionCard
               key={r["ReqID"]}
@@ -377,6 +379,8 @@ function Requisitions() {
         </ul>
         </Card>
       )}
+      </div>
+      </div>
     </main>
   );
 }

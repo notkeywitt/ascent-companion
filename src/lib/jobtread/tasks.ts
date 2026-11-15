@@ -2,7 +2,7 @@
 // file: jobtread.ts re-exports the public names of every part.
 
 import { type JobToDo, groupRecentToDos } from "@/lib/jobBoard";
-import { cachedRef, pageAll, pageEach, pave, PAVE_PAGE_SIZE, type PaveConfig, PaveTooManyPagesError } from "./core";
+import { _refCache, cachedRef, pageAll, pageEach, pave, PAVE_PAGE_SIZE, type PaveConfig, PaveTooManyPagesError } from "./core";
 // ---------------------------------------------------------------------------
 // TASKS — schedule items and to-dos (Daily Digest)
 // ---------------------------------------------------------------------------
@@ -746,6 +746,8 @@ export interface ToDoPatch {
   /** Org-local "YYYY-MM-DD" → `endDate`. `null` clears both endDate and startDate,
    *  because a to-do's due date reads as endDate, else startDate. */
   dueDate?: string | null;
+  /** A SCHEDULE task's start, "YYYY-MM-DD" → `startDate` (its end goes in `dueDate`). */
+  startDate?: string;
   /** REPLACES the whole assignee set. Membership ids, as for `createToDo`. */
   membershipIds?: string[];
   /** true → progress 1 (JobTread's done); false → progress 0 (open again). */
@@ -779,6 +781,7 @@ export async function updateToDo(cfg: PaveConfig, id: string, patch: ToDoPatch):
     args.endDate = patch.dueDate || null;
     if (!patch.dueDate) args.startDate = null;
   }
+  if (patch.startDate) args.startDate = patch.startDate;
   if (patch.membershipIds !== undefined) {
     if (patch.membershipIds.length > 20) {
       throw new Error(`A to-do can be assigned to at most 20 people (got ${patch.membershipIds.length}).`);
@@ -787,6 +790,42 @@ export async function updateToDo(cfg: PaveConfig, id: string, patch: ToDoPatch):
   }
   if (patch.done !== undefined) args.progress = patch.done ? 1 : 0;
   await pave(cfg, { updateTask: { $: args } });
+}
+
+/**
+ * What the week's edit route checks before it writes: the task's kind, its
+ * org and its job's open state. Undefined when the id is not a task.
+ */
+export async function getTaskForEdit(
+  cfg: PaveConfig,
+  id: string,
+): Promise<{ isToDo: boolean; isGroup: boolean; orgId: string; jobId: string | null; jobOpen: boolean } | undefined> {
+  const r = await pave(cfg, {
+    task: {
+      $: { id },
+      id: {},
+      isToDo: {},
+      isGroup: {},
+      organization: { id: {} },
+      job: { id: {}, closedOn: {} },
+    },
+  });
+  const t = r?.task;
+  if (!t?.id) return undefined;
+  return {
+    isToDo: !!t.isToDo,
+    isGroup: !!t.isGroup,
+    orgId: t.organization?.id ?? "",
+    jobId: t.job?.id ?? null,
+    jobOpen: !!t.job?.id && !t.job.closedOn,
+  };
+}
+
+/** Drop the cached open to-dos and schedule tasks, so the next week read is fresh. */
+export function bustTaskCaches(cfg: PaveConfig): void {
+  for (const key of _refCache.keys()) {
+    if (key === `opentodos:${cfg.orgId}` || key.startsWith(`toolScheduleTasks:${cfg.orgId}:`)) _refCache.delete(key);
+  }
 }
 
 /** WRITE — delete one JobTread to-do (`deleteTask`). Same gates as `updateToDo`. */
@@ -812,6 +851,7 @@ export interface ScheduleTask {
   progress: number | null; // 0..1
   jobId: string;
   jobName: string;
+  description?: string;
 }
 
 /**
@@ -861,6 +901,7 @@ export async function _getUpcomingScheduleTasksUncached(
             endDate: {},
             progress: {},
             position: {},
+            description: {},
             taskType: { id: {}, name: {} },
             parentTask: { id: {}, name: {}, position: {} },
             job: { id: {}, name: {} },
@@ -889,6 +930,7 @@ export async function _getUpcomingScheduleTasksUncached(
       progress,
       jobId: n.job.id,
       jobName: n.job.name ?? "",
+      description: n.description ?? "",
     });
   }
   return out;

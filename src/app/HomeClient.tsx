@@ -20,7 +20,7 @@ import type { HomeLayout } from "@/lib/homeWidgets";
  * person's widget layout.
  *
  * ADMIN and OFFICE get OfficeHome (OVERHAUL_PLAN Phase 4, 2026-11-13): one
- * "Needs attention" count, the Today strip, one to-do list, the phone's four
+ * "Needs attention" count, the This week widget, one to-do list, the phone's four
  * action buttons and the desktop widgets. Nothing on it repeats a page: the
  * stuck-vendor and no-job banners became rows under "Needs attention" (the
  * stuck-vendor pop-up still finds you on any page), and the Jobs page's
@@ -38,7 +38,7 @@ function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
     return (
       <main className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5">
         {/* The year ribbon runs faded behind the masthead's line, under the billing month. */}
-        <HomeMasthead month={month} backdrop={<YearRibbon backdrop />} />
+        <HomeMasthead month={month} backdrop={<YearRibbon />} />
         <OfficeHome layout={layout} />
       </main>
     );

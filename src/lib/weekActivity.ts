@@ -1,6 +1,7 @@
 /**
  * Home's week bars (owner, 2026-11-15): how busy each job is on each day of
- * this week, and which one is busiest today. Client-safe: no Pave import.
+ * this week, and what the details panel lists for a pick. Client-safe: no
+ * Pave import.
  *
  * A day's count for a job is
  *   - every open schedule task on the job whose span covers that day, plus
@@ -12,6 +13,7 @@
  * The week runs Sunday to Saturday, in the org's time zone (the route passes
  * the org's day).
  */
+import type { ToDoPatch } from "@/lib/jobtread/tasks";
 
 export interface WeekItem {
   id: string;
@@ -19,10 +21,16 @@ export interface WeekItem {
   kind: "task" | "todo";
   /** The phase a schedule task sits under; "" for a to-do or a task with none. */
   phase: string;
+  /** A task's span, YYYY-MM-DD. A to-do's start and end are both its due day. */
+  start: string;
+  end: string;
+  /** Its JobTread description. */
+  description: string;
 }
 
 export interface WeekJob {
   id: string;
+  /** "Customer - Job" when the route knows the customer, else the job name. */
   name: string;
   /** Items per day, Sunday first. Seven entries. */
   days: WeekItem[][];
@@ -47,6 +55,7 @@ interface TaskIn {
   endDate: string;
   jobId: string;
   jobName: string;
+  description?: string;
 }
 interface ToDoIn {
   id: string;
@@ -55,6 +64,7 @@ interface ToDoIn {
   endDate?: string | null;
   jobId?: string | null;
   jobName?: string | null;
+  description?: string;
 }
 
 const DAY_MS = 86_400_000;
@@ -68,26 +78,55 @@ export function weekDates(day: string): string[] {
   return Array.from({ length: 7 }, (_, i) => iso(sunday + i * DAY_MS));
 }
 
-export function buildWeekActivity(today: string, tasks: TaskIn[], todos: ToDoIn[]): WeekActivity {
+/** "Customer - Job"; the job name alone when the customer is unknown. */
+export const customerJob = (customer: string | undefined, job: string) =>
+  customer ? `${customer} - ${job}` : job;
+
+/** `customers` maps a job id to its customer, for the "Customer - Job" label. */
+export function buildWeekActivity(
+  today: string,
+  tasks: TaskIn[],
+  todos: ToDoIn[],
+  customers: Map<string, string> = new Map(),
+): WeekActivity {
   const dates = weekDates(today);
   const jobs = new Map<string, WeekJob>();
   const job = (id: string, name: string) => {
     let j = jobs.get(id);
-    if (!j) jobs.set(id, (j = { id, name, days: dates.map(() => []), total: 0 }));
+    if (!j) {
+      j = { id, name: customerJob(customers.get(id), name), days: dates.map(() => []), total: 0 };
+      jobs.set(id, j);
+    }
     return j;
   };
   for (const t of tasks) {
     if (!t.jobId || !t.startDate || !t.endDate) continue;
     dates.forEach((d, i) => {
       if (t.startDate <= d && d <= t.endDate)
-        job(t.jobId, t.jobName).days[i].push({ id: t.id, name: t.name, kind: "task", phase: t.phase ?? "" });
+        job(t.jobId, t.jobName).days[i].push({
+          id: t.id,
+          name: t.name,
+          kind: "task",
+          phase: t.phase ?? "",
+          start: t.startDate,
+          end: t.endDate,
+          description: t.description ?? "",
+        });
     });
   }
   for (const t of todos) {
-    const due = t.endDate || t.startDate;
+    const due = t.endDate || t.startDate || "";
     const i = due ? dates.indexOf(due) : -1;
     if (!t.jobId || i < 0) continue;
-    job(t.jobId, t.jobName || "").days[i].push({ id: t.id, name: t.name, kind: "todo", phase: "" });
+    job(t.jobId, t.jobName || "").days[i].push({
+      id: t.id,
+      name: t.name,
+      kind: "todo",
+      phase: "",
+      start: due,
+      end: due,
+      description: t.description ?? "",
+    });
   }
   for (const j of jobs.values()) j.total = j.days.reduce((s, d) => s + d.length, 0);
   return {
@@ -97,11 +136,117 @@ export function buildWeekActivity(today: string, tasks: TaskIn[], todos: ToDoIn[
   };
 }
 
-/** The job with the most items on day `i`, or null when the day is empty. */
-export function busiestOn(jobs: WeekJob[], i: number): WeekJob | null {
-  let best: WeekJob | null = null;
-  for (const j of jobs) if (j.days[i].length > (best?.days[i].length ?? 0)) best = j;
-  return best;
+/** What the details panel lists: a job, a day, or the one job on one day. */
+export interface WeekPick {
+  job: string | null;
+  day: number | null;
+}
+
+export interface PickedItem {
+  job: WeekJob;
+  item: WeekItem;
+  /** The first day of the week the item shows on, inside the pick. */
+  day: number;
+}
+
+/**
+ * The items a pick covers, each with its job, once. A task that spans several
+ * days of a picked job lists once, on its first day in the week.
+ */
+export function pickedItems(w: WeekActivity, pick: WeekPick): PickedItem[] {
+  const out: PickedItem[] = [];
+  const seen = new Set<string>();
+  for (const job of w.jobs) {
+    if (pick.job !== null && job.id !== pick.job) continue;
+    job.days.forEach((items, day) => {
+      if (pick.day !== null && day !== pick.day) return;
+      for (const item of items) {
+        const key = `${job.id}:${item.kind}:${item.id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ job, item, day });
+      }
+    });
+  }
+  return out;
+}
+
+/** One edit from the week's form. A to-do's due day is `end`; `start` is ignored for it. */
+export interface ItemPatch {
+  name?: string;
+  description?: string;
+  start?: string;
+  end?: string;
+  done?: boolean;
+}
+
+/**
+ * The week after an edit, without a reload (the reads are cached). Done
+ * removes the item; new dates move it onto every week day its span covers
+ * (a to-do: its due day), out of the week when none fall inside; a new name
+ * or description updates it in place.
+ */
+export function patchItem(w: WeekActivity, kind: WeekItem["kind"], id: string, patch: ItemPatch): WeekActivity {
+  const jobs = w.jobs.map((j) => {
+    let was: WeekItem | undefined;
+    const days = j.days.map((items) =>
+      items.filter((i) => {
+        if (i.kind !== kind || i.id !== id) return true;
+        was = i;
+        return false;
+      }),
+    );
+    if (!was) return j;
+    const end = patch.end ?? was.end;
+    const start = kind === "todo" ? end : (patch.start ?? was.start);
+    if (!patch.done) {
+      const next: WeekItem = {
+        ...was,
+        name: patch.name ?? was.name,
+        description: patch.description ?? was.description,
+        start,
+        end,
+      };
+      w.dates.forEach((d, i) => {
+        if (start <= d && d <= end) days[i] = [...days[i], next];
+      });
+    }
+    return { ...j, days, total: days.reduce((s, d) => s + d.length, 0) };
+  });
+  return { ...w, jobs };
+}
+
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The week edit route's body → the `updateToDo` patch, or the reason it is
+ * refused. Only name, description, dates and done pass. A schedule task needs
+ * both dates when either changes, start on or before end; it cannot lose them.
+ * A to-do's `end` is its due date, and an empty one clears it.
+ */
+export function itemEditPatch(kind: WeekItem["kind"], body: Record<string, unknown>): ToDoPatch | string {
+  const patch: ToDoPatch = {};
+  if (body.name !== undefined) {
+    const name = String(body.name ?? "").trim();
+    if (!name) return "It needs a name.";
+    patch.name = name;
+  }
+  if (body.description !== undefined)
+    patch.description = body.description === null ? null : String(body.description);
+  const start = body.start == null ? "" : String(body.start).trim();
+  const end = body.end == null ? "" : String(body.end).trim();
+  for (const d of [start, end]) if (d && !DAY.test(d)) return `Unreadable date: ${d}`;
+  if (kind === "todo") {
+    if (body.end !== undefined) patch.dueDate = end || null;
+  } else if (body.start !== undefined || body.end !== undefined) {
+    if (!start || !end) return "A schedule task needs a start and an end.";
+    if (start > end) return "The start is after the end.";
+    patch.startDate = start;
+    patch.dueDate = end;
+  }
+  if (body.done !== undefined) patch.done = body.done === true;
+  if (Object.keys(patch).length === 0) return "Nothing to change.";
+  return patch;
 }
 
 /**

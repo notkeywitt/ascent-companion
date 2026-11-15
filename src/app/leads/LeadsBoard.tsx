@@ -2207,5 +2207,5 @@ function Field({ label, value }: { label: string; value: string }) {
 
 /** A page of its own, or a section of Customers (/leads). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 py-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 py-6 lg:max-w-[1600px]">{children}</main>;
 }

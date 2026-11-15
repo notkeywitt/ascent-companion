@@ -21,10 +21,16 @@
  *
  * ── TWO FINDINGS ────────────────────────────────────────────────────────────
  *   `qbo-not-pushed`     the flag is set on a bill that is otherwise finished.
- *   `qbo-never-approved` the bill reached a client invoice while still `pending`.
- *                        Only approval pushes, so a pending bill on a live
+ *   `qbo-never-approved` the bill reached a client invoice while still `draft`.
+ *                        Only approval pushes, so a draft bill on a live
  *                        invoice has billed the client for a cost the ledger
  *                        has not recorded.
+ *
+ * Pave's statuses are not JobTread's screen words: `draft` is unapproved,
+ * `pending` is "Payable" (an approved Bill, already pushed), `approved` is
+ * "Paid" (an Expense approves straight to it). Preferred Plumbing Bill 002-413
+ * (2026-11) was reported as never approved while JobTread showed it Payable
+ * with its QBO balance back.
  *
  * ── WHAT IT DELIBERATELY DOES NOT DO ────────────────────────────────────────
  * It does not claim the push SUCCEEDED. JobTread does not expose a per-document
@@ -107,8 +113,9 @@ export const qboPushCheck = defineJobCheck<QboPushConfig>({
       }
 
       // ── The approval ──────────────────────────────────────────────────────
-      // Only "approved" pushes. A pending bill already on a SENT client invoice
-      // means the client was billed for a cost the ledger has not taken.
+      // Approval pushes, and an approved Bill reads `pending` (Payable). Only a
+      // `draft` bill on a SENT client invoice means the client was billed for a
+      // cost the ledger has not taken.
       //
       // sentInvoiceIds, not invoiceIds: `invoiceIds` counts a DRAFT invoice too,
       // and a draft has not gone out — the client has not been billed for
@@ -117,7 +124,7 @@ export const qboPushCheck = defineJobCheck<QboPushConfig>({
       // had already been billed. sentInvoiceIds excludes drafts (and denied).
       if (
         config.reportNeverApproved &&
-        bill.status === "pending" &&
+        bill.status === "draft" &&
         bill.sentInvoiceIds.length > 0
       ) {
         out.push({
@@ -128,7 +135,7 @@ export const qboPushCheck = defineJobCheck<QboPushConfig>({
           title: `${bill.vendor || bill.label} — ${money(bill.cost)} invoiced but never approved`,
           detail:
             `${bill.vendor || bill.label} (${money(bill.cost)}) is on a live client invoice for ` +
-            `${month.monthLabel} but its status is still "pending". Approving a bill is what ` +
+            `${month.monthLabel} but it is still a draft. Approving a bill is what ` +
             `pushes it to QuickBooks, so the client has been billed for a cost the general ` +
             `ledger has not recorded.`,
           amount: bill.cost,
