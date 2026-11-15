@@ -6,11 +6,11 @@ import {
   getUpcomingScheduleTasks,
 } from "@/lib/jobtread";
 import { orgDay } from "@/lib/orgTime";
-import { buildWeekActivity, weekDates } from "@/lib/weekActivity";
+import { buildWeekActivity, nextDates } from "@/lib/weekActivity";
 
 /**
- * GET /api/home/week → this week's activity per job, Sunday to Saturday —
- * Home's week bars. Read-only.
+ * GET /api/home/week → the next seven days' activity per job, today first —
+ * Home's This week card (WeekAhead.tsx). Read-only.
  *
  * Three cached reads: the open schedule tasks that overlap the week, the org's
  * open to-dos, and the open jobs (for each job's customer, so a row reads
@@ -33,14 +33,14 @@ export async function GET() {
   try {
     const cfg = getPaveConfig();
     const today = orgDay(new Date().toISOString());
-    const dates = weekDates(today);
+    const dates = nextDates(today);
     const [tasks, todos, jobs] = await Promise.all([
       getUpcomingScheduleTasks(cfg, dates[0], dates[6]),
       getOpenToDosCached(cfg),
       getJobs(cfg).catch(() => []),
     ]);
     const customers = new Map(jobs.filter((j) => j.customer).map((j) => [j.id, j.customer!]));
-    return NextResponse.json(buildWeekActivity(today, tasks, todos, customers));
+    return NextResponse.json(buildWeekActivity(today, tasks, todos, customers, dates));
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unknown error" },

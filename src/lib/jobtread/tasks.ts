@@ -848,6 +848,9 @@ export interface ScheduleTask {
   taskTypeName: string | null;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
+  /** Optional clock times JobTread holds on the task, as it returns them (HH:MM…). */
+  startTime?: string;
+  endTime?: string;
   progress: number | null; // 0..1
   jobId: string;
   jobName: string;
@@ -899,6 +902,8 @@ export async function _getUpcomingScheduleTasksUncached(
             name: {},
             startDate: {},
             endDate: {},
+            startTime: {},
+            endTime: {},
             progress: {},
             position: {},
             description: {},
@@ -927,6 +932,8 @@ export async function _getUpcomingScheduleTasksUncached(
       taskTypeName: n.taskType?.name ?? null,
       startDate: n.startDate,
       endDate: n.endDate,
+      startTime: n.startTime ?? "",
+      endTime: n.endTime ?? "",
       progress,
       jobId: n.job.id,
       jobName: n.job.name ?? "",
