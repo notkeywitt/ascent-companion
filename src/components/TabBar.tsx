@@ -21,6 +21,7 @@ import {
   activeBarKey,
   barFor,
   drawerFor,
+  RAIL_OFF_VIEWS,
   railFor,
   reachableTabs,
   type BarItem,
@@ -120,12 +121,6 @@ const CalendarIcon = () => (
   <IconBase>
     <rect x="3" y="5" width="18" height="16" rx="2" />
     <path d="M3 10h18M8 3v4M16 3v4" />
-  </IconBase>
-);
-const UsersIcon = () => (
-  <IconBase>
-    <circle cx="9" cy="8" r="3.5" />
-    <path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 20a6.5 6.5 0 0 0-2.5-5.1" />
   </IconBase>
 );
 const BadgeIcon = () => (
@@ -237,6 +232,14 @@ const HammerIcon = () => (
   </IconBase>
 );
 
+/** A half-built house: roof and studs on the left, finished wall on the right. */
+const HalfHouseIcon = () => (
+  <IconBase>
+    <path d="M3 11 12 3l9 8M5 10v11h14V10" />
+    <path d="M12 3v18M5 14h7M5 18h7M8 10v11" />
+  </IconBase>
+);
+
 /** A storefront — the Vendors page. */
 const StoreIcon = () => (
   <IconBase>
@@ -251,7 +254,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   incoming: InboxIcon,
   office: ComputerIcon,
   mywork: BriefcaseIcon,
-  clients: UsersIcon,
+  clients: HalfHouseIcon,
   people: BadgeIcon,
   employees: UserIcon,
   search: SearchIcon,
@@ -262,7 +265,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   mileage: RouteIcon,
   tools: WrenchIcon,
   requisitions: ClipboardIcon,
-  "job-board": HammerIcon,
+  "job-board": HalfHouseIcon,
   vendors: StoreIcon,
   "time-off": CalendarIcon,
   "time-sync": PayrollIcon,
@@ -456,7 +459,7 @@ export function TabBar() {
           const on = t.key === railActive;
           const Icon = ICONS[t.key] ?? PinIcon;
           const ws =
-            on && t.workspace && !MENU_SINGLE_WORKSPACES.has(t.workspace)
+            t.workspace && !MENU_SINGLE_WORKSPACES.has(t.workspace)
               ? WORKSPACES.find((w) => w.id === t.workspace)
               : undefined;
           const isHere = (href: string) => pathname === href || pathname.startsWith(href + "/");
@@ -464,14 +467,14 @@ export function TabBar() {
           // repeated under its workspace; one page left needs no second level.
           const own = ws
             ? reachableTabs(ws, access.can).filter(
-                (tab) => !rail.some((r) => !r.workspace && r.view === tab.view),
+                (tab) => !RAIL_OFF_VIEWS.has(tab.view) && !rail.some((r) => !r.workspace && r.view === tab.view),
               )
             : [];
           const pages = own.length > 1 ? own : [];
           // Customers is one page with two sections: list them under it once it
           // is open (/leads?section=). The first section is the page's default.
           const sections =
-            on && !t.workspace && t.view === "leads"
+            !t.workspace && t.view === "leads"
               ? CUSTOMER_SECTIONS.filter((x) => access.can(x.view))
               : [];
           const sectionNow = search.get("section") ?? "";
@@ -480,7 +483,7 @@ export function TabBar() {
           // From 2xl the fill moves down to the page itself, so one row is lit.
           const childLit = pages.some((tab) => isHere(tab.href));
           return (
-            <div key={t.key} className={t.gap ? "mt-5" : ""}>
+            <div key={t.key} className={`group ${t.gap ? "mt-5" : ""}`}>
               <Link
                 href={t.href + qs}
                 aria-current={on ? "page" : undefined}
@@ -496,7 +499,7 @@ export function TabBar() {
                 <LinkPendingOverlay spinnerClassName="h-5 w-5" />
               </Link>
               {sections.length > 1 && (
-                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:block">
+                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:group-hover:block">
                   {sections.map((x, i) => (
                     <Link
                       key={x.id}
@@ -516,7 +519,7 @@ export function TabBar() {
               )}
               {/* The sidebar's second level: the current workspace's pages. */}
               {pages.length > 0 && (
-                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:block">
+                <div className="rail-label hidden space-y-0.5 pb-1 pl-9 pt-0.5 wide:group-hover:block">
                   {pages.map((tab) => {
                     const here = isHere(tab.href);
                     return (

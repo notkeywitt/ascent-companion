@@ -401,6 +401,15 @@ export default function EmployeesPage() {
         </Link>
       )}
 
+      {access.can("labor-rates") && (
+        <Link
+          href="/labor-rates"
+          className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
+        >
+          Pay Rates
+        </Link>
+      )}
+
       {/* Controls */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
