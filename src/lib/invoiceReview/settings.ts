@@ -169,7 +169,7 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         // A near-zero bill kept out of QuickBooks is housekeeping, not a hole
         // in the ledger. Raise this if the office excludes small items by habit.
         minCost: 1,
-        // Only approval pushes, so a pending bill on a live client invoice has
+        // Only approval pushes, so a draft bill on a live client invoice has
         // billed the client for a cost the ledger has not taken. Turn this off
         // if invoicing before approving is deliberate here.
         reportNeverApproved: true,
