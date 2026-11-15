@@ -65,6 +65,10 @@ export interface Entry extends GridEntry {
   approved: boolean;
   /** Sent, not yet read back from JobTread (the create is detached). */
   pending?: boolean;
+  /** UTC instants and cost from /api/employee-time/history; absent on a pending entry. */
+  startedAt?: string;
+  endedAt?: string | null;
+  cost?: number;
 }
 
 interface Side {

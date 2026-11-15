@@ -132,6 +132,10 @@ export async function GET(req: NextRequest) {
         notes: e.notes,
         approved: e.approved,
         open,
+        // The UTC instants and the cost, for the Labor page's edit panel.
+        startedAt: e.startedAt,
+        endedAt: e.endedAt,
+        cost: e.cost,
         // THE ENTRY ITSELF — `?timeEntryId=` opens JobTread's time page with
         // this row selected, which beats the job-and-day filter it used to
         // carry (that landed you on a list to search again).

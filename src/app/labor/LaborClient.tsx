@@ -30,7 +30,7 @@ import {
   type PeriodKind,
 } from "@/lib/laborPeriod";
 import { WeekCalendar } from "@/app/employee-time/WeekCalendar";
-import type { User } from "@/app/employee-time/WeekCompare";
+import type { Entry as WeekEntry, User } from "@/app/employee-time/WeekCompare";
 import type { CostCodeDefault, PayTypeRule } from "@/lib/payTypeMatch";
 import { AddTimeCard } from "@/app/trackingsheet/AddTimeCard";
 import { laborOptions, type TimeEntryRow } from "@/app/trackingsheet/TimeCodingCard";
@@ -326,7 +326,26 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
       <main className="w-full max-w-7xl px-4 pad:px-7 pb-24 pt-6">
         <PageHeader title="Labor" />
         {viewToggle}
-        <WeekCalendar {...calendar} onExit={() => setView("list")} />
+        <WeekCalendar
+          {...calendar}
+          onExit={() => setView("list")}
+          renderPanel={({ entry: e, who, name, close, reload: reloadWeek }) => (
+            <CalendarEntryPanel
+              key={e.id}
+              e={e}
+              who={who}
+              name={calendar.users.find((u) => u.id === who)?.name ?? name}
+              writes={writes}
+              leaves={leaves[e.jobId]}
+              loadLeaves={loadLeaves}
+              onSaved={() => {
+                close();
+                reloadWeek();
+              }}
+              onClose={close}
+            />
+          )}
+        />
       </main>
     );
   }
@@ -478,6 +497,72 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
         />
       )}
     </main>
+  );
+}
+
+/**
+ * The calendar's edit panel: a tapped block as the Tracking Sheet's time card.
+ * The calendar's entry carries no cost code name, so the card shows the number.
+ */
+function CalendarEntryPanel({
+  e,
+  who,
+  name,
+  writes,
+  leaves,
+  loadLeaves,
+  onSaved,
+  onClose,
+}: {
+  e: WeekEntry;
+  who: string;
+  name: string;
+  writes: boolean;
+  leaves: BudgetLeaf[] | undefined;
+  loadLeaves: (jobId: string) => void;
+  onSaved: () => void;
+  onClose: () => void;
+}) {
+  useEffect(() => loadLeaves(e.jobId), [loadLeaves, e.jobId]);
+  const options = useMemo(
+    () => (leaves ? laborOptions(leaves, [e.costItemId]) : []),
+    [leaves, e.costItemId],
+  );
+  if (!e.startedAt) {
+    return (
+      <Card>
+        <p className="text-xs text-neutral-500">
+          Saving this entry in JobTread — tap it again in a moment to edit.
+        </p>
+      </Card>
+    );
+  }
+  const row: TimeEntryRow = {
+    id: e.id,
+    employee: name,
+    startedAt: e.startedAt,
+    endedAt: e.endedAt ?? null,
+    hours: e.minutes / 60,
+    minutes: e.minutes,
+    cost: e.cost ?? 0,
+    code: e.costCode,
+    codeName: "",
+    notes: e.notes,
+    isApproved: e.approved,
+    costItemId: e.costItemId || null,
+    type: e.payType,
+    userId: who,
+  };
+  return (
+    <EntryPanel
+      key={e.id}
+      entry={row}
+      jobId={e.jobId}
+      codeOptions={options}
+      writes={writes}
+      onSaved={onSaved}
+      onClose={onClose}
+    />
   );
 }
 

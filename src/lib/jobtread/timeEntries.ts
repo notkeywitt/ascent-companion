@@ -489,6 +489,8 @@ export interface UserTimeEntry {
   costItemName: string;
   /** timeEntry.type — the pay-type NAME. */
   payType: string;
+  /** timeEntry.cost — minutes × the pay type's rate, as JobTread holds it. */
+  cost: number;
 }
 
 /**
@@ -543,6 +545,7 @@ export async function getUserTimeEntries(
               startedAt: {},
               endedAt: {},
               minutes: {},
+              cost: {},
               isApproved: {},
               notes: {},
               job: { id: {}, name: {}, location: { account: { name: {} } } },
@@ -569,6 +572,7 @@ export async function getUserTimeEntries(
           costCode: n.costItem?.costCode?.number ?? "",
           costItemName: n.costItem?.costCode?.name || n.costItem?.name || "",
           payType: n.type ?? "",
+          cost: Number(n.cost) || 0,
         });
       }
     },

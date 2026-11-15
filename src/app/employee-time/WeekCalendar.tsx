@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import {
   Banner,
@@ -95,6 +95,7 @@ export function WeekCalendar({
   payRules,
   codeDefaults,
   onExit,
+  renderPanel,
 }: {
   users: User[];
   appUserIds: string[];
@@ -108,6 +109,14 @@ export function WeekCalendar({
   codeDefaults: CostCodeDefault[];
   /** Back to the grid Split View. */
   onExit: () => void;
+  /** Given → a tapped entry opens this panel to the right of the calendar (below it on a narrow screen) instead of the details card. */
+  renderPanel?: (a: {
+    entry: Entry;
+    who: string;
+    name: string;
+    close: () => void;
+    reload: () => void;
+  }) => ReactNode;
 }) {
   // Everyone who signs into the app, you first.
   const people = useMemo(() => {
@@ -296,7 +305,8 @@ export function WeekCalendar({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={renderPanel ? "xl:grid xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start xl:gap-4" : ""}>
+    <div className="min-w-0 space-y-3">
       <div className="flex flex-wrap items-center gap-2">
         <IconButton label="Previous week" onClick={() => setWeek((w) => addDays(w, -7))}>
           ‹
@@ -484,7 +494,7 @@ export function WeekCalendar({
         )}
       </Card>
 
-      {sel && picked && (
+      {sel && picked && !renderPanel && (
         <Card className="space-y-3">
           <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
             <span aria-hidden className={`h-2 w-2 rounded-full ${hueOf(sel.who).dot}`} />
@@ -580,6 +590,25 @@ export function WeekCalendar({
           person.
         </p>
       )}
+    </div>
+    {renderPanel && (
+      <aside className="mt-3 xl:sticky xl:top-4 xl:mt-0">
+        {sel && picked ? (
+          renderPanel({
+            entry: picked,
+            who: sel.who,
+            name: nameOf(sel.who),
+            close: () => setSel(null),
+            reload: () => load(sel.who, true),
+          })
+        ) : (
+          <Card className="hidden xl:block">
+            <p className="text-sm font-semibold">Details</p>
+            <p className="mt-1 text-xs text-neutral-500">Select a time entry to see and edit it here.</p>
+          </Card>
+        )}
+      </aside>
+    )}
     </div>
   );
 }
