@@ -6,6 +6,7 @@ import { ListCard, ListRow, SectionHeading, btn } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { StuckVendorBanner } from "@/components/StuckVendors";
 import { HomeJobBoard } from "@/components/HomeJobBoard";
+import { FieldHome } from "@/components/FieldHome";
 import { HomeLeadBoard } from "@/components/HomeLeadBoard";
 import { HomeMasthead, type MastheadMonth } from "@/components/HomeMasthead";
 import { OfficeHome } from "@/components/OfficeHome";
@@ -25,7 +26,8 @@ import type { HomeLayout } from "@/lib/homeWidgets";
  * stuck-vendor pop-up still finds you on any page), and the Jobs page's
  * map and list stay on /jobs-hub.
  *
- * FIELD and LEAD keep the Home below, unchanged.
+ * FIELD gets FieldHome (map, radio, LopezRocks, notices, request box). LEAD
+ * keeps the Home below, unchanged.
  */
 
 function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
@@ -41,6 +43,7 @@ function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
       </main>
     );
   }
+  if (access.role === "field") return <FieldHome />;
   return <CrewHome month={month} />;
 }
 

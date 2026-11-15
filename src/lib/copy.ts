@@ -176,6 +176,17 @@ export const COPY: Record<string, CopyEntry> = {
   },
 
   // ── Home launcher: Utilities destinations ────────────────────────────────
+  "home.request.examples": {
+    text: [
+      "Give the app x ray vision...",
+      "Make the clock-in button bigger...",
+      "Show me which job is closest...",
+      "Add a button that...",
+      "The app is slow when I...",
+    ].join("\n"),
+    label: "Request box — faded examples (one per line; one shows at random)",
+    group: "Home — Utilities",
+  },
   "home.dest.unbilled.label": { text: "Unbilled", label: "Unbilled — name", group: "Home — Utilities" },
   "home.dest.unbilled.desc": {
     text: "Uninvoiced expenses by cost code",

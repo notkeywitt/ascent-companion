@@ -271,12 +271,13 @@ export type BarSlot =
  * place of Clients (owner decision 2). A slot the person cannot open is skipped.
  */
 export const BARS: Record<Role, BarSlot[]> = {
+  // Home took Time Off's slot (owner, 2026-11-15). Time Off stays in the menu.
   field: [
+    { kind: "today" },
     { kind: "tab", view: "employee-time" },
     { kind: "tab", view: "mileage" },
     { kind: "tab", view: "tools" },
     { kind: "tab", view: "requisitions" },
-    { kind: "tab", view: "time-off" },
   ],
   lead: [
     { kind: "today" },
