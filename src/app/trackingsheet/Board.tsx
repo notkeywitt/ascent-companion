@@ -967,7 +967,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     const col = codingColRef.current;
     if (!col || (!openDocId && !openTimeId)) return setOpenTop(0);
     const header = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--appheader-h")) || 0;
-    setOpenTop(Math.max(0, header + 8 - col.getBoundingClientRect().top));
+    // The Jobs Hub pins the job's name under the header from `pad` up: clear it too.
+    const pin = document.querySelector<HTMLElement>("main h1.sticky");
+    const pinned = pin && pin.offsetParent ? pin.offsetHeight : 0;
+    setOpenTop(Math.max(0, header + pinned + 8 - col.getBoundingClientRect().top));
   }, [openDocId, openTimeId]);
 
   // Previous / next through the list, in the order it reads down the page.
@@ -980,9 +983,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     driveMainWindowToDoc(jobId, next.id);
     setOpenTimeId(null);
     setOpenDocId(next.id);
-    requestAnimationFrame(() =>
-      document.getElementById(`bill-${next.id}`)?.scrollIntoView({ block: "nearest" }),
-    );
   };
   // Up / Down arrows step the open bill, the same as Previous / Next. They
   // stand down while a field, a menu or a dialog has the keyboard, so a
@@ -1906,9 +1906,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       driveMainWindowToDoc(jobId, b.id);
       setOpenTimeId(null);
       setOpenDocId(b.id);
-      requestAnimationFrame(() =>
-        document.getElementById(`bill-${b.id}`)?.scrollIntoView({ block: "center", behavior: "smooth" }),
-      );
+      // No scrollIntoView: the card opens where the window is (`openTop`), and a
+      // page scroll after that measure would carry it out of view.
       return;
     }
     setBillPopup({ docId: billId, jobId, label, jobName: jobTitle });

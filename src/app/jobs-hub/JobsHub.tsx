@@ -330,7 +330,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       if (!jobs.some((j) => j.id === qJob)) return;
       setSelectedId(qJob);
       // Home's week bars link a job's schedule: ?jobId=…&tab=schedule.
-      if (q.get("tab") === "schedule") setTab("schedule");
+      const qTab = q.get("tab");
+      if (qTab === "schedule") setTab("schedule");
+      else if (qTab === "checks" || qTab === "status") setTab(qTab);
       else if (canTrackingSheet) {
         setTab("sheet");
         setLaborFocus(readLaborFocus(q));
@@ -570,7 +572,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                   {ringItems ? (
                     // The rings, then the month's notes in the space beside
                     // them (owner, 2026-11-06). The notes scroll on their own.
-                    <div className="flex h-full min-h-0 flex-col gap-6 pad:flex-row">
+                    <div className="flex min-h-full flex-col gap-4 pad:h-full pad:flex-row pad:gap-6">
                       <MonthRings
                         items={ringItems}
                         onSelect={(id) => id !== WARRANTY_SLICE_KEY && pick(id)}
@@ -581,7 +583,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                         ym={ym}
                         jobs={noteJobs}
                         onOpenBill={openBill}
-                        className="min-h-48 pad:h-full pad:min-w-[280px] pad:flex-1 pad:pt-10"
+                        className="min-h-72 pad:h-full pad:min-h-0 pad:min-w-[320px] pad:flex-1 pad:pt-10"
                       />
                     </div>
                   ) : (
@@ -662,9 +664,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         {selected && <YearRibbon key={`ribbon-${selected.id}`} jobId={selected.id} />}
         {/* The queue and the to-dos that sat here are Home's now (2026-11-13). */}
         {shown === "checks" && canChecks ? (
-          ym && <InvoiceReview key={ym} embedYm={ym} />
+          ym && <InvoiceReview key={ym} embedYm={ym} focusJobId={selected?.id} />
         ) : shown === "status" && canStatus ? (
-          ym && <InvoicingSummary key={ym} embedYm={ym} />
+          ym && <InvoicingSummary key={ym} embedYm={ym} focusJobId={selected?.id} />
         ) : !selected ? (
           canTrackingSheet && ym ? <MonthWork ym={ym} /> : null
         ) : tab === "sheet" && canTrackingSheet ? (
@@ -791,7 +793,7 @@ function MonthRings({
         color: field === "labor" ? r.laborColor : r.color,
       }));
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-8 pad:self-start">
+    <div className="flex shrink-0 flex-wrap items-center gap-4 pad:self-start">
       <div className="tabular-nums">
         <div className={caption}>All jobs · month</div>
         <div className="mt-1 text-[28px] font-bold leading-tight tracking-tight">
@@ -801,12 +803,12 @@ function MonthRings({
           Bills {money0(bills)} · Labor {money0(labor)}
         </div>
       </div>
-      <div className="flex gap-8">
+      <div className="flex gap-4">
         <Donut
           title="Bills"
           slices={slices("bills")}
           emptyLabel="No bills"
-          size={150}
+          size={104}
           legend={false}
           onSelect={onSelect}
           detail={detail}
@@ -816,7 +818,7 @@ function MonthRings({
           title="Labor"
           slices={slices("labor")}
           emptyLabel="No labor"
-          size={150}
+          size={104}
           legend={false}
           onSelect={onSelect}
           detail={detail}
