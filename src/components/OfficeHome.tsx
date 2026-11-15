@@ -38,7 +38,7 @@ import { money0 } from "@/lib/money";
  *            in `home_layouts`, read on the server and passed in). This week
  *            is always full width (owner, 2026-11-14: it replaced Today).
  *
- * Requests on load: /api/attention, /api/home/week, /api/home/todos, and on a
+ * Requests on load: /api/attention, /api/home/week (+ /week/events), /api/home/todos, and on a
  * desktop /api/invoicing-summary and /api/leads when those widgets show. A
  * phone never fetches the desktop widgets: the screen width is read before any
  * widget mounts.

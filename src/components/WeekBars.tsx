@@ -17,8 +17,9 @@ import {
 import { jtScheduleUrl, jtToDoUrl } from "@/lib/jtLinks";
 import {
   nearness,
-  patchToDo,
+  patchItem,
   pickedItems,
+  type ItemPatch,
   type PickedItem,
   type WeekActivity,
   type WeekItem,
@@ -43,15 +44,24 @@ import {
  *   Tap an item in the panel → the week flips over to its edit form.
  * No pick shows today.
  *
- * Editing: a to-do on the Office job saves through PATCH /api/office/todos,
- * the one to-do edit route (it refuses any other job). Every other to-do and
- * every schedule task shows read-only, with "Open in JobTread" in a new tab:
- * the app has no route that edits them.
+ * Editing (owner approved 2026-11-15): any schedule task or to-do on an open
+ * job saves through PATCH /api/home/week/task: name, dates, description, done.
+ *
+ * Calendar: the shared office calendars' events for the rest of the week, from
+ * GET /api/home/week/events. A row of marks under the day rule, and listed
+ * read-only in the panel when a day is picked.
  *
  * Data: /api/home/week (the `home` view). It reloads when the day turns over.
  */
 
-type Week = WeekActivity & { officeJobId: string };
+type Week = WeekActivity;
+interface CalEvent {
+  day: string;
+  title: string;
+  when: string;
+  where: string;
+  calendar: string;
+}
 
 const LETTERS = ["S", "M", "T", "W", "T", "F", "S"];
 const ROWS = 8;
@@ -103,9 +113,14 @@ export function WeekBars() {
   const [reload, setReload] = useState(0);
   const [pick, setPick] = useState<WeekPick | null>(null);
   const [editing, setEditing] = useState<PickedItem | null>(null);
+  const [events, setEvents] = useState<CalEvent[]>([]);
 
   useEffect(() => {
     const stop = new AbortController();
+    fetch("/api/home/week/events", { signal: stop.signal })
+      .then((r) => r.json())
+      .then((d: { events?: CalEvent[] }) => setEvents(d.events ?? []))
+      .catch(() => {});
     fetch("/api/home/week", { signal: stop.signal })
       .then((r) => r.json())
       .then((d: Week & { error?: string }) => {
@@ -148,8 +163,8 @@ export function WeekBars() {
   const jobs = data.jobs.slice(0, ROWS);
   const hidden = data.jobs.length - jobs.length;
   const max = Math.max(1, ...data.jobs.flatMap((j) => j.days.map((d) => d.length)));
-  const editable = (e: PickedItem) =>
-    e.item.kind === "todo" && e.job.id === data.officeJobId && can("office");
+  const editable = can("home");
+  const eventsOn = (i: number) => events.filter((e) => e.day === data.dates[i]);
 
   const grid =
     data.jobs.length === 0 ? (
@@ -187,6 +202,35 @@ export function WeekBars() {
           />
         </span>
         <span />
+
+        {events.length > 0 && (
+          <>
+            <span className="flex h-8 items-center justify-end pr-2 text-neutral-500">Calendar</span>
+            {data.dates.map((d, i) => {
+              const n = eventsOn(i).length;
+              if (!n) return <span key={d} className="h-8" />;
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => choose({ job: null, day: i })}
+                  aria-label={`${dayLabel(d)}: ${n} calendar ${n === 1 ? "event" : "events"}`}
+                  className={`flex h-8 items-center justify-center gap-[3px] rounded-md transition-colors hover:bg-neutral-100 dark:hover:bg-ink-overlay ${
+                    sel.job === null && sel.day === i ? "bg-accent/10" : ""
+                  }`}
+                >
+                  {Array.from({ length: Math.min(n, 3) }, (_, k) => (
+                    <span
+                      key={k}
+                      className={`block size-1.5 rounded-full ${i === today ? "bg-accent" : "bg-neutral-500"}`}
+                    />
+                  ))}
+                </button>
+              );
+            })}
+            <span className="flex h-8 items-center justify-end text-neutral-500">{events.length}</span>
+          </>
+        )}
 
         {jobs.map((j) => (
           <JobRow
@@ -228,10 +272,10 @@ export function WeekBars() {
               <ItemForm
                 key={`${editing.item.kind}-${editing.item.id}`}
                 entry={editing}
-                editable={editable(editing)}
+                editable={editable}
                 onClose={() => setEditing(null)}
                 onSaved={(patch) => {
-                  setData({ ...data, ...patchToDo(data, editing.item.id, patch) });
+                  setData(patchItem(data, editing.item.kind, editing.item.id, patch));
                   setEditing(null);
                 }}
               />
@@ -243,6 +287,7 @@ export function WeekBars() {
       <Details
         data={data}
         sel={sel}
+        events={sel.job === null && sel.day !== null ? eventsOn(sel.day) : []}
         isToday={pick === null}
         onToday={() => choose({ job: null, day: today })}
         editingKey={editing ? `${editing.job.id}:${editing.item.kind}:${editing.item.id}` : ""}
@@ -325,6 +370,7 @@ function JobRow({
 function Details({
   data,
   sel,
+  events,
   isToday,
   onToday,
   editingKey,
@@ -332,6 +378,7 @@ function Details({
 }: {
   data: Week;
   sel: WeekPick;
+  events: CalEvent[];
   isToday: boolean;
   onToday: () => void;
   editingKey: string;
@@ -349,7 +396,13 @@ function Details({
         <div className="min-w-0">
           <h3 className="truncate text-sm font-semibold tracking-tight">{title}</h3>
           <div className="text-[12px] text-neutral-500">
-            {[sub, rows.length ? counts(rows.map((r) => r.item)) : ""].filter(Boolean).join(" · ")}
+            {[
+              sub,
+              rows.length ? counts(rows.map((r) => r.item)) : "",
+              events.length ? `${events.length} on the calendar` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </div>
         </div>
         {!isToday && (
@@ -358,6 +411,16 @@ function Details({
           </Button>
         )}
       </div>
+      {events.length > 0 && (
+        <ul className="max-h-40 shrink-0 divide-y divide-line-soft overflow-y-auto">
+          {events.map((e, k) => (
+            <li key={k} className="px-1 py-1.5">
+              <span className="block truncate text-[13px] font-medium">{e.title}</span>
+              <MetaLine items={["Calendar", e.when, e.where || null, e.calendar || null]} />
+            </li>
+          ))}
+        </ul>
+      )}
       {rows.length === 0 ? (
         <p className="text-[12px] text-neutral-500">Nothing on the schedule.</p>
       ) : (
@@ -399,9 +462,7 @@ function Details({
   );
 }
 
-type ToDoPatch = { name?: string; description?: string; due?: string; done?: boolean };
-
-/** The back of the week: one task or to-do, editable when a route allows it. */
+/** The back of the week: one task or to-do, editable when the viewer has `home`. */
 function ItemForm({
   entry,
   editable,
@@ -411,13 +472,14 @@ function ItemForm({
   entry: PickedItem;
   editable: boolean;
   onClose: () => void;
-  onSaved: (patch: ToDoPatch) => void;
+  onSaved: (patch: ItemPatch) => void;
 }) {
   const { item, job } = entry;
   const id = useId();
   const todo = item.kind === "todo";
   const [name, setName] = useState(item.name);
-  const [due, setDue] = useState(item.end);
+  const [start, setStart] = useState(item.start);
+  const [end, setEnd] = useState(item.end);
   const [description, setDescription] = useState(item.description);
   const [done, setDone] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -425,25 +487,23 @@ function ItemForm({
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const patch: ToDoPatch = {};
+    const patch: ItemPatch = {};
     if (name.trim() !== item.name) patch.name = name.trim();
     if (description !== item.description) patch.description = description;
-    if (due !== item.end) patch.due = due;
+    // A schedule task's dates go as a pair; the route checks start <= end.
+    if (end !== item.end || (!todo && start !== item.start)) {
+      patch.end = end;
+      if (!todo) patch.start = start;
+    }
     if (done) patch.done = true;
     if (!Object.keys(patch).length) return onClose();
-    if (patch.name === "") return setError("A to-do needs a name.");
+    if (patch.name === "") return setError("It needs a name.");
     setBusy(true);
     setError("");
-    const r = await fetch("/api/office/todos", {
+    const r = await fetch("/api/home/week/task", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        id: item.id,
-        name: patch.name,
-        description: patch.description,
-        dueDate: patch.due === undefined ? undefined : patch.due || null,
-        done: patch.done,
-      }),
+      body: JSON.stringify({ id: item.id, kind: item.kind, ...patch }),
     }).catch(() => null);
     const j = (await r?.json().catch(() => null)) as {
       ok?: boolean;
@@ -469,7 +529,7 @@ function ItemForm({
         <div className="text-sm font-semibold tracking-tight">
           {todo ? "To-do" : "Schedule task"}
         </div>
-        <div className="truncate text-[12px] text-neutral-500">{job.name}</div>
+        <MetaLine items={[job.name, item.phase ? `Phase: ${item.phase}` : null]} />
       </div>
 
       <div>
@@ -483,70 +543,74 @@ function ItemForm({
       </div>
 
       {todo ? (
-        <>
-          <div>
-            <Label htmlFor={field("due")}>Due</Label>
-            <Input
-              id={field("due")}
-              type="date"
-              value={due}
-              onChange={(e) => setDue(e.target.value)}
-              disabled={off}
-            />
-          </div>
-          <div>
-            <Label htmlFor={field("desc")}>Description</Label>
-            <Textarea
-              id={field("desc")}
-              rows={3}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              disabled={off}
-            />
-          </div>
-          {editable && (
-            <Checkbox
-              label="Done"
-              checked={done}
-              onChange={(e) => setDone(e.target.checked)}
-              disabled={busy}
-            />
-          )}
-        </>
+        <div>
+          <Label htmlFor={field("due")}>Due</Label>
+          <Input
+            id={field("due")}
+            type="date"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            disabled={off}
+          />
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label htmlFor={field("start")}>Start</Label>
-            <Input id={field("start")} type="date" value={item.start} disabled readOnly />
+            <Input
+              id={field("start")}
+              type="date"
+              value={start}
+              onChange={(e) => setStart(e.target.value)}
+              required
+              disabled={off}
+            />
           </div>
           <div>
             <Label htmlFor={field("end")}>End</Label>
-            <Input id={field("end")} type="date" value={item.end} disabled readOnly />
+            <Input
+              id={field("end")}
+              type="date"
+              value={end}
+              min={start}
+              onChange={(e) => setEnd(e.target.value)}
+              required
+              disabled={off}
+            />
           </div>
-          {item.phase && <MetaLine items={[`Phase: ${item.phase}`]} />}
         </div>
       )}
 
-      {!editable && (
-        <p className="text-[12px] text-neutral-500">
-          {todo
-            ? "The app edits only the Office job's to-dos. Edit this one in JobTread."
-            : "The app does not edit schedule tasks yet. Edit this one in JobTread."}
-        </p>
+      <div>
+        <Label htmlFor={field("desc")}>Description</Label>
+        <Textarea
+          id={field("desc")}
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          disabled={off}
+        />
+      </div>
+      {editable && (
+        <Checkbox
+          label="Done"
+          checked={done}
+          onChange={(e) => setDone(e.target.checked)}
+          disabled={busy}
+        />
       )}
+
       {error && <Banner tone="error">{error}</Banner>}
 
       <div className="mt-auto flex flex-wrap items-center justify-end gap-2">
-        {!editable && (
-          <a
-            href={todo ? jtToDoUrl(item.id) : jtScheduleUrl(job.id, item.id)}
-            target="_blank"
-            rel="noreferrer"
-            className={btn("secondary", "sm")}
-          >
-            Open in JobTread
-          </a>
-        )}
+        <a
+          href={todo ? jtToDoUrl(item.id) : jtScheduleUrl(job.id, item.id)}
+          target="_blank"
+          rel="noreferrer"
+          className={btn(editable ? "ghost" : "secondary", "sm")}
+        >
+          Open in JobTread
+        </a>
         <Button
           variant={editable ? "ghost" : "primary"}
           size="sm"

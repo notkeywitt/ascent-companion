@@ -259,6 +259,8 @@ export {
   createToDo,
   OFFICE_JOB_ID,
   getToDoJobId,
+  getTaskForEdit,
+  bustTaskCaches,
   updateToDo,
   deleteToDo,
   getUpcomingScheduleTasks,
