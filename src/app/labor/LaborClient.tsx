@@ -683,7 +683,7 @@ function EntryRow({
           onOpen();
         }
       }}
-      className={`grid cursor-pointer grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2 text-sm md:grid-cols-[8rem_10rem_minmax(8rem,12rem)_4.5rem_5.5rem_minmax(0,1fr)_auto] md:items-baseline ${
+      className={`grid cursor-pointer grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2 text-sm md:grid-cols-[8rem_10rem_minmax(8rem,12rem)_4.5rem_5.5rem_minmax(0,1fr)] md:items-baseline ${
         open ? "bg-accent/10" : "hover:bg-neutral-50 dark:hover:bg-white/5"
       }`}
     >
@@ -701,7 +701,7 @@ function EntryRow({
       </span>
       <span className="hidden text-right tabular-nums md:block">{hoursLabel(e.hours)}</span>
       <span className="hidden text-right tabular-nums md:block">{money(e.cost)}</span>
-      <span className="col-span-2 whitespace-pre-wrap break-words text-[13px] text-neutral-700 md:col-span-1 dark:text-neutral-300">
+      <span className="col-span-2 whitespace-pre-wrap break-words text-[13px] text-neutral-700 md:order-last md:col-span-full dark:text-neutral-300">
         {e.notes || <span className="text-neutral-400">No note</span>}
       </span>
       <span className="col-span-2 flex items-center justify-end gap-2 md:col-span-1">
