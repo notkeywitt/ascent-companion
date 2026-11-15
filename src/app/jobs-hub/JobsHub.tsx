@@ -328,7 +328,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
     if (qJob) {
       if (!jobs.some((j) => j.id === qJob)) return;
       setSelectedId(qJob);
-      if (canTrackingSheet) {
+      // Home's week bars link a job's schedule: ?jobId=…&tab=schedule.
+      if (q.get("tab") === "schedule") setTab("schedule");
+      else if (canTrackingSheet) {
         setTab("sheet");
         setLaborFocus(readLaborFocus(q));
       }

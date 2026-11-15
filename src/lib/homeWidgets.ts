@@ -9,6 +9,7 @@
 
 export const WIDGETS = [
   { id: "today", label: "Today" },
+  { id: "week", label: "This week" },
   { id: "todos", label: "To-dos" },
   { id: "invoicing", label: "Monthly invoicing", view: "invoicing-summary" },
   { id: "leads", label: "Newest leads", view: "leads" },
