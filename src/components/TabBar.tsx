@@ -247,6 +247,13 @@ const StoreIcon = () => (
   </IconBase>
 );
 
+/** A hard hat — the Labor page, apart from the Time clock. */
+const HardHatIcon = () => (
+  <IconBase>
+    <path d="M3 18h18M5 18a7 7 0 0 1 14 0M12 6v6M8.5 8.5 9 12M15.5 8.5 15 12" />
+  </IconBase>
+);
+
 /** A slot's icon, by its key (a workspace id, a view id, or "today"). */
 const ICONS: Record<string, () => React.ReactNode> = {
   today: HomeIcon,
@@ -269,7 +276,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   vendors: StoreIcon,
   "time-off": CalendarIcon,
   "time-sync": PayrollIcon,
-  labor: ClockIcon,
+  labor: HardHatIcon,
   "invoice-review": CheckIcon,
   "invoicing-summary": DocumentIcon,
   "new-hires": UserPlusIcon,
