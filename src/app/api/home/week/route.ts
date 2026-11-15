@@ -1,0 +1,36 @@
+import { NextResponse } from "next/server";
+import { getPaveConfig, hasGrant } from "@/lib/config";
+import { getOpenToDosCached, getUpcomingScheduleTasks } from "@/lib/jobtread";
+import { orgDay } from "@/lib/orgTime";
+import { buildWeekActivity, weekDates } from "@/lib/weekActivity";
+
+/**
+ * GET /api/home/week → this week's activity per job, Sunday to Saturday —
+ * Home's week bars. Read-only.
+ *
+ * Two cached reads: the open schedule tasks that overlap the week, and the
+ * org's open to-dos. How they become a count per job per day is
+ * `buildWeekActivity` (src/lib/weekActivity.ts).
+ *
+ * "Today" is the ORG's day, not the server's (a Vercel lambda runs in UTC).
+ * Gated by the `home` view (src/lib/views.ts), like every /api/home read.
+ */
+export const dynamic = "force-dynamic";
+
+export async function GET() {
+  if (!hasGrant()) {
+    return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
+  }
+  try {
+    const cfg = getPaveConfig();
+    const today = orgDay(new Date().toISOString());
+    const dates = weekDates(today);
+    const [tasks, todos] = await Promise.all([
+      getUpcomingScheduleTasks(cfg, dates[0], dates[6]),
+      getOpenToDosCached(cfg),
+    ]);
+    return NextResponse.json(buildWeekActivity(today, tasks, todos));
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 502 });
+  }
+}

@@ -20,6 +20,7 @@ import { AttentionList, useAttention } from "@/components/TodayQueue";
 import { HomeActions, useUsed } from "@/components/HomeActions";
 import { HubLeadsCard } from "@/components/HubLeadsCard";
 import { PaymentMark, liveTotals, useInvoicingSummary } from "@/app/invoicing-summary/summary";
+import { WeekBars } from "@/components/WeekBars";
 import { WIDGETS, type HomeLayout, type WidgetId } from "@/lib/homeWidgets";
 import type { HomeTodo } from "@/lib/homeTodos";
 import { jtToDoUrl } from "@/lib/jtLinks";
@@ -119,6 +120,7 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
       {desktop === false && (
         <>
           {allowed("today") && <TodayWidget />}
+          {allowed("week") && <WeekWidget />}
           {allowed("todos") && <TodosWidget />}
         </>
       )}
@@ -131,6 +133,8 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
               <div key={id} className={`min-w-0 ${layout.wide.includes(id) ? "col-span-2" : ""}`}>
                 {id === "today" ? (
                   <TodayWidget />
+                ) : id === "week" ? (
+                  <WeekWidget />
                 ) : id === "todos" ? (
                   <TodosWidget />
                 ) : id === "invoicing" ? (
@@ -397,6 +401,17 @@ export function TodosWidget() {
           <CreateTodo onCreated={() => load(true)} />
         </div>
       )}
+    </WidgetCard>
+  );
+}
+
+/* ------------------------------------------------------------------- week */
+
+/** This week, job by job, Sunday to Saturday: the week bars (WeekBars.tsx). */
+function WeekWidget() {
+  return (
+    <WidgetCard title="This week">
+      <WeekBars />
     </WidgetCard>
   );
 }
