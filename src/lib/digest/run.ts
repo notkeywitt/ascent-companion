@@ -30,6 +30,7 @@ import { applyDismissals, dismissalKey } from "./dismissals";
 import { getInstructionTexts } from "./instructions";
 import { DIGEST_CATEGORIES, DIGEST_GLOBAL } from "./settings";
 import { report } from "@/lib/findings";
+import { refreshSunsetFindings } from "@/lib/sunsetFindings";
 import { readActiveDismissals, saveDigest } from "./store";
 import type { DigestCheck, DigestPayload, StoredCheckResult } from "./types";
 
@@ -245,6 +246,9 @@ async function reportToInbox(payload: DigestPayload): Promise<void> {
  * next run with no redeploy.
  */
 export async function runDigest(now: Date = new Date()): Promise<DigestPayload> {
+  // Sunset rows refresh on the digest timer too. Started first and run beside
+  // the checks, so it adds no time unless it outlasts them; it never throws.
+  const sunset = refreshSunsetFindings();
   const [checks, instructions, dismissed] = await Promise.all([
     resolveChecks(),
     getInstructionTexts(),
@@ -253,5 +257,6 @@ export async function runDigest(now: Date = new Date()): Promise<DigestPayload> 
   const payload = await computeDigest(now, checks, instructions, dismissed);
   await saveDigest(payload);
   await reportToInbox(payload);
+  payload.log.push(`[${new Date().toISOString()}] ${await sunset}`);
   return payload;
 }

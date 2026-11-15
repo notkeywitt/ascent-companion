@@ -708,9 +708,9 @@ export type NavLayoutRow = typeof navLayout.$inferSelect;
  * `active` is the manual on/off switch, independent of the schedule: flip it
  * off to stop showing a notice without deleting it (and its read history).
  *
- * A notice is dismissed PER USER and stays gone: an acknowledgement writes a
- * `notice_reads` row, and the user-facing feed never returns a notice that reader
- * has a read row for. So re-activating an old notice won't re-nag people who
+ * A notice is dismissed PER USER and stays gone: an acknowledgement dismisses
+ * the reader's `findings` row (source `notices`), and the user-facing feed never
+ * returns a notice that reader dismissed. So re-activating an old notice won't re-nag people who
  * already saw it — deliberately; author a NEW notice to reach everyone again.
  * An UNDISMISSIBLE notice writes no read row, which is what keeps a standing
  * banner in view for its whole window.
@@ -751,19 +751,6 @@ export const notices = sqliteTable("notices", {
 
 export type Notice = typeof notices.$inferSelect;
 export type NewNotice = typeof notices.$inferInsert;
-
-/**
- * Per-user acknowledgement of a notice — the "seen it, don't show me again" mark.
- * One row per (notice, reader); its existence is the whole signal, so there's no
- * status column. Keyed on the pair, so a second dismiss is a harmless no-op.
- */
-export const noticeReads = sqliteTable("notice_reads", {
-  noticeId: integer("notice_id").notNull(),
-  email: text("email").notNull(),
-  readAt: text("read_at").notNull(),
-});
-
-export type NoticeRead = typeof noticeReads.$inferSelect;
 
 /**
  * Bill search index — the local, instantly-searchable snapshot of every vendor

@@ -546,7 +546,7 @@ the defaults in `lib/leadBoard.ts`),
 into; no row means the automatic 10th cutoff),
 `lead_inquiries`, `lead_inquiry_dismissals`, `leave_policies`, `leave_balances`,
 `leave_requests`, `leave_transactions`, `jt_user_links`, `notices`,
-`notice_reads`, `rfis`, `sunset_statements`, `sunset_statement_links`, `page_copy`,
+`rfis`, `sunset_statements`, `sunset_statement_links`, `page_copy`,
 `page_guides` (one JSON row per page — the per-element help topics an admin
 wrote in the help overlay; no row means that page has no guide),
 `bill_index`,
@@ -607,10 +607,10 @@ the searchable snapshot of every bill + line item, plus its refresh/seed
 bookkeeping; the FTS5 `bill_fts` virtual table over them lives only in
 `db/index.ts`'s DDL, as Drizzle can't model it.)
 
-(`notices`/`notice_reads` back both notice surfaces — one row carries the text,
+(`notices` backs both notice surfaces — one row carries the text,
 the banner/popup choice, the schedule window and the audience (roles + emails);
-a notice is dismissed per-user and stays gone, and an undismissible banner
-writes no read row, which is what keeps it standing for its whole window; `lead_inquiry_dismissals` hides a web-form inquiry from
+a notice is dismissed per-user (a dismissed `findings` row, source `notices`) and
+stays gone, and an undismissible banner writes no dismissal, which is what keeps it standing for its whole window; `lead_inquiry_dismissals` hides a web-form inquiry from
 the leads board without deleting it.)
 
 ## Off-app scripts — run on the office Mac mini

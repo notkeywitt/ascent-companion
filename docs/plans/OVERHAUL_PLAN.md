@@ -270,7 +270,7 @@ Apps Script queues (no Apps Script URL in `.env.local`).
 ## Phase 5 — One inbox for every warning (Opus for the schema, Sonnet for the rollout; 1 to 2 sessions)
 
 - [x] One `findings` store. Generalize `invoice_review_finding_state`: kind, severity, subject, first seen, last seen, resolved, snoozed until, dismissed by.
-- [ ] One dismissal mechanism replaces the five in use. (2026-11-15: moved `digest_dismissals`, `notice_reads` and `lswdd.payReminder.dismissed`. Kept on purpose, with the reason in "Second half — 2026-11-15" below: Apps Script `dismissUncaptured` / `dismissNeedsProject`, the pre-send `cleared` list, `timeBug.dismissedOn`, `ascent.stuckVendors.dismissed`.)
+- [x] One dismissal mechanism replaces the five in use. (2026-11-15: moved `digest_dismissals`, `notice_reads` and `lswdd.payReminder.dismissed`; both old tables are dropped. Kept on purpose, with the reason in "Second half — 2026-11-15" below: Apps Script `dismissUncaptured` / `dismissNeedsProject`, the pre-send `cleared` list, `timeBug.dismissedOn`, `ascent.stuckVendors.dismissed`. The owner accepted those four as final on 2026-11-15. The inbox has one dismissal: the `findings` store.)
 - [x] One "Needs attention" page built on `Notice`. Each row has: what is wrong, the fix button, snooze, dismiss.
 - [x] Each source writes into the store: stuck vendors, needs project, uncaptured bills, flagged bills, time sync, pre-send check, Sunset duplicates, invoice review. (2026-11-15: all of them, plus Sunset unreconciled, tracking sheet risks, billing month stale, LSWDD pay reminder and notices.)
 - [ ] Inline fixes for the finding kinds that occur most. Count them from `invoice_review_finding_state` first. Each fix reuses an existing write route. **Sign-off** per fix.
@@ -423,7 +423,7 @@ surface, not the runner.
 
 | Source id | How | Scope | Where |
 |---|---|---|---|
-| `sunset-unreconciled` | push, after a reconcile read that answered | `""` | `src/app/api/sunset-statements/reconcile/route.ts`. Home's `sunset` row is gone. Rows refresh when someone opens `/payments`. |
+| `sunset-unreconciled` | push, after a reconcile read that answered | `""` | `src/lib/sunsetFindings.ts`, called by `src/app/api/sunset-statements/reconcile/route.ts` and at the end of the digest run. Home's `sunset` row is gone. Rows refresh when someone opens `/payments` and on the digest timer (08:00 and 17:00 UTC), with no page open. |
 | `tracking-sheet-risks` | push, after a sync that returned `unmatched` | the Apps Script project id | `src/app/api/tracking-sheet/route.ts` |
 | `billing-month` | pull | `""` | `src/lib/findingSources.ts` |
 | `lswdd-pay` | push, from the pop-up's read | the reader's email | `src/app/api/lswdd/reminder/route.ts` (new, gated by `/api/lswdd`) |
@@ -438,12 +438,19 @@ rows, so a dismissal in either place holds in both.
 
 | Old store | Result |
 |---|---|
-| `notice_reads` | Moved. `applySchema` copied its rows into `findings` as dismissed rows. Nothing reads or writes it now; the admin "seen by" count reads `findings`. **Ready to drop, owner's call.** |
+| `notice_reads` | Moved, then dropped (owner's ok, 2026-11-15). `applySchema` copies any rows left into `findings` as dismissed rows, then drops the table. The admin "seen by" count reads `findings`. |
 | `lswdd.payReminder.dismissed` | Moved. "Later" snoozes the reader's row to the next company midnight, on every device. |
 | Apps Script `dismissUncaptured` / `dismissNeedsProject` | Kept. It stamps the sheet row "Dismissed", which is what takes the bill out of the Apps Script queues. The store already follows it: the next pull leaves the row out and it resolves. An inbox dismissal cannot replace it without a sheet write and has no undo there. |
 | `ascent.presend.v1:<ym>:<jobId>` | Kept. It is mostly a per-device cache of the last run and its "fixed" list; `cleared` is a device-only note, not a ruling. An inbox dismissal of a pre-send row already stands (b6294382). Moving `cleared` needs `usePreSendCheck.ts`, the job route and a write path for leads (`recode`) into the office's shared rows. |
 | `timeBug.dismissedOn` | Kept. It hides the floating clock widget, not a warning, for every role, beside the widget's other per-device settings. |
 | `ascent.stuckVendors.dismissed` | Kept. The pop-up's "Later" is one person's interruption control. The stuck-vendor rows are company-wide, so a snooze there would hide them from every office user's inbox for a day. |
+
+The owner accepted the four kept stores as final on 2026-11-15.
+
+`applySchema` retires an old table with `copyThenDrop`: copy the rows into
+`findings` while the table exists, then drop it. A database that never ran the
+copy keeps its rows. `digest_dismissals` now uses it too; its drop had lost the
+copy step.
 
 Done when: every warning in the app is a row in one list, and the most common
 finding kinds clear from that list.

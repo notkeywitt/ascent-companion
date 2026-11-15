@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1bdi-1ckt0ol";
+export const SCHEMA_FINGERPRINT = "1bzr-1yshbdy";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -685,9 +685,9 @@ async function applySchema() {
     )
   `);
   // Notices — announcements office/admin push to the team, shown as a banner
-  // under the header or as a popup. Companion-owned; a notice_reads row per
-  // (notice, reader) is the "seen it" mark. See db/schema.ts for the model and
-  // src/lib/notices.ts for the schedule + targeting rules.
+  // under the header or as a popup. Companion-owned; a dismissed `findings` row
+  // (source 'notices', scope = the reader's email) is the "seen it" mark. See
+  // db/schema.ts for the model and src/lib/notices.ts for the schedule + targeting rules.
   await getClient().execute(`
     CREATE TABLE IF NOT EXISTS notices (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -734,14 +734,6 @@ async function applySchema() {
   if (noticesGainedDisplay) {
     await getClient().execute("UPDATE notices SET display = 'popup'");
   }
-  await getClient().execute(`
-    CREATE TABLE IF NOT EXISTS notice_reads (
-      notice_id INTEGER NOT NULL,
-      email TEXT NOT NULL,
-      read_at TEXT NOT NULL,
-      PRIMARY KEY (notice_id, email)
-    )
-  `);
   // Bill search index (companion-owned CACHE, not a source of truth): the local
   // snapshot of every vendor bill + line item that makes /bill-search resolve in
   // under a second. `source='jobtread'` rows come from the live Pave sweep (keyed
@@ -1705,9 +1697,29 @@ async function applySchema() {
     FROM invoice_review_finding_state
     WHERE resolved_at = '' AND ym >= strftime('%Y-%m', 'now', '-2 months')
   `);
+  // Retire an old table into `findings`: copy its rows, then drop it. The copy
+  // runs only while the table exists, so a database that already dropped it, or
+  // never had it, skips straight to the no-op drop. A failed copy throws before
+  // the drop, and OR IGNORE in each copy makes a re-run after a crash harmless.
+  const copyThenDrop = async (table: string, copySql: string) => {
+    const found = await getClient().execute({
+      sql: `SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?`,
+      args: [table],
+    });
+    if (found.rows.length > 0) await getClient().execute(copySql);
+    await getClient().execute(`DROP TABLE IF EXISTS ${table}`);
+  };
   // The digest's dismissals live in the findings store (OVERHAUL_PLAN Phase 5,
-  // step 3). The old table was copied into it, checked, and dropped.
-  await getClient().execute(`DROP TABLE IF EXISTS digest_dismissals`);
+  // step 3). A resolved row keeps the dismissal: the next digest run reopens the
+  // item still dismissed.
+  await copyThenDrop(
+    "digest_dismissals",
+    `INSERT OR IGNORE INTO findings
+      (source, scope, key, kind, severity, title, first_seen_at, last_seen_at, resolved_at, dismissed_by, dismissed_at)
+    SELECT 'digest', check_id, key, check_id, 'info', title, dismissed_at, dismissed_at, dismissed_at, dismissed_by, dismissed_at
+    FROM digest_dismissals
+    WHERE active = 1 AND dismissed_by <> ''`,
+  );
   // One row per "Split bill": which bill the new one came from, and the
   // original's total and line count at that moment (src/lib/splitCheck.ts).
   await getClient().execute(`
@@ -1720,17 +1732,17 @@ async function applySchema() {
       created_at TEXT NOT NULL
     )
   `);
-  // Notice read marks move into the findings store (OVERHAUL_PLAN Phase 5): a
+  // Notice read marks live in the findings store (OVERHAUL_PLAN Phase 5): a
   // resolved, dismissed row per (reader, notice), so nobody sees a notice they
-  // already cleared. OR IGNORE keeps a re-run from overwriting a row.
-  // notice_reads itself stays, unused, until the owner's ok to drop it.
-  await getClient().execute(`
-    INSERT OR IGNORE INTO findings
+  // already cleared. Owner approved the drop 2026-11-15.
+  await copyThenDrop(
+    "notice_reads",
+    `INSERT OR IGNORE INTO findings
       (source, scope, key, kind, severity, title, first_seen_at, last_seen_at, resolved_at, dismissed_by, dismissed_at)
     SELECT 'notices', lower(r.email), CAST(r.notice_id AS TEXT), 'notice', 'info', COALESCE(n.title, ''),
            r.read_at, r.read_at, r.read_at, lower(r.email), r.read_at
-    FROM notice_reads r LEFT JOIN notices n ON n.id = r.notice_id
-  `);
+    FROM notice_reads r LEFT JOIN notices n ON n.id = r.notice_id`,
+  );
 }
 
 export { schema };
