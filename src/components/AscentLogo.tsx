@@ -36,7 +36,7 @@ export function AscentLogo({
 }: {
   wordmark?: boolean;
   tone?: LogoTone;
-  /** `sm` is the header lockup; `lg` is the loading screen. */
+  /** `sm` is the header lockup; `lg` is the large lockup (the loading screen used it until 2026-11-15). */
   size?: "sm" | "lg";
   className?: string;
 }) {
