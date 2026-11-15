@@ -7,19 +7,23 @@ import { daysInYear, weekPosition, type RibbonJob } from "@/lib/yearRibbon";
  * THE YEAR RIBBON (owner, 2026-11-15). The current year, January to December,
  * on one canvas with no chart library.
  *
- *   Above the centre line: crew hours per work day.
- *   Below it:              vendor bill cost.
+ * Drawn like the Range (owner, 2026-11-15, test C "Contours"): ink lines on the
+ * page, no colour per job.
  *
- * Hours and dollars never share a scale: each has its own half.
+ *   The mountain:  crew hours per work day. The outer edge is the company's
+ *                  total; each thin line inside it is where one job's hours end.
+ *   Dashed ochre:  vendor bill cost.
+ *
+ * Hours and dollars never share a scale: each has its own maximum.
  *
  * It draws no text and no vertical lines, and has no panel of its own: it is
  * printed straight on the page background (owner, 2026-11-15).
  *
  * Two shapes:
- *   backdrop    Home. Every job stacked, one colour per job. It fills the
+ *   backdrop    Home. Every job stacked as contour lines. It fills the
  *               masthead's line and sits faded behind the billing month
  *               (`HomeMasthead`'s `backdrop`, `/api/home/ribbon`).
- *   jobId       The Jobs page. One job: two lines with its colour between them.
+ *   jobId       The Jobs page. One job: its hours as the mountain, its bills dashed.
  *               Drawn from `pad` up only, and a phone never fetches it
  *               (`/api/jobs-hub/ribbon`).
  *
@@ -34,11 +38,9 @@ interface Payload {
   error?: string;
 }
 
-const SERIES = ["--viz-1", "--viz-2", "--viz-3", "--viz-4", "--viz-5", "--viz-6"];
 const PAD_QUERY = "(min-width: 744px)"; // the `pad` breakpoint (tailwind.config.ts)
 const DRAW_MS = 2400;
 const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
-const colorVar = (job: RibbonJob, i: number) => (job.id ? SERIES[i % SERIES.length] : "--viz-other");
 
 export function YearRibbon({ jobId, backdrop = false }: { jobId?: string; backdrop?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
@@ -112,30 +114,18 @@ export function YearRibbon({ jobId, backdrop = false }: { jobId?: string; backdr
     const css = getComputedStyle(el);
     const root = getComputedStyle(document.documentElement);
     const ink = css.color;
-    // The page itself: the strokes between stacked bands cut in its colour.
-    const ground = `rgb(${root.getPropertyValue("--page").trim().split(/\s+/).join(" ")})`;
+    // The dashed bills line: the accent (ochre in the guidelines palette).
+    const accent = `rgb(${root.getPropertyValue("--accent").trim().split(/\s+/).join(" ")})`;
     x.lineJoin = "round";
 
     const L = 8;
     const R = w - 8;
-    const foot = h - 2;
-    const mid = Math.round(foot * 0.52);
-    const up = mid - 6;
-    const down = foot - 4 - mid;
+    const base = h - 2;
+    const span = h - 6;
     const days = daysInYear(data.year);
     const at = (pos: number) => L + pos * (R - L);
     const weeks = Array.from({ length: 53 }, (_, i) => i + 1);
     const wx = (wk: number) => at(weekPosition(data.year, wk));
-
-    // The centre line only. No text and no vertical lines.
-    x.globalAlpha = 0.4;
-    x.strokeStyle = ink;
-    x.lineWidth = 1;
-    x.beginPath();
-    x.moveTo(L, mid);
-    x.lineTo(R, mid);
-    x.stroke();
-    x.globalAlpha = 1;
 
     const todayPos =
       (Date.UTC(data.year, Number(data.today.slice(5, 7)) - 1, Number(data.today.slice(8, 10))) -
@@ -149,64 +139,68 @@ export function YearRibbon({ jobId, backdrop = false }: { jobId?: string; backdr
         x.quadraticCurveTo(p[i][0], p[i][1], (p[i][0] + p[i + 1][0]) / 2, (p[i][1] + p[i + 1][1]) / 2);
       x.lineTo(p[p.length - 1][0], p[p.length - 1][1]);
     };
+    const edge = (pts: number[][]) => {
+      x.beginPath();
+      soft(pts, true);
+    };
+
+    // Each series is a total per week; the mountain's contours are running totals.
+    const largestFirst = jobs.slice().sort((a, b) => sum(b.hours) - sum(a.hours));
+    const totalHours = weeks.map((wk) => sum(jobs.map((j) => j.hours[wk])));
+    const totalBills = weeks.map((wk) => sum(jobs.map((j) => j.bills[wk])));
+    const hMax = Math.max(1, ...totalHours);
+    const bMax = Math.max(1, ...totalBills);
 
     x.save();
     x.beginPath();
     x.rect(0, 0, at(todayPos * progress), h);
     x.clip();
-    if (backdrop) {
-      // Stacked: each job is a band on each side of the centre line.
-      const hMax = Math.max(1, ...weeks.map((wk) => sum(jobs.map((j) => j.hours[wk]))));
-      const bMax = Math.max(1, ...weeks.map((wk) => sum(jobs.map((j) => j.bills[wk]))));
-      const accH = new Array<number>(54).fill(0);
-      const accB = new Array<number>(54).fill(0);
-      jobs.forEach((j, i) => {
-        const fill = root.getPropertyValue(colorVar(j, i)).trim();
-        const sides: [number[], number[], number][] = [
-          [j.hours, accH, -up / hMax],
-          [j.bills, accB, down / bMax],
-        ];
-        for (const [v, acc, k] of sides) {
-          const lo = weeks.map((wk) => [wx(wk), mid + acc[wk] * k]);
-          const hi = weeks.map((wk) => [wx(wk), mid + (acc[wk] + v[wk]) * k]);
-          weeks.forEach((wk) => (acc[wk] += v[wk]));
-          x.beginPath();
-          soft(hi, true);
-          soft(lo.reverse(), false);
-          x.closePath();
-          x.fillStyle = fill;
-          x.fill();
-          x.strokeStyle = ground;
-          x.lineWidth = 0.8;
-          x.stroke();
-        }
-      });
-    } else {
-      // One job: two lines with its colour between them.
-      const j = jobs[0];
-      const fill = root.getPropertyValue("--viz-1").trim();
-      const hMax = Math.max(1, ...j.hours);
-      const bMax = Math.max(1, ...j.bills);
-      const hi = weeks.map((wk) => [wx(wk), mid - (j.hours[wk] / hMax) * up]);
-      const lo = weeks.map((wk) => [wx(wk), mid + (j.bills[wk] / bMax) * down]);
-      x.beginPath();
-      soft(hi, true);
-      soft(lo.slice().reverse(), false);
-      x.closePath();
-      x.fillStyle = fill;
-      x.globalAlpha = 0.3;
-      x.fill();
-      x.globalAlpha = 1;
-      x.strokeStyle = fill;
-      x.lineWidth = 1.8;
-      for (const p of [hi, lo]) {
-        x.beginPath();
-        soft(p, true);
-        x.stroke();
-      }
-    }
-    x.restore();
 
+    // The mountain: a faint fill under the outer edge.
+    const outer = weeks.map((wk, i) => [wx(wk), base - (totalHours[i] / hMax) * span]);
+    x.beginPath();
+    soft(outer, true);
+    x.lineTo(outer[outer.length - 1][0], base);
+    x.lineTo(outer[0][0], base);
+    x.closePath();
+    x.fillStyle = ink;
+    x.globalAlpha = 0.08;
+    x.fill();
+
+    // A contour per job: where the running total of the larger jobs ends.
+    if (backdrop) {
+      const acc = new Array<number>(54).fill(0);
+      largestFirst.slice(0, -1).forEach((j) => {
+        weeks.forEach((wk) => (acc[wk] += j.hours[wk]));
+        edge(weeks.map((wk) => [wx(wk), base - (acc[wk] / hMax) * span]));
+        x.strokeStyle = ink;
+        x.globalAlpha = 0.55;
+        x.lineWidth = 0.8;
+        x.stroke();
+      });
+    }
+    x.globalAlpha = 1;
+    edge(outer);
+    x.strokeStyle = ink;
+    x.lineWidth = 1.5;
+    x.stroke();
+
+    // The ground the mountain stands on.
+    x.beginPath();
+    x.moveTo(L, base);
+    x.lineTo(R, base);
+    x.strokeStyle = ink;
+    x.lineWidth = 1;
+    x.stroke();
+
+    // Vendor bills: one dashed line, on its own scale.
+    edge(weeks.map((wk, i) => [wx(wk), base - (totalBills[i] / bMax) * span * 0.95]));
+    x.setLineDash([3, 2.5]);
+    x.strokeStyle = accent;
+    x.lineWidth = 1.3;
+    x.stroke();
+    x.setLineDash([]);
+    x.restore();
   }, [data, has, jobs, backdrop, tick, progress]);
 
   if (!data || !has) return null;
@@ -218,8 +212,8 @@ export function YearRibbon({ jobId, backdrop = false }: { jobId?: string; backdr
         role="img"
         aria-label={
           backdrop
-            ? "This year by week: crew hours per day above the line and vendor bills below it, one colour per job"
-            : "This job's year by week: crew hours per day above the line and vendor bills below it"
+            ? "This year by week: crew hours per day as a mountain with a line for each job, and vendor bills as a dashed line"
+            : "This job's year by week: crew hours per day as a mountain, and vendor bills as a dashed line"
         }
         className={backdrop ? "block h-full w-full" : "block h-24 w-full"}
       />
