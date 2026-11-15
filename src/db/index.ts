@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1ay4-1ualcq7";
+export const SCHEMA_FINGERPRINT = "1bdi-1ckt0ol";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -487,6 +487,21 @@ async function applySchema() {
   `);
   await getClient().execute(
     `CREATE UNIQUE INDEX IF NOT EXISTS pay_type_rules_set ON pay_type_rules (jt_user_id, job_id, cost_code)`,
+  );
+  // Job + cost code → the pay type that code is paid at (Labor page's rate check).
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS job_code_rates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      job_id TEXT NOT NULL,
+      job_name TEXT NOT NULL DEFAULT '',
+      cost_code TEXT NOT NULL,
+      pay_type TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(
+    `CREATE UNIQUE INDEX IF NOT EXISTS job_code_rates_set ON job_code_rates (job_id, cost_code)`,
   );
   // Employee + job → the cost code the time page selects first.
   await getClient().execute(`

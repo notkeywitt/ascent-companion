@@ -126,7 +126,9 @@ export function WeekCalendar({
     const ty = people.find((u) => u.id !== myId && DEFAULT_OTHER.test(u.name));
     return ty ? [ty.id] : [];
   });
-  const shown = useMemo(() => [myId, ...others], [myId, others]);
+  // You can switch yourself off, but one person always stays on.
+  const [meOn, setMeOn] = useState(true);
+  const shown = useMemo(() => (meOn ? [myId, ...others] : others), [meOn, myId, others]);
   const [sides, setSides] = useState<Record<string, Side>>({});
   const [sel, setSel] = useState<{ who: string; id: string } | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -277,14 +279,19 @@ export function WeekCalendar({
   /** Change whose entry it is. Someone not on the calendar yet is added, so the new entry shows. */
   function setDraftWho(who: string) {
     if (!draft) return;
-    if (!shown.includes(who) && others.length + 1 < MAX_PEOPLE) setOthers((o) => [...o, who]);
+    if (!shown.includes(who) && shown.length < MAX_PEOPLE) {
+      if (who === myId) setMeOn(true);
+      else setOthers((o) => [...o, who]);
+    }
     setDraft({ ...draft, who });
   }
 
   function toggle(id: string) {
-    setOthers((o) =>
-      o.includes(id) ? o.filter((x) => x !== id) : o.length + 1 < MAX_PEOPLE ? [...o, id] : o,
-    );
+    const on = shown.includes(id);
+    if (on && shown.length === 1) return;
+    if (!on && shown.length >= MAX_PEOPLE) return;
+    if (id === myId) setMeOn(!on);
+    else setOthers((o) => (on ? o.filter((x) => x !== id) : [...o, id]));
     if (sel?.who === id) setSel(null);
   }
 
@@ -322,20 +329,14 @@ export function WeekCalendar({
       <ChipScroller>
         {people.map((u) => {
           const me = u.id === myId;
-          const on = me || others.includes(u.id);
-          const full = !on && others.length + 1 >= MAX_PEOPLE;
+          const on = shown.includes(u.id);
+          const full = !on && shown.length >= MAX_PEOPLE;
           return (
             <FilterChip
               key={u.id}
               on={on}
-              onClick={() => !me && !full && toggle(u.id)}
-              title={
-                me
-                  ? "Your time is always shown"
-                  : full
-                    ? `Up to ${MAX_PEOPLE} people at once`
-                    : undefined
-              }
+              onClick={() => !full && toggle(u.id)}
+              title={full ? `Up to ${MAX_PEOPLE} people at once` : undefined}
             >
               {on && <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${hueOf(u.id).dot}`} />}
               {me ? `${u.name} (you)` : u.name}
@@ -513,7 +514,7 @@ export function WeekCalendar({
               className="w-auto"
             >
               {people
-                .filter((u) => shown.includes(u.id) || others.length + 1 < MAX_PEOPLE)
+                .filter((u) => shown.includes(u.id) || shown.length < MAX_PEOPLE)
                 .map((u) => (
                   <option key={u.id} value={u.id}>
                     {u.name}
