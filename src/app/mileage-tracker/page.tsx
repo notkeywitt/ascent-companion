@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { hasGrant } from "@/lib/config";
-import { getCachedJobs } from "@/lib/jobsCache";
+import { getCachedJobsWithPhase } from "@/lib/jobsCache";
 import { readJtUserLink } from "@/lib/jtUserLink";
 import { getKnownPlacePoints } from "@/lib/knownPlacePoints";
 import { MileageClient } from "./MileageClient";
@@ -23,7 +23,7 @@ export default async function MileageTrackerPage() {
   // The map's saved places wait at most 1.5 s, and only on a cold cache.
   const [link, jobs, knownPlaces] = await Promise.all([
     readJtUserLink(email),
-    hasGrant() ? getCachedJobs().catch(() => []) : [],
+    hasGrant() ? getCachedJobsWithPhase().catch(() => []) : [],
     getKnownPlacePoints(),
   ]);
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc } from "drizzle-orm";
+import { auth } from "@/auth";
 import { db, ensureDb } from "@/db";
 import { featureRequests } from "@/db/schema";
 
@@ -20,6 +21,8 @@ export async function POST(req: NextRequest) {
   }
   const title = (body.title ?? "").trim();
   if (!title) return NextResponse.json({ error: "title is required" }, { status: 400 });
+  // The home box sends no name; the signed-in person is the requester.
+  const requester = (body.requester ?? "").trim() || (await auth())?.user?.name || "";
   await ensureDb();
   const now = new Date().toISOString();
   const [row] = await db
@@ -27,7 +30,7 @@ export async function POST(req: NextRequest) {
     .values({
       title,
       detail: (body.detail ?? "").trim(),
-      requester: (body.requester ?? "").trim(),
+      requester,
       createdAt: now,
       updatedAt: now,
     })

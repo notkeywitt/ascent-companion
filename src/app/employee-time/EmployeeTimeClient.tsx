@@ -2184,7 +2184,10 @@ export function EmployeeTimeClient({
     <main className={`w-full ${tab === "compare" || showCard ? "max-w-7xl" : "max-w-2xl"} px-4 pad:px-7 pb-28 pt-4`}>
       {/* A bare <h1>: no peak mark on this page, and a description only
           while an admin is acting as someone else. */}
+      {/* On a phone the header bar already says "Time", so the heading hides
+          there unless an admin is acting as someone else (owner, 2026-11-15). */}
       <PageHeader
+        className={acting ? "" : "max-pad:hidden"}
         titleSlot={<h1 className="text-xl font-bold tracking-tight">{linkTitle}</h1>}
         description={
           acting

@@ -56,14 +56,14 @@ describe("the bottom bar", () => {
     }
   });
 
-  it("gives leads a Home slot, and field staff their five pages", () => {
+  it("gives leads a Home slot, and field staff Home plus their four pages", () => {
     expect(barFor("lead", canFor("lead"))[0].key).toBe("today");
     expect(barFor("field", canFor("field")).map((i) => i.label)).toEqual([
+      "Home",
       "Time",
       "Miles",
       "Tools",
       "Requisitions",
-      "Time Off",
     ]);
   });
 
