@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1ado-zldsdu";
+export const SCHEMA_FINGERPRINT = "1ay4-1ualcq7";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1704,6 +1704,17 @@ async function applySchema() {
       created_by TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     )
+  `);
+  // Notice read marks move into the findings store (OVERHAUL_PLAN Phase 5): a
+  // resolved, dismissed row per (reader, notice), so nobody sees a notice they
+  // already cleared. OR IGNORE keeps a re-run from overwriting a row.
+  // notice_reads itself stays, unused, until the owner's ok to drop it.
+  await getClient().execute(`
+    INSERT OR IGNORE INTO findings
+      (source, scope, key, kind, severity, title, first_seen_at, last_seen_at, resolved_at, dismissed_by, dismissed_at)
+    SELECT 'notices', lower(r.email), CAST(r.notice_id AS TEXT), 'notice', 'info', COALESCE(n.title, ''),
+           r.read_at, r.read_at, r.read_at, lower(r.email), r.read_at
+    FROM notice_reads r LEFT JOIN notices n ON n.id = r.notice_id
   `);
 }
 

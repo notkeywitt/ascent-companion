@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { allowedUsers, notices, noticeReads } from "@/db/schema";
+import { allowedUsers, findings, notices } from "@/db/schema";
 import { auth, envAllowed } from "@/auth";
 import { ROLES, resolveAllowedViews } from "@/lib/views";
 import {
@@ -87,11 +87,13 @@ function normalizeAudience(body: Record<string, unknown>):
 /** All notices, newest first, each with a count of who's acknowledged it. */
 async function listNotices() {
   const rows = await db.select().from(notices).orderBy(desc(notices.id));
+  // A dismissal is the reader's row in the findings store (api/notices/dismiss).
   const counts = await db
-    .select({ noticeId: noticeReads.noticeId, n: sql<number>`count(*)` })
-    .from(noticeReads)
-    .groupBy(noticeReads.noticeId);
-  const readCount = new Map(counts.map((c) => [c.noticeId, Number(c.n)]));
+    .select({ key: findings.key, n: sql<number>`count(*)` })
+    .from(findings)
+    .where(and(eq(findings.source, "notices"), ne(findings.dismissedBy, "")))
+    .groupBy(findings.key);
+  const readCount = new Map(counts.map((c) => [Number(c.key), Number(c.n)]));
   return rows.map((r) => ({ ...r, readCount: readCount.get(r.id) ?? 0 }));
 }
 
@@ -223,7 +225,6 @@ export async function DELETE(req: NextRequest) {
   const id = Number(req.nextUrl.searchParams.get("id"));
   if (!Number.isInteger(id) || id <= 0) return bad("id required");
   await ensureDb();
-  await db.delete(noticeReads).where(eq(noticeReads.noticeId, id));
   await db.delete(notices).where(eq(notices.id, id));
   return NextResponse.json({ notices: await listNotices() });
 }
