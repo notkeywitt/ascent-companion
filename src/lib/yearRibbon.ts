@@ -13,6 +13,12 @@ export const RIBBON_WEEKS = 54;
 /** Colours the ribbon has. Jobs past this many fold into "Other". */
 export const RIBBON_MAX_JOBS = 6;
 const WORK_DAYS = 5;
+/**
+ * Weeks one week's bills spread over: itself and the three before it. Bills
+ * carry a month-end issue date, so a month's spend lands in one week; spread
+ * back, it sits beside the crew hours that earned it (owner, 2026-11-15).
+ */
+export const BILL_SPREAD_WEEKS = 4;
 
 export interface RibbonRow {
   week: number;
@@ -56,7 +62,23 @@ export function weekPosition(year: number, week: number): number {
   return Math.max(0, Math.min(1, (isoWeekStartDay(year, week) + 3.5) / daysInYear(year)));
 }
 
-/** Every job's two series, unsorted. A negative week total (a credit) draws as 0. */
+/**
+ * Each week's value shared evenly over itself and the `n - 1` weeks before it.
+ * The total is kept: what would fall before week 1 stays in week 1.
+ */
+export function spreadBack(values: number[], n = BILL_SPREAD_WEEKS): number[] {
+  const out = new Array<number>(values.length).fill(0);
+  values.forEach((v, w) => {
+    if (w < 1 || !v) return;
+    for (let k = 0; k < n; k++) out[Math.max(1, w - k)] += v / n;
+  });
+  return out;
+}
+
+/**
+ * Every job's two series, unsorted. A negative week total (a credit) draws as 0.
+ * Bills are spread back over the month that earned them (`spreadBack`).
+ */
 export function buildRibbonJobs(
   minuteRows: RibbonRow[],
   billRows: RibbonRow[],
@@ -71,7 +93,7 @@ export function buildRibbonJobs(
   const ok = (r: RibbonRow) => r.jobId && r.week >= 1 && r.week < RIBBON_WEEKS && Number.isFinite(r.value);
   for (const r of minuteRows) if (ok(r)) job(r.jobId).hours[r.week] += r.value / 60 / WORK_DAYS;
   for (const r of billRows) if (ok(r)) job(r.jobId).bills[r.week] += r.value;
-  for (const j of jobs.values()) j.bills = j.bills.map((v) => Math.max(0, v));
+  for (const j of jobs.values()) j.bills = spreadBack(j.bills.map((v) => Math.max(0, v)));
   return [...jobs.values()];
 }
 

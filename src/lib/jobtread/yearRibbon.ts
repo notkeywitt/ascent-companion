@@ -2,6 +2,9 @@
 import type { RibbonRow } from "@/lib/yearRibbon";
 import { pageAll, type PaveConfig } from "./core";
 
+/** The vendor the Historical Cost Import bills under. See below. */
+const HISTORICAL_VENDOR = "Historical Job Cost";
+
 /**
  * One calendar year of crew minutes and vendor bill cost, per job per ISO week.
  *
@@ -10,6 +13,11 @@ import { pageAll, type PaveConfig } from "./core";
  * every bill. `formatDatetime` takes Postgres patterns; "IW" is the ISO week
  * (confirmed live 2026-11-15). Bills count when pending or approved, the same
  * rule every cost roll-up uses, so a voided (denied) bill is out.
+ *
+ * The "Historical Job Cost" vendor is out too: its bills are a job's whole
+ * pre-JobTread spend in one lump (the Historical Cost Import), dated about
+ * April 1, 2026. Counted, one week held $2.1M and flattened every other
+ * week of bills (owner's ribbon check, 2026-11-15).
  */
 export async function getYearRibbonRows(
   cfg: PaveConfig,
@@ -45,6 +53,7 @@ export async function getYearRibbonRows(
     grouped("documents", "issueDate", "cost", [
       ["type", "vendorBill"],
       ["status", "in", ["pending", "approved"]],
+      [["account", "name"], "!=", HISTORICAL_VENDOR],
     ]),
   ]);
   return { minutes: rows(minutes), bills: rows(bills) };
