@@ -2266,6 +2266,15 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             >
               + Add time
             </button>
+            {/* The full labor review for this job and month (/labor). */}
+            {can("labor") && (
+              <Link
+                href={`/labor?jobId=${encodeURIComponent(jobId)}&period=month&date=${ym}-01`}
+                className="shrink-0 text-xs font-semibold text-accent transition hover:underline"
+              >
+                Labor ↗
+              </Link>
+            )}
             <span className="shrink-0 text-sm font-semibold tabular-nums">
               {money(monthTimeTotal)} · {hoursLabel(monthTimeHours)}
             </span>

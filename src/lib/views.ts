@@ -464,6 +464,13 @@ export const VIEWS: ViewDef[] = [
   // the page borrows the one its first-loaded section already needs. Each
   // section still checks its own view.
   { id: "time-sync", label: "Payroll", group: "Office", paths: ["/payroll", "/time-sync", "/api/time-sync"] },
+  // Labor — the weekly / half-month / monthly labor review across every job.
+  // Office + admin. Its read is its own route. Its writes are /api/time-entry
+  // and /api/time-entry/create, and its budget read is /api/jobs/cost-detail.
+  // Those stay OFF this list on purpose: a path belongs to one view (the
+  // longest match wins), and listing them here would take them away from
+  // Tracking Sheets ("recode"), which leads hold, and from a lead's job panel.
+  { id: "labor", label: "Labor", group: "Office", paths: ["/labor", "/api/labor"] },
   // Notices — AUTHORING the announcements every user sees (banner under the
   // header, or popup). Office + admin: telling the team something is office
   // work, so this is deliberately NOT in ADMIN_MENU, unlike the access console.

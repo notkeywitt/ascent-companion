@@ -121,11 +121,11 @@ describe("the iPad rail", () => {
     const views = resolveAllowedViews(role);
     return (v: string) => views.has(v);
   };
-  it("starts the office's rail with the owner's eleven, then a space, then every other workspace once", () => {
+  it("starts the office's rail with the owner's twelve, then a space, then every other workspace once", () => {
     const items = railFor("office", can("office"));
     const rail = items.map((i) => i.key);
-    expect(rail.slice(0, 11)).toEqual(["today", "close", "invoice-review", "invoicing-summary", "employees", "clients", "leads", "vendors", "time", "time-sync", "tools"]);
-    expect(items[11].gap).toBe(true);
+    expect(rail.slice(0, 12)).toEqual(["today", "close", "invoice-review", "invoicing-summary", "employees", "clients", "leads", "vendors", "time", "time-sync", "tools", "labor"]);
+    expect(items[12].gap).toBe(true);
     expect(items.filter((i) => i.gap)).toHaveLength(1);
     expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "help", "office", "mywork"]));
     expect(rail).not.toContain("admin");
@@ -148,6 +148,7 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/mileage-tracker")).toBe("mywork");
     expect(activeBarKey(rail, "/employee-time")).toBe("time");
     expect(activeBarKey(rail, "/tools")).toBe("tools");
+    expect(activeBarKey(rail, "/labor")).toBe("labor");
   });
   it("lists Feature Requests right under Help, on the rail and in the drawer", () => {
     for (const role of ["office", "field"] as const) {
@@ -181,8 +182,8 @@ describe("a role's side-menu edit", () => {
   });
   it("puts an added item at the end of the top group, before the space", () => {
     const items = railFor("office", can("office"), "", { add: ["page:bills"], hide: [] });
-    expect(items[11].key).toBe("bills");
-    expect(items[12].gap).toBe(true);
+    expect(items[12].key).toBe("bills");
+    expect(items[13].gap).toBe(true);
   });
   it("skips an added item the role cannot open", () => {
     const keys = railFor("field", can("field"), "", { add: ["ws:admin"], hide: [] }).map((i) => i.key);
@@ -199,7 +200,7 @@ describe("a role's side-menu edit", () => {
     expect(keys.slice(0, 3)).toEqual(["time", "today", "invoice-review"]);
     expect(keys[8]).toBe("close");
     expect(new Set(keys)).toEqual(new Set(base));
-    expect(items[11].gap).toBe(true);
+    expect(items[12].gap).toBe(true);
   });
   it("keeps only known keys", () => {
     expect(cleanMenuKeys(["today", "ws:clients", "page:bills", "ws:nope", 3, "today"])).toEqual([
