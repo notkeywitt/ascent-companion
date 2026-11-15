@@ -39,4 +39,45 @@ describe("groupBills", () => {
       "Sunset",
     ]);
   });
+
+  it("reverses the sort", () => {
+    expect(shape(groupBills(bills, "date", "none", true))[0][1]).toEqual(["1", "3", "5"]);
+    expect(shape(groupBills(bills, "name", "none", true))[0][1]).toEqual(["1", "5", "3"]);
+  });
+
+  it("sorts by amount, biggest first", () => {
+    const b = [
+      { id: "a", fromName: "X", cost: 5 },
+      { id: "b", fromName: "Y", cost: 50 },
+    ];
+    expect(shape(groupBills(b, "amount", "none"))[0][1]).toEqual(["b", "a"]);
+    expect(shape(groupBills(b, "amount", "none", true))[0][1]).toEqual(["a", "b"]);
+  });
+
+  it("groups by month, newest month first, and reverses", () => {
+    const b = [
+      { id: "a", fromName: "X", issueDate: "2026-09-30" },
+      { id: "b", fromName: "Y", issueDate: "2026-10-02" },
+      { id: "c", fromName: "Sunset", issueDate: "2026-10-03" },
+    ];
+    expect(shape(groupBills(b, "date", "month")).map((g) => g[0])).toEqual(["October 2026", "September 2026", "Sunset"]);
+    expect(shape(groupBills(b, "date", "month", true)).map((g) => g[0])).toEqual(["September 2026", "October 2026", "Sunset"]);
+  });
+
+  it("groups by day, newest first", () => {
+    expect(shape(groupBills(bills, "date", "date")).map((g) => g[0])).toEqual([
+      "Oct 4, 2026",
+      "Oct 3, 2026",
+      "Oct 1, 2026",
+      "Sunset",
+    ]);
+  });
+
+  it("groups by coding status, To code first", () => {
+    const b = [
+      { id: "a", fromName: "X", reviewed: true },
+      { id: "b", fromName: "Y" },
+    ];
+    expect(shape(groupBills(b, "date", "code")).map((g) => g[0])).toEqual(["To code", "Reviewed"]);
+  });
 });

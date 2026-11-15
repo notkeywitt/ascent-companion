@@ -7,6 +7,7 @@ import {
   Banner,
   Checkbox,
   Chip,
+  ChipScroller,
   Dialog,
   EmptyState,
   FileDrop,
@@ -831,6 +832,7 @@ function Vendors() {
   const [coiStatus, setCoiStatus] = useState<CoiStatus | null>(null);
   const [coiStatusError, setCoiStatusError] = useState("");
   const [requesting, setRequesting] = useState(false);
+  const [coiOnly, setCoiOnly] = useState(false);
 
   const [numberQuery, setNumberQuery] = useState(initialNumber);
   const [numberMatches, setNumberMatches] = useState<VendorBillMatch[] | null>(null);
@@ -992,8 +994,9 @@ function Vendors() {
     () =>
       vendors
         .filter((v) => !q || v.name.toLowerCase().includes(q))
+        .filter((v) => !coiOnly || (coiStatus?.request.includes(v.id) ?? false))
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [q, vendors],
+    [q, vendors, coiOnly, coiStatus],
   );
 
   const total = bills.reduce((s, b) => s + b.cost, 0);
@@ -1054,7 +1057,8 @@ function Vendors() {
 
       <SplitView
         onClose={closeVendor}
-        backLabel="Back to search"
+        backLabel="Back to the list"
+        cols="lg:grid-cols-[22rem_minmax(0,1fr)]"
         empty="Pick a vendor to see its details and bills."
         detail={
           selected && (
@@ -1139,7 +1143,56 @@ function Vendors() {
         }
         list={
           <div className="space-y-6">
-            <div className="space-y-2">
+            <div className="space-y-5">
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={vendorsLoading ? "Loading…" : `Filter ${vendors.length} vendors`}
+                aria-label="Filter vendors"
+                autoFocus
+              />
+              {coiStatus && (
+                <ChipScroller bleed="0px">
+                  <FilterChip
+                    on={coiOnly}
+                    onClick={() => setCoiOnly((v) => !v)}
+                    title="Vendors whose certificate of insurance has expired"
+                  >
+                    COI expired{coiStatus.request.length > 0 ? ` (${coiStatus.request.length})` : ""}
+                  </FilterChip>
+                </ChipScroller>
+              )}
+              {vendorsError && <p className="text-sm text-danger">{vendorsError}</p>}
+
+              {!vendorsLoading && !vendorsError && (
+                <section className="space-y-2">
+                  <SectionHeading
+                    trailing={<span className="text-[11px] tabular-nums text-neutral-500">{matches.length}</span>}
+                  >
+                    Vendors
+                  </SectionHeading>
+                  {matches.length === 0 ? (
+                    <EmptyState>
+                      {q || coiOnly ? "Nothing matches those filters." : "No vendors in JobTread."}
+                    </EmptyState>
+                  ) : (
+                    <ListCard>
+                      {matches.map((v) => (
+                        <ListRow
+                          key={v.id}
+                          onClick={() => loadVendorBills(v)}
+                          label={v.name}
+                          trailing={coiMark(v)}
+                          selected={selected?.id === v.id}
+                        />
+                      ))}
+                    </ListCard>
+                  )}
+                </section>
+              )}
+            </div>
+            <div className="space-y-2 border-t border-line pt-5">
               <SectionHeading>Look up a bill by number</SectionHeading>
               <form
                 onSubmit={(e) => {
@@ -1186,48 +1239,6 @@ function Vendors() {
                           label={<>{b.vendorName}<CoiDot vendor={b.vendorName} /></>}
                           desc={`${b.jobName} · ${dateLabel(b.issueDate)}`}
                           trailing={<BillTrailing cost={b.cost} status={b.status} />}
-                        />
-                      ))}
-                    </ListCard>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="space-y-2 border-t border-line pt-5">
-              <Input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={
-                  vendorsLoading ? "Loading vendors…" : `Search ${vendors.length} vendors`
-                }
-                aria-label="Search vendors"
-                autoFocus
-              />
-              {vendorsError && <p className="text-sm text-danger">{vendorsError}</p>}
-
-              {!vendorsLoading && !vendorsError && (
-                <div className="space-y-2 pt-2">
-                  <SectionHeading>
-                    {!q
-                      ? `All vendors · ${matches.length}`
-                      : matches.length === 1
-                        ? "1 match"
-                        : `${matches.length} matches`}
-                  </SectionHeading>
-                  {matches.length === 0 ? (
-                    <EmptyState>
-                      {q ? `Nothing matches “${query.trim()}”.` : "No vendors in JobTread."}
-                    </EmptyState>
-                  ) : (
-                    <ListCard>
-                      {matches.map((v) => (
-                        <ListRow
-                          key={v.id}
-                          onClick={() => loadVendorBills(v)}
-                          label={v.name}
-                          trailing={coiMark(v)}
-                          selected={selected?.id === v.id}
                         />
                       ))}
                     </ListCard>
