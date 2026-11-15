@@ -182,14 +182,14 @@ export function HelpBrowser() {
   const shown = only ? sections.filter((s) => s.id === only) : sections;
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageTabs tabs={HELP_TABS} />
       <PageHeader
         title="Help"
         description="How to do the things this app does. Tap a question to read the steps."
       />
 
-      <Card className="mb-5">
+      <Card className="mb-5 lg:max-w-3xl">
         <p className="text-[13px] leading-relaxed text-neutral-700 dark:text-neutral-300">
           Each answer is a list of steps. Do one step at a time. A word in{" "}
           <b className="font-semibold">bold</b> is the text on the button or the field.
@@ -213,7 +213,7 @@ export function HelpBrowser() {
         </ChipScroller>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8 lg:space-y-0 lg:gap-y-8 2xl:grid-cols-3">
         {shown.map((s) => (
           <section key={s.id} className="space-y-2.5">
             <SectionHeading>{s.title}</SectionHeading>

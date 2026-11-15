@@ -80,7 +80,7 @@ function Requests() {
   }
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader
         title="Feature Requests"
         description="Ask for app fixes and new features."
@@ -96,16 +96,18 @@ function Requests() {
         className="!mb-4"
       />
 
+      <div className={showNew ? "lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)] lg:items-start lg:gap-8" : ""}>
       {showNew && (
         <FeatureRequestForm
           onDone={() => {
             setShowNew(false);
             load();
           }}
-          className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+          className="mb-5 rounded-xl border border-line bg-white p-3 lg:sticky lg:top-4 lg:mb-0 dark:bg-ink-raised"
         />
       )}
 
+      <div className="min-w-0">
       {loading && <Loading label="Loading requests…" />}
       {!loading && requests.length === 0 && (
         <EmptyState>No requests yet — be the first.</EmptyState>
@@ -113,9 +115,9 @@ function Requests() {
 
       {/* One hairline list, not a box per request (CONSOLIDATION_PLAN look rule 1). */}
       {requests.length > 0 && (
-      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white lg:grid lg:grid-cols-2 lg:gap-px lg:divide-y-0 lg:bg-line-soft dark:bg-ink-raised dark:lg:bg-line-soft">
         {requests.map((r) => (
-          <li key={r.id} className="p-3">
+          <li key={r.id} className="bg-white p-3 dark:bg-ink-raised">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="font-medium">{r.title}</div>
@@ -180,6 +182,8 @@ function Requests() {
         ))}
       </ul>
       )}
+      </div>
+      </div>
     </main>
   );
 }
