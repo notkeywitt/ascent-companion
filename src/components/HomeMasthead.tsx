@@ -97,14 +97,15 @@ export function HomeMasthead({
   // has to (a bill uploaded at 11 PM Pacific on the 10th must not count as the
   // 11th — see billing.ts), and a date beside it that used the device's zone
   // would disagree with it for part of every day.
-  const dateLine = today
-    ? today.toLocaleDateString(undefined, {
-        timeZone: COMPANY_TZ,
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      })
-    : "";
+  // "Wednesday the 30th": no month, because the billing month is on the right.
+  const dateLine = (() => {
+    if (!today) return "";
+    const zone = { timeZone: COMPANY_TZ };
+    const weekday = today.toLocaleDateString("en-US", { ...zone, weekday: "long" });
+    const day = Number(today.toLocaleDateString("en-US", { ...zone, day: "numeric" }));
+    const tail = day % 100 >= 11 && day % 100 <= 13 ? "th" : ({ 1: "st", 2: "nd", 3: "rd" } as Record<number, string>)[day % 10] ?? "th";
+    return `${weekday} the ${day}${tail}`;
+  })();
 
   /** Past the 10th with the month still behind the calendar — time to switch. */
   const stale = !!today && !!ym && billingMonthStale(today, ym);
@@ -158,12 +159,15 @@ export function HomeMasthead({
       } ${backdrop ? "min-h-14 pad:min-h-20" : ""}`}
     >
       {backdrop}
-      <div className="relative hidden min-w-0 pad:block">
-        <SectionLabel>Home</SectionLabel>
-        <div className="mt-1 flex items-center gap-2.5">
+      {/* The office Home (the one with the ribbon behind it) shows the day on a
+          phone too, smaller (owner, 2026-11-15). Every other Home keeps its
+          no-title phone layout. */}
+      <div className={`relative min-w-0 ${backdrop ? "" : "hidden pad:block"}`}>
+        <SectionLabel className="hidden pad:block">Home</SectionLabel>
+        <div className="flex min-w-0 items-center gap-2.5 pad:mt-1">
           {/* min-h keeps the band's height across the one frame before the
               effect above knows what day it is. */}
-          <h1 className="min-h-[26px] text-[21px] font-bold leading-tight tracking-tight">
+          <h1 className="min-h-[26px] truncate text-[17px] font-bold leading-tight tracking-tight pad:text-[21px]">
             {dateLine}
           </h1>
         </div>
