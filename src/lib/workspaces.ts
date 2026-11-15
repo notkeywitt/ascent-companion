@@ -402,13 +402,13 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
  * office — the owner's order (2026-10-16). Every other workspace follows after a
  * space. A role with no entry here keeps its bar as the top group.
  */
+/** Pages and workspaces the desktop rail leaves out (owner, 2026-11-14). They stay in the ☰ menu, search and links. */
+export const RAIL_OFF_VIEWS = new Set(["invoice-review", "invoicing-summary", "time-sync"]);
+const RAIL_OFF_WORKSPACES = new Set(["mywork"]);
+
 const DESK_TOP: BarSlot[] = [
   { kind: "today" },
   { kind: "workspace", id: "close" },
-  // Checks and Status under Tracking Sheets (owner, 2026-11-14): the two pages
-  // the month closes through, one tap each. The hub draws them as tabs too.
-  { kind: "tab", view: "invoice-review" },
-  { kind: "tab", view: "invoicing-summary" },
   { kind: "workspace", id: "employees" },
   { kind: "workspace", id: "clients" },
   // Customers on the rail (owner, 2026-11-11): the tab strip is gone, so this is
@@ -417,9 +417,6 @@ const DESK_TOP: BarSlot[] = [
   // Vendors under Jobs at the owner's ask (2026-10-26).
   { kind: "tab", view: "vendors" },
   { kind: "workspace", id: "time" },
-  // Payroll as its own icon under Time (owner, 2026-11-09): the Time page's
-  // strip is gone on a phone, so the rail and the drawer carry it.
-  { kind: "tab", view: "time-sync" },
   // Tools on the rail too (owner, 2026-10-29), as on the phone bar.
   { kind: "tab", view: "tools" },
 ];
@@ -510,7 +507,7 @@ export function railFor(
   for (const ws of WORKSPACES) {
     const tabs = reachableTabs(ws, can);
     // Skip a workspace already on the rail, or one whose every page already is.
-    if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`)) continue;
+    if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`) || RAIL_OFF_WORKSPACES.has(ws.id)) continue;
     if (tabs.every((t) => rail.some((i) => i.view === t.view && !i.workspace))) continue;
     rail.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
     // Feature Requests as its own entry right under Help (owner, 2026-11-14):

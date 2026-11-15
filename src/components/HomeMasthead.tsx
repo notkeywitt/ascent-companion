@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button, Chip, Dialog, MetaLine, SectionLabel } from "@/components/ui";
+import { Button, Chip, Dialog, MetaLine } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { COMPANY_TZ, billingMonthStale } from "@/lib/billing";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
@@ -162,9 +162,8 @@ export function HomeMasthead({
       {/* The office Home (the one with the ribbon behind it) shows the day on a
           phone too, smaller (owner, 2026-11-15). Every other Home keeps its
           no-title phone layout. */}
-      <div className={`relative min-w-0 ${backdrop ? "" : "hidden pad:block"}`}>
-        <SectionLabel className="hidden pad:block">Home</SectionLabel>
-        <div className="flex min-w-0 items-center gap-2.5 pad:mt-1">
+      <div className={`relative order-1 min-w-0 ${backdrop ? "" : "hidden pad:block"}`}>
+        <div className="flex min-w-0 items-center gap-2.5">
           {/* min-h keeps the band's height across the one frame before the
               effect above knows what day it is. */}
           <h1 className="min-h-[26px] truncate text-[17px] font-bold leading-tight tracking-tight pad:text-[21px]">
@@ -175,11 +174,11 @@ export function HomeMasthead({
 
       {notices && (
         // Empty when every banner is quiet: each one renders nothing then.
-        <div className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5 self-center empty:hidden">{notices}</div>
+        <div className="relative order-3 flex min-w-0 flex-1 flex-col items-center gap-1.5 self-center empty:hidden">{notices}</div>
       )}
 
       {shows && (
-        <div className="relative ml-auto shrink-0 text-right">
+        <div className="relative order-2 shrink-0">
           {/* A quiet native select: it reads as the heading it replaced until
               you touch it, and on a tablet it opens the OS month wheel. */}
           {canSet ? (
