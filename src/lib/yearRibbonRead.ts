@@ -21,9 +21,10 @@ const read = unstable_cache(
     const names = new Map(
       jobs.map((j) => [j.id, (seen.get(j.name) ?? 0) > 1 && j.customer ? `${j.name} (${j.customer})` : j.name]),
     );
-    return buildRibbonJobs(rows.minutes, rows.bills, (id) => names.get(id) ?? "Unknown job");
+    return buildRibbonJobs(rows.minutes, rows.bills, (id) => names.get(id) ?? "Unknown job", rows.invoices);
   },
-  ["year-ribbon"],
+  // v2: jobs carry `invoiced` (2026-11-14). A new key drops the old shape.
+  ["year-ribbon-v2"],
   { revalidate: 1800, tags: ["jt-year-ribbon"] },
 );
 
