@@ -153,12 +153,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
       </head>
       <body className="min-h-screen font-sans antialiased">
-        {/* The app-open cover: the logo on black, painted before anything else
-            and cleared once the app is interactive. */}
+        {/* The app-open cover: the loading line, painted before anything else
+            and cleared once the app is interactive and the page has streamed
+            in (src/app/loading.tsx marks that wait). */}
         <SplashScreen />
         {/* The same screen for a page transition — from the tap until the next
-            page renders. src/app/loading.tsx covers the hard loads this can't
-            see (a typed URL, a refresh, a cold PWA start). */}
+            page renders, at double speed. The app-open cover handles the hard
+            loads this can't see (a typed URL, a refresh, a cold PWA start). */}
         <RouteLoadingScreen />
         {/* Role preview lens (admin-only) — narrows the whole app to a given
             role's views and carries the way back. Rendered above the header so

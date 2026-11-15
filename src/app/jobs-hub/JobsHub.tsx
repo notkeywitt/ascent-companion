@@ -1,6 +1,7 @@
 "use client";
 
-import { HubRibbonHeader } from "./HubRibbonHeader";
+import { HomeMasthead } from "@/components/HomeMasthead";
+import { YearRibbon } from "@/components/YearRibbon";
 import { hubPath, parseHubPath } from "@/lib/hubUrl";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -471,13 +472,19 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   return (
     <main
       ref={mainRef}
-      className="w-full px-4 pb-10 pt-5 pad:px-7"
+      className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5"
       style={{ minHeight: heldHeight }}
     >
       {/* The picked job's name stays in view: in the header bar on a phone, and
           in the ribbon head line, pinned from `pad` up (owner, 2026-11-15). */}
       {selected && <HeaderTitle>{jobLabel(selected)}</HeaderTitle>}
-      <HubRibbonHeader title={selected ? jobLabel(selected) : null} focusId={selected?.id ?? null} />
+      {/* Home's masthead and ribbon, with the picked job in place of the date
+          (owner, 2026-11-15). */}
+      <HomeMasthead
+        title={selected ? jobLabel(selected) : undefined}
+        backdrop={<YearRibbon url="/api/jobs-hub/ribbon" focusId={selected?.id ?? null} />}
+        pinned
+      />
       <div className="min-w-0 space-y-6">
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the
@@ -642,7 +649,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                 </optgroup>
               ))}
             </Select>
-            <div className="min-h-64 flex-1 landscape:min-h-0 2xl:min-h-0 max-2xl:portrait:h-[min(16rem,35svh)] max-2xl:portrait:min-h-0 max-2xl:portrait:flex-none">{map}</div>
+            <div className="min-h-64 flex-1 pt-2 landscape:min-h-0 landscape:pt-0 2xl:min-h-0 max-2xl:portrait:h-[min(16rem,35svh)] max-2xl:portrait:min-h-0 max-2xl:portrait:flex-none">{map}</div>
           </div>
         </div>
 

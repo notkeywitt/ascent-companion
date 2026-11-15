@@ -54,12 +54,23 @@ export interface MastheadMonth {
  *  billing month (owner, 2026-11-02). `month`: the server's read, which saves
  *  the fetch; without it (the /widget page) the masthead reads it itself.
  *  `backdrop`: drawn behind the whole line — the office Home's year ribbon
- *  (owner, 2026-11-15). It fills the band and takes no taps. */
+ *  (owner, 2026-11-15). It fills the band and takes no taps.
+ *  `title`: drawn in place of the date — the Jobs page's picked job (owner,
+ *  2026-11-15). `pinned`: the band stays under the app header from `pad` up,
+ *  so the Jobs page keeps the picked job's name in view. */
 export function HomeMasthead({
   notices,
   month,
   backdrop,
-}: { notices?: React.ReactNode; month?: MastheadMonth; backdrop?: React.ReactNode } = {}) {
+  title,
+  pinned = false,
+}: {
+  notices?: React.ReactNode;
+  month?: MastheadMonth;
+  backdrop?: React.ReactNode;
+  title?: React.ReactNode;
+  pinned?: boolean;
+} = {}) {
   const access = useAccess();
   const [today, setToday] = useState<Date | null>(null);
   const [ym, setYm] = useState(month?.ym ?? "");
@@ -153,21 +164,30 @@ export function HomeMasthead({
 
   return (
     // On a phone only the billing month shows, and only to a role that has one.
+    // `items-baseline`: the date and the billing month sit on one line, however
+    // many chips stack under the month (owner, 2026-11-15).
+    // Pinned FLUSH under the app header: `sticky-below-header` leaves 0.5rem of
+    // the page showing through between the two. The `top` is set from `pad` up
+    // only: on a phone the band is `relative`, and a `top` there shifted it down
+    // over the map by the app header's height.
     <header
-      className={`relative mb-3 items-end justify-between gap-6 border-b border-line pb-2 pad:mb-6 pad:pb-4 ${
+      className={`relative mb-3 items-baseline justify-between gap-6 border-b border-line pb-2 pad:mb-6 pad:pb-4 ${
         shows ? "flex" : "hidden pad:flex"
-      } ${backdrop ? "min-h-14 pad:min-h-20" : ""}`}
+      } ${backdrop ? "min-h-14 pad:min-h-20" : ""} ${
+        pinned ? "z-10 bg-cream/95 backdrop-blur pad:sticky pad:top-[var(--appheader-h)] pad:-mx-7 pad:px-7 dark:bg-ink/95" : ""
+      }`}
+      data-pinned={pinned || undefined}
     >
       {backdrop}
       {/* The office Home (the one with the ribbon behind it) shows the day on a
           phone too, smaller (owner, 2026-11-15). Every other Home keeps its
           no-title phone layout. */}
-      <div className={`relative order-1 min-w-0 ${backdrop ? "" : "hidden pad:block"}`}>
+      <div className={`relative order-1 min-w-0 ${backdrop || title ? "" : "hidden pad:block"}`}>
         <div className="flex min-w-0 items-center gap-2.5">
           {/* min-h keeps the band's height across the one frame before the
               effect above knows what day it is. */}
           <h1 className="min-h-[26px] truncate text-[17px] font-bold leading-tight tracking-tight pad:text-[21px]">
-            {dateLine}
+            {title ?? dateLine}
           </h1>
         </div>
       </div>

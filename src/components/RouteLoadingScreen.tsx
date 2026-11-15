@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
-import { LoadingScreen } from "@/components/LoadingScreen";
+import { LINE_FAST_CYCLE_MS, LoadingScreen, msToEraseEnd } from "@/components/LoadingScreen";
 import { isLeaveCancelled } from "@/lib/useUnsavedChanges";
 
 /** Drop the cover after this long, so an abandoned navigation can't strand it. */
 const MAX_MS = 8000;
+/** Fade of the empty ground once the line has erased. */
+const FADE_MS = 150;
 
 /**
- * The page-transition cover: the same logo-on-black screen, shown from the tap
+ * The page-transition cover: the same loading-line screen, shown from the tap
  * on an in-app link until the next page renders.
  *
  * Why this exists next to `src/app/loading.tsx`: that file is the App Router's
@@ -21,8 +23,13 @@ const MAX_MS = 8000;
  *
  * It reads the pending navigation from the DOM click, and clears it when
  * `usePathname()` reports the new route has committed. The cover itself fades
- * in only after 180ms (see `.loading-screen-in`), so the many navigations that
+ * in only after 400ms (see `.loading-screen-in`), so the many navigations that
  * finish sooner than the eye show nothing but the tapped button's own spinner.
+ *
+ * Whole or nothing: the line runs at double speed (`fast`). If the page lands
+ * before the line starts, the cover goes at once and nothing was seen. If the
+ * line has started, the cover stays until it finishes its erase, then fades.
+ * So the screen never shows a snip of the line.
  *
  * The listener runs in the CAPTURE phase on purpose: `<Link>` calls
  * `preventDefault()` in its own handler, so a bubble-phase listener sees every
@@ -31,6 +38,8 @@ const MAX_MS = 8000;
 export function RouteLoadingScreen() {
   const pathname = usePathname();
   const [pending, setPending] = useState(false);
+  const [phase, setPhase] = useState<"off" | "on" | "fading">("off");
+  const ref = useRef<HTMLDivElement>(null);
 
   // The new route rendered — this is the real "done" signal.
   useEffect(() => {
@@ -75,6 +84,37 @@ export function RouteLoadingScreen() {
     return () => clearTimeout(bail);
   }, [pending]);
 
-  if (!pending) return null;
-  return <LoadingScreen delayed />;
+  // Show while pending. When the wait ends, let the line finish its stroke.
+  useEffect(() => {
+    if (pending) {
+      setPhase("on");
+      return;
+    }
+    const wait = msToEraseEnd(ref.current, LINE_FAST_CYCLE_MS);
+    if (wait === null) {
+      setPhase("off"); // the line never started: nothing was seen
+      return;
+    }
+    const fade = setTimeout(() => setPhase("fading"), wait);
+    const end = setTimeout(() => setPhase("off"), wait + FADE_MS);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(end);
+    };
+  }, [pending]);
+
+  if (phase === "off") return null;
+  return (
+    // The fade sits on this wrapper: the cover's own opacity belongs to its
+    // fade-in animation, which would override a class set on it.
+    <div
+      ref={ref}
+      style={{ transitionDuration: `${FADE_MS}ms` }}
+      className={`pointer-events-none fixed inset-0 z-[100] transition-opacity ease-out ${
+        phase === "fading" ? "opacity-0" : "opacity-100"
+      }`}
+    >
+      <LoadingScreen delayed fast />
+    </div>
+  );
 }
