@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { money0 } from "@/lib/money";
-import { daysInYear, isoWeekStartDay, weekPosition, type RibbonJob } from "@/lib/yearRibbon";
+import { daysInYear, weekPosition, type RibbonJob } from "@/lib/yearRibbon";
 
 /**
  * THE YEAR RIBBON (owner, 2026-11-15). The current year, January to December,
@@ -13,9 +12,12 @@ import { daysInYear, isoWeekStartDay, weekPosition, type RibbonJob } from "@/lib
  *
  * Hours and dollars never share a scale: each has its own half.
  *
+ * It draws no text and no vertical lines.
+ *
  * Two shapes:
- *   dock        Home. Every job stacked, one colour per job, fixed to the foot
- *               of the screen on every width (`/api/home/ribbon`).
+ *   dock        Home. Every job stacked, one colour per job. A phone shows it
+ *               at the top of the page, scrolling with it. `pad` up docks it
+ *               to the foot of the screen (`/api/home/ribbon`).
  *   jobId       The Jobs page. One job: two lines with its colour between them.
  *               Drawn from `pad` up only, and a phone never fetches it
  *               (`/api/jobs-hub/ribbon`).
@@ -31,7 +33,6 @@ interface Payload {
   error?: string;
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const SERIES = ["--viz-1", "--viz-2", "--viz-3", "--viz-4", "--viz-5", "--viz-6"];
 const PAD_QUERY = "(min-width: 744px)"; // the `pad` breakpoint (tailwind.config.ts)
 const DRAW_MS = 2400;
@@ -42,7 +43,6 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<Payload | null>(null);
-  const [week, setWeek] = useState(0);
   const [tick, setTick] = useState(0); // a resize or a theme change
   const [progress, setProgress] = useState(0);
 
@@ -112,12 +112,11 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
     const root = getComputedStyle(document.documentElement);
     const ink = css.color;
     const ground = css.backgroundColor;
-    x.font = `10px ${css.fontFamily}`;
     x.lineJoin = "round";
 
     const L = 8;
     const R = w - 8;
-    const foot = h - 14; // month labels sit under this
+    const foot = h - 2;
     const mid = Math.round(foot * 0.52);
     const up = mid - 6;
     const down = foot - 4 - mid;
@@ -126,26 +125,10 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
     const weeks = Array.from({ length: 53 }, (_, i) => i + 1);
     const wx = (wk: number) => at(weekPosition(data.year, wk));
 
-    // Month grid and labels.
-    x.globalAlpha = 0.14;
+    // The centre line only. No text and no vertical lines.
+    x.globalAlpha = 0.4;
     x.strokeStyle = ink;
     x.lineWidth = 1;
-    let day = 0;
-    const starts = MONTHS.map((_, m) => {
-      const s = day;
-      day += new Date(Date.UTC(data.year, m + 1, 0)).getUTCDate();
-      return s;
-    });
-    for (const s of starts) {
-      x.beginPath();
-      x.moveTo(at(s / days), 2);
-      x.lineTo(at(s / days), foot);
-      x.stroke();
-    }
-    x.globalAlpha = 0.55;
-    x.fillStyle = ink;
-    starts.forEach((s, m) => x.fillText(w < 520 ? MONTHS[m][0] : MONTHS[m], at(s / days) + 3, h - 3));
-    x.globalAlpha = 0.4;
     x.beginPath();
     x.moveTo(L, mid);
     x.lineTo(R, mid);
@@ -222,67 +205,12 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
     }
     x.restore();
 
-    // Today, and the touched week.
-    x.strokeStyle = ink;
-    x.lineWidth = 1;
-    x.beginPath();
-    x.moveTo(at(todayPos * progress), 2);
-    x.lineTo(at(todayPos * progress), foot);
-    x.stroke();
-    if (week) {
-      x.setLineDash([2, 3]);
-      x.globalAlpha = 0.6;
-      x.beginPath();
-      x.moveTo(wx(week), 2);
-      x.lineTo(wx(week), foot);
-      x.stroke();
-      x.setLineDash([]);
-      x.globalAlpha = 1;
-    }
-  }, [data, has, jobs, dock, week, tick, progress]);
+  }, [data, has, jobs, dock, tick, progress]);
 
   if (!data || !has) return null;
 
-  const pick = (e: React.PointerEvent<HTMLCanvasElement>) => {
-    const b = e.currentTarget.getBoundingClientRect();
-    const dayOfYear = ((e.clientX - b.left - 8) / (b.width - 16)) * daysInYear(data.year);
-    const wk = Math.round((dayOfYear - isoWeekStartDay(data.year, 1) - 3.5) / 7) + 1;
-    setWeek(Math.max(1, Math.min(53, wk)));
-  };
-
-  const hoursAt = (wk: number) => sum(jobs.map((j) => j.hours[wk]));
-  const billsAt = (wk: number) => sum(jobs.map((j) => j.bills[wk]));
-  let line: string;
-  if (week) {
-    const monday = new Date(Date.UTC(data.year, 0, 1 + isoWeekStartDay(data.year, week)));
-    const label = monday.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-    const busiest = jobs.slice().sort((a, b) => b.hours[week] - a.hours[week])[0];
-    line =
-      `Week of ${label}: ${Math.round(hoursAt(week))} crew hours a day, ${money0(billsAt(week))} in bills` +
-      (dock && busiest.hours[week] > 0 ? `. Busiest: ${busiest.name}` : "");
-  } else {
-    // hours[] is per work day, so a week's hours is five of them.
-    const yearHours = Math.round(sum(jobs.map((j) => sum(j.hours))) * 5);
-    line = `${data.year}: ${yearHours.toLocaleString("en-US")} crew hours above the line, ${money0(sum(jobs.map((j) => sum(j.bills))))} in vendor bills below`;
-  }
-
   const body = (
-    <div ref={box} className="bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100">
-      <div className="flex items-center gap-x-3 px-3 pt-1.5 text-[11px] leading-4 text-neutral-500">
-        <span className="min-w-0 flex-1 truncate tabular-nums" aria-live="polite">
-          {line}
-        </span>
-        {dock && (
-          <span className="hidden shrink-0 gap-x-3 lg:flex">
-            {jobs.map((j, i) => (
-              <span key={j.id || "other"} className="flex items-center gap-1 whitespace-nowrap">
-                <span className="inline-block h-2 w-2 rounded-sm" style={{ background: `var(${colorVar(j, i)})` }} />
-                {j.name}
-              </span>
-            ))}
-          </span>
-        )}
-      </div>
+    <div ref={box} className="pointer-events-none bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100">
       <canvas
         ref={canvas}
         role="img"
@@ -291,10 +219,7 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
             ? "This year by week: crew hours per day above the line and vendor bills below it, one colour per job"
             : "This job's year by week: crew hours per day above the line and vendor bills below it"
         }
-        className="block h-[4.75rem] w-full touch-pan-y pad:h-24"
-        onPointerMove={pick}
-        onPointerDown={pick}
-        onPointerLeave={() => setWeek(0)}
+        className="block h-[4.75rem] w-full pad:h-24"
       />
     </div>
   );
@@ -302,16 +227,13 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
   if (!dock) {
     return <div className="hidden overflow-hidden rounded-xl border border-line pad:block">{body}</div>;
   }
+  // Phone: in the page, above the month, scrolls with it. `pad` up: docked
+  // to the foot of the screen. Home keeps `pb` clear of the dock.
   return (
-    <>
-      {/* Holds the page clear of the dock, so the last row is never under it. */}
-      <div className="h-28 pad:h-32" aria-hidden />
-      <div
-        className="fixed inset-x-0 z-20 border-t border-line"
-        style={{ bottom: "var(--tabbar-h)", left: "var(--rail-w)" }}
-      >
-        {body}
-      </div>
-    </>
+    <div
+      className="-mx-4 -mt-3 mb-3 border-b border-line pad:fixed pad:inset-x-0 pad:bottom-[var(--tabbar-h)] pad:left-[var(--rail-w)] pad:z-20 pad:m-0 pad:border-b-0 pad:border-t"
+    >
+      {body}
+    </div>
   );
 }
