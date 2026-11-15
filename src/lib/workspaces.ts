@@ -108,9 +108,6 @@ export const WORKSPACES: Workspace[] = [
       // Stuck (was Not in JobTread) and Check mail (was Mail Check) are its
       // sections; /needs-project and /vendor-mail redirect.
       tab("email", "/email", "Inbox", "Invoice emails to log, stuck bills, and the vendor mail check"),
-      tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
-      tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
-      tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
     ],
   },
   {
@@ -185,7 +182,17 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("house-manual", "/house-manual", "House Manual", "A homeowner's manual to paste into Squarespace"),
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
+/** The Bills dashboard's statement tabs: on no menu (its tab row reaches them),
+ *  but still found by the header search, so a lead (Sunset, no Bills) has a way in. */
+export const BILLS_TABS: WorkspaceTab[] = [
+  tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
+  tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
+  tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
+];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  payments: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
+  lswdd: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
+  "amazon-import": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   attention: "a section of the Office Dashboard (/office); /attention redirects",
   notices: "a section of the Office Dashboard (/office); /notices redirects",
   changelog: "Help's What's new tab (PageTabs on /help)",
@@ -559,6 +566,7 @@ export function activeBarKey(items: BarItem[], pathname: string): string {
  */
 const PARENT_WORKSPACE: [string, string][] = [
   ...JOB_PAGES.map((t) => [t.href, "clients"] as [string, string]),
+  ...BILLS_TABS.map((t) => [t.href, "incoming"] as [string, string]),
   ["/bill", "close"],
   ["/add-bill", "close"],
 ];
