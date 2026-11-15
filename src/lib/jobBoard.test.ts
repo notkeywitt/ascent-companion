@@ -8,6 +8,8 @@ import {
   scheduleHeadline,
   scheduleMeta,
   shortDate,
+  spanDays,
+  zoomTicks,
   sortJobsPageCards,
   spanPct,
   type JobSchedule,
@@ -120,6 +122,24 @@ describe("gantt geometry", () => {
 
   it("has nothing to label when the span is a single day", () => {
     expect(axisTicks("2026-09-06", "2026-09-06")).toEqual([]);
+  });
+
+  it("counts the span's days with both ends included", () => {
+    expect(spanDays(start, end)).toBe(100);
+    expect(spanDays("2026-09-06", "2026-09-06")).toBe(1);
+  });
+
+  it("zooms the scale to weeks (Sundays) and days", () => {
+    // 2026-09-02 is a Wednesday; the Sundays inside are Sep 6, 13, 20.
+    expect(zoomTicks("2026-09-02", "2026-09-22", "week").map((t) => t.label)).toEqual([
+      "Sep 6",
+      "Sep 13",
+      "Sep 20",
+    ]);
+    const days = zoomTicks("2026-09-29", "2026-10-02", "day");
+    expect(days.map((t) => t.label)).toEqual(["Sep 29", "30", "Oct 1", "2"]);
+    expect(days[1].pct).toBeCloseTo(25);
+    expect(zoomTicks(start, end, "month")).toEqual(axisTicks(start, end));
   });
 });
 

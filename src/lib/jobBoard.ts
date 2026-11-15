@@ -252,3 +252,59 @@ export function axisTicks(spanStart: string, spanEnd: string): { pct: number; la
   }
   return out;
 }
+
+/**
+ * The Gantt's zoom. MONTH fits the whole span in the card's width (the chart
+ * as it always was). WEEK and DAY give every day a fixed width, so the chart
+ * grows wider than the card and scrolls sideways.
+ */
+export type GanttZoom = "month" | "week" | "day";
+
+/** Pixels per day at each zoom; null = fit the span to the width. */
+export const GANTT_PX_PER_DAY: Record<GanttZoom, number | null> = {
+  month: null,
+  week: 18,
+  day: 44,
+};
+
+/** Days in the span, both ends included. */
+export const spanDays = (spanStart: string, spanEnd: string): number => {
+  const n = (dayMs(spanEnd) - dayMs(spanStart)) / 86_400_000 + 1;
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 1;
+};
+
+/**
+ * The scale labels for a zoom. MONTH is `axisTicks`. WEEK marks every Sunday
+ * (the week starts Sunday, as on Home's week bars) as "Sep 6". DAY marks every
+ * day by its number, with the month on the 1st and on the span's first day.
+ */
+export function zoomTicks(
+  spanStart: string,
+  spanEnd: string,
+  zoom: GanttZoom,
+): { pct: number; label: string }[] {
+  if (zoom === "month") return axisTicks(spanStart, spanEnd);
+  const a = dayMs(spanStart);
+  const b = dayMs(spanEnd);
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return [];
+  const out: { pct: number; label: string }[] = [];
+  const cursor = new Date(a);
+  if (zoom === "week") {
+    // First Sunday on or after the span's start.
+    cursor.setUTCDate(cursor.getUTCDate() + ((7 - cursor.getUTCDay()) % 7));
+  }
+  const step = zoom === "week" ? 7 : 1;
+  for (let first = true; cursor.getTime() <= b; first = false) {
+    const iso = cursor.toISOString().slice(0, 10);
+    const { left } = barPct(spanStart, spanEnd, iso, iso);
+    const withMonth = zoom === "week" || first || cursor.getUTCDate() === 1;
+    out.push({
+      pct: left,
+      label: withMonth
+        ? cursor.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+        : String(cursor.getUTCDate()),
+    });
+    cursor.setUTCDate(cursor.getUTCDate() + step);
+  }
+  return out;
+}
