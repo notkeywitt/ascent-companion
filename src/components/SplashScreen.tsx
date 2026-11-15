@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { LINE_CYCLE_MS, LINE_ERASE_END, LoadingScreen } from "@/components/LoadingScreen";
+import { LINE_CYCLE_MS, LoadingScreen, msToEraseEnd } from "@/components/LoadingScreen";
 
 /** The cover's fade once the line has erased. The ground is the page's own,
  *  so this only brings the page in. */
 const FADE_MS = 250;
-/** Hold under reduced motion, where the line stands still. */
+/** Under reduced motion the line stands still: re-check this often instead. */
 const STILL_HOLD_MS = 200;
+/** Never hold the cover longer than this for a page still streaming, so a
+ *  stalled stream cannot hide the app. */
+const MAX_MS = 10000;
 
 /**
  * The app-open cover. It is in the server HTML, so it is the FIRST thing
@@ -16,33 +19,36 @@ const STILL_HOLD_MS = 200;
  * needs no JS.
  *
  * Once the app is interactive (this effect runs on hydration), the cover waits
- * for the line to finish its current erase, then fades out and unmounts. So it
- * ends on an empty ground, never with the line cut off mid-stroke. The cost is
- * up to one loop of the line (2.4 s) on a full load that hydrates early.
+ * for the line to finish its current erase. If the page is still streaming in
+ * then (`src/app/loading.tsx`'s marker is in the DOM), it plays one more whole
+ * loop and checks again. When the page is in, it fades out and unmounts. So it
+ * always ends on an empty ground, never with the line cut off mid-stroke.
  *
  * Mounted once per full page load (root layout), so it does not re-appear on
- * navigation — `src/app/loading.tsx` covers those.
+ * navigation — `RouteLoadingScreen` covers those.
  */
 export function SplashScreen() {
   const [phase, setPhase] = useState<"hold" | "fading" | "done">("hold");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    let hold = STILL_HOLD_MS;
-    const anim = ref.current?.querySelector(".loading-line-wipe")?.getAnimations?.()[0];
-    const now = anim?.currentTime;
-    // No running animation means reduced motion: the line is still, keep the old hold.
-    if (anim && typeof now === "number") {
-      const into = now % LINE_CYCLE_MS;
-      const eraseEnd = LINE_CYCLE_MS * LINE_ERASE_END;
-      hold = into <= eraseEnd ? eraseEnd - into : 0;
-    }
-    const fade = setTimeout(() => setPhase("fading"), hold);
-    const end = setTimeout(() => setPhase("done"), hold + FADE_MS);
-    return () => {
-      clearTimeout(fade);
-      clearTimeout(end);
+    const started = performance.now();
+    let timer: ReturnType<typeof setTimeout>;
+    const first = msToEraseEnd(ref.current, LINE_CYCLE_MS);
+    // From one erase end, the next is one whole loop later.
+    const step = first === null ? STILL_HOLD_MS : LINE_CYCLE_MS;
+    const streaming = () =>
+      !!document.querySelector("[data-page-streaming]") && performance.now() - started < MAX_MS;
+    const atEraseEnd = () => {
+      if (streaming()) {
+        timer = setTimeout(atEraseEnd, step);
+        return;
+      }
+      setPhase("fading");
+      timer = setTimeout(() => setPhase("done"), FADE_MS);
     };
+    timer = setTimeout(atEraseEnd, first ?? STILL_HOLD_MS);
+    return () => clearTimeout(timer);
   }, []);
 
   if (phase === "done") return null;
