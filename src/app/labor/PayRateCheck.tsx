@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Dialog } from "@/components/Dialog";
+import { laborOptions, type TimeEntryRow } from "@/app/trackingsheet/TimeCodingCard";
+import { EntryPanel } from "./EntryPanel";
 import { toast } from "@/components/Toast";
 import { Banner, Button, EmptyState, Loading } from "@/components/ui";
 import {
@@ -11,6 +13,9 @@ import {
   type JobCodeRate,
   type RateEntry,
 } from "@/lib/laborRateMatch";
+
+/** A time entry with everything the edit panel needs. */
+export type CheckEntry = RateEntry & Omit<TimeEntryRow, keyof RateEntry | "minutes"> & { costItemId: string | null };
 
 interface Member {
   userId: string;
@@ -34,7 +39,7 @@ export function PayRateCheck({
   onChanged,
   onClose,
 }: {
-  entries: RateEntry[];
+  entries: CheckEntry[];
   periodLabel: string;
   writes: boolean;
   /** An entry was re-rated in JobTread, so the page should re-read the period. */
@@ -45,6 +50,19 @@ export function PayRateCheck({
   const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
+  // The entry open in the edit panel, and each job's labor cost codes for it.
+  const [openId, setOpenId] = useState("");
+  const [leaves, setLeaves] = useState<Record<string, Parameters<typeof laborOptions>[0]>>({});
+  const open = entries.find((e) => e.id === openId) ?? null;
+
+  function openEntry(e: CheckEntry) {
+    setOpenId(e.id);
+    if (leaves[e.jobId]) return;
+    fetch(`/api/time-entry?jobId=${encodeURIComponent(e.jobId)}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((b) => setLeaves((m) => ({ ...m, [e.jobId]: b.budget ?? [] })))
+      .catch(() => setLeaves((m) => ({ ...m, [e.jobId]: [] })));
+  }
 
   useEffect(() => {
     fetch("/api/labor/rate-map", { cache: "no-store" })
@@ -58,7 +76,10 @@ export function PayRateCheck({
       .catch(() => {});
   }, []);
 
-  const mismatches = useMemo(() => (map ? findMismatches(entries, map) : []), [entries, map]);
+  const mismatches = useMemo(
+    () => (map ? findMismatches(entries, map) : []).map((m) => ({ ...m, entry: m.entry as CheckEntry })),
+    [entries, map],
+  );
   const unmapped = useMemo(() => (map ? unmappedPairs(entries, map) : []), [entries, map]);
 
   const saveMap = useCallback(
@@ -111,6 +132,8 @@ export function PayRateCheck({
 
   return (
     <Dialog label="Check pay rates" title="Check pay rates" size="xl" onClose={onClose}>
+      <div className={open ? "grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start" : ""}>
+      <div className="min-w-0">
       <p className="mb-3 text-xs text-neutral-500">
         {periodLabel} · {entries.length} entries checked against each job&apos;s cost code pay types.
       </p>
@@ -135,7 +158,7 @@ export function PayRateCheck({
             ) : (
               <ul className="divide-y divide-line-soft">
                 {mismatches.map(({ entry: e, expected }) => (
-                  <li key={e.id} className="space-y-1.5 py-2 text-sm">
+                  <li key={e.id} className={`space-y-1.5 py-2 text-sm ${open?.id === e.id ? "bg-accent/10" : ""}`}>
                     <p>
                       <span className="font-semibold">{e.employee}</span> · {e.date} · {e.jobName} · {e.code} ·{" "}
                       {e.hours.toFixed(2)}h
@@ -155,6 +178,9 @@ export function PayRateCheck({
                         disabled={!writes || busy === e.id || lacks(e, expected)}
                       >
                         Fix the entry
+                      </Button>
+                      <Button size="xs" variant="secondary" onClick={() => openEntry(e)}>
+                        Edit entry
                       </Button>
                       <Button
                         size="xs"
@@ -211,6 +237,24 @@ export function PayRateCheck({
           </section>
         </div>
       )}
+      </div>
+      {open && (
+        <div className="lg:sticky lg:top-0">
+          <EntryPanel
+            key={open.id}
+            entry={{ ...open, minutes: Math.round(open.hours * 60) }}
+            jobId={open.jobId}
+            codeOptions={leaves[open.jobId] ? laborOptions(leaves[open.jobId], [open.costItemId]) : []}
+            writes={writes}
+            onSaved={() => {
+              setOpenId("");
+              onChanged();
+            }}
+            onClose={() => setOpenId("")}
+          />
+        </div>
+      )}
+      </div>
     </Dialog>
   );
 }
