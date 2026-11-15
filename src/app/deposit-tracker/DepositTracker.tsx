@@ -266,7 +266,7 @@ export function DepositTracker({ writes }: { writes: boolean }) {
   );
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-3">
+    <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-3 lg:max-w-[1600px] pad:px-7">
       <PageHeader
         title="Deposit checks"
         description={
@@ -294,7 +294,7 @@ export function DepositTracker({ writes }: { writes: boolean }) {
           {photos.length === 0 ? (
             <EmptyState>No check photographed yet.</EmptyState>
           ) : (
-            <div className="grid grid-cols-2 gap-2 pad:grid-cols-3">
+            <div className="grid grid-cols-2 gap-2 pad:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
               {photos.map((p, i) => (
                 <Card key={p.id} pad={false} className="overflow-hidden">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -332,7 +332,8 @@ export function DepositTracker({ writes }: { writes: boolean }) {
 
       {step === "invoices" && (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-2">
+          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] lg:items-end lg:gap-4">
+          <div className="mb-4 grid grid-cols-2 gap-2 lg:mb-0">
             <div>
               <Label htmlFor="dep-date">Date received</Label>
               <Input id="dep-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -347,14 +348,16 @@ export function DepositTracker({ writes }: { writes: boolean }) {
             placeholder="Find a customer, job or invoice #"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="mb-3"
+            className="mb-3 lg:mb-0"
           />
+          </div>
+          <div className="lg:mt-4" />
           {invoices === null ? (
             <Loading label="Reading open invoices…" />
           ) : groups.length === 0 ? (
             <EmptyState>{filter ? "No open invoice matches." : "No client invoice is waiting on a payment."}</EmptyState>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-4 xl:grid xl:grid-cols-2 xl:items-start xl:gap-x-6 xl:space-y-0 xl:gap-y-4">
               {groups.map(([customer, rows]) => (
                 <section key={customer}>
                   <SectionHeading className="mb-2">{customer}</SectionHeading>
@@ -445,6 +448,8 @@ export function DepositTracker({ writes }: { writes: boolean }) {
 
       {step === "done" && (
         <>
+          <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-10">
+          <div>
           <StatementBlock label="Deposit recorded" value={money(total)} sub={`Received ${shortDate(date)}`} className="mb-5" />
           <SectionHeading className="mb-2">Invoices</SectionHeading>
           <Card pad={false} className="divide-y divide-line-soft">
@@ -477,8 +482,10 @@ export function DepositTracker({ writes }: { writes: boolean }) {
               }),
             )}
           </Card>
+          </div>
 
-          <SectionHeading className="mb-2 mt-6">Email to Sara and Casey</SectionHeading>
+          <div>
+          <SectionHeading className="mb-2 mt-6 lg:mt-0">Email to Sara and Casey</SectionHeading>
           {busy ? (
             <Loading label={busy} />
           ) : draft ? (
@@ -503,6 +510,8 @@ export function DepositTracker({ writes }: { writes: boolean }) {
             <Button variant="ghost" className="w-full" onClick={startOver}>
               Start another deposit
             </Button>
+          </div>
+          </div>
           </div>
         </>
       )}

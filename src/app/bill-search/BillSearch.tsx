@@ -231,7 +231,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
   const empty = status !== null && status.billCount === 0;
 
   return (
-    <main className="max-w-2xl w-full px-4 pad:px-7 pb-24 pt-6">
+    <main className="max-w-2xl w-full px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader
         title="Bill Search"
         description="Search every bill and line item — a material like “2x4”, a vendor, or an invoice number."
@@ -264,7 +264,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
       )}
 
       {!empty && (
-        <div className="mb-3">
+        <div className="mb-3 lg:max-w-xl">
           <Input
             type="search"
             inputMode="search"
@@ -294,7 +294,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
             {results.length === 200 ? "+" : ""} match{results.length === 1 ? "" : "es"}
           </p>
           {/* One hairline list, not a box per hit (CONSOLIDATION_PLAN look rule 1). */}
-          <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+          <div className="divide-y divide-line-soft lg:grid lg:grid-cols-2 lg:divide-y-0 lg:[&>*]:border-b lg:[&>*]:border-line-soft lg:[&>*:nth-child(odd)]:border-r overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
             {results.map((r) => (
               <ResultCard key={r.id} r={r} terms={terms} />
             ))}

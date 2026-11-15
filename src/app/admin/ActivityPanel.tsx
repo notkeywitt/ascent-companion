@@ -133,13 +133,15 @@ export function ActivityPanel() {
 
       {!loading && data && (
         <>
-          <div className="mb-4 grid grid-cols-2 gap-2">
+          <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
             <Stat label="Active people" value={data.totals.activeUsers} />
             <Stat label="Sign-ins" value={data.totals.logins} />
             <Stat label="Page views" value={data.totals.views} />
             <Stat label="Coding saves" value={data.totals.codings} />
           </div>
 
+          <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-x-8">
+          <div>
           <SectionLabel className="mb-1">Pages</SectionLabel>
           <ul className="mb-5 divide-y divide-line-soft rounded-lg border border-line bg-white text-sm dark:divide-white/10 dark:bg-ink-raised">
             {data.routes.map((r) => (
@@ -156,6 +158,8 @@ export function ActivityPanel() {
             )}
           </ul>
 
+          </div>
+          <div>
           <SectionLabel className="mb-1">People</SectionLabel>
           <ul className="space-y-2">
             {data.users.map((u) => (
@@ -264,6 +268,9 @@ export function ActivityPanel() {
               )}
             </div>
           )}
+
+          </div>
+          </div>
 
           <p className="mt-4 text-xs text-neutral-400">
             Activity older than 180 days is dropped automatically.

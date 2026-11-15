@@ -59,7 +59,7 @@ export default function AdminPage() {
   // No Notices tab since 2026-09-29: /notices is the one place to post one.
   const [tab, setTab] = useState<"access" | "activity" | "digest">("access");
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader
         title="Access"
         description="Who can sign in, what each person can see, how the panel is being used, and the Daily Digest's settings."
@@ -208,7 +208,10 @@ function AccessPanel() {
   }
 
   return (
-    <div>
+    // Desktop: add form and members on the left, role defaults and side menu on
+    // the right. DOM order is the phone order.
+    <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-10">
+      <div className="lg:col-start-1">
       {me && <p className="mb-3 text-xs text-neutral-500">You&rsquo;re signed in as {me}.</p>}
 
       {err && (
@@ -248,7 +251,9 @@ function AccessPanel() {
       </p>
 
       {loading && <Loading label="Loading team…" />}
+      </div>
 
+      <div className="lg:col-start-2 lg:row-span-2 lg:row-start-1">
       <div className="mb-1 flex items-center justify-between gap-2">
         <SectionLabel className="mb-0">Role Defaults</SectionLabel>
         {previewingAs && (
@@ -290,7 +295,9 @@ function AccessPanel() {
           />
         ))}
       </ul>
+      </div>
 
+      <div className="lg:col-start-1">
       {envAdmins.length > 0 && (
         <div className="mb-4">
           <SectionLabel className="mb-1">Founders (set in hosting config)</SectionLabel>
@@ -325,6 +332,7 @@ function AccessPanel() {
           </li>
         )}
       </ul>
+      </div>
     </div>
   );
 }

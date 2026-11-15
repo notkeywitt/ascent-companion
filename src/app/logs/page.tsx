@@ -63,7 +63,7 @@ export default function LogsPage() {
   }, []);
 
   return (
-    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">
+    <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="System Logs"
@@ -110,8 +110,8 @@ export default function LogsPage() {
       {items.length > 0 && (
       <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
         {items.map((it, i) => (
-          <li key={i} className="p-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <li key={i} className="p-3 lg:flex lg:items-start lg:gap-6">
+            <div className="flex flex-wrap items-center gap-2 lg:w-[30rem] lg:shrink-0">
               <span className="font-mono text-xs text-neutral-500">{it.timestamp}</span>
               {it.level && (
                 <span
@@ -128,14 +128,14 @@ export default function LogsPage() {
               )}
             </div>
             {it.details && (
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm text-neutral-700 dark:text-neutral-300">
+              <p className="mt-1 whitespace-pre-wrap break-words text-sm lg:mt-0 lg:min-w-0 lg:flex-1 text-neutral-700 dark:text-neutral-300">
                 {it.details}
               </p>
             )}
             {it.status && (
               <span
                 className={
-                  "mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold " +
+                  "mt-1 inline-block rounded-full lg:mt-0 lg:shrink-0  px-2 py-0.5 text-[11px] font-semibold " +
                   toneClass(it.status)
                 }
               >

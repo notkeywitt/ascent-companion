@@ -219,6 +219,8 @@ export function HistoricalCost({
         titleSlot={embedded ? <span className="sr-only">Historical cost bill</span> : undefined}
         description={embedded ? undefined : "Capture a job's historical costs from its Tracking Sheet as one draft JobTread bill, coded by cost code."}
       />
+      <div className={embedded ? "" : "lg:grid lg:grid-cols-[26rem_minmax(0,1fr)] lg:items-start lg:gap-x-8"}>
+      <div>
       <Banner tone="info" className="mb-4 text-xs">
         Admin utility. Compares the Tracking Sheet&apos;s <strong>Total Previously Invoiced</strong>
         against JobTread&apos;s <strong>Actual Cost</strong> for each cost code and only bills the
@@ -254,7 +256,9 @@ export function HistoricalCost({
 
         {jobsLoading && <Loading label="Loading jobs…" />}
       </Card>
+      </div>
 
+      <div className="min-w-0">
       {previewError && <Banner tone="error" className="mb-4">{previewError}</Banner>}
 
       {gap && (
@@ -380,11 +384,13 @@ export function HistoricalCost({
           )}
         </Card>
       )}
+      </div>
+      </div>
     </Wrap>
   );
 }
 
 /** A page of its own, or a popup on Tracking Sheets' budget rail (SheetGap). */
 function Wrap({ embedded, children }: { embedded: boolean; children: React.ReactNode }) {
-  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6">{children}</main>;
+  return embedded ? <div>{children}</div> : <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">{children}</main>;
 }

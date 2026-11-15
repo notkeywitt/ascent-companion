@@ -104,7 +104,7 @@ export default function PageTextEditor() {
   if (loading) return <Loading label="Loading page text…" />;
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 lg:max-w-[1600px]">
       <PageTabs tabs={LOOK_TABS} />
       <PageHeader
         title="Page Text"
@@ -121,8 +121,9 @@ export default function PageTextEditor() {
         Clear a box and save to put back the original wording.
       </Banner>
 
+      <div className="lg:columns-2 lg:gap-8 2xl:columns-3">
       {groups.map((g) => (
-        <section key={g.group} className="mb-8">
+        <section key={g.group} className="mb-8 break-inside-avoid-column">
           <SectionHeading>{g.group}</SectionHeading>
           <div className="rounded-lg border border-line">
             {g.entries.map((e, i) => {
@@ -202,6 +203,7 @@ export default function PageTextEditor() {
           </div>
         </section>
       ))}
+      </div>
     </main>
   );
 }
