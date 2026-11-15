@@ -110,7 +110,16 @@ Resolve each conflict by keeping both groups' intent. Then start the next wave.
 After the last wave:
 
 ```
+git merge origin/main
 npm run typecheck && npm test && npm run build
+```
+
+Then lint. `npm run lint` lints nothing inside `.claude/worktrees`, and the
+lander fails a batch on one lint error. Lint the changed files by name:
+
+```
+git diff --name-only --diff-filter=AM origin/main...HEAD -- 'src/*.ts' 'src/*.tsx' > files.txt
+npx eslint --no-ignore --quiet <each file in files.txt>
 ```
 
 Fix what fails. A worktree-isolated session cannot remove the agents'
@@ -132,6 +141,10 @@ npm run ship -- "companion: batch — <short list of what changed>"
 
 The worktree holds only merge commits, so nothing needs staging. One ship, one
 deploy. Use `--now` only when the owner asked to push through.
+
+`ship` only queues. Before you tell the owner it is live, check that it landed:
+`git fetch origin && git merge-base --is-ancestor HEAD origin/main`. If the
+branch shows under `stuck/`, read the lander run it names, fix, and ship again.
 
 ## Step 8 — report
 
