@@ -1,6 +1,7 @@
 "use client";
 
 import { RailWidgetButton } from "@/components/RailWidgetButton";
+import { openNotesBug } from "@/components/NotesBug";
 import { useEffect, useRef, useState } from "react";
 import { Sheet } from "@/components/Sheet";
 import Link from "next/link";
@@ -549,6 +550,16 @@ export function TabBar() {
         <div className="mt-auto pt-2">
           {/* LopezRocks, above Account (owner, 2026-11-02): it left the home
               page when Admin and Office moved to the Jobs page. */}
+          {/* Notes: opens the floating Notes card (NotesBug). Desktop only. */}
+          <button
+            type="button"
+            onClick={openNotesBug}
+            title="Jot a note, bug or feature request"
+            className="relative mb-1 hidden w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 lg:flex wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px]"
+          >
+            <ClipboardIcon />
+            <span className="rail-label min-w-0">Notes</span>
+          </button>
           <button
             type="button"
             onClick={toggleKloi}
