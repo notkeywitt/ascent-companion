@@ -12,12 +12,13 @@ import { daysInYear, weekPosition, type RibbonJob } from "@/lib/yearRibbon";
  *
  * Hours and dollars never share a scale: each has its own half.
  *
- * It draws no text and no vertical lines.
+ * It draws no text and no vertical lines, and has no panel of its own: it is
+ * printed straight on the page background (owner, 2026-11-15).
  *
  * Two shapes:
- *   dock        Home. Every job stacked, one colour per job. A phone shows it
- *               at the top of the page, scrolling with it. `pad` up docks it
- *               to the foot of the screen (`/api/home/ribbon`).
+ *   backdrop    Home. Every job stacked, one colour per job. It fills the
+ *               masthead's line and sits faded behind the billing month
+ *               (`HomeMasthead`'s `backdrop`, `/api/home/ribbon`).
  *   jobId       The Jobs page. One job: two lines with its colour between them.
  *               Drawn from `pad` up only, and a phone never fetches it
  *               (`/api/jobs-hub/ribbon`).
@@ -39,7 +40,7 @@ const DRAW_MS = 2400;
 const sum = (a: number[]) => a.reduce((s, v) => s + v, 0);
 const colorVar = (job: RibbonJob, i: number) => (job.id ? SERIES[i % SERIES.length] : "--viz-other");
 
-export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boolean }) {
+export function YearRibbon({ jobId, backdrop = false }: { jobId?: string; backdrop?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const [data, setData] = useState<Payload | null>(null);
@@ -48,17 +49,17 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
 
   // The read. The Jobs page shape waits for a `pad`-wide screen.
   useEffect(() => {
-    if (!dock && (!jobId || !window.matchMedia(PAD_QUERY).matches)) return;
+    if (!backdrop && (!jobId || !window.matchMedia(PAD_QUERY).matches)) return;
     const stop = new AbortController();
     setData(null);
-    fetch(dock ? "/api/home/ribbon" : `/api/jobs-hub/ribbon?jobId=${encodeURIComponent(jobId ?? "")}`, {
+    fetch(backdrop ? "/api/home/ribbon" : `/api/jobs-hub/ribbon?jobId=${encodeURIComponent(jobId ?? "")}`, {
       signal: stop.signal,
     })
       .then((r) => r.json())
       .then((d: Payload) => setData(d.error ? null : d))
       .catch(() => {});
     return () => stop.abort();
-  }, [dock, jobId]);
+  }, [backdrop, jobId]);
 
   const jobs = useMemo(() => data?.jobs ?? [], [data]);
   const has = jobs.some((j) => sum(j.hours) > 0 || sum(j.bills) > 0);
@@ -111,7 +112,8 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
     const css = getComputedStyle(el);
     const root = getComputedStyle(document.documentElement);
     const ink = css.color;
-    const ground = css.backgroundColor;
+    // The page itself: the strokes between stacked bands cut in its colour.
+    const ground = `rgb(${root.getPropertyValue("--page").trim().split(/\s+/).join(" ")})`;
     x.lineJoin = "round";
 
     const L = 8;
@@ -152,7 +154,7 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
     x.beginPath();
     x.rect(0, 0, at(todayPos * progress), h);
     x.clip();
-    if (dock) {
+    if (backdrop) {
       // Stacked: each job is a band on each side of the centre line.
       const hMax = Math.max(1, ...weeks.map((wk) => sum(jobs.map((j) => j.hours[wk]))));
       const bMax = Math.max(1, ...weeks.map((wk) => sum(jobs.map((j) => j.bills[wk]))));
@@ -205,33 +207,31 @@ export function YearRibbon({ jobId, dock = false }: { jobId?: string; dock?: boo
     }
     x.restore();
 
-  }, [data, has, jobs, dock, tick, progress]);
+  }, [data, has, jobs, backdrop, tick, progress]);
 
   if (!data || !has) return null;
 
   const body = (
-    <div ref={box} className="pointer-events-none bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100">
+    <div ref={box} className="pointer-events-none h-full text-neutral-900 dark:text-neutral-100">
       <canvas
         ref={canvas}
         role="img"
         aria-label={
-          dock
+          backdrop
             ? "This year by week: crew hours per day above the line and vendor bills below it, one colour per job"
             : "This job's year by week: crew hours per day above the line and vendor bills below it"
         }
-        className="block h-[4.75rem] w-full pad:h-24"
+        className={backdrop ? "block h-full w-full" : "block h-24 w-full"}
       />
     </div>
   );
 
-  if (!dock) {
-    return <div className="hidden overflow-hidden rounded-xl border border-line pad:block">{body}</div>;
-  }
-  // Phone: in the page, above the month, scrolls with it. `pad` up: docked
-  // to the foot of the screen. Home keeps `pb` clear of the dock.
+  if (!backdrop) return <div className="hidden pad:block">{body}</div>;
+  // Home: fills the masthead's line, faded, and fades out at both ends so the
+  // month and the date read over it.
   return (
     <div
-      className="-mx-4 -mt-3 mb-3 border-b border-line pad:fixed pad:inset-x-0 pad:bottom-[var(--tabbar-h)] pad:left-[var(--rail-w)] pad:z-20 pad:m-0 pad:border-b-0 pad:border-t"
+      className="pointer-events-none absolute inset-0 opacity-40 [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]"
     >
       {body}
     </div>

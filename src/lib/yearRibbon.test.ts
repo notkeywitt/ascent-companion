@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildRibbonJobs, daysInYear, isoWeekStartDay, topRibbonJobs, weekPosition } from "./yearRibbon";
+import { buildRibbonJobs, daysInYear, isoWeekStartDay, spreadBack, topRibbonJobs, weekPosition } from "./yearRibbon";
 
 describe("isoWeekStartDay", () => {
   it("places week 1 of 2026 on Monday Dec 29, 2025", () => {
@@ -43,6 +43,28 @@ describe("buildRibbonJobs", () => {
     );
     expect(jobs).toHaveLength(1);
     expect(jobs[0].bills[5]).toBe(0);
+  });
+});
+
+describe("spreadBack", () => {
+  it("shares a month-end week over itself and the three weeks before", () => {
+    const v = new Array(54).fill(0);
+    v[9] = 400;
+    const out = spreadBack(v);
+    expect(out.slice(5, 11)).toEqual([0, 100, 100, 100, 100, 0]);
+  });
+  it("keeps the total when the spread reaches week 1", () => {
+    const v = new Array(54).fill(0);
+    v[2] = 400;
+    const out = spreadBack(v);
+    expect(out[1]).toBe(300);
+    expect(out[2]).toBe(100);
+    expect(out[0]).toBe(0);
+  });
+  it("spreads bills in buildRibbonJobs", () => {
+    const [j] = buildRibbonJobs([], [{ week: 20, jobId: "a", value: 800 }], (id) => id);
+    expect(j.bills[17]).toBe(200);
+    expect(j.bills[20]).toBe(200);
   });
 });
 

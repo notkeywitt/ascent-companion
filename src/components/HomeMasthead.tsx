@@ -53,8 +53,14 @@ export interface MastheadMonth {
 
 /** `notices`: Home's banners, drawn compact in the band between the date and the
  *  billing month (owner, 2026-11-02). `month`: the server's read, which saves
- *  the fetch; without it (the /widget page) the masthead reads it itself. */
-export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; month?: MastheadMonth } = {}) {
+ *  the fetch; without it (the /widget page) the masthead reads it itself.
+ *  `backdrop`: drawn behind the whole line — the office Home's year ribbon
+ *  (owner, 2026-11-15). It fills the band and takes no taps. */
+export function HomeMasthead({
+  notices,
+  month,
+  backdrop,
+}: { notices?: React.ReactNode; month?: MastheadMonth; backdrop?: React.ReactNode } = {}) {
   const access = useAccess();
   const [today, setToday] = useState<Date | null>(null);
   const [ym, setYm] = useState(month?.ym ?? "");
@@ -148,11 +154,12 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
   return (
     // On a phone only the billing month shows, and only to a role that has one.
     <header
-      className={`mb-3 items-end justify-between gap-6 border-b border-line pb-2 pad:mb-6 pad:pb-4 ${
+      className={`relative mb-3 items-end justify-between gap-6 border-b border-line pb-2 pad:mb-6 pad:pb-4 ${
         shows ? "flex" : "hidden pad:flex"
-      }`}
+      } ${backdrop ? "min-h-14 pad:min-h-20" : ""}`}
     >
-      <div className="hidden min-w-0 pad:block">
+      {backdrop}
+      <div className="relative hidden min-w-0 pad:block">
         <SectionLabel>Home</SectionLabel>
         <div className="mt-1 flex items-center gap-2.5">
           <PeakMark className="h-3.5 w-[22px] shrink-0" />
@@ -166,11 +173,11 @@ export function HomeMasthead({ notices, month }: { notices?: React.ReactNode; mo
 
       {notices && (
         // Empty when every banner is quiet: each one renders nothing then.
-        <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 self-center empty:hidden">{notices}</div>
+        <div className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5 self-center empty:hidden">{notices}</div>
       )}
 
       {shows && (
-        <div className="ml-auto shrink-0 text-right">
+        <div className="relative ml-auto shrink-0 text-right">
           {/* A quiet native select: it reads as the heading it replaced until
               you touch it, and on a tablet it opens the OS month wheel. */}
           {canSet ? (
