@@ -1,7 +1,10 @@
 import { revalidateTag, unstable_cache } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
+import type { RiskCode } from "@/components/TrackingSheetRisks";
 import { callAppsScript } from "@/lib/appsScript";
+import { report, type FindingInput } from "@/lib/findings";
+import { money } from "@/lib/money";
 import { getMonthAction, recordMonthAction } from "@/lib/monthActions";
 import { sheetWriteBlocked } from "@/lib/monthClose";
 import { advanceSheets, planOneSheet, SHEET_JOBS_TAG, type SheetJob } from "@/lib/monthCloseServer";
@@ -65,6 +68,23 @@ const getSheetJobs = unstable_cache(
   ["tracking-sheet-jobs"],
   { revalidate: 300, tags: [SHEET_JOBS_TAG] },
 );
+
+/** One inbox row per code a sync says will not reach the sheet. */
+function sheetRisks(b: Record<string, unknown>): FindingInput[] {
+  const sheet = String(b.trackingSheetName || "Tracking sheet");
+  const rows = (list: unknown, kind: string, what: string) =>
+    ((Array.isArray(list) ? list : []) as RiskCode[]).map((c) => ({
+      key: `${kind}|${c.csi}|${c.column ?? ""}`,
+      kind,
+      subject: sheet,
+      title: `${sheet}: ${c.csi}${c.column ? ` @${c.column}` : ""} ${what} (${money(Number(c.amount) || 0)})`,
+      link: "/trackingsheet",
+    }));
+  return [
+    ...rows(b.unmatched, "sheet-missing-code", "has no column on the sheet"),
+    ...rows(b.deadColumns, "sheet-dead-column", "column lost its formula and reads $0"),
+  ];
+}
 
 export async function GET() {
   try {
@@ -169,6 +189,11 @@ export async function POST(req: NextRequest) {
       { error: String(b.error || "The tracking-sheet action failed.") },
       { status: 502 },
     );
+  }
+  // A sync's risks (components/TrackingSheetRisks) go into the findings inbox,
+  // one scope per sheet. Only when the answer carries the lists: no list, no report.
+  if (op === "sync" && Array.isArray(b.unmatched)) {
+    await report("tracking-sheet-risks", sheetRisks(b), projectId).catch(() => {});
   }
   // Sync and finalize can change what the list reports; setPeriod and setPaused
   // do. A dry run changes nothing.

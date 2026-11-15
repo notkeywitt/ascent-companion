@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { sunsetStatementLinks } from "@/db/schema";
+import { sunsetStatementLinks, sunsetStatements } from "@/db/schema";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
+import { report, type FindingInput } from "@/lib/findings";
+import { money } from "@/lib/money";
+import { reconcileState } from "@/lib/sunsetReconcile";
 
 // GET /api/sunset-statements/reconcile
 // Returns, per statement ExpID, the Sunset invoices that statement accounts for —
@@ -71,6 +75,37 @@ interface Reconciliation {
   boughtBackTotal?: number;
 }
 
+/**
+ * The same green rule the page draws (lib/sunsetReconcile), over the unpaid
+ * statements in the companion cache.
+ * ponytail: the cache keeps a statement removed from the sheet, so its row
+ * stays until someone dismisses it. Filter by the sheet list if that happens.
+ */
+async function reportUnreconciled(rcBy: Record<string, Reconciliation>) {
+  const unpaid = await db.select().from(sunsetStatements).where(eq(sunsetStatements.status, "unpaid"));
+  const items: FindingInput[] = unpaid.flatMap((s) => {
+    const st = reconcileState(s, rcBy[s.expId]);
+    if (st.reconciled) return [];
+    const why = !st.cmpReady
+      ? "not checked yet, the statement is still being read"
+      : st.diff !== null && Math.abs(st.diff) > 0.01
+        ? `off by ${money(st.diff)}`
+        : st.matchIssues
+          ? `${st.matchIssues} invoice${st.matchIssues === 1 ? "" : "s"} do not match`
+          : "no invoices found for it";
+    return [
+      {
+        key: s.expId,
+        kind: "sunset-unreconciled",
+        subject: s.project,
+        title: `Sunset statement ${s.statementDate}${s.project ? ` (${s.project})` : ""} does not reconcile: ${why}`,
+        link: "/payments",
+      },
+    ];
+  });
+  await report("sunset-unreconciled", items);
+}
+
 export async function GET() {
   try {
     await ensureDb();
@@ -86,6 +121,11 @@ export async function GET() {
       { timeoutMs: 38_000 },
     );
     const reconciliation = (resp.reconciliation as Record<string, Reconciliation>) ?? {};
+    // Into the findings inbox: every unpaid statement that does not go green.
+    // Only after a read that answered; a failed one threw above and reports nothing.
+    if (resp.reconciliation && typeof resp.reconciliation === "object") {
+      await reportUnreconciled(reconciliation).catch(() => {});
+    }
     return NextResponse.json({
       ok: true,
       reconciliation,

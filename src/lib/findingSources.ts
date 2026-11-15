@@ -13,7 +13,9 @@
  */
 import { ensureDb, rawDb } from "@/db";
 import { callAppsScriptOrThrow } from "@/lib/appsScript";
-import { companyDateParts, COMPANY_TZ } from "@/lib/billing";
+import { billingMonthStale, companyDateParts, COMPANY_TZ } from "@/lib/billing";
+import { readBillingMonth } from "@/lib/billingMonth";
+import { monthLabel } from "@/lib/billingMonths";
 import { DIGEST_GLOBAL } from "@/lib/digest/settings";
 import { report, type FindingInput } from "@/lib/findings";
 import { recentMonthlyCheckRuns } from "@/lib/invoiceReview/investigations";
@@ -116,6 +118,24 @@ const PULL: PullSource[] = [
         title: `${r.employee || "Unknown"} ${r.date}${r.jobLabel ? ` on ${r.jobLabel}` : ""}: ${r.detail}`,
         link: "/payroll?section=sync",
       })),
+  },
+  {
+    // Past the 10th with the billing month still behind the calendar: the red
+    // month on Home's masthead. Keyed by the stale month.
+    source: "billing-month",
+    load: async () => {
+      const { ym } = await readBillingMonth();
+      if (!billingMonthStale(new Date(), ym)) return [];
+      return [
+        {
+          key: ym,
+          kind: "billing-month-stale",
+          subject: ym,
+          title: `The billing month is still ${monthLabel(ym)}. New bills file into it until someone switches it on Home.`,
+          link: "/",
+        },
+      ];
+    },
   },
 ];
 
