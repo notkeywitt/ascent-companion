@@ -3,27 +3,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
+import { Dialog } from "@/components/Dialog";
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
 import {
   Banner,
   Button,
   Card,
   EmptyState,
-  Input,
-  Label,
   Loading,
   MetaLine,
   PageHeader,
   Segmented,
-  Select,
-  Textarea,
   Toggle,
   tableCls,
 } from "@/components/ui";
 import { toast } from "@/components/Toast";
 import { money } from "@/lib/money";
-import { clockOfMinutes, minutesOfClock, orgParts, prettyClock, spanHours } from "@/lib/orgTime";
+import { orgParts, prettyClock } from "@/lib/orgTime";
 import { setUrlParam } from "@/lib/urlParam";
 import {
   PERIOD_KINDS,
@@ -37,7 +33,10 @@ import { WeekCalendar } from "@/app/employee-time/WeekCalendar";
 import type { User } from "@/app/employee-time/WeekCompare";
 import type { CostCodeDefault, PayTypeRule } from "@/lib/payTypeMatch";
 import { AddTimeCard } from "@/app/trackingsheet/AddTimeCard";
-import { laborOptions } from "@/app/trackingsheet/TimeCodingCard";
+import { laborOptions, type TimeEntryRow } from "@/app/trackingsheet/TimeCodingCard";
+import { LaborImport } from "@/app/labor-import/LaborImport";
+import { EntryPanel } from "./EntryPanel";
+import { PayRateCheck } from "./PayRateCheck";
 import { hoursLabel } from "@/app/trackingsheet/boardMath";
 
 /**
@@ -79,12 +78,6 @@ interface BudgetLeaf {
   detail?: string;
   costType?: string;
   cost?: number;
-}
-
-interface UserRef {
-  id: string;
-  name: string;
-  types?: { name: string; hourlyRate?: number }[];
 }
 
 interface CostCode {
@@ -215,16 +208,6 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
     [leaves],
   );
 
-  /* ---- the roster with each person's pay types, loaded on the first edit ---- */
-  const [roster, setRoster] = useState<{ users: UserRef[]; orgTypes: string[] } | null>(null);
-  const loadRoster = useCallback(() => {
-    if (roster) return;
-    fetch("/api/time-entry/create", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((b) => setRoster({ users: b.users ?? [], orgTypes: b.orgTypes ?? [] }))
-      .catch(() => setRoster({ users: [], orgTypes: [] }));
-  }, [roster]);
-
   /* ---- labor budget per job, read only when the budget columns are on ---- */
   const [budgets, setBudgets] = useState<Record<string, Map<string, CostCode> | "error">>({});
 
@@ -265,8 +248,11 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
     }
   }, [showBudget, jobs, budgets]);
 
-  const [editing, setEditing] = useState("");
+  const belowXl = useIsBelowXl();
+  const [openId, setOpenId] = useState("");
   const [adding, setAdding] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [approving, setApproving] = useState("");
 
   async function approve(e: Entry) {
@@ -288,6 +274,34 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
       setApproving("");
     }
   }
+
+  const openEntry = shown.find((e) => e.id === openId) ?? null;
+  const openRow: TimeEntryRow | null = openEntry && {
+    ...openEntry,
+    minutes: Math.round(openEntry.hours * 60),
+  };
+  const openOptions = useMemo(
+    () =>
+      openEntry && leaves[openEntry.jobId]
+        ? laborOptions(leaves[openEntry.jobId], [openEntry.costItemId])
+        : [],
+    [openEntry, leaves],
+  );
+  const entryPanel = openRow && openEntry && (
+    <EntryPanel
+      key={openRow.id}
+      entry={openRow}
+      jobId={openEntry.jobId}
+      codeOptions={openOptions}
+      writes={writes}
+      onSaved={() => {
+        setOpenId("");
+        setBudgets({});
+        reload();
+      }}
+      onClose={() => setOpenId("")}
+    />
+  );
 
   const totalHours = sum(shown, "hours");
   const totalCost = sum(shown, "cost");
@@ -322,6 +336,8 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
       <PageHeader title="Labor" />
       {viewToggle}
 
+      <div className="flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
+      <div className="min-w-0">
       {/* ---- the period and the job ---- */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Segmented
@@ -394,16 +410,13 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
                 writes={writes}
                 budget={showBudget ? budgets[jid] ?? new Map() : null}
                 leaves={leaves[jid]}
-                roster={roster}
-                editing={editing}
+                openId={openId}
                 adding={adding === jid}
                 approving={approving}
-                onEdit={(e) => {
-                  setEditing(e.id);
+                onOpen={(e) => {
+                  setOpenId(e.id);
                   loadLeaves(e.jobId);
-                  loadRoster();
                 }}
-                onCancelEdit={() => setEditing("")}
                 onAdd={() => {
                   setAdding(jid);
                   loadLeaves(jid);
@@ -411,7 +424,6 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
                 onCancelAdd={() => setAdding("")}
                 onApprove={approve}
                 onSaved={() => {
-                  setEditing("");
                   setBudgets({});
                   reload();
                 }}
@@ -421,8 +433,64 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
           </div>
         </>
       )}
+      </div>
+
+      {/* ---- the right column: a small utility menu over the entry's details ---- */}
+      <aside className="order-first space-y-3 xl:sticky xl:top-4 xl:order-none">
+        <Card className="flex flex-wrap items-center gap-2 !py-2">
+          <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-neutral-500">
+            Tools
+          </span>
+          <Button size="xs" variant="secondary" onClick={() => setChecking(true)} disabled={!entries}>
+            Check pay rates
+          </Button>
+          <Button size="xs" variant="secondary" onClick={() => setImporting(true)}>
+            Import labor
+          </Button>
+        </Card>
+        {!belowXl &&
+          (entryPanel || (
+            <Card>
+              <p className="text-sm font-semibold">Details</p>
+              <p className="mt-1 text-xs text-neutral-500">Select a time entry to see and edit it here.</p>
+            </Card>
+          ))}
+      </aside>
+      </div>
+
+      {belowXl && entryPanel && (
+        <Dialog label="Edit time entry" bare onClose={() => setOpenId("")}>
+          {entryPanel}
+        </Dialog>
+      )}
+      {importing && (
+        <Dialog label="Import labor" title="Import labor" size="xl" onClose={() => setImporting(false)}>
+          <LaborImport embedded />
+        </Dialog>
+      )}
+      {checking && (
+        <PayRateCheck
+          entries={shown}
+          periodLabel={periodLabel(kind, from, to)}
+          writes={writes}
+          onChanged={reload}
+          onClose={() => setChecking(false)}
+        />
+      )}
     </main>
   );
+}
+
+function useIsBelowXl() {
+  const [below, setBelow] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1279px)");
+    const update = () => setBelow(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return below;
 }
 
 /* ------------------------------------------------------------------ one job */
@@ -434,12 +502,10 @@ function JobCard({
   writes,
   budget,
   leaves,
-  roster,
-  editing,
+  openId,
   adding,
   approving,
-  onEdit,
-  onCancelEdit,
+  onOpen,
   onAdd,
   onCancelAdd,
   onApprove,
@@ -452,12 +518,10 @@ function JobCard({
   writes: boolean;
   budget: Map<string, CostCode> | "error" | null;
   leaves: BudgetLeaf[] | undefined;
-  roster: { users: UserRef[]; orgTypes: string[] } | null;
-  editing: string;
+  openId: string;
   adding: boolean;
   approving: string;
-  onEdit: (e: Entry) => void;
-  onCancelEdit: () => void;
+  onOpen: (e: Entry) => void;
   onAdd: () => void;
   onCancelAdd: () => void;
   onApprove: (e: Entry) => void;
@@ -570,29 +634,17 @@ function JobCard({
                 </span>
               </div>
               <div className="divide-y divide-line-soft">
-                {codeRows.map((e) =>
-                  editing === e.id ? (
-                    <EntryEditor
-                      key={e.id}
-                      entry={e}
-                      options={options}
-                      loadingOptions={!leaves}
-                      roster={roster}
-                      writes={writes}
-                      onCancel={onCancelEdit}
-                      onSaved={onSaved}
-                    />
-                  ) : (
-                    <EntryRow
-                      key={e.id}
-                      entry={e}
-                      writes={writes}
-                      approving={approving === e.id}
-                      onEdit={() => onEdit(e)}
-                      onApprove={() => onApprove(e)}
-                    />
-                  ),
-                )}
+                {codeRows.map((e) => (
+                  <EntryRow
+                    key={e.id}
+                    entry={e}
+                    open={openId === e.id}
+                    writes={writes}
+                    approving={approving === e.id}
+                    onOpen={() => onOpen(e)}
+                    onApprove={() => onApprove(e)}
+                  />
+                ))}
               </div>
             </div>
           ))}
@@ -606,19 +658,35 @@ function JobCard({
 
 function EntryRow({
   entry: e,
+  open,
   writes,
   approving,
-  onEdit,
+  onOpen,
   onApprove,
 }: {
   entry: Entry;
+  open: boolean;
   writes: boolean;
   approving: boolean;
-  onEdit: () => void;
+  onOpen: () => void;
   onApprove: () => void;
 }) {
   return (
-    <div className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2 text-sm md:grid-cols-[8rem_10rem_minmax(8rem,12rem)_4.5rem_5.5rem_minmax(0,1fr)_auto] md:items-baseline">
+    <div
+      role="button"
+      tabIndex={0}
+      aria-pressed={open}
+      onClick={onOpen}
+      onKeyDown={(ev) => {
+        if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) {
+          ev.preventDefault();
+          onOpen();
+        }
+      }}
+      className={`grid cursor-pointer grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2 text-sm md:grid-cols-[8rem_10rem_minmax(8rem,12rem)_4.5rem_5.5rem_minmax(0,1fr)_auto] md:items-baseline ${
+        open ? "bg-accent/10" : "hover:bg-neutral-50 dark:hover:bg-white/5"
+      }`}
+    >
       <span className="font-medium">{dayLabel(e.date)}</span>
       <span className="text-right tabular-nums md:order-none md:text-left md:text-neutral-500">
         <span className="md:hidden">
@@ -640,182 +708,19 @@ function EntryRow({
         {e.isApproved ? (
           <span className="text-xs text-ok">✓ Approved</span>
         ) : (
-          <Button size="xs" variant="ghost" onClick={onApprove} disabled={!writes || approving}>
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              onApprove();
+            }}
+            disabled={!writes || approving}
+          >
             {approving ? "Approving…" : "Approve"}
           </Button>
         )}
-        <Button size="xs" variant="secondary" onClick={onEdit}>
-          Edit
-        </Button>
       </span>
-    </div>
-  );
-}
-
-/**
- * One entry's fields, edited in place. Sends only what changed to
- * POST /api/time-entry; a change to the day, start or end sends all three,
- * which is what that route needs. A new span or pay type changes the cost.
- */
-function EntryEditor({
-  entry: e,
-  options,
-  loadingOptions,
-  roster,
-  writes,
-  onCancel,
-  onSaved,
-}: {
-  entry: Entry;
-  options: Option[];
-  loadingOptions: boolean;
-  roster: { users: UserRef[]; orgTypes: string[] } | null;
-  writes: boolean;
-  onCancel: () => void;
-  onSaved: () => void;
-}) {
-  const start0 = orgParts(e.startedAt);
-  const end0 = orgParts(e.endedAt).time;
-  const [leafId, setLeafId] = useState(e.costItemId ?? "");
-  const [payType, setPayType] = useState(e.type);
-  const [date, setDate] = useState(start0.date || e.date);
-  const [start, setStart] = useState(start0.time);
-  const [end, setEnd] = useState(end0);
-  const [hoursText, setHoursText] = useState(e.hours.toFixed(2));
-  const [notes, setNotes] = useState(e.notes);
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ tone: "error" | "info"; text: string } | null>(null);
-
-  const user = roster?.users.find((u) => u.id === e.userId);
-  const payTypes = useMemo(() => {
-    const names = user?.types?.length ? user.types.map((t) => t.name) : roster?.orgTypes ?? [];
-    return e.type && !names.includes(e.type) ? [e.type, ...names] : names;
-  }, [user, roster, e.type]);
-
-  const timeChanged = date !== (start0.date || e.date) || start !== start0.time || end !== end0;
-  const spanned = spanHours(start, end);
-  const reTimed = timeChanged || payType !== e.type;
-
-  function changeStart(v: string) {
-    const s = minutesOfClock(v);
-    const keep = spanHours(start, end);
-    setStart(v);
-    if (s != null && keep != null && end) setEnd(clockOfMinutes(s + keep * 60));
-  }
-  function changeEnd(v: string) {
-    setEnd(v);
-    const h = spanHours(start, v);
-    if (h != null) setHoursText(h.toFixed(2));
-  }
-  function changeHours(v: string) {
-    setHoursText(v);
-    const h = Number(v);
-    const s = minutesOfClock(start);
-    if (s != null && Number.isFinite(h) && h > 0 && h <= 24) setEnd(clockOfMinutes(s + h * 60));
-  }
-
-  async function save() {
-    const body: Record<string, unknown> = { id: e.id };
-    if (leafId && leafId !== (e.costItemId ?? "")) body.costItemId = leafId;
-    if (payType && payType !== e.type) body.type = payType;
-    if (notes !== e.notes) body.notes = notes;
-    if (timeChanged) Object.assign(body, { date, startTime: start, endTime: end });
-    if (Object.keys(body).length === 1) return onCancel();
-    setSaving(true);
-    setMsg(null);
-    try {
-      const r = await fetch("/api/time-entry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const b = await r.json();
-      if (b.error) setMsg({ tone: "error", text: b.error });
-      else if (b.previewed) setMsg({ tone: "info", text: b.message });
-      else {
-        toast("Saved");
-        onSaved();
-      }
-    } catch (err) {
-      setMsg({ tone: "error", text: err instanceof Error ? err.message : "Failed to save" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="space-y-3 bg-neutral-50 px-3 py-3 dark:bg-white/5">
-      <p className="text-xs font-semibold text-neutral-500 dark:text-neutral-400">
-        Editing {e.employee} · {dayLabel(e.date)}
-      </p>
-      <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1.5fr)_9rem_7rem_7rem_6rem]">
-        <div>
-          <Label>Cost code</Label>
-          {loadingOptions ? (
-            <Loading label="Loading codes…" />
-          ) : (
-            <CostCodeSelect options={options} value={leafId} onChange={setLeafId} />
-          )}
-        </div>
-        <div>
-          <Label htmlFor={`pt-${e.id}`}>Pay type</Label>
-          <Select id={`pt-${e.id}`} value={payType} onChange={(ev) => setPayType(ev.target.value)} disabled={!roster}>
-            {payTypes.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor={`d-${e.id}`}>Date</Label>
-          <Input id={`d-${e.id}`} type="date" value={date} onChange={(ev) => setDate(ev.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor={`s-${e.id}`}>Start</Label>
-          <Input id={`s-${e.id}`} type="time" value={start} onChange={(ev) => changeStart(ev.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor={`e-${e.id}`}>End</Label>
-          <Input id={`e-${e.id}`} type="time" value={end} onChange={(ev) => changeEnd(ev.target.value)} />
-        </div>
-        <div>
-          <Label htmlFor={`h-${e.id}`}>Hours</Label>
-          <Input
-            id={`h-${e.id}`}
-            type="number"
-            inputMode="decimal"
-            min="0"
-            max="24"
-            step="0.25"
-            value={hoursText}
-            onChange={(ev) => changeHours(ev.target.value)}
-            className="tabular-nums"
-          />
-        </div>
-      </div>
-      <div>
-        <Label htmlFor={`n-${e.id}`}>Note</Label>
-        <Textarea id={`n-${e.id}`} rows={2} value={notes} onChange={(ev) => setNotes(ev.target.value)} />
-      </div>
-      {reTimed && (
-        <p className="text-[11px] text-warn">
-          A new day, time or pay type changes this entry&apos;s cost in JobTread.
-        </p>
-      )}
-      {msg && (
-        <Banner tone={msg.tone} className="!py-1.5 !text-[11px]">
-          {msg.text}
-        </Banner>
-      )}
-      <div className="flex items-center gap-2">
-        <Button size="sm" onClick={save} disabled={!writes || saving || (timeChanged && !(spanned && spanned > 0))}>
-          {saving ? "Saving…" : "Save to JobTread"}
-        </Button>
-        <Button size="sm" variant="secondary" onClick={onCancel} disabled={saving}>
-          Cancel
-        </Button>
-      </div>
     </div>
   );
 }

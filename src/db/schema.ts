@@ -434,6 +434,23 @@ export const payTypeRules = sqliteTable("pay_type_rules", {
 });
 
 /**
+ * Job labor-rate map — which pay type a job's cost code is paid at, whoever
+ * does the work. The Labor page checks the month's time entries against it
+ * and offers a fix for each pair that disagrees (lib/laborRateMatch). Edited
+ * only by accepting a suggestion there. `pay_type` is the JobTread pay-type
+ * NAME, the string a time entry's `type` carries. Unique on (job_id, cost_code).
+ */
+export const jobCodeRates = sqliteTable("job_code_rates", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: text("job_id").notNull(),
+  jobName: text("job_name").notNull().default(""), // display only; the id is the key
+  costCode: text("cost_code").notNull(), // cost code number
+  payType: text("pay_type").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+/**
  * Default cost codes — the code an employee lands on when they pick a job on
  * the time page. Edited on /labor-rates beside the pay-type rules. `cost_code`
  * is the code NUMBER; the time page picks that job's labor line carrying it.

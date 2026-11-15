@@ -110,7 +110,10 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   const [laborFocus, setLaborFocus] = useState<LaborFocus | null>(null);
   // A link by id (hubHref, /jobs-hub?jobId=): read whenever it changes, since a
   // link from inside this page keeps the page mounted.
-  const linkedJobId = useSearchParams().get("jobId");
+  const searchParams = useSearchParams();
+  const linkedJobId = searchParams.get("jobId");
+  // The whole query, so a link to the open job with a new tab or labor focus is read too.
+  const search = searchParams.toString();
   /** The job whose customer the pop-up shows (owner, 2026-11-02). */
   const [customerOf, setCustomerOf] = useState<string | null>(null);
   /** The list row under the pointer: its dot lights on the map meanwhile. */
@@ -123,7 +126,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         ?.scrollIntoView({ block: "nearest" });
   }, [hoverId]);
   // A link from the rail or a finding may name its tab: /jobs-hub?tab=checks.
-  const tabQ = useSearchParams().get("tab");
+  const tabQ = searchParams.get("tab");
   const [tab, setTab] = useState<Tab>(
     tabQ === "checks" || tabQ === "status" ? tabQ : canTrackingSheet ? "sheet" : "schedule",
   );
@@ -347,7 +350,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       setTab("sheet");
       setFocusBill({ docId, label: "Bill", nonce: Date.now() });
     }
-  }, [jobs, canTrackingSheet, linkedJobId]);
+  }, [jobs, canTrackingSheet, linkedJobId, search]);
   useEffect(() => {
     if (!jobs || !urlRead.current || new URLSearchParams(window.location.search).has("bill")) return;
     const path = hubPath(selected, jobs, ym, tab === "sheet" ? openDocId : null);
