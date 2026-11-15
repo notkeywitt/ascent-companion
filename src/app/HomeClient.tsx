@@ -38,7 +38,7 @@ function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
     return (
       <main className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5">
         {/* The year ribbon runs faded behind the masthead's line, under the billing month. */}
-        <HomeMasthead month={month} backdrop={<YearRibbon backdrop />} />
+        <HomeMasthead month={month} backdrop={<YearRibbon />} />
         <OfficeHome layout={layout} />
       </main>
     );

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { buildRibbonJobs, daysInYear, isoWeekStartDay, spreadBack, topRibbonJobs, weekPosition } from "./yearRibbon";
+import {
+  buildRibbonJobs,
+  daysInYear,
+  isoWeekStartDay,
+  ribbonTotal,
+  spreadBack,
+  topRibbonJobs,
+  weekPosition,
+} from "./yearRibbon";
 
 describe("isoWeekStartDay", () => {
   it("places week 1 of 2026 on Monday Dec 29, 2025", () => {
@@ -74,5 +82,37 @@ describe("topRibbonJobs", () => {
     const out = topRibbonJobs(buildRibbonJobs(rows, [], (id) => id), 2);
     expect(out.map((j) => j.name)).toEqual(["a", "b", "Other"]);
     expect(out[2].hours[2]).toBe(2);
+  });
+});
+
+describe("ribbonTotal", () => {
+  const jobs = buildRibbonJobs(
+    [
+      { week: 3, jobId: "a", value: 600 },
+      { week: 3, jobId: "b", value: 1200 },
+    ],
+    [],
+    (id) => id,
+    [
+      { week: 8, jobId: "a", value: 400 },
+      { week: 8, jobId: "b", value: 800 },
+    ],
+  );
+  it("adds every job's line, week by week", () => {
+    expect(ribbonTotal(jobs, "hours")[3]).toBe(6);
+    expect(ribbonTotal(jobs, "hours")[4]).toBe(0);
+  });
+  it("adds invoices, spread back like bills", () => {
+    const inv = ribbonTotal(jobs, "invoiced");
+    expect(inv.slice(5, 9)).toEqual([300, 300, 300, 300]);
+    expect(ribbonTotal(jobs, "bills").every((v) => v === 0)).toBe(true);
+  });
+  it("keeps every line inside the total", () => {
+    const t = ribbonTotal(jobs, "hours");
+    for (const j of jobs) j.hours.forEach((v, w) => expect(v).toBeLessThanOrEqual(t[w]));
+  });
+  it("sums the Other rollup's invoices too", () => {
+    const out = topRibbonJobs(jobs, 1);
+    expect(out[1].invoiced[8]).toBe(100);
   });
 });

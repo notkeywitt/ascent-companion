@@ -1,6 +1,6 @@
 "use client";
 
-import { YearRibbon } from "@/components/YearRibbon";
+import { HubRibbonHeader } from "./HubRibbonHeader";
 import { hubPath, parseHubPath } from "@/lib/hubUrl";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -469,16 +469,10 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       className="w-full px-4 pb-10 pt-5 pad:px-7"
       style={{ minHeight: heldHeight }}
     >
-      {/* The picked job's name stays in view: in the header bar on a phone, pinned
-          at the top left of the page from `pad` up (owner, 2026-11-15). */}
-      {selected && (
-        <>
-          <HeaderTitle>{jobLabel(selected)}</HeaderTitle>
-          <h1 className="sticky sticky-below-header z-10 -mx-7 mb-3 hidden truncate bg-cream/95 px-7 py-1.5 text-xl font-bold tracking-tight backdrop-blur pad:block dark:bg-ink/95">
-            {jobLabel(selected)}
-          </h1>
-        </>
-      )}
+      {/* The picked job's name stays in view: in the header bar on a phone, and
+          in the ribbon head line, pinned from `pad` up (owner, 2026-11-15). */}
+      {selected && <HeaderTitle>{jobLabel(selected)}</HeaderTitle>}
+      <HubRibbonHeader title={selected ? jobLabel(selected) : null} focusId={selected?.id ?? null} />
       <div className="min-w-0 space-y-6">
         {/* THE HEADER (owner, 2026-11-01): two cards — the jobs list, and the
             picked job's Job Board card with the map in its top right (the
@@ -657,9 +651,6 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         )}
 
         {/* UNDER THE HEADER */}
-        {/* The picked job's year: crew hours above, vendor bills below. From
-            `pad` up only; a phone never fetches it. */}
-        {selected && <YearRibbon key={`ribbon-${selected.id}`} jobId={selected.id} />}
         {/* The queue and the to-dos that sat here are Home's now (2026-11-13). */}
         {shown === "checks" && canChecks ? (
           ym && <InvoiceReview key={ym} embedYm={ym} />
