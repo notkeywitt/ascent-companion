@@ -324,12 +324,6 @@ export function YearRibbon({
     x.lineTo(R, base);
     x.lineWidth = 1;
     x.stroke();
-    x.font = `600 8px system-ui, sans-serif`;
-    x.textAlign = "center";
-    x.textBaseline = "top";
-    x.globalAlpha = 0.8;
-    x.fillText(RIBBON_SOURCES[sourceIdx].label.toUpperCase(), w / 2, 1);
-    x.textAlign = "start";
   }, [data, has, jobs, source, sourceIdx, focusId, tick, progress]);
 
   if (!data || !has) return null;

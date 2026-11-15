@@ -33,6 +33,9 @@ import {
   stepAnchor,
   type PeriodKind,
 } from "@/lib/laborPeriod";
+import { WeekCalendar } from "@/app/employee-time/WeekCalendar";
+import type { User } from "@/app/employee-time/WeekCompare";
+import type { CostCodeDefault, PayTypeRule } from "@/lib/payTypeMatch";
 import { AddTimeCard } from "@/app/trackingsheet/AddTimeCard";
 import { laborOptions } from "@/app/trackingsheet/TimeCodingCard";
 import { hoursLabel } from "@/app/trackingsheet/boardMath";
@@ -130,7 +133,19 @@ function todayOrg(): string {
   return orgParts(new Date().toISOString()).date;
 }
 
-export function LaborClient() {
+/** What the calendar view needs (the Time page's Split View inputs); null = not offered. */
+export interface LaborCalendarData {
+  users: User[];
+  appUserIds: string[];
+  myId: string;
+  jobs: JobRef[];
+  orgTypes: string[];
+  payRules: PayTypeRule[];
+  codeDefaults: CostCodeDefault[];
+}
+
+export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData | null } = {}) {
+  const [view, setView] = useState<"list" | "calendar">("list");
   const params = useSearchParams();
 
   const [kind, setKind] = useState<PeriodKind>(() => {
@@ -280,12 +295,32 @@ export function LaborClient() {
   const jobName = (id: string, list: Entry[]) =>
     list[0]?.jobName ?? (pickedJob && pickedJob.id === id ? jobLabel(pickedJob) : "This job");
 
+  const viewToggle = calendar && (
+    <Segmented
+      label="Labor view"
+      className="mb-4"
+      value={view}
+      onChange={setView}
+      options={[
+        { value: "list" as const, label: "List" },
+        { value: "calendar" as const, label: "Calendar" },
+      ]}
+    />
+  );
+  if (calendar && view === "calendar") {
+    return (
+      <main className="w-full max-w-7xl px-4 pad:px-7 pb-24 pt-6">
+        <PageHeader title="Labor" />
+        {viewToggle}
+        <WeekCalendar {...calendar} onExit={() => setView("list")} />
+      </main>
+    );
+  }
+
   return (
     <main className="w-full max-w-7xl px-4 pad:px-7 pb-24 pt-6">
-      <PageHeader
-        title="Labor"
-        description="Review each job's time by employee, cost code and pay rate. Fix or add entries in place."
-      />
+      <PageHeader title="Labor" />
+      {viewToggle}
 
       {/* ---- the period and the job ---- */}
       <div className="mb-4 flex flex-wrap items-center gap-2">

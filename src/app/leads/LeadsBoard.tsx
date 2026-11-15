@@ -37,6 +37,7 @@ import {
   Label,
   PageHeader,
   SectionHeading,
+  Segmented,
   Select,
   Textarea,
   type ChipTone,
@@ -56,6 +57,10 @@ import {
   type QuietBand,
 } from "@/lib/leadBoard";
 
+import { useAccess } from "@/components/AccessProvider";
+import { CustomerPanel } from "@/app/clients/CustomerPanel";
+import { JobPanel } from "@/app/clients/JobPanel";
+import type { ClientDirectory, DirectoryCustomer } from "@/app/clients/types";
 import { LeadIntakeForm } from "./LeadIntakeForm";
 
 /* ------------------------------------------------------------------- types */
@@ -499,7 +504,13 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
   const [openId, setOpenId] = useState<string | null>(null);
   /* The lead archive: leads marked "Not qualified". They leave the board and the
      home panel, and stay here for our records. */
-  const [archive, setArchive] = useState(false);
+  // All = open + complete leads + every other JobTread customer; Leads = open
+  // leads; Complete = the archive (Not qualified / Not converted).
+  const { can } = useAccess();
+  const [mode, setMode] = useState<"all" | "leads" | "complete">("leads");
+  const archive = mode === "complete";
+  const [customers, setCustomers] = useState<DirectoryCustomer[]>([]);
+  const [openJobId, setOpenJobId] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>("attention");
   const [adding, setAdding] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -521,19 +532,27 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(archive ? "/api/leads?archived=1" : "/api/leads");
+      const all = mode === "all";
+      const [res, doneRes, dirRes] = await Promise.all([
+        fetch(archive ? "/api/leads?archived=1" : "/api/leads"),
+        all ? fetch("/api/leads?archived=1") : null,
+        all && can("clients") ? fetch("/api/clients") : null,
+      ]);
       const json = await res.json();
       if (!res.ok) setError(json.error ?? "Failed to load leads");
       else {
-        setLeads(json.leads ?? []);
+        const done = doneRes ? await doneRes.json() : null;
+        setLeads([...(json.leads ?? []), ...(done?.leads ?? [])]);
         if (json.quiet) setThresholds(normalizeThresholds(json.quiet));
       }
+      const dir: (ClientDirectory & { error?: string }) | null = dirRes ? await dirRes.json() : null;
+      setCustomers(dir && !dir.error ? (dir.customers ?? []) : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Network error");
     } finally {
       setLoading(false);
     }
-  }, [archive]);
+  }, [mode, archive, can]);
 
   /**
    * File any website form submission that isn't on the board yet.
@@ -632,6 +651,11 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
 
 
   const visible = rows;
+  // Customers that are not leads, for All.
+  const otherCustomers = useMemo(() => {
+    const ids = new Set(leads.map((l) => l.id));
+    return customers.filter((c) => !c.archivedAt && !ids.has(c.id));
+  }, [customers, leads]);
 
   /**
    * Copy the leads on screen as formatted text, ready to paste into an email.
@@ -709,6 +733,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
   );
 
   const openLead = openId ? visible.find(({ lead }) => lead.id === openId) : undefined;
+  const openCustomer = openId && !openLead ? otherCustomers.find((c) => c.id === openId) : undefined;
 
   // Where Customers.tsx wants the buttons. Found after mount: the slot is
   // drawn by the parent's header.
@@ -734,17 +759,6 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
       >
         {scanning ? "Checking…" : "Refresh"}
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        title={archive ? "Back to the leads list" : "Leads marked Not qualified or Not converted, kept for our records"}
-        onClick={() => {
-          setOpenId(null);
-          setArchive((v) => !v);
-        }}
-      >
-        {archive ? "Back to leads" : "Archive"}
-      </Button>
     </div>
   );
 
@@ -754,12 +768,12 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
         // The page header (Customers.tsx) owns the top right corner; the
         // buttons are drawn there.
         <>
-          <span className="sr-only">{archive ? "Lead archive" : "Leads"}</span>
+          <span className="sr-only">Customers</span>
           {actionSlot && createPortal(actionButtons, actionSlot)}
         </>
       ) : (
         <PageHeader
-          title={archive ? "Lead archive" : "Leads"}
+          title={mode === "complete" ? "Complete" : mode === "all" ? "Customers" : "Leads"}
           description='Customers marked "New Lead" in JobTread, plus leads logged here, sorted by who needs attention first.'
           actions={actionButtons}
         />
@@ -806,11 +820,41 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
       )}
 
       <SplitView
-        onClose={() => setOpenId(null)}
-        backLabel="Back to leads"
-        empty="Pick a lead to see its details."
+        onClose={() => {
+          setOpenId(null);
+          setOpenJobId(null);
+        }}
+        backLabel="Back to the list"
+        empty="Pick a customer to see its details."
         detail={
-          openLead && (
+          (openCustomer && (
+            <div className="space-y-4">
+              {openJobId ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setOpenJobId(null)}
+                    className="text-sm font-semibold text-accent hover:underline"
+                  >
+                    ‹ Back to {openCustomer.name}
+                  </button>
+                  <JobPanel jobId={openJobId} tag={null} onRenamed={() => void load()} />
+                </>
+              ) : (
+                <>
+                  <SectionHeading>{openCustomer.name}</SectionHeading>
+                  <CustomerPanel
+                    key={openCustomer.id}
+                    accountId={openCustomer.id}
+                    jobs={openCustomer.jobs}
+                    onOpenJob={setOpenJobId}
+                    onSaved={() => void load()}
+                  />
+                </>
+              )}
+            </div>
+          )) ||
+          (openLead && (
             <div className="space-y-4">
               <SectionHeading>{openLead.lead.name}</SectionHeading>
               <Card className="p-0">
@@ -822,10 +866,25 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
                 />
               </Card>
             </div>
-          )
+          ))
         }
         list={
           <div>
+      <Segmented
+        label="Show"
+        className="mb-3"
+        value={mode}
+        onChange={(m) => {
+          setOpenId(null);
+          setOpenJobId(null);
+          setMode(m);
+        }}
+        options={[
+          ...(can("clients") ? [{ value: "all" as const, label: "All" }] : []),
+          { value: "leads" as const, label: "Leads" },
+          { value: "complete" as const, label: "Complete" },
+        ]}
+      />
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Label htmlFor="lead-sort" className="mb-0 whitespace-nowrap">
@@ -871,7 +930,7 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
       ) : visible.length === 0 ? (
         <EmptyState>
           {archive
-            ? "No leads in the archive. A lead marked Not qualified or Not converted lands here."
+            ? "Nothing is complete yet. A lead marked Not qualified or Not converted lands here."
             : leads.length === 0
             ? 'No customers are marked "New Lead" in JobTread, and nothing has been logged here — use “New lead” to add one.'
             : "No leads."}
@@ -891,6 +950,30 @@ export function LeadsBoard({ embedded = false }: { embedded?: boolean } = {}) {
                 open={openId === lead.id}
                 onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
               />
+            </li>
+          ))}
+        </ul>
+      )}
+      {mode === "all" && otherCustomers.length > 0 && (
+        <ul className="mt-2 space-y-2">
+          {otherCustomers.map((c) => (
+            <li key={c.id}>
+              <Card className={`p-0 ${openId === c.id ? "ring-2 ring-inset ring-accent/50" : ""}`}>
+                <button
+                  type="button"
+                  aria-expanded={openId === c.id}
+                  onClick={() => {
+                    setOpenJobId(null);
+                    setOpenId(openId === c.id ? null : c.id);
+                  }}
+                  className="w-full px-3 py-3 text-left"
+                >
+                  <div className="font-semibold">{c.name}</div>
+                  <div className="text-xs text-neutral-500">
+                    {[c.contactName, c.address].filter(Boolean).join(" · ")}
+                  </div>
+                </button>
+              </Card>
             </li>
           ))}
         </ul>

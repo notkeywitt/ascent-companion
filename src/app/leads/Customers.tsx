@@ -1,51 +1,19 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useAccess } from "@/components/AccessProvider";
-import { PageHeader, Tabs } from "@/components/ui";
-import { setUrlParam } from "@/lib/urlParam";
-import { CUSTOMER_SECTIONS } from "@/lib/workspaces";
+import { PageHeader } from "@/components/ui";
 import { LeadsBoard } from "./LeadsBoard";
-import { ClientsBrowser } from "@/app/clients/ClientsBrowser";
 
 /**
- * CUSTOMERS (CONSOLIDATION_PLAN.md stage 4) — one page for the people the
- * company works for. A lead is a JobTread customer marked "New Lead", so the
- * lead board and the customer directory are two views of one list:
- *   Leads          — the follow-up board (was the Leads page)
- *   All customers  — every customer and job, editable (was Directory's list)
- * Each section shows only to someone who holds its view. From 2xl the sidebar
- * lists the sections under Customers, so the tab strip steps aside. A job's record stays
- * at /clients?jobId — the job tab row's "Job Details".
+ * CUSTOMERS — one page, the lead board's shape. The All / Leads / Complete
+ * toggle and the detail panel live in LeadsBoard; a job opens in that panel
+ * too. A job's record also stays at /clients?jobId (the job tab row's "Job Details").
  */
 export function Customers() {
-  const { can } = useAccess();
-  const search = useSearchParams();
-  const sections = CUSTOMER_SECTIONS.filter((x) => can(x.view));
-  // Read from the URL on every render: a sidebar link changes ?section while
-  // this page stays mounted.
-  const want = search.get("section") ?? "";
-  const section = sections.some((x) => x.id === want) ? want : (sections[0]?.id ?? "leads");
-
   return (
     <main className="w-full max-w-4xl px-4 pad:px-7 lg:max-w-[1600px] pb-24 pt-6">
-      {/* The leads board draws its New lead / Refresh / Archive buttons into this slot. */}
-      <PageHeader title="Customers" actions={section === "leads" ? <div id="customers-actions" /> : undefined} />
-      <div className="2xl:hidden">
-        <Tabs
-          label="Customer sections"
-          items={sections.map((x) => ({
-            key: x.id,
-            label: x.label,
-            active: section === x.id,
-            onClick: () => {
-              setUrlParam("section", x.id === sections[0].id ? "" : x.id);
-            },
-          }))}
-        />
-      </div>
-      {section === "leads" && can("leads") && <LeadsBoard embedded />}
-      {section === "all" && can("clients") && <ClientsBrowser embedded />}
+      {/* The leads board draws its New lead / Refresh buttons into this slot. */}
+      <PageHeader title="Customers" actions={<div id="customers-actions" />} />
+      <LeadsBoard embedded />
     </main>
   );
 }

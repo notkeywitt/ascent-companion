@@ -203,7 +203,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   onboarding: "a new hire's own paperwork, reached from the invite link and the field landing redirect on Today (src/app/page.tsx)",
   "time-off-admin": "a section of Payroll (/payroll?section=timeoff); /time-off/office redirects",
   "labor-import": "a section of Payroll (/payroll?section=labor); /labor-import redirects",
-  clients: "Customers' All customers section (/leads?section=all), and a job's Record tab (/clients?jobId)",
+  clients: "Customers' All toggle (/leads), and a job's Record tab (/clients?jobId)",
   jobs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   "budget-import": "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
   specs: "a job's tab row (JobTabs) and the header search (JOB_PAGES)",
@@ -334,16 +334,6 @@ export interface BarItem {
   /** Rail only: the first item after the top group, drawn after a space. */
   gap?: boolean;
 }
-
-/**
- * The Customers page's sections (/leads?section=). The page shows them as a tab
- * strip below 2xl, and the sidebar lists them under Customers from 2xl. Each
- * shows only to someone who holds its view. The first is the page's default.
- */
-export const CUSTOMER_SECTIONS = [
-  { id: "leads", label: "Leads", view: "leads" },
-  { id: "all", label: "All customers", view: "clients" },
-] as const;
 
 const TAB_BY_VIEW = new Map(WORKSPACES.flatMap((w) => w.tabs.map((t) => [t.view, t] as const)));
 

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
@@ -20,6 +19,7 @@ import {
   tableCls,
 } from "@/components/ui";
 
+import { OnboardingOffice } from "@/app/onboarding/office/OnboardingOffice";
 import { AddEmployee, type Employee } from "./AddEmployee";
 import { JobAccess, PayTypes, type PayType } from "./JobTreadSections";
 
@@ -96,6 +96,7 @@ export default function EmployeesPage() {
   const [saveErr, setSaveErr] = useState("");
   const [linkingId, setLinkingId] = useState(""); // employee id being one-click linked
   const [adding, setAdding] = useState(false);
+  const [hiring, setHiring] = useState(false);
 
   // Email composer — save one Gmail draft from office@ to a chosen set of employees.
   const [composing, setComposing] = useState(false);
@@ -393,21 +394,13 @@ export default function EmployeesPage() {
       />
 
       {access.can("new-hires") && (
-        <Link
-          href="/onboarding/office"
-          className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400 pad:hidden"
-        >
-          New Hires
-        </Link>
-      )}
-
-      {access.can("labor-rates") && (
-        <Link
-          href="/labor-rates"
+        <button
+          type="button"
+          onClick={() => setHiring(true)}
           className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
         >
-          Pay Rates
-        </Link>
+          New Hire
+        </button>
       )}
 
       {/* Controls */}
@@ -702,6 +695,12 @@ export default function EmployeesPage() {
                 {saveErr}
               </Banner>
             )}
+        </Dialog>
+      )}
+
+      {hiring && (
+        <Dialog onClose={() => setHiring(false)} size="xl" title="New hire">
+          <OnboardingOffice />
         </Dialog>
       )}
 
