@@ -106,6 +106,11 @@ export function HomeMasthead({
       })
     : "";
 
+  // The same day, short, for a phone's narrower line.
+  const dateShort = today
+    ? today.toLocaleDateString(undefined, { timeZone: COMPANY_TZ, weekday: "short", day: "numeric", month: "short" })
+    : "";
+
   /** Past the 10th with the month still behind the calendar — time to switch. */
   const stale = !!today && !!ym && billingMonthStale(today, ym);
   const months = billingMonths(15);
@@ -158,13 +163,17 @@ export function HomeMasthead({
       } ${backdrop ? "min-h-14 pad:min-h-20" : ""}`}
     >
       {backdrop}
-      <div className="relative hidden min-w-0 pad:block">
-        <SectionLabel>Home</SectionLabel>
-        <div className="mt-1 flex items-center gap-2.5">
+      {/* The office Home (the one with the ribbon behind it) shows the day on a
+          phone too, smaller (owner, 2026-11-15). Every other Home keeps its
+          no-title phone layout. */}
+      <div className={`relative min-w-0 ${backdrop ? "" : "hidden pad:block"}`}>
+        <SectionLabel className="hidden pad:block">Home</SectionLabel>
+        <div className="flex min-w-0 items-center gap-2.5 pad:mt-1">
           {/* min-h keeps the band's height across the one frame before the
               effect above knows what day it is. */}
-          <h1 className="min-h-[26px] text-[21px] font-bold leading-tight tracking-tight">
-            {dateLine}
+          <h1 className="min-h-[26px] truncate text-[17px] font-bold leading-tight tracking-tight pad:text-[21px]">
+            <span className="pad:hidden">{dateShort}</span>
+            <span className="hidden pad:inline">{dateLine}</span>
           </h1>
         </div>
       </div>
