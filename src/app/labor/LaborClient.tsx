@@ -480,7 +480,7 @@ function JobCard({
       {budget && byCode.length > 0 && (
         <div className="overflow-x-auto border-b border-line-soft">
           {budget === "error" ? (
-            <p className="px-3 py-2 text-xs text-danger">The job's budget did not load.</p>
+            <p className="px-3 py-2 text-xs text-danger">The job&apos;s budget did not load.</p>
           ) : (
             <table className={tableCls.root}>
               <thead>
