@@ -32,6 +32,8 @@ import {
 } from "@/lib/invoiceStatus";
 import { jtDocumentUrl } from "@/lib/packageInvoices";
 import { PaymentMark, liveTotals, useInvoicingSummary, type JobRow } from "./summary";
+import { checkedAtLabel, tally } from "@/app/trackingsheet/preSendMemory";
+import { useJobChecks, type JobRun } from "@/app/trackingsheet/usePreSendCheck";
 
 /**
  * Invoice Status — every job billed in a month, and where its client invoice
@@ -226,6 +228,11 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
   // job out has to move the total on the tap.
   const live = liveTotals(data?.jobs ?? []);
   const included = live.included;
+  // The invoice review's job checks, one per included job: the side-by-side and
+  // the per-check marks read them. Last run per job and month is kept on this
+  // device, so the marks are there when the page opens.
+  const checkIds = useMemo(() => included.map((j) => j.jtJobId), [included]);
+  const jc = useJobChecks(ym, checkIds);
   const count = (f: Filter) => included.filter(FILTERS.find((x) => x.key === f)!.test).length;
 
   return (
@@ -332,6 +339,8 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
                   <JobItem
                     key={j.jtJobId}
                     job={j}
+                    run={jc.runs[j.jtJobId]}
+                    onCheck={() => void jc.check(j.jtJobId)}
                     focus={focusJobId === j.jtJobId}
                     ym={embedYm ? "" : ym}
                     saving={savingField.startsWith(j.jtJobId)}
@@ -378,6 +387,14 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
 
           <StickyActionBar>
             <PackageEmailButton email={email} ym={ym} onOpen={() => setNotesOpen(true)} />
+            <button
+              type="button"
+              className={btn("ghost", "md")}
+              disabled={jc.batchRunning || checkIds.length === 0}
+              onClick={() => jc.checkAll(checkIds)}
+            >
+              {jc.batchRunning ? `Checking ${jc.finished} / ${jc.total}…` : "Check all jobs"}
+            </button>
             <button type="button" className={btn("ghost", "md")} onClick={() => void load(ym, true)}>
               Refresh figures
             </button>
@@ -385,6 +402,145 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
         </div>
       )}
     </main>
+  );
+}
+
+/** A link drawn as a small button. `external` opens a new tab (JobTread, Drive, Sheets). */
+function LinkButton({
+  href,
+  external,
+  title,
+  children,
+}: {
+  href: string;
+  external?: boolean;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      title={title}
+      className={btn("secondary", "xs")}
+      {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+    >
+      {children}
+    </a>
+  );
+}
+
+/** Dollars apart that still reads as agreeing: rounding across a month of lines. */
+const AGREE = 1;
+
+/**
+ * The app's month beside JobTread's invoice, cost against cost. The app's cost is
+ * Apps Script's read of the month's bills and labor. JobTread's is the cost basis
+ * of the client invoices. What the month still has to invoice sits between them,
+ * so a job agrees when app cost = on invoice + still to invoice. The numbers come
+ * from the job check, so they need that run.
+ */
+function SideBySide({ job, run }: { job: JobRow; run: JobRun | undefined }) {
+  const f = run?.mem?.result.figures;
+  if (!f) {
+    return (
+      <p className="mt-2 text-xs text-neutral-500">
+        App cost {money(job.cost)} · not compared with JobTread yet
+      </p>
+    );
+  }
+  const gap = job.cost - f.invoiceCost - f.toBeInvoiced;
+  const agrees = Math.abs(gap) <= AGREE;
+  return (
+    <div className="mt-2">
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <Figure label="App cost" value={job.cost} />
+        <Figure label="On JT invoice" value={f.invoiceCost} />
+        <Figure label="Still to invoice" value={f.toBeInvoiced} />
+      </div>
+      <p
+        className={`mt-1 text-xs ${agrees ? "text-ok" : "text-warn"}`}
+        title="App cost, minus the cost on the JobTread invoices, minus what the app says is still to invoice."
+      >
+        {agrees
+          ? "✓ App and JobTread agree"
+          : `Off by ${money(Math.abs(gap))} — ${gap > 0 ? "app is higher" : "JobTread is higher"}`}
+        {f.invoiceTotal > 0 ? ` · billed ${money(f.invoiceTotal)} with markup and tax` : ""}
+      </p>
+    </div>
+  );
+}
+
+function Figure({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-line-soft px-2 py-1">
+      <p className="text-[11px] text-neutral-500">{label}</p>
+      <p className="font-semibold tabular-nums">{money(value)}</p>
+    </div>
+  );
+}
+
+/**
+ * Every invoice check's result on this job. The summary line is the answer; the
+ * list behind it names each check, so a clean job still shows what ran.
+ */
+function CheckMarks({ run, onCheck }: { run: JobRun | undefined; onCheck: () => void }) {
+  const [open, setOpen] = useState(false);
+  const busy = run?.state === "queued" || run?.state === "running";
+  const mem = run?.mem;
+  const checks = mem?.result.checks;
+  const t = mem ? tally(mem) : null;
+  const incomplete = !!mem?.result.evidenceWarnings.length;
+
+  return (
+    <div className="mt-2 text-xs">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        {checks && t ? (
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            className={`font-semibold ${t.errors ? "text-danger" : t.warnings || incomplete ? "text-warn" : "text-ok"}`}
+          >
+            {t.errors || t.warnings
+              ? [t.errors && `${t.errors} to fix`, t.warnings && `${t.warnings} to look at`]
+                  .filter(Boolean)
+                  .join(" · ")
+              : incomplete
+                ? "Check incomplete"
+                : `✓ ${plural(checks.length, "check")} clear`}
+            {open ? " ▴" : " ▾"}
+          </button>
+        ) : (
+          <span className="text-neutral-500">Checks not run</span>
+        )}
+        {mem && <span className="text-neutral-500">{checkedAtLabel(mem.at)}</span>}
+        <button type="button" disabled={busy} onClick={onCheck} className={btn("ghost", "xs")}>
+          {busy ? "Checking…" : mem ? "Re-check" : "Check this job"}
+        </button>
+      </div>
+      {run?.error && <p className="mt-1 text-danger">{run.error}</p>}
+      {open && incomplete && <p className="mt-1 text-warn">{mem!.result.evidenceWarnings.join(" ")}</p>}
+      {open && checks && (
+        <ul className="mt-1.5 grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-2">
+          {checks.map((c) => (
+            <li key={c.id} className="flex items-baseline gap-1.5">
+              <span
+                className={
+                  c.errors ? "text-danger" : c.warnings ? "text-warn" : incomplete ? "text-neutral-500" : "text-ok"
+                }
+                aria-hidden
+              >
+                {c.errors ? "✕" : c.warnings ? "!" : incomplete ? "?" : "✓"}
+              </span>
+              <span>{c.title}</span>
+              {c.errors + c.warnings > 0 && (
+                <span className="tabular-nums text-neutral-500">{c.errors + c.warnings}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -429,6 +585,8 @@ function DeliveryMark({ status }: { status: InvoiceStatus }) {
  */
 function JobItem({
   job,
+  run,
+  onCheck,
   focus,
   ym,
   saving,
@@ -436,6 +594,8 @@ function JobItem({
   onSave,
 }: {
   job: JobRow;
+  run: JobRun | undefined;
+  onCheck: () => void;
   focus: boolean;
   /** Set on the standalone page only: it adds a link into the Jobs Hub. */
   ym: string;
@@ -471,79 +631,57 @@ function JobItem({
         </div>
       </div>
 
-      <MetaLine
-        className="mt-1.5"
-        items={[
-          ...(job.invoiced
-            ? job.invoices?.length
-              ? job.invoices.map((iv) => (
-                  <a
-                    key={`inv-${iv.id || iv.number}`}
-                    className="underline"
-                    href={iv.id ? jtDocumentUrl(job.jtJobId, iv.id) : job.links.jtInvoice}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={iv.warranty ? "Warranty record: every line 88 90 00, billed at $0" : undefined}
-                  >
-                    {iv.warranty ? "Warranty" : "Invoice"}
-                    {iv.number ? ` #${iv.number}` : ""} ↗
-                  </a>
-                ))
-              : [
-                  <a key="inv" className="underline" href={job.links.jtInvoice} target="_blank" rel="noreferrer">
-                    Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
-                  </a>,
-                ]
-            : []),
-          // The total is the client INVOICE on an invoiced job, so it is bigger
-          // than labor plus bills by the markup and the tax. Printing the cost
-          // beside it is what stops that reading as a wrong total.
-          job.invoiced ? <span key="cost">{money(job.cost)} cost</span> : null,
-          <a key="labor" className="underline" href={job.links.jtLabor} target="_blank" rel="noreferrer">
-            Labor {money(job.labor)}
-            {job.laborHours ? ` · ${job.laborHours} hrs` : ""}
-          </a>,
-          <a key="bills" className="underline" href={job.links.jtDocuments} target="_blank" rel="noreferrer">
-            Bills {money(job.bills)}
-            {job.billCount ? ` · ${plural(job.billCount, "bill")}` : ""}
-          </a>,
-        ]}
-      />
+      <SideBySide job={job} run={run} />
+      <CheckMarks run={run} onCheck={onCheck} />
 
-      <MetaLine
-        className="mt-1"
-        items={[
-          <a key="app" className="underline" href={job.links.appTracking}>
-            Tracking Sheets
-          </a>,
-          ym ? (
-            <a key="hub" className="underline" href={hubHref(job.jtJobId, ym, { tab: "status" })}>
-              Open in Jobs Hub
-            </a>
-          ) : null,
-          job.trackingSheetUrl ? (
-            <a key="sheet" className="underline" href={job.trackingSheetUrl} target="_blank" rel="noreferrer">
-              Sheet ↗
-            </a>
-          ) : null,
-          job.billingFolderUrl ? (
-            <a key="drive" className="underline" href={job.billingFolderUrl} target="_blank" rel="noreferrer">
-              Backup ({job.billingFolderFiles}) ↗
-            </a>
+      {/* Every link is a small button. The total above is the client INVOICE on
+          an invoiced job, so it is bigger than labor plus bills by the markup
+          and the tax; the side-by-side prints cost against cost for that reason. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {job.invoiced &&
+          (job.invoices?.length ? (
+            job.invoices.map((iv) => (
+              <LinkButton
+                key={`inv-${iv.id || iv.number}`}
+                href={iv.id ? jtDocumentUrl(job.jtJobId, iv.id) : job.links.jtInvoice}
+                external
+                title={iv.warranty ? "Warranty record: every line 88 90 00, billed at $0" : undefined}
+              >
+                {iv.warranty ? "Warranty" : "Invoice"}
+                {iv.number ? ` #${iv.number}` : ""} ↗
+              </LinkButton>
+            ))
           ) : (
-            <span key="nofolder">No billing folder</span>
-          ),
-          <a key="review" className="underline" href={job.links.appLabor}>
-            Labor Review
-          </a>,
-          job.include ? null : (
-            <Chip key="out" tone="neutral">
-              Left out
-            </Chip>
-          ),
-          saving ? "saving…" : null,
-        ]}
-      />
+            <LinkButton href={job.links.jtInvoice} external>
+              Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
+            </LinkButton>
+          ))}
+        <LinkButton href={job.links.jtLabor} external>
+          Labor {money(job.labor)}
+          {job.laborHours ? ` · ${job.laborHours} hrs` : ""} ↗
+        </LinkButton>
+        <LinkButton href={job.links.jtDocuments} external>
+          Bills {money(job.bills)}
+          {job.billCount ? ` · ${plural(job.billCount, "bill")}` : ""} ↗
+        </LinkButton>
+        <LinkButton href={job.links.appTracking}>Tracking Sheets</LinkButton>
+        {ym && <LinkButton href={hubHref(job.jtJobId, ym, { tab: "status" })}>Open in Jobs Hub</LinkButton>}
+        {job.trackingSheetUrl && (
+          <LinkButton href={job.trackingSheetUrl} external>
+            Sheet ↗
+          </LinkButton>
+        )}
+        {job.billingFolderUrl ? (
+          <LinkButton href={job.billingFolderUrl} external>
+            Backup ({job.billingFolderFiles}) ↗
+          </LinkButton>
+        ) : (
+          <span className="text-xs text-neutral-500">No billing folder</span>
+        )}
+        <LinkButton href={job.links.appLabor}>Labor Review</LinkButton>
+        {job.include ? null : <Chip tone="neutral">Left out</Chip>}
+        {saving ? <span className="text-xs text-neutral-500">saving…</span> : null}
+      </div>
 
       {job.note && !open && (
         <p className="mt-2 border-l-2 border-line pl-2.5 text-[12px] italic text-neutral-500 dark:text-neutral-400">

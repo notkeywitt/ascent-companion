@@ -38,6 +38,8 @@ function run(findings: Finding[], evidenceWarnings: string[] = []): PreSendResul
     errors: findings.filter((f) => f.severity === "error").length,
     warnings: findings.filter((f) => f.severity === "warning").length,
     evidenceWarnings,
+    checks: [],
+    figures: { invoiceCost: 0, toBeInvoiced: 0, invoiceTotal: 0 },
     empty: false,
   };
 }

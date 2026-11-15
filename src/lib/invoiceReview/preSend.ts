@@ -48,11 +48,35 @@
  * reads.
  */
 import { loadMonthEvidence } from "./evidence";
-import { runChecks } from "./registry";
+import { ALL_CHECKS, checkIdForKind, runChecks } from "./registry";
+import { depositPart } from "./checks/shared";
 import { DEFAULT_SETTINGS } from "./settings";
 import { applyRulings, listRulings } from "./rulings";
 import type { Finding } from "./types";
 import type { PaveConfig } from "@/lib/jobtread";
+
+/** One check's result on this job, for the Invoice Status page's indicators. */
+export interface CheckStatus {
+  id: string;
+  title: string;
+  /** Live (unsuppressed) findings of this check. */
+  errors: number;
+  warnings: number;
+}
+
+/**
+ * The app's figures beside JobTread's, for one job and month. Cost basis on
+ * both sides, so the invoice's markup and tax do not show up as a difference.
+ */
+export interface PreSendFigures {
+  /** Cost on the job's non-void client invoices, deposit draws left out. */
+  invoiceCost: number;
+  /** What the app says the month still has to invoice: bills and time not yet
+   *  on an invoice, plus the draft bills still coding. */
+  toBeInvoiced: number;
+  /** The invoices' total with tax: what the client is billed. */
+  invoiceTotal: number;
+}
 
 export interface PreSendResult {
   jobId: string;
@@ -68,6 +92,9 @@ export interface PreSendResult {
   /** Non-fatal problems gathering the evidence. A gate that could not read the
    *  job must never render as a clean one. */
   evidenceWarnings: string[];
+  /** Every check this gate runs, with its live finding counts. */
+  checks: CheckStatus[];
+  figures: PreSendFigures;
   /** True when the job had no bills or invoices in the month at all — there is
    *  nothing to check rather than nothing wrong. */
   empty: boolean;
@@ -111,6 +138,25 @@ export async function preSendCheck(
   }
 
   const live = findings.filter((f) => !f.suppressedBy);
+  const checks = ALL_CHECKS.filter(
+    (c) =>
+      (c.scope === "job" || c.scope === "invoice") &&
+      settings.checks[c.id as keyof typeof settings.checks]?.enabled,
+  ).map((c) => {
+    const mine = live.filter((f) => checkIdForKind(f.kind) === c.id);
+    return {
+      id: c.id,
+      title: c.title,
+      errors: mine.filter((f) => f.severity === "error").length,
+      warnings: mine.filter((f) => f.severity === "warning").length,
+    };
+  });
+  const invoices = (job?.invoices ?? []).filter((i) => i.status !== "denied");
+  const figures: PreSendFigures = {
+    invoiceCost: invoices.reduce((s, i) => s + i.cost - depositPart(i).cost, 0),
+    toBeInvoiced: job ? job.uninvoicedBillsCost + job.uninvoicedTimeCost + job.draftBillsCost : 0,
+    invoiceTotal: invoices.reduce((s, i) => s + i.priceWithTax, 0),
+  };
   return {
     jobId,
     jobName: job?.jobName ?? "",
@@ -121,6 +167,8 @@ export async function preSendCheck(
     errors: live.filter((f) => f.severity === "error").length,
     warnings: live.filter((f) => f.severity === "warning").length,
     evidenceWarnings: evidence.warnings,
+    checks,
+    figures,
     // Labor counts. A month with no bills but a rate problem on its time
     // entries is exactly the case that must not render as "nothing to check".
     empty:
