@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { JobPicker, jobLabel, type JobRef } from "@/components/JobPicker";
-import { Banner, Button, Card, Chip, Input, Label, Loading, Select } from "@/components/ui";
+import { Banner, Button, Card, Input, Label, Loading, Select } from "@/components/ui";
 import { JtLink } from "@/components/JtLink";
 import { jtTimeUrl } from "@/lib/jtLinks";
 import type { TimeEntryEdit } from "@/lib/codingDraft";
@@ -472,46 +472,60 @@ export function TimeCodingCard({
   }
 
   return (
-    <Card className="max-h-[85dvh] overflow-y-auto">
-      <div className="flex items-baseline justify-between gap-2">
-        <p className="min-w-0 truncate text-sm font-semibold">{entry.employee}</p>
-        <span className="flex shrink-0 items-baseline gap-3">
-          {/* `timeEntryId` OPENS the entry on JobTread's time page, rather than
-              filtering to its day — see lib/jtLinks. */}
-          <JtLink
-            href={jtTimeUrl({ jobId, userId: entry.userId, entryId: entry.id })}
-            title="Open this entry on JobTread"
-            className="text-xs font-semibold text-neutral-400 transition hover:text-accent"
-          >
-            JT ↗
-          </JtLink>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-xs font-semibold text-neutral-400 transition hover:text-accent"
-          >
-            Close
-          </button>
-        </span>
-      </div>
-      {/* The pay rate is cost ÷ hours, not a stored field — JobTread keeps the
-          rate on the pay TYPE, and what this entry was actually charged at is
-          the only rate that describes it. It is also what makes the re-time
-          warning below concrete: change the hours and the cost moves by this. */}
-      <p className="mb-2 min-w-0 truncate text-xs text-neutral-500">
-        {money(entry.cost)} · {entry.hours.toFixed(2)}h
-        {entry.hours > 0 ? ` · ${money(entry.cost / entry.hours)}/h` : ""}
-        {entry.type ? ` · ${entry.type}` : ""}
-      </p>
-      <div className="mb-3 flex flex-wrap gap-1.5">
-        {entry.isApproved ? (
-          <Chip tone="success">approved</Chip>
-        ) : (
-          <Chip tone="warning">unapproved</Chip>
-        )}
-        {openEntry && <Chip tone="info">still running</Chip>}
+    // The bill card's shape (BillCodingCard): a header that stays — the person
+    // and the cost, the figures every field below is checked against — over a
+    // body that scrolls. `pad={false}` because each part carries its own padding.
+    <Card pad={false} className="flex max-h-[85dvh] flex-col">
+      <div className="shrink-0 border-b border-line-soft px-4 pb-3 pt-4">
+        <div className="flex items-baseline justify-between gap-2">
+          <p className="min-w-0 truncate text-[15px] font-semibold tracking-tight">
+            {entry.employee}
+          </p>
+          <p className="shrink-0 text-[15px] font-semibold tracking-tight tabular-nums">
+            {money(entry.cost)}
+          </p>
+        </div>
+        <div className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
+          {/* The pay rate is cost ÷ hours, not a stored field — JobTread keeps the
+              rate on the pay TYPE, and what this entry was actually charged at is
+              the only rate that describes it. It is also what makes the re-time
+              warning below concrete: change the hours and the cost moves by this.
+              Approval and "still running" ride the same quiet line as plain text. */}
+          <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-neutral-500">
+            <span>
+              {entry.hours.toFixed(2)}h
+              {entry.hours > 0 ? ` · ${money(entry.cost / entry.hours)}/h` : ""}
+              {entry.type ? ` · ${entry.type}` : ""}
+            </span>
+            <span aria-hidden>·</span>
+            <span className={entry.isApproved ? "text-ok" : "text-warn"}>
+              {entry.isApproved ? "approved" : "unapproved"}
+            </span>
+            {openEntry && (
+              <>
+                <span aria-hidden>·</span>
+                <span>still running</span>
+              </>
+            )}
+          </p>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {/* `timeEntryId` OPENS the entry on JobTread's time page, rather than
+                filtering to its day — see lib/jtLinks. */}
+            <JtLink
+              href={jtTimeUrl({ jobId, userId: entry.userId, entryId: entry.id })}
+              title="Open this entry on JobTread"
+              className="text-xs font-semibold text-neutral-400 transition hover:text-accent"
+            >
+              JT ↗
+            </JtLink>
+            <Button variant="secondary" size="xs" onClick={onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-4">
       {!writes && (
         <Banner tone="warning" className="mb-3 !py-1.5 !text-[11px]">
           Writes are off, so this panel is read-only.
@@ -803,6 +817,7 @@ export function TimeCodingCard({
           </p>
         </div>
       )}
+      </div>
     </Card>
   );
 }
