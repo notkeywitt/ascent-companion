@@ -13,7 +13,9 @@ import {
   Segmented,
   Skeleton,
   Toggle,
+  btn,
 } from "@/components/ui";
+import { toggleKloi, useKloi } from "@/lib/kloi";
 import { toast } from "@/components/Toast";
 import { useAccess } from "@/components/AccessProvider";
 import { AttentionList, useAttention } from "@/components/TodayQueue";
@@ -79,6 +81,7 @@ function useDesktop(): boolean | null {
 export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
   const { can, role } = useAccess();
   const desktop = useDesktop();
+  const kloi = useKloi();
   const [layout, setLayout] = useState(initial);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsUsed = useUsed(settingsOpen);
@@ -142,6 +145,26 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
                 )}
               </div>
             ))}
+        </div>
+      )}
+
+      {desktop === false && (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={toggleKloi}
+            aria-pressed={kloi.playing}
+            className={btn("secondary", "md", "min-h-12 w-full")}
+          >
+            {kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
+          </button>
+          {can("lopezrocks") ? (
+            <Link href="/lopezrocks" className={btn("secondary", "md", "min-h-12 w-full")}>
+              Lopez Rocks
+            </Link>
+          ) : (
+            <span />
+          )}
         </div>
       )}
 

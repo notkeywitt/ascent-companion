@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useAccess } from "@/components/AccessProvider";
+import { fixTarget, type FixTarget } from "@/components/findingFix";
 import { toast } from "@/components/Toast";
-import { Banner, Chip, EmptyState, Loading, MetaLine, Notice, SectionHeading, type BannerTone, type ChipTone } from "@/components/ui";
+import { Banner, Button, Chip, EmptyState, Loading, MetaLine, Notice, SectionHeading, type BannerTone, type ChipTone } from "@/components/ui";
 import type { FindingRow } from "@/lib/findings";
 import type { MacCheckStatus } from "@/lib/findingSources";
 import { forgetFact } from "@/lib/homeFacts";
+import { lswddApprovalTarget } from "@/lib/lswddPay";
 import type { FindingDisposition } from "@/lib/invoiceReview/types";
 
 /**
@@ -16,6 +19,11 @@ import type { FindingDisposition } from "@/lib/invoiceReview/types";
  *
  * Two readers: the /attention page draws all of it, and the office Home's
  * "Needs attention" sheet draws the first `limit` rows with a link to the rest.
+ *
+ * Two kinds of row carry an inline fix (findingFix.ts): Approve bill and Mark
+ * done. Each calls the write route its own page calls, behind that route's
+ * view. A fixed row hides here at once. The store keeps it open until its
+ * source stops reporting it, so "resolved" still means the source saw it fixed.
  */
 
 type Row = FindingRow & { hidden: boolean; verdict: FindingDisposition | null };
@@ -46,6 +54,51 @@ const VERDICT: Record<FindingDisposition["verdict"], { label: string; tone: Chip
   "needs-human": { label: "Mac check: needs a person", tone: "warning" },
 };
 
+const FIX_LABEL: Record<FixTarget["action"], string> = { "approve-bill": "Approve bill", "complete-todo": "Mark done" };
+/** The view that gates each fix's write route (src/lib/views.ts). */
+const FIX_VIEW: Record<FixTarget["action"], string> = { "approve-bill": "bill-approve", "complete-todo": "home" };
+
+type FixResult = { toast: string; hide: boolean };
+
+const readJson = async (r: Response | null) =>
+  ((await r?.json().catch(() => null)) as Record<string, unknown> | null) ?? null;
+
+/** Same write as the bill page and the Tracking Sheet board (useBillApproval). */
+async function approveBill(docId: string): Promise<FixResult> {
+  // The row does not say Bill or Expense, so read the bill first: a Bill goes
+  // to pending, an Expense to approved.
+  const b = await fetch(`/api/bill?docId=${encodeURIComponent(docId)}`, { cache: "no-store" }).catch(() => null);
+  const bj = await readJson(b);
+  const h = bj?.header as { status?: string; name?: string; qboDocumentType?: string } | null | undefined;
+  if (!b?.ok || !h) throw new Error(String(bj?.error ?? "Could not read the bill."));
+  if (h.status !== "draft") return { toast: `This bill is already ${h.status} in JobTread.`, hide: true };
+  const r = await fetch("/api/bill-status", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      docId,
+      status: lswddApprovalTarget({ name: h.name ?? "", qboDocumentType: h.qboDocumentType ?? "" }),
+    }),
+  }).catch(() => null);
+  const j = await readJson(r);
+  if (!r?.ok || j?.error) throw new Error(String(j?.error ?? "Approve failed."));
+  if (j?.previewed) return { toast: "Writes are off. Nothing was saved.", hide: false };
+  return { toast: "Bill approved.", hide: true };
+}
+
+/** Same write as Home's This Week card (WeekAhead). */
+async function completeTodo(taskId: string): Promise<FixResult> {
+  const r = await fetch("/api/home/week/task", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id: taskId, kind: "todo", done: true }),
+  }).catch(() => null);
+  const j = await readJson(r);
+  if (!r?.ok || !j?.ok) throw new Error(String(j?.error ?? "Could not save to JobTread."));
+  if (j.previewed) return { toast: "Writes are off. Nothing was saved.", hide: false };
+  return { toast: "To-do marked done.", hide: true };
+}
+
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 const dayTime = (iso: string) =>
   new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
@@ -55,6 +108,14 @@ export function FindingsInbox({ limit }: { limit?: number }) {
   const [mac, setMac] = useState<MacCheckStatus | null>(null);
   const [error, setError] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const access = useAccess();
+  // Inline fixes: the row being written (a ref as well, so a double tap cannot
+  // start a second write before React re-renders), the rows fixed on this
+  // visit, and each row's failure text.
+  const fixingRef = useRef(false);
+  const [fixing, setFixing] = useState<number | null>(null);
+  const [fixed, setFixed] = useState<Set<number>>(new Set());
+  const [fixError, setFixError] = useState<Record<number, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -93,10 +154,32 @@ export function FindingsInbox({ limit }: { limit?: number }) {
     [load],
   );
 
+  const runFix = async (r: Row, t: FixTarget) => {
+    if (fixingRef.current) return;
+    if (
+      t.action === "approve-bill" &&
+      !window.confirm(`Approve this bill?\n\n${r.title}\n\nApproving pushes it to QuickBooks and locks its lines.`)
+    )
+      return;
+    fixingRef.current = true;
+    setFixing(r.id);
+    setFixError((e) => ({ ...e, [r.id]: "" }));
+    try {
+      const res = await (t.action === "approve-bill" ? approveBill(t.docId) : completeTodo(t.taskId));
+      toast(res.toast);
+      if (res.hide) setFixed((s) => new Set(s).add(r.id));
+    } catch (e) {
+      setFixError((x) => ({ ...x, [r.id]: e instanceof Error ? e.message : "Could not save." }));
+    } finally {
+      fixingRef.current = false;
+      setFixing(null);
+    }
+  };
+
   if (error) return <Banner tone="error">Needs attention did not load: {error}</Banner>;
   if (!rows) return <Loading />;
 
-  const open = rows.filter((r) => !r.hidden);
+  const open = rows.filter((r) => !r.hidden && !fixed.has(r.id));
   const hidden = rows.filter((r) => r.hidden);
   const shown = limit ? open.slice(0, limit) : open;
   const sources = [...new Set(shown.map((r) => r.source))];
@@ -128,19 +211,29 @@ export function FindingsInbox({ limit }: { limit?: number }) {
             >
               {SOURCE_LABEL[source] ?? source} · {open.filter((r) => r.source === source).length}
             </SectionHeading>
-            {mine.map((r) => (
-              <Notice
-                key={r.id}
-                tone={TONE[r.severity] ?? "warning"}
-                title={r.title}
-                action={r.link ? { label: "Fix", href: r.link } : undefined}
-                onSnooze={() => act(r.id, "snooze")}
-                onDismiss={() => act(r.id, "dismiss")}
-              >
-                <MetaLine items={[`Since ${day(r.firstSeenAt)}`, r.verdict && <Chip tone={VERDICT[r.verdict.verdict].tone}>{VERDICT[r.verdict.verdict].label}</Chip>]} />
-                {r.verdict?.why && <p className="mt-1 text-[13px]">{r.verdict.why}</p>}
-              </Notice>
-            ))}
+            {mine.map((r) => {
+              const t = fixTarget(r);
+              const fix = t && access.can(FIX_VIEW[t.action]) ? t : null;
+              return (
+                <Notice
+                  key={r.id}
+                  tone={TONE[r.severity] ?? "warning"}
+                  title={r.title}
+                  action={r.link ? { label: "Fix", href: r.link } : undefined}
+                  onSnooze={() => act(r.id, "snooze")}
+                  onDismiss={() => act(r.id, "dismiss")}
+                >
+                  <MetaLine items={[`Since ${day(r.firstSeenAt)}`, r.verdict && <Chip tone={VERDICT[r.verdict.verdict].tone}>{VERDICT[r.verdict.verdict].label}</Chip>]} />
+                  {r.verdict?.why && <p className="mt-1 text-[13px]">{r.verdict.why}</p>}
+                  {fix && (
+                    <Button size="xs" variant="secondary" className="mt-2" disabled={fixing !== null} onClick={() => runFix(r, fix)}>
+                      {fixing === r.id ? "Saving…" : FIX_LABEL[fix.action]}
+                    </Button>
+                  )}
+                  {fixError[r.id] && <p className="mt-1 text-[13px] text-danger">{fixError[r.id]}</p>}
+                </Notice>
+              );
+            })}
           </section>
         );
       })}
