@@ -406,6 +406,8 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
  */
 /** Pages and workspaces the desktop rail leaves out (owner, 2026-11-14). They stay in the ☰ menu, search and links. */
 export const RAIL_OFF_VIEWS = new Set(["invoice-review", "invoicing-summary", "time-sync"]);
+/** A page that gets its own rail entry right under its workspace's. */
+const OWN_ENTRY_UNDER: Record<string, string> = { help: "requests", admin: "ai-scripts" };
 const RAIL_OFF_WORKSPACES = new Set(["mywork"]);
 
 const DESK_TOP: BarSlot[] = [
@@ -514,9 +516,11 @@ export function railFor(
     if (!tabs.length || rail.some((i) => i.workspace === ws.id) || hide.has(`ws:${ws.id}`) || RAIL_OFF_WORKSPACES.has(ws.id)) continue;
     if (tabs.every((t) => rail.some((i) => i.view === t.view && !i.workspace))) continue;
     rail.push({ key: ws.id, label: ws.title, href: tabs[0].href, view: tabs[0].view, workspace: ws.id, covers: tabs.map((t) => t.href) });
-    // Feature Requests as its own entry right under Help (owner, 2026-11-14):
-    // one tap from any page, on the rail and in the phone drawer.
-    const req = ws.id === "help" ? tabs.find((t) => t.view === "requests") : undefined;
+    // Feature Requests as its own entry right under Help (owner, 2026-11-14),
+    // AI Scripts right under Admin (owner, 2026-11-16): one tap from any page,
+    // on the rail and in the phone drawer.
+    const own = OWN_ENTRY_UNDER[ws.id];
+    const req = own ? tabs.find((t) => t.view === own) : undefined;
     if (req && !hide.has(`page:${req.view}`) && !rail.some((i) => i.view === req.view && !i.workspace)) {
       rail.push({ key: req.view, label: req.label, href: req.href, view: req.view, covers: [req.href] });
     }
