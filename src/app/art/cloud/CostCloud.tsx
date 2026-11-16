@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Banner, ChipScroller, FilterChip, PageHeader, Segmented, SectionLabel } from "@/components/ui";
 import { money } from "@/lib/money";
 import type { CloudPayload, CloudSetId } from "@/lib/art/cloud";
+import { Tsne } from "@/lib/art/tsne";
 
 /**
  * THE COST CLOUD (owner, 2026-11-16). A data set drawn as a flock of dots on
@@ -20,6 +21,9 @@ import type { CloudPayload, CloudSetId } from "@/lib/art/cloud";
  *                 Spare new dots grow out of the centre; spare old dots sink in.
  *   - At rest:    each dot drifts a little on its own slow orbit.
  *   - Tour:       steps through the component pairs on its own.
+ *   - Islands:    a t-SNE layout (src/lib/art/tsne.ts) that runs live, a few
+ *                 steps per frame, so the dots sort themselves into islands
+ *                 of like rows while you watch.
  * Under prefers-reduced-motion every move lands at once and nothing drifts.
  */
 
@@ -39,6 +43,14 @@ const PAIRS: [number, number][] = [
   [4, 5],
 ];
 const pairKey = (p: [number, number]) => `${p[0]}-${p[1]}`;
+
+type Layout = "pca" | "islands";
+const LAYOUTS: { value: Layout; label: string }[] = [
+  { value: "pca", label: "PCA axes" },
+  { value: "islands", label: "Islands (t-SNE)" },
+];
+const TSNE_STEPS = 700;
+const TSNE_BUDGET_MS = 10; // per frame, so the page stays smooth
 
 const MOVE_MS = 1400;
 const MORPH_MS = 2000;
@@ -84,6 +96,9 @@ export function CostCloud() {
   const [data, setData] = useState<Partial<Record<CloudSetId, CloudPayload>>>({});
   const [error, setError] = useState("");
   const [hover, setHover] = useState<{ idx: number; x: number; y: number } | null>(null);
+  const [layout, setLayout] = useState<Layout>("pca");
+  const [tsneIter, setTsneIter] = useState(0);
+  const [measuring, setMeasuring] = useState(false);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -95,6 +110,8 @@ export function CostCloud() {
   const colorsRef = useRef<string[]>([]);
   const sizeRef = useRef({ w: 600, h: 480 });
   const reduced = useRef(false);
+  const tsnes = useRef(new Map<CloudPayload, Tsne>());
+  const liveTsne = useRef<Tsne | null>(null);
 
   const payload = data[set];
   focusRef.current = focus;
@@ -127,29 +144,31 @@ export function CostCloud() {
     return { x: d.x0 + (d.x1 - d.x0) * e, y: d.y0 + (d.y1 - d.y0) * e, a: d.a0 + (d.a1 - d.a0) * e, t };
   }, []);
 
-  /** Send every dot to `p` on axes `xy`. A new payload swirls in; the same one glides. */
+  /** Send every dot of `p` to `places` (one per point). A new payload swirls
+   *  in; the same one glides. */
   const retarget = useCallback(
-    (p: CloudPayload, xy: [number, number]) => {
+    (p: CloudPayload, places: { x: number; y: number }[]) => {
       const now = performance.now();
-      const [cx, cy] = xy;
-      const next = p.points.map((pt) => ({ x: clampEdge(pt[cx] as number), y: clampEdge(pt[cy] as number), c: pt[6] }));
+      const next = p.points.map((pt, i) => ({ x: clampEdge(places[i].x), y: clampEdge(places[i].y), c: pt[6] }));
       const old = dotsRef.current.filter((d) => d.idx >= 0 || posNow(d, now).t < 1);
 
-      if (shownRef.current === p && old.length === next.length) {
-        // Same set, new axes: each dot from where it is to its new place.
-        dotsRef.current = old.map((d, i) => {
-          const at = posNow(d, now);
-          return {
-            ...d,
-            x0: at.x,
-            y0: at.y,
-            a0: at.a,
-            a1: 1,
-            x1: next[i].x,
-            y1: next[i].y,
-            delay: hash(i) * SPREAD_MS,
-          };
-        });
+      if (shownRef.current === p) {
+        // Same set, new layout: each dot from where it is to its own new place.
+        dotsRef.current = old
+          .filter((d) => d.idx >= 0)
+          .map((d) => {
+            const at = posNow(d, now);
+            return {
+              ...d,
+              x0: at.x,
+              y0: at.y,
+              a0: at.a,
+              a1: 1,
+              x1: next[d.idx].x,
+              y1: next[d.idx].y,
+              delay: hash(d.idx) * SPREAD_MS,
+            };
+          });
         durRef.current = MOVE_MS;
       } else {
         // A new set: pair old and new by angle so the cloud swirls between shapes.
@@ -204,9 +223,41 @@ export function CostCloud() {
     [posNow],
   );
 
+  // Where each layout puts a payload's points.
   useEffect(() => {
-    if (payload) retarget(payload, pair);
-  }, [payload, pair, retarget]);
+    if (!payload) return;
+    if (layout === "pca") {
+      liveTsne.current = null;
+      retarget(
+        payload,
+        payload.points.map((pt) => ({ x: pt[pair[0]] as number, y: pt[pair[1]] as number })),
+      );
+      return;
+    }
+    const known = tsnes.current.get(payload);
+    if (known) {
+      liveTsne.current = known;
+      setTsneIter(known.iteration);
+      retarget(payload, known.scaled());
+      return;
+    }
+    // Building the neighbour lists blocks for about a second: let the
+    // "Measuring" note paint first.
+    setMeasuring(true);
+    const t = setTimeout(() => {
+      const ts = new Tsne(payload.points.map((pt) => pt.slice(0, 6) as number[]));
+      tsnes.current.set(payload, ts);
+      liveTsne.current = ts;
+      setMeasuring(false);
+      setTsneIter(0);
+      // Start from a small ring of the PCA picture, so the islands grow out of it.
+      retarget(
+        payload,
+        payload.points.map((pt) => ({ x: (pt[0] as number) * 0.25, y: (pt[1] as number) * 0.25 })),
+      );
+    }, 40);
+    return () => clearTimeout(t);
+  }, [payload, pair, layout, retarget]);
 
   // The tour steps through the pairs on its own.
   useEffect(() => {
@@ -262,6 +313,23 @@ export function CostCloud() {
         ctx.moveTo(w / 2, pad);
         ctx.lineTo(w / 2, h - pad);
         ctx.stroke();
+
+        // The live t-SNE: a few steps, then every dot's target follows it.
+        const ts = liveTsne.current;
+        if (ts && ts.iteration < TSNE_STEPS) {
+          const until = performance.now() + TSNE_BUDGET_MS;
+          do ts.step();
+          while (ts.iteration < TSNE_STEPS && performance.now() < until);
+          if (!reduced.current || ts.iteration >= TSNE_STEPS) {
+            const at = ts.scaled();
+            for (const d of dotsRef.current) {
+              if (d.idx < 0 || !at[d.idx]) continue;
+              d.x1 = clampEdge(at[d.idx].x);
+              d.y1 = clampEdge(at[d.idx].y);
+            }
+          }
+          if (ts.iteration % 10 === 0 || ts.iteration >= TSNE_STEPS) setTsneIter(ts.iteration);
+        }
 
         const colors = colorsRef.current;
         const f = focusRef.current;
@@ -338,6 +406,12 @@ export function CostCloud() {
     setHover(null);
     setPair(p);
   };
+  const chooseLayout = (l: Layout) => {
+    setHover(null);
+    if (l === "islands") setTour(false);
+    setLayout(l);
+  };
+  const pcaAxes = layout === "pca";
 
   const sizeOf = useMemo(() => {
     const m = new Map<number, number>();
@@ -357,9 +431,13 @@ export function CostCloud() {
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <Segmented label="Data set" value={set} onChange={chooseSet} options={SETS} size="md" />
+        <Segmented label="Layout" value={layout} onChange={chooseLayout} options={LAYOUTS} size="md" />
         <button
           type="button"
-          onClick={() => setTour((t) => !t)}
+          onClick={() => {
+            setLayout("pca");
+            setTour((t) => !t);
+          }}
           aria-pressed={tour}
           className={`ui-btn min-h-11 rounded-lg px-3 text-sm font-semibold transition ${
             tour ? "bg-accent text-accent-fg" : "text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
@@ -369,14 +447,26 @@ export function CostCloud() {
         </button>
       </div>
 
-      <SectionLabel className="mb-1.5">Components</SectionLabel>
-      <ChipScroller className="mb-3">
-        {PAIRS.map((p) => (
-          <FilterChip key={pairKey(p)} on={pairKey(p) === pairKey(pair)} onClick={() => choosePair(p)}>
-            PC{p[0] + 1} × PC{p[1] + 1}
-          </FilterChip>
-        ))}
-      </ChipScroller>
+      {pcaAxes ? (
+        <>
+          <SectionLabel className="mb-1.5">Components</SectionLabel>
+          <ChipScroller className="mb-3">
+            {PAIRS.map((p) => (
+              <FilterChip key={pairKey(p)} on={pairKey(p) === pairKey(pair)} onClick={() => choosePair(p)}>
+                PC{p[0] + 1} × PC{p[1] + 1}
+              </FilterChip>
+            ))}
+          </ChipScroller>
+        </>
+      ) : (
+        <p className="mb-3 min-h-11 text-sm text-neutral-500">
+          {measuring
+            ? "Measuring each dot's nearest neighbours…"
+            : tsneIter < TSNE_STEPS
+              ? `Sorting into islands: step ${tsneIter} of ${TSNE_STEPS}.`
+              : "Settled. Dots that sit together are alike; the distance between islands means little."}
+        </p>
+      )}
 
       {error && (
         <Banner tone="error" className="mb-3">
@@ -402,12 +492,12 @@ export function CostCloud() {
             Reading {SETS.find((s) => s.value === set)?.label.toLowerCase()} from JobTread…
           </p>
         )}
-        {xs && (
+        {pcaAxes && xs && (
           <span className="pointer-events-none absolute bottom-1.5 right-2.5 text-[11px] text-neutral-500">
             PC{pair[0] + 1} →
           </span>
         )}
-        {ys && (
+        {pcaAxes && ys && (
           <span className="pointer-events-none absolute left-2.5 top-1.5 text-[11px] text-neutral-500">↑ PC{pair[1] + 1}</span>
         )}
         {hovered && hover && (
@@ -428,7 +518,7 @@ export function CostCloud() {
 
       {payload && (
         <div className="mt-4 grid gap-4 pad:grid-cols-2">
-          <section>
+          <section hidden={!pcaAxes}>
             <SectionLabel className="mb-1.5">What the axes mean</SectionLabel>
             {[
               { name: `PC${pair[0] + 1}`, dir: "Right", opp: "left", c: xs },
