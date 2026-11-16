@@ -5,9 +5,10 @@
  * and shyness between groups, a pace per group, births and deaths for the
  * year mode, and the pointer as a hawk (a point in the box).
  *
- * The world is a cube of side SIDE, in its own units; the page's camera
+ * The world is a box of size sx × sy × sz in its own units (a cube of side
+ * SIDE by default; the Tank view makes it wide and shallow); the page's camera
  * (camera3d.ts) projects it onto the canvas. Walls turn birds back inside the
- * cube; wrap sends a bird that leaves one face in at the opposite one.
+ * box; wrap sends a bird that leaves one face in at the opposite one.
  * Pure: no DOM.
  */
 import type { FlockBirdInit, FlockParams } from "./flock";
@@ -43,6 +44,10 @@ export class Flock3D {
   born: Uint8Array;
   wrap = false;
   t = 0;
+  /** The box's size along each axis. */
+  sx = SIDE;
+  sy = SIDE;
+  sz = SIDE;
   private rand: () => number;
 
   constructor(birds: FlockBirdInit[], params: FlockParams, seed = 13) {
@@ -94,6 +99,19 @@ export class Flock3D {
     this.count = new Int32Array(this.groups);
   }
 
+  /** Change the box's size; every bird keeps its place as a share of it. */
+  resize(sx: number, sy: number, sz: number) {
+    if (sx === this.sx && sy === this.sy && sz === this.sz) return;
+    for (let i = 0; i < this.n; i++) {
+      this.x[i] *= sx / this.sx;
+      this.y[i] *= sy / this.sy;
+      this.z[i] *= sz / this.sz;
+    }
+    this.sx = sx;
+    this.sy = sy;
+    this.sz = sz;
+  }
+
   /**
    * Start from a flat picture: each bird keeps its place across and down
    * (as a share of the canvas), on a thin sheet through the middle of the
@@ -101,9 +119,9 @@ export class Flock3D {
    */
   fromFlat(xs: ArrayLike<number>, ys: ArrayLike<number>, w: number, h: number, vxs: ArrayLike<number>, vys: ArrayLike<number>) {
     for (let i = 0; i < this.n && i < xs.length; i++) {
-      this.x[i] = (xs[i] / w) * SIDE;
-      this.y[i] = (1 - ys[i] / h) * SIDE;
-      this.z[i] = SIDE / 2 + (this.rand() - 0.5) * 30;
+      this.x[i] = (xs[i] / w) * this.sx;
+      this.y[i] = (1 - ys[i] / h) * this.sy;
+      this.z[i] = this.sz / 2 + (this.rand() - 0.5) * 30;
       this.vx[i] = vxs[i] * 1.5;
       this.vy[i] = -vys[i] * 1.5;
       this.vz[i] = (this.rand() - 0.5) * 0.8;
@@ -113,9 +131,9 @@ export class Flock3D {
   /** Take another 3D flock's birds' places, as far as they go. */
   inherit(from: Flock3D) {
     for (let i = 0; i < this.n && i < from.n; i++) {
-      this.x[i] = from.x[i];
-      this.y[i] = from.y[i];
-      this.z[i] = from.z[i];
+      this.x[i] = (from.x[i] / from.sx) * this.sx;
+      this.y[i] = (from.y[i] / from.sy) * this.sy;
+      this.z[i] = (from.z[i] / from.sz) * this.sz;
       this.vx[i] = from.vx[i];
       this.vy[i] = from.vy[i];
       this.vz[i] = from.vz[i];
@@ -135,12 +153,21 @@ export class Flock3D {
   step(hawk: { x: number; y: number; z: number } | null = null) {
     const { n, x, y, z, vx, vy, vz, group, wrap } = this;
     const G = this.groups;
-    const S = SIDE;
-    const d1 = (a: number, b: number) => {
+    const BX = this.sx;
+    const BY = this.sy;
+    const BZ = this.sz;
+    // From a to b along one axis of size `size`: the short way round when wrapping.
+    const dd1 = (a: number, b: number, size: number) => {
       const d = b - a;
-      return !wrap ? d : d > S / 2 ? d - S : d < -S / 2 ? d + S : d;
+      return !wrap ? d : d > size / 2 ? d - size : d < -size / 2 ? d + size : d;
     };
-    const into = (v: number) => (wrap ? ((v % S) + S) % S : Math.max(0, Math.min(S, v)));
+    const dX = (a: number, b: number) => dd1(a, b, BX);
+    const dY = (a: number, b: number) => dd1(a, b, BY);
+    const dZ = (a: number, b: number) => dd1(a, b, BZ);
+    const inA = (v: number, size: number) => (wrap ? ((v % size) + size) % size : Math.max(0, Math.min(size, v)));
+    const inX = (v: number) => inA(v, BX);
+    const inY = (v: number) => inA(v, BY);
+    const inZ = (v: number) => inA(v, BZ);
 
     // Births and deaths.
     const live = this.live;
@@ -151,13 +178,13 @@ export class Flock3D {
         this.born[i] = 1;
         const g = group[i];
         if (this.count[g] > 0) {
-          x[i] = into(this.cx[g] + (this.rand() - 0.5) * 70);
-          y[i] = into(this.cy[g] + (this.rand() - 0.5) * 70);
-          z[i] = into(this.cz[g] + (this.rand() - 0.5) * 70);
+          x[i] = inX(this.cx[g] + (this.rand() - 0.5) * 70);
+          y[i] = inY(this.cy[g] + (this.rand() - 0.5) * 70);
+          z[i] = inZ(this.cz[g] + (this.rand() - 0.5) * 70);
         } else {
-          x[i] = this.rand() * S;
-          y[i] = this.rand() * S;
-          z[i] = this.rand() < 0.5 ? 4 : S - 4;
+          x[i] = this.rand() * BX;
+          y[i] = this.rand() * BY;
+          z[i] = this.rand() < 0.5 ? 4 : BZ - 4;
         }
         this.alpha[i] = 0.03;
       }
@@ -174,12 +201,12 @@ export class Flock3D {
       const g = group[i];
       const o = g * 6;
       if (wrap) {
-        acc[o] += Math.cos((x[i] / S) * TAU);
-        acc[o + 1] += Math.sin((x[i] / S) * TAU);
-        acc[o + 2] += Math.cos((y[i] / S) * TAU);
-        acc[o + 3] += Math.sin((y[i] / S) * TAU);
-        acc[o + 4] += Math.cos((z[i] / S) * TAU);
-        acc[o + 5] += Math.sin((z[i] / S) * TAU);
+        acc[o] += Math.cos((x[i] / BX) * TAU);
+        acc[o + 1] += Math.sin((x[i] / BX) * TAU);
+        acc[o + 2] += Math.cos((y[i] / BY) * TAU);
+        acc[o + 3] += Math.sin((y[i] / BY) * TAU);
+        acc[o + 4] += Math.cos((z[i] / BZ) * TAU);
+        acc[o + 5] += Math.sin((z[i] / BZ) * TAU);
       } else {
         acc[o] += x[i];
         acc[o + 2] += y[i];
@@ -192,9 +219,9 @@ export class Flock3D {
       if (!c) continue;
       const o = g * 6;
       if (wrap) {
-        this.cx[g] = into((Math.atan2(acc[o + 1], acc[o]) / TAU) * S);
-        this.cy[g] = into((Math.atan2(acc[o + 3], acc[o + 2]) / TAU) * S);
-        this.cz[g] = into((Math.atan2(acc[o + 5], acc[o + 4]) / TAU) * S);
+        this.cx[g] = inX((Math.atan2(acc[o + 1], acc[o]) / TAU) * BX);
+        this.cy[g] = inY((Math.atan2(acc[o + 3], acc[o + 2]) / TAU) * BY);
+        this.cz[g] = inZ((Math.atan2(acc[o + 5], acc[o + 4]) / TAU) * BZ);
       } else {
         this.cx[g] = acc[o] / c;
         this.cy[g] = acc[o + 2] / c;
@@ -211,25 +238,25 @@ export class Flock3D {
       const t = this.t;
       const goal = wrap
         ? [
-            into(S * ((g * 0.37) % 1) + t * Math.cos(ph) * 0.7),
-            into(S * ((g * 0.61) % 1) + t * Math.sin(ph * 1.3) * 0.4),
-            into(S * ((g * 0.23) % 1) + t * Math.sin(ph) * 0.7),
+            inX(BX * ((g * 0.37) % 1) + t * Math.cos(ph) * 0.7),
+            inY(BY * ((g * 0.61) % 1) + t * Math.sin(ph * 1.3) * 0.4),
+            inZ(BZ * ((g * 0.23) % 1) + t * Math.sin(ph) * 0.7),
           ]
         : [
-            S / 2 + S * 0.32 * Math.cos(t * (0.0019 + 0.0002 * (g % 5)) + ph),
-            S / 2 + S * 0.26 * Math.sin(t * (0.0013 + 0.00017 * (g % 7)) + ph * 1.7),
-            S / 2 + S * 0.32 * Math.sin(t * (0.0016 + 0.00021 * (g % 3)) + ph * 0.6),
+            BX / 2 + BX * 0.2 * Math.cos(t * (0.0019 + 0.0002 * (g % 5)) + ph),
+            BY / 2 + BY * 0.16 * Math.sin(t * (0.0013 + 0.00017 * (g % 7)) + ph * 1.7),
+            BZ / 2 + BZ * 0.2 * Math.sin(t * (0.0016 + 0.00021 * (g % 3)) + ph * 0.6),
           ];
-      gv[g * 3] += d1(this.cx[g], goal[0]) * 0.0011;
-      gv[g * 3 + 1] += d1(this.cy[g], goal[1]) * 0.0011;
-      gv[g * 3 + 2] += d1(this.cz[g], goal[2]) * 0.0011;
+      gv[g * 3] += dX(this.cx[g], goal[0]) * 0.0011;
+      gv[g * 3 + 1] += dY(this.cy[g], goal[1]) * 0.0011;
+      gv[g * 3 + 2] += dZ(this.cz[g], goal[2]) * 0.0011;
       const aff = this.params.affinity[g];
       for (let k = 0; k < G; k++) {
         if (k === g || !this.count[k]) continue;
         const a = aff?.[k] ?? 0;
-        const dx = d1(this.cx[k], this.cx[g]);
-        const dy = d1(this.cy[k], this.cy[g]);
-        const dz = d1(this.cz[k], this.cz[g]);
+        const dx = dX(this.cx[k], this.cx[g]);
+        const dy = dY(this.cy[k], this.cy[g]);
+        const dz = dZ(this.cz[k], this.cz[g]);
         const d = Math.hypot(dx, dy, dz) || 1e-3;
         gv[g * 3] -= dx * 0.00025 * a;
         gv[g * 3 + 1] -= dy * 0.00025 * a;
@@ -244,17 +271,21 @@ export class Flock3D {
     }
 
     // A 3-D grid of cells CELL wide.
-    const cells = Math.max(1, Math.ceil(S / CELL));
-    const head = new Int32Array(cells * cells * cells).fill(-1);
+    const cxN = Math.max(1, Math.ceil(BX / CELL));
+    const cyN = Math.max(1, Math.ceil(BY / CELL));
+    const czN = Math.max(1, Math.ceil(BZ / CELL));
+    const head = new Int32Array(cxN * cyN * czN).fill(-1);
     const next = new Int32Array(n);
-    const cOf = (v: number) => Math.min(cells - 1, Math.max(0, Math.floor(v / CELL)));
+    const cOf = (v: number, cells: number) => Math.min(cells - 1, Math.max(0, Math.floor(v / CELL)));
     for (let i = 0; i < n; i++) {
       if (!live[i]) continue;
-      const c = (cOf(z[i]) * cells + cOf(y[i])) * cells + cOf(x[i]);
+      const c = (cOf(z[i], czN) * cyN + cOf(y[i], cyN)) * cxN + cOf(x[i], cxN);
       next[i] = head[c];
       head[c] = i;
     }
-    const wrapCells = wrap && cells >= 3;
+    const wrapX = wrap && cxN >= 3;
+    const wrapY = wrap && cyN >= 3;
+    const wrapZ = wrap && czN >= 3;
 
     const ax = new Float32Array(n);
     const ay = new Float32Array(n);
@@ -272,26 +303,26 @@ export class Flock3D {
       let coy = 0;
       let coz = 0;
       let same = 0;
-      const ci = cOf(x[i]);
-      const cj = cOf(y[i]);
-      const ck = cOf(z[i]);
+      const ci = cOf(x[i], cxN);
+      const cj = cOf(y[i], cyN);
+      const ck = cOf(z[i], czN);
       for (let dk = -1; dk <= 1; dk++) {
         let k = ck + dk;
-        if (wrapCells) k = (k + cells) % cells;
-        else if (k < 0 || k >= cells) continue;
+        if (wrapZ) k = (k + czN) % czN;
+        else if (k < 0 || k >= czN) continue;
         for (let dj = -1; dj <= 1; dj++) {
           let jj = cj + dj;
-          if (wrapCells) jj = (jj + cells) % cells;
-          else if (jj < 0 || jj >= cells) continue;
+          if (wrapY) jj = (jj + cyN) % cyN;
+          else if (jj < 0 || jj >= cyN) continue;
           for (let di = -1; di <= 1; di++) {
             let ii = ci + di;
-            if (wrapCells) ii = (ii + cells) % cells;
-            else if (ii < 0 || ii >= cells) continue;
-            for (let j = head[(k * cells + jj) * cells + ii]; j !== -1; j = next[j]) {
+            if (wrapX) ii = (ii + cxN) % cxN;
+            else if (ii < 0 || ii >= cxN) continue;
+            for (let j = head[(k * cyN + jj) * cxN + ii]; j !== -1; j = next[j]) {
               if (j === i) continue;
-              const dx = d1(x[i], x[j]);
-              const dy = d1(y[i], y[j]);
-              const dz = d1(z[i], z[j]);
+              const dx = dX(x[i], x[j]);
+              const dy = dY(y[i], y[j]);
+              const dz = dZ(z[i], z[j]);
               const dd = dx * dx + dy * dy + dz * dz;
               if (dd > R * R) continue;
               if (dd < SEP * SEP && dd > 1e-6) {
@@ -321,15 +352,16 @@ export class Flock3D {
         fy += (aly / same - vy[i]) * 0.06 + (coy / same) * 0.003;
         fz += (alz / same - vz[i]) * 0.06 + (coz / same) * 0.003;
       }
-      // A looser pull to the group's centre than the flat flock: in a box the
-      // flat setting packs each flock into a tight ball.
-      fx += d1(x[i], this.cx[g]) * 0.00025 + gv[g * 3];
-      fy += d1(y[i], this.cy[g]) * 0.00025 + gv[g * 3 + 1];
-      fz += d1(z[i], this.cz[g]) * 0.00025 + gv[g * 3 + 2];
+      // Close flocks (owner, 2026-11-16): a firm pull to the group's centre,
+      // and the roaming goals stay near the middle of the box, so flocks hold
+      // together and stay near each other.
+      fx += dX(x[i], this.cx[g]) * 0.0007 + gv[g * 3];
+      fy += dY(y[i], this.cy[g]) * 0.0007 + gv[g * 3 + 1];
+      fz += dZ(z[i], this.cz[g]) * 0.0007 + gv[g * 3 + 2];
       if (hawk) {
-        const dx = d1(hawk.x, x[i]);
-        const dy = d1(hawk.y, y[i]);
-        const dz = d1(hawk.z, z[i]);
+        const dx = dX(hawk.x, x[i]);
+        const dy = dY(hawk.y, y[i]);
+        const dz = dZ(hawk.z, z[i]);
         const dd = dx * dx + dy * dy + dz * dz;
         const HR = 150;
         if (dd < HR * HR && dd > 1e-6) {
@@ -342,11 +374,11 @@ export class Flock3D {
       }
       if (!wrap) {
         if (x[i] < MARGIN) fx += (MARGIN - x[i]) * 0.012;
-        if (x[i] > S - MARGIN) fx -= (x[i] - (S - MARGIN)) * 0.012;
+        if (x[i] > BX - MARGIN) fx -= (x[i] - (BX - MARGIN)) * 0.012;
         if (y[i] < MARGIN) fy += (MARGIN - y[i]) * 0.012;
-        if (y[i] > S - MARGIN) fy -= (y[i] - (S - MARGIN)) * 0.012;
+        if (y[i] > BY - MARGIN) fy -= (y[i] - (BY - MARGIN)) * 0.012;
         if (z[i] < MARGIN) fz += (MARGIN - z[i]) * 0.012;
-        if (z[i] > S - MARGIN) fz -= (z[i] - (S - MARGIN)) * 0.012;
+        if (z[i] > BZ - MARGIN) fz -= (z[i] - (BZ - MARGIN)) * 0.012;
       }
       fx += (this.rand() - 0.5) * 0.07;
       fy += (this.rand() - 0.5) * 0.07;
@@ -367,9 +399,9 @@ export class Flock3D {
       vx[i] *= k;
       vy[i] *= k;
       vz[i] *= k;
-      x[i] = into(x[i] + vx[i]);
-      y[i] = into(y[i] + vy[i]);
-      z[i] = into(z[i] + vz[i]);
+      x[i] = inX(x[i] + vx[i]);
+      y[i] = inY(y[i] + vy[i]);
+      z[i] = inZ(z[i] + vz[i]);
     }
   }
 
@@ -377,7 +409,7 @@ export class Flock3D {
    *  a wrapping box fades birds out at one face and in at the other. */
   faceFade(i: number): number {
     if (!this.wrap) return 1;
-    const m = Math.min(this.x[i], SIDE - this.x[i], this.y[i], SIDE - this.y[i], this.z[i], SIDE - this.z[i]);
+    const m = Math.min(this.x[i], this.sx - this.x[i], this.y[i], this.sy - this.y[i], this.z[i], this.sz - this.z[i]);
     return Math.max(0, Math.min(1, m / MARGIN));
   }
 }

@@ -55,6 +55,7 @@ const LOOP_MS: Record<Speed, number> = { slow: 180_000, medium: 90_000, fast: 40
 const SPACES: { value: FlockSpace; label: string }[] = [
   { value: "flat", label: "Flat" },
   { value: "3d", label: "3D" },
+  { value: "tank", label: "Tank" },
 ];
 
 /** The panel's width from `pad` up (Sheet's max-w-md), and its height on a phone. */
@@ -103,7 +104,11 @@ export function JobFlock() {
   const [wide, setWide] = useState(false);
   const [panel, setPanel] = useState(false);
   const [saver, setSaver] = useState(true);
+  // `full` is the browser's own full screen (a computer); `immersive` fills
+  // the viewport instead, for a phone, where the browser cannot full-screen a
+  // page element. Either way the picture has the whole screen.
   const [full, setFull] = useState(false);
+  const [immersive, setImmersive] = useState(false);
   const [canFull, setCanFull] = useState(false);
   const [scheme, setScheme] = useArtScheme();
   const { rows, error } = useArtRows(set);
@@ -112,7 +117,8 @@ export function JobFlock() {
 
   useEffect(() => {
     setSaver(saverEnabled());
-    setCanFull(!!document.fullscreenEnabled);
+    // A full-screen button on every device: native where it works, else immersive.
+    setCanFull(true);
     const mq = window.matchMedia("(min-width: 744px)");
     const onWide = () => setWide(mq.matches);
     onWide();
@@ -153,10 +159,41 @@ export function JobFlock() {
     setSet(s);
     if (!FLOCK_BY[s].some((o) => o.value === by)) setBy("job");
   };
+  const isFull = full || immersive;
   const toggleFull = () => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    else void frame.current?.requestFullscreen().catch(() => {});
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+    if (immersive) {
+      setImmersive(false);
+      return;
+    }
+    // A mouse and a browser that can: the real full screen. A phone, or a
+    // browser that refuses: fill the viewport.
+    const touch = window.matchMedia("(pointer: coarse)").matches;
+    if (!touch && document.fullscreenEnabled && frame.current) {
+      frame.current.requestFullscreen().catch(() => setImmersive(true));
+    } else {
+      setImmersive(true);
+    }
   };
+
+  // While immersive: the page behind does not scroll, and Escape leaves
+  // (the panel closes first, on its own Escape).
+  useEffect(() => {
+    if (!immersive) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !panel) setImmersive(false);
+    };
+    window.addEventListener("keydown", key);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", key);
+    };
+  }, [immersive, panel]);
 
   return (
     <main
@@ -165,21 +202,36 @@ export function JobFlock() {
         minHeight: "calc(100dvh - 4rem - var(--tabbar-h, 0px))",
         // With the panel open, the picture moves over to the space beside it
         // (or above it, on a phone) so the whole flock stays in view.
-        ...(panel && !full ? (wide ? { paddingRight: `calc(${PANEL_W} + 1.75rem)` } : { paddingBottom: PANEL_H }) : {}),
+        ...(panel && !isFull ? (wide ? { paddingRight: `calc(${PANEL_W} + 1.75rem)` } : { paddingBottom: PANEL_H }) : {}),
         ...schemeStyle(scheme),
       }}
     >
       <div
         ref={frame}
-        className="relative aspect-[3/2] w-full overflow-hidden rounded-xl transition-[max-width] duration-300 border border-line bg-white dark:bg-ink-raised [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none [&:fullscreen]:border-0"
-        style={{
+        className={`overflow-hidden bg-white dark:bg-ink-raised [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none [&:fullscreen]:border-0 ${
+          immersive
+            ? "fixed z-40"
+            : "relative aspect-[3/2] w-full rounded-xl border border-line transition-[max-width] duration-300"
+        }`}
+        style={
+          immersive
+            ? {
+                // Fills the viewport; with the panel open it leaves the panel's
+                // room (beside it, or above it on a phone).
+                top: 0,
+                left: 0,
+                right: panel && wide ? PANEL_W : 0,
+                bottom: panel && !wide ? PANEL_H : 0,
+              }
+            : {
           maxWidth: full
             ? "none"
             : panel && !wide
               ? // A phone with the panel up: fit the picture in the space above it.
                 `calc((100dvh - ${PANEL_H} - 6rem) * 1.5)`
               : "calc((100dvh - 6rem - var(--tabbar-h, 0px)) * 1.5)",
-        }}
+        }
+        }
       >
         {rows && (
           <ArtCanvas
@@ -203,8 +255,19 @@ export function JobFlock() {
           </div>
         )}
 
-        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-between p-1.5">
-          {full ? (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 flex justify-between p-1.5"
+          style={
+            immersive
+              ? {
+                  paddingTop: "max(0.375rem, env(safe-area-inset-top, 0px))",
+                  paddingLeft: "max(0.375rem, env(safe-area-inset-left, 0px))",
+                  paddingRight: "max(0.375rem, env(safe-area-inset-right, 0px))",
+                }
+              : undefined
+          }
+        >
+          {isFull ? (
             <span />
           ) : (
             <Link href="/art" aria-label="Back to Art that Makes Itself" className={ICON_BTN}>
@@ -218,8 +281,8 @@ export function JobFlock() {
               </button>
             )}
             {canFull && (
-              <button type="button" aria-label={full ? "Leave full screen" : "Full screen"} className={ICON_BTN} onClick={toggleFull}>
-                <Icon d={full ? SHRINK : EXPAND} />
+              <button type="button" aria-label={isFull ? "Leave full screen" : "Full screen"} className={ICON_BTN} onClick={toggleFull}>
+                <Icon d={isFull ? SHRINK : EXPAND} />
               </button>
             )}
           </span>
@@ -281,7 +344,9 @@ export function JobFlock() {
             <p className="text-xs text-neutral-500">
               {space === "3d"
                 ? "The flock flies in a box that turns slowly. Drag to turn it, scroll to zoom."
-                : "The flock flies on the page."}
+                : space === "tank"
+                  ? "A fish tank seen straight on: farther birds are smaller and fainter, and the tank sways a little."
+                  : "The flock flies on the page."}
             </p>
           </section>
 
@@ -290,8 +355,8 @@ export function JobFlock() {
             <Segmented label="Edges" value={edges} onChange={setEdges} options={EDGES} size="md" fill />
             <p className="text-xs text-neutral-500">
               {edges === "wrap"
-                ? `A bird that flies off one ${space === "3d" ? "face" : "edge"} comes back on the opposite one.`
-                : `Birds turn back before they reach ${space === "3d" ? "a wall of the box" : "an edge"}.`}
+                ? `A bird that flies off one ${space === "flat" ? "edge" : "face"} comes back on the opposite one.`
+                : `Birds turn back before they reach ${space === "flat" ? "an edge" : "a wall of the box"}.`}
             </p>
           </section>
 

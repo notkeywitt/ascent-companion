@@ -13,7 +13,7 @@ import {
   type FlockSetup,
   type YearClock,
 } from "@/lib/art/flock";
-import { Camera3D } from "@/lib/art/camera3d";
+import { Camera3D, TankCamera, tankSize } from "@/lib/art/camera3d";
 import { Flock3D, SIDE } from "@/lib/art/flock3d";
 import type { DrawFrame } from "../artKit";
 
@@ -23,9 +23,11 @@ import type { DrawFrame } from "../artKit";
  * desktop screen saver (src/components/FlockSaver.tsx) both drive one.
  * Not React: a page keeps it in a ref and calls `draw` from ArtCanvas.
  *
- * Two spaces. Flat: the 2-D flock (src/lib/art/flock.ts) in canvas pixels.
+ * Three spaces. Flat: the 2-D flock (src/lib/art/flock.ts) in canvas pixels.
  * 3D: the flock in a cube (flock3d.ts), seen through an orbit camera
- * (camera3d.ts) that turns slowly on its own, and by drag and wheel. Both are
+ * (camera3d.ts) that turns slowly on its own, and by drag and wheel. Tank: the
+ * same 3D flock in a wide, shallow box seen straight on, like a fish tank
+ * (TankCamera): depth shows as size, fog and a slow sway of the eye. All are
  * reduced each frame to the same screen arrays (place, heading, size, fade),
  * and one drawing routine draws either. Switching space keeps every bird
  * where it appears: flat → 3D lifts the picture onto a sheet in the box and
@@ -77,7 +79,7 @@ const SETTLE_STEPS = 500;
 /** Opacity steps a group's birds are drawn in, so each is one fill. */
 const BUCKETS = 4;
 
-export type FlockSpace = "flat" | "3d";
+export type FlockSpace = "flat" | "3d" | "tank";
 
 /** A camera that has not been touched for this long starts orbiting again. */
 const IDLE_ORBIT_MS = 4000;
@@ -87,6 +89,7 @@ export class FlockEngine {
   flock: Flock | null = null;
   flock3: Flock3D | null = null;
   camera = new Camera3D();
+  tank = new TankCamera();
   clock: YearClock | null = null;
   space: FlockSpace = "flat";
   /** Year mode on, and how long one loop of the year takes. */
@@ -189,7 +192,17 @@ export class FlockEngine {
 
   /** The simulation now running. */
   private sim(): Flock | Flock3D | null {
-    return this.space === "3d" ? this.flock3 : this.flock;
+    return this.space === "flat" ? this.flock : this.flock3;
+  }
+
+  /** The box this space wants: a cube, or the tank for a canvas of w × h. */
+  private fitBox(f: Flock3D, w: number, h: number) {
+    if (this.space === "tank") {
+      const t = tankSize(w, h);
+      f.resize(t.sx, t.sy, t.sz);
+    } else {
+      f.resize(SIDE, SIDE, SIDE);
+    }
   }
 
   /** Make sure the right simulation exists for the space, the rows and the grouping. */
@@ -197,30 +210,37 @@ export class FlockEngine {
     const settle = (f: Flock | Flock3D) => {
       if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) f.step();
     };
-    if (this.space === "3d") {
+    if (this.space !== "flat") {
       if (!this.flock3 || this.flockGen !== this.gen) {
         const fresh = new Flock3D(setup.birds, setup.params);
+        this.fitBox(fresh, w, h);
         if (this.flock3) fresh.inherit(this.flock3);
         else if (this.flock) {
           // Lift the flat picture into the box, seen face-on, then tilt back.
           const f = this.flock;
           fresh.fromFlat(f.x, f.y, f.w, f.h, f.vx, f.vy);
-          this.camera.yaw = 0;
-          this.camera.pitch = 0;
-          this.pitchTo = 0.32;
-          this.touched = 0;
+          if (this.space === "3d") {
+            this.camera.yaw = 0;
+            this.camera.pitch = 0;
+            this.pitchTo = 0.32;
+            this.touched = 0;
+          }
         }
         this.flock3 = fresh;
         this.flock = null;
         this.flockGen = this.gen;
         this.trail = null;
         settle(fresh);
-      } else if (this.shownSetup !== setup) {
-        this.flock3.regroup(
-          setup.birds.map((b) => b.group),
-          setup.params,
-        );
-        settle(this.flock3);
+      } else {
+        if (this.shownSetup !== setup) {
+          this.flock3.regroup(
+            setup.birds.map((b) => b.group),
+            setup.params,
+          );
+          settle(this.flock3);
+        }
+        // Cube ↔ tank: every bird keeps its place as a share of the box.
+        this.fitBox(this.flock3, w, h);
       }
     } else {
       if (!this.flock || this.flockGen !== this.gen) {
@@ -267,6 +287,22 @@ export class FlockEngine {
     const cam = this.camera;
     cam.w = w;
     cam.h = h;
+    const tankCam = this.tank;
+    const inTank = this.space === "tank" && sim instanceof Flock3D;
+    if (inTank) {
+      tankCam.w = w;
+      tankCam.h = h;
+      tankCam.sx = sim.sx;
+      tankCam.sy = sim.sy;
+      tankCam.sz = sim.sz;
+      // A slow sway of the eye, so the back of the tank slides against the front.
+      if (!reduced) {
+        tankCam.offX = Math.sin(now / 5200) * sim.sx * 0.07;
+        tankCam.offY = Math.sin(now / 7300 + 1) * sim.sy * 0.03;
+      }
+    }
+    // One projection for either 3D camera.
+    const proj = (x: number, y: number, z: number) => (inTank ? tankCam.project(x, y, z) : cam.project(x, y, z));
 
     // The year: move the clock, set who is alive, and let each flock's pace
     // follow how many of its birds are alive now.
@@ -305,7 +341,11 @@ export class FlockEngine {
 
     const hk = this.hawk && this.hawk.until > now ? this.hawk : null;
     if (!reduced || yearOn) {
-      if (sim instanceof Flock3D) sim.step(hk && !reduced ? cam.unproject(hk.x, hk.y) : null);
+      if (sim instanceof Flock3D) {
+        // The pointer is a hawk at mid-depth.
+        const hawk = hk && !reduced ? (inTank ? tankCam.unproject(hk.x, hk.y, sim.sz / 2) : cam.unproject(hk.x, hk.y)) : null;
+        sim.step(hawk);
+      }
       else sim.step(hk && !reduced ? hk : null);
     }
 
@@ -326,12 +366,12 @@ export class FlockEngine {
     }
     if (sim instanceof Flock3D) {
       // Depth fog: the nearest birds full strength, the farthest at a third.
-      const near = cam.dist - SIDE * 0.87;
-      const far = cam.dist + SIDE * 0.87;
-      const ref = cam.project(SIDE / 2, SIDE / 2, SIDE / 2).scale;
+      const near = inTank ? tankCam.sz * tankCam.eye : cam.dist - SIDE * 0.87;
+      const far = inTank ? tankCam.sz * (tankCam.eye + 1) : cam.dist + SIDE * 0.87;
+      const ref = inTank ? proj(sim.sx / 2, sim.sy / 2, sim.sz * 0.35).scale : proj(SIDE / 2, SIDE / 2, SIDE / 2).scale;
       for (let i = 0; i < n; i++) {
-        const p = cam.project(sim.x[i], sim.y[i], sim.z[i]);
-        const q = cam.project(sim.x[i] + sim.vx[i] * 6, sim.y[i] + sim.vy[i] * 6, sim.z[i] + sim.vz[i] * 6);
+        const p = proj(sim.x[i], sim.y[i], sim.z[i]);
+        const q = proj(sim.x[i] + sim.vx[i] * 6, sim.y[i] + sim.vy[i] * 6, sim.z[i] + sim.vz[i] * 6);
         const dx = q.sx - p.sx;
         const dy = q.sy - p.sy;
         const len = Math.hypot(dx, dy) || 1;
@@ -344,7 +384,7 @@ export class FlockEngine {
         this.fade[i] = Math.max(0.2, Math.min(1, fog)) * sim.faceFade(i);
       }
       for (let g = 0; g < G; g++) {
-        const p = cam.project(sim.cx[g], sim.cy[g], sim.cz[g]);
+        const p = proj(sim.cx[g], sim.cy[g], sim.cz[g]);
         this.gsx[g] = p.sx;
         this.gsy[g] = p.sy;
       }
@@ -364,23 +404,46 @@ export class FlockEngine {
       }
     }
 
-    // The 3D box: its twelve edges, faint (dashed when the faces wrap).
+    // The box. Cube: its twelve edges, faint (dashed when the faces wrap).
+    // Tank: the back wall and the lines running back from the glass's corners.
     if (sim instanceof Flock3D) {
-      const c = [0, SIDE];
-      const corners = c.flatMap((x) => c.flatMap((y) => c.map((z) => cam.project(x, y, z))));
-      const edges = [
-        [0, 1], [2, 3], [4, 5], [6, 7],
-        [0, 2], [1, 3], [4, 6], [5, 7],
-        [0, 4], [1, 5], [2, 6], [3, 7],
-      ];
       ctx.strokeStyle = ink;
       ctx.globalAlpha = 0.12;
       ctx.lineWidth = 1;
       ctx.setLineDash(this.wrap ? [4, 6] : []);
       ctx.beginPath();
-      for (const [a, b] of edges) {
-        ctx.moveTo(corners[a].sx, corners[a].sy);
-        ctx.lineTo(corners[b].sx, corners[b].sy);
+      if (inTank) {
+        const fb = [
+          proj(0, sim.sy, 0), proj(sim.sx, sim.sy, 0), proj(sim.sx, 0, 0), proj(0, 0, 0),
+        ];
+        const bk = [
+          proj(0, sim.sy, sim.sz), proj(sim.sx, sim.sy, sim.sz), proj(sim.sx, 0, sim.sz), proj(0, 0, sim.sz),
+        ];
+        ctx.moveTo(bk[0].sx, bk[0].sy);
+        for (const c of [bk[1], bk[2], bk[3], bk[0]]) ctx.lineTo(c.sx, c.sy);
+        for (let k = 0; k < 4; k++) {
+          ctx.moveTo(fb[k].sx, fb[k].sy);
+          ctx.lineTo(bk[k].sx, bk[k].sy);
+        }
+        // Mid-depth rings help the eye judge depth.
+        for (const zf of [0.33, 0.66]) {
+          const z = sim.sz * zf;
+          const r = [proj(0, sim.sy, z), proj(sim.sx, sim.sy, z), proj(sim.sx, 0, z), proj(0, 0, z)];
+          ctx.moveTo(r[0].sx, r[0].sy);
+          for (const c of [r[1], r[2], r[3], r[0]]) ctx.lineTo(c.sx, c.sy);
+        }
+      } else {
+        const c = [0, SIDE];
+        const corners = c.flatMap((x) => c.flatMap((y) => c.map((z) => proj(x, y, z))));
+        const edges = [
+          [0, 1], [2, 3], [4, 5], [6, 7],
+          [0, 2], [1, 3], [4, 6], [5, 7],
+          [0, 4], [1, 5], [2, 6], [3, 7],
+        ];
+        for (const [a, b] of edges) {
+          ctx.moveTo(corners[a].sx, corners[a].sy);
+          ctx.lineTo(corners[b].sx, corners[b].sy);
+        }
       }
       ctx.stroke();
       ctx.setLineDash([]);
