@@ -69,11 +69,9 @@ export default async function OfficePage({
         <Banner tone="error">JT_GRANT_KEY is not set. Add it to .env.local and restart.</Banner>
       ) : (
         <>
-          {/* Desktop: warnings and notices | details and bills | files. Phones stack. */}
-          <div className="grid items-start gap-x-8 lg:grid-cols-2 xl:grid-cols-3">
-            <div className="min-w-0">
-              <OfficeFeeds />
-            </div>
+          {/* Desktop: warnings | notices | details and bills | files. Phones stack. */}
+          <div className="grid items-start gap-x-8 lg:grid-cols-2 xl:grid-cols-4">
+            <OfficeFeeds />
 
             <div className="min-w-0">
               <section className="mb-6">
@@ -91,7 +89,7 @@ export default async function OfficePage({
               </section>
             </div>
 
-            <section className="min-w-0 lg:col-span-2 xl:col-span-1">
+            <section className="min-w-0">
               <SectionHeading trailing={<JtLink href={`${jobUrl}/files`} />}>Files</SectionHeading>
               <Suspense key={folder} fallback={<Loading label="Loading files…" />}>
                 <Files folder={folder} />
