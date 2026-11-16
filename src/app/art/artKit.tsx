@@ -144,6 +144,7 @@ export interface DrawFrame {
 export function ArtCanvas({
   draw,
   aspect = 0.62,
+  fill = false,
   label,
   onPointer,
   onLeave,
@@ -151,6 +152,8 @@ export function ArtCanvas({
 }: {
   draw: (f: DrawFrame) => void;
   aspect?: number;
+  /** Fill the parent box (full screen) instead of a framed, aspect-sized card. */
+  fill?: boolean;
   label: string;
   onPointer?: (x: number, y: number, w: number, h: number) => void;
   onLeave?: () => void;
@@ -184,7 +187,7 @@ export function ArtCanvas({
     readTheme();
     const fit = () => {
       const w = box.clientWidth;
-      const h = Math.round(Math.min(Math.max(w * aspect, 300), 640));
+      const h = fill ? box.clientHeight : Math.round(Math.min(Math.max(w * aspect, 300), 640));
       const dpr = window.devicePixelRatio || 1;
       c.width = Math.round(w * dpr);
       c.height = Math.round(h * dpr);
@@ -218,7 +221,7 @@ export function ArtCanvas({
       ro.disconnect();
       mo.disconnect();
     };
-  }, [aspect]);
+  }, [aspect, fill]);
 
   const point = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!onPointer) return;
@@ -229,7 +232,11 @@ export function ArtCanvas({
   return (
     <div
       ref={wrap}
-      className="relative overflow-hidden rounded-xl border border-line bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
+      className={
+        fill
+          ? "absolute inset-0 overflow-hidden text-neutral-900 dark:text-neutral-100"
+          : "relative overflow-hidden rounded-xl border border-line bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
+      }
     >
       <canvas
         ref={canvas}

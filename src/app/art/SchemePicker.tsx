@@ -52,7 +52,9 @@ function Stripes({ colors, className = "" }: { colors: string[]; className?: str
   );
 }
 
-export function SchemePicker({
+/** The scheme choices themselves: pick two, then the presets. Used inside
+ *  the Colours popover and, on the Job Flock, inside its control panel. */
+export function SchemeChoices({
   choice,
   onChange,
 }: {
@@ -62,22 +64,8 @@ export function SchemePicker({
   const current = colorsFor(choice) ?? swatchOf(ART_PRESETS[0]);
   const presetId = choice && "preset" in choice ? choice.preset : choice ? null : "house";
   const [a, b] = choice && "two" in choice ? choice.two : [current[0], current[1]];
-
   return (
-    <Popover
-      label="Colour scheme"
-      align="end"
-      className="w-[19rem]"
-      trigger={
-        <button
-          type="button"
-          className="ui-btn inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
-        >
-          <Stripes colors={current} className="h-3.5 w-12" />
-          Colours
-        </button>
-      }
-    >
+    <>
       <SectionLabel className="mb-1.5">Pick two</SectionLabel>
       <div className="mb-1 flex items-center gap-2">
         {[a, b].map((c, i) => (
@@ -116,6 +104,34 @@ export function SchemePicker({
           );
         })}
       </ul>
+    </>
+  );
+}
+
+export function SchemePicker({
+  choice,
+  onChange,
+}: {
+  choice: SchemeChoice | null;
+  onChange: (c: SchemeChoice) => void;
+}) {
+  const current = colorsFor(choice) ?? swatchOf(ART_PRESETS[0]);
+  return (
+    <Popover
+      label="Colour scheme"
+      align="end"
+      className="w-[19rem]"
+      trigger={
+        <button
+          type="button"
+          className="ui-btn inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+        >
+          <Stripes colors={current} className="h-3.5 w-12" />
+          Colours
+        </button>
+      }
+    >
+      <SchemeChoices choice={choice} onChange={onChange} />
     </Popover>
   );
 }
