@@ -319,6 +319,7 @@ export type {
 } from "./jobtread/clientInvoiceRefs";
 export {
   uploadFileToJobFolder,
+  uploadFileToFolder,
   getJobFilesById,
   getInvoicesForPayment,
   recordInvoicePayments,
@@ -329,4 +330,6 @@ export type {
 export { getLswddStatementBills } from "./jobtread/lswddBills";
 export type { LswddBill, LswddStatementBills } from "./jobtread/lswddBills";
 export { getYearRibbonRows } from "./jobtread/yearRibbon";
+export { getResearchSubject } from "./jobtread/leadResearch";
+export type { ResearchSubject } from "./jobtread/leadResearch";
 export { getArtRows } from "./jobtread/artCloud";

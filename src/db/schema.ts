@@ -2203,3 +2203,75 @@ export const billSplits = sqliteTable("bill_splits", {
   createdBy: text("created_by").notNull().default(""),
   createdAt: text("created_at").notNull(),
 });
+
+/**
+ * LEAD RESEARCH — a property dossier for one lead, gathered by Claude Code on
+ * Opus on the office Mac mini or the owner's MacBook (skill /lead-research,
+ * scripts/lead-research/). It replaces the appscript ParcelEnrichment.js
+ * assessor lookup. Logic: src/lib/leadResearch.ts; rules: leadResearchRules.ts.
+ *
+ * lead_research        one row per run. `lead_key` is the board's lead id: a
+ *                      JobTread account id, or "inq_…" for a lead not yet in
+ *                      JobTread. status: requested → running → ready (penciled
+ *                      in, waiting for review) → reviewed; or error / cancelled.
+ *                      The dossier is JSON: `proposals` (JobTread fields),
+ *                      `facts` (the app's own property fields), `permits`,
+ *                      `sources`. Nothing reaches JobTread until a person
+ *                      approves it on /leads/research/<id>.
+ * lead_research_files  the photos and documents the run downloaded, held here
+ *                      until review. Approve uploads each to JobTread folder
+ *                      "Background" and drops the bytes; discard drops them.
+ *                      A file is stored in chunks (lead_research_chunks)
+ *                      because a Vercel request body stops at 4.5 MB.
+ */
+export const leadResearch = sqliteTable("lead_research", {
+  id: text("id").primaryKey(),
+  leadKey: text("lead_key").notNull(),
+  leadName: text("lead_name").notNull().default(""),
+  address: text("address").notNull().default(""),
+  status: text("status").notNull().default("requested"),
+  requestNote: text("request_note").notNull().default(""), // what the office asked to look at
+  requestedBy: text("requested_by").notNull().default(""),
+  requestedAt: text("requested_at").notNull(),
+  runner: text("runner").notNull().default(""), // the Mac that ran it
+  startedAt: text("started_at").notNull().default(""),
+  finishedAt: text("finished_at").notNull().default(""),
+  summary: text("summary").notNull().default(""),
+  match: text("match").notNull().default(""), // JSON {confidence, note, parcel}
+  dossier: text("dossier").notNull().default(""), // JSON — see leadResearchRules.ts
+  error: text("error").notNull().default(""),
+  reviewedBy: text("reviewed_by").notNull().default(""),
+  reviewedAt: text("reviewed_at").notNull().default(""),
+  updatedAt: text("updated_at").notNull(),
+});
+
+export type LeadResearchRow = typeof leadResearch.$inferSelect;
+
+export const leadResearchFiles = sqliteTable("lead_research_files", {
+  id: text("id").primaryKey(),
+  runId: text("run_id").notNull(),
+  name: text("name").notNull(),
+  kind: text("kind").notNull().default("document"), // photo | document
+  mime: text("mime").notNull().default("application/octet-stream"),
+  size: integer("size").notNull().default(0),
+  chunks: integer("chunks").notNull().default(0), // chunks expected
+  source: text("source").notNull().default(""), // where it came from (URL)
+  description: text("description").notNull().default(""),
+  // staged | uploaded | discarded
+  status: text("status").notNull().default("staged"),
+  jtFileId: text("jt_file_id").notNull().default(""),
+  error: text("error").notNull().default(""),
+  createdAt: text("created_at").notNull(),
+});
+
+export type LeadResearchFileRow = typeof leadResearchFiles.$inferSelect;
+
+export const leadResearchChunks = sqliteTable(
+  "lead_research_chunks",
+  {
+    fileId: text("file_id").notNull(),
+    seq: integer("seq").notNull(),
+    bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.fileId, t.seq] })],
+);

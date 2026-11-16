@@ -26,6 +26,7 @@ import { createPortal } from "react-dom";
 
 import { Dialog } from "@/components/Dialog";
 import { JtLink } from "@/components/JtLink";
+import { ResearchCard } from "./ResearchCard";
 import {
   Banner,
   Button,
@@ -1471,6 +1472,8 @@ function LeadDetail({
           </details>
         )}
       </section>
+
+      <ResearchCard lead={{ id: lead.id, name: lead.name, address: lead.address || lead.inquiry?.address || "" }} />
 
       {editingNext && (
         <Dialog

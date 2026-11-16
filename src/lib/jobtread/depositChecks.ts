@@ -20,6 +20,24 @@ export async function uploadFileToJobFolder(
   mimeType: string,
   fileName: string,
 ): Promise<{ id: string; name: string; folder: string | null; url: string | null }> {
+  return uploadFileToFolder(cfg, { targetType: "job", targetId: jobId }, folder, bytes, mimeType, fileName);
+}
+
+/**
+ * WRITE — the same upload onto a job OR a customer account's Files, inside
+ * `folder`. Lead research files a lead's Background on its job when it has
+ * one, and on the customer otherwise (`createFile` takes targetType
+ * `account`). The account target is NOT live-probed: the first approved
+ * research run is the probe.
+ */
+export async function uploadFileToFolder(
+  cfg: PaveConfig,
+  target: { targetType: "job" | "account"; targetId: string },
+  folder: string,
+  bytes: Buffer,
+  mimeType: string,
+  fileName: string,
+): Promise<{ id: string; name: string; folder: string | null; url: string | null }> {
   const r1 = await pave(cfg, {
     createUploadRequest: {
       $: { type: mimeType, size: bytes.length, organizationId: cfg.orgId },
@@ -40,7 +58,7 @@ export async function uploadFileToJobFolder(
 
   const r3 = await pave(cfg, {
     createFile: {
-      $: { uploadRequestId: up.id, targetId: jobId, targetType: "job", name: fileName, folder },
+      $: { uploadRequestId: up.id, targetId: target.targetId, targetType: target.targetType, name: fileName, folder },
       createdFile: { id: {}, name: {}, folder: {}, url: {} },
     },
   });

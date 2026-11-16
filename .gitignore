@@ -20,6 +20,8 @@ dist/
 
 # working files of the /tool-batch skill (tool photos)
 .tool-batch/
+# working files of the /lead-research skill (pages, photos, documents)
+.lead-research/
 
 # every local env file (owner edit, kept 2026-11-13)
 .env*
