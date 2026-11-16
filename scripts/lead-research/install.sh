@@ -56,6 +56,10 @@ launchctl bootout "gui/$(id -u)" "$PLIST" 2>/dev/null || true
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
 
 echo "Installed. Checks every 2 minutes. Log: $LOG"
+
+# The updater keeps this folder on the newest main, so a shipped change to any
+# script reaches this Mac without a manual git pull.
+sh "$HERE/../mac-update/install.sh"
 if [ -n "$NEW_TOKEN" ]; then
   echo "New token made. Put it on Vercel, then redeploy:"
   echo "  npx vercel env add REVIEW_AGENT_TOKEN production --sensitive < $TOKEN_DIR/token"

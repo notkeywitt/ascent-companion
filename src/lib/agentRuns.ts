@@ -120,6 +120,20 @@ async function seeMachine(machine: string, scriptId: string): Promise<void> {
 }
 
 /**
+ * The Mac's updater (scripts/mac-update/update.sh) reports the commit its
+ * repo copy is on and what it last did ("updated", "has local edits", …).
+ */
+export async function reportCode(machine: string, version: string, note: string): Promise<void> {
+  await ensureDb();
+  const t = now();
+  const set = { lastSeenAt: t, codeVersion: version.slice(0, 40), codeNote: note.slice(0, 300), codeCheckedAt: t };
+  await db
+    .insert(agentMachines)
+    .values({ name: machine, scripts: "{}", ...set })
+    .onConflictDoUpdate({ target: agentMachines.name, set });
+}
+
+/**
  * The tick. "paused", "now" (a Run now this Mac just took, with its value)
  * or "idle" (do the script's own due check).
  */
@@ -354,7 +368,17 @@ export interface Dashboard {
   scripts: { id: string; settings: ScriptState; lastRun: RunView | null; installedOn: { machine: string; lastCheckAt: string }[] }[];
   running: (RunView & { events: EventView[] })[];
   recent: RunView[];
-  machines: { name: string; lastSeenAt: string; scripts: Record<string, string>; busy: string }[];
+  machines: {
+    name: string;
+    lastSeenAt: string;
+    scripts: Record<string, string>;
+    busy: string;
+    codeVersion: string;
+    codeNote: string;
+    codeCheckedAt: string;
+  }[];
+  /** The commit this deployment runs. A Mac on another commit is behind (or ahead). */
+  deployedVersion: string;
 }
 
 export async function dashboard(): Promise<Dashboard> {
@@ -373,7 +397,14 @@ export async function dashboard(): Promise<Dashboard> {
     } catch {
       scripts = {};
     }
-    return { name: m.name, lastSeenAt: m.lastSeenAt, scripts };
+    return {
+      name: m.name,
+      lastSeenAt: m.lastSeenAt,
+      scripts,
+      codeVersion: m.codeVersion,
+      codeNote: m.codeNote,
+      codeCheckedAt: m.codeCheckedAt,
+    };
   });
   const lastByScript = new Map<string, AgentRunRow>();
   for (const r of [...running, ...recent]) if (!lastByScript.has(r.scriptId)) lastByScript.set(r.scriptId, r);
@@ -389,6 +420,7 @@ export async function dashboard(): Promise<Dashboard> {
     running: await Promise.all(running.map(async (r) => ({ ...view(r), events: await eventsOf(r.id, 40) }))),
     recent: recent.map(view),
     machines: machineScripts.map((m) => ({ ...m, busy: running.find((r) => r.machine === m.name)?.title ?? "" })),
+    deployedVersion: process.env.VERCEL_GIT_COMMIT_SHA ?? "",
   };
 }
 

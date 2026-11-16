@@ -182,6 +182,7 @@ Not application code. Overview in `CLAUDE.md` → "Shipping".
 | `scripts/land.sh` + `.github/workflows/lander.yml` | The lander. Merges every `ready/*` branch onto `main`, verifies once, pushes `main` once. A branch that conflicts or fails moves to `stuck/<name>`. |
 | `src/app/changelog/page.tsx` | Reads `git log` at build time (view `changelog`, System group). |
 | `.claude/skills/queue/` | `/queue` — works the Feature Requests requests through `scripts/queue/agent.mjs` and `/api/invoice-review/agent/requests`. |
+| `scripts/mac-update/` | The Macs' updater: a launchd job (`install.sh`; `scripts/lead-research/install.sh` runs it too) that fast-forwards the Mac's repo copy to `main` every 10 minutes (`update.sh`), skipping a branch, uncommitted edits, local commits or a running script, and reports its commit to AI Scripts' Computers list. |
 | `scripts/agent-progress/agent-run.mjs` | The wrapper every scheduled Claude Code script runs through: the AI Scripts page's settings, live steps, Stop and Run now. See the AI Scripts row. |
 | `.claude/skills/lead-research/` + `scripts/lead-research/` | `/lead-research` — builds a lead's property dossier (Sonnet unless /ai-scripts says otherwise). `install.sh` sets a launchd job (every 2 minutes) on a Mac; `run.sh` asks the app if a run is due; `agent.mjs` claims it, runs the San Juan County assessor search (`pacs`), downloads (`fetch`) and submits through `/api/invoice-review/agent/research`. |
 | `.claude/skills/tweak/` | `/tweak` — one small change: worktree, edit, typecheck, ship. |

@@ -71,7 +71,16 @@ interface Dashboard {
   scripts: { id: string; settings: Settings; lastRun: RunView | null; installedOn: { machine: string; lastCheckAt: string }[] }[];
   running: (RunView & { events: EventView[] })[];
   recent: RunView[];
-  machines: { name: string; lastSeenAt: string; scripts: Record<string, string>; busy: string }[];
+  machines: {
+    name: string;
+    lastSeenAt: string;
+    scripts: Record<string, string>;
+    busy: string;
+    codeVersion: string;
+    codeNote: string;
+    codeCheckedAt: string;
+  }[];
+  deployedVersion: string;
 }
 
 const mins = (iso: string) => (iso ? (Date.now() - new Date(iso).getTime()) / 60000 : Infinity);
@@ -211,6 +220,7 @@ export function AiScripts() {
                           .join(", "),
                       ]}
                     />
+                    <CodeLine m={m} deployed={data.deployedVersion} />
                   </div>
                 );
               })}
@@ -233,6 +243,28 @@ export function AiScripts() {
         </section>
       </div>
     </main>
+  );
+}
+
+/** Which code the Mac's scripts run, from its updater (scripts/mac-update/). */
+function CodeLine({ m, deployed }: { m: Dashboard["machines"][number]; deployed: string }) {
+  if (!m.codeVersion) {
+    return <p className="mt-0.5 text-xs text-warn">The updater is not installed. Run scripts/mac-update/install.sh on this Mac.</p>;
+  }
+  const same = !!deployed && deployed.startsWith(m.codeVersion);
+  const stale = mins(m.codeCheckedAt) > 30;
+  return (
+    <MetaLine
+      className="mt-0.5"
+      items={[
+        <span key="v" className={same ? "" : "text-warn"}>
+          Code {m.codeVersion.slice(0, 7)}
+          {deployed ? (same ? " (matches the live app)" : ` (live app is ${deployed.slice(0, 7)})`) : ""}
+        </span>,
+        m.codeNote,
+        <span key="c" className={stale ? "text-warn" : ""}>updater ran {ago(m.codeCheckedAt)}</span>,
+      ]}
+    />
   );
 }
 
