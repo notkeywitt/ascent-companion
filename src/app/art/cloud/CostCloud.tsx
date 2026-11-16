@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Banner, ChipScroller, FilterChip, PageHeader, Segmented, SectionLabel } from "@/components/ui";
+import { Banner, ChipScroller, FilterChip, Segmented, SectionLabel } from "@/components/ui";
 import { money } from "@/lib/money";
 import type { CloudPayload, CloudSetId } from "@/lib/art/cloud";
 import { Tsne } from "@/lib/art/tsne";
+import { ArtPage, ColorFade, vizColors } from "../artKit";
 
 /**
  * THE COST CLOUD (owner, 2026-11-16). A data set drawn as a flock of dots on
@@ -77,10 +77,6 @@ const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2
 const clampEdge = (v: number) => Math.max(-EDGE, Math.min(EDGE, v));
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-function readColors(): string[] {
-  const css = getComputedStyle(document.documentElement);
-  return Array.from({ length: 8 }, (_, i) => css.getPropertyValue(`--viz-${i + 1}`).trim() || "#888");
-}
 
 /** Pseudo-random 0..1 from an integer, so a dot's delay and orbit are stable. */
 const hash = (i: number) => {
@@ -107,7 +103,7 @@ export function CostCloud() {
   const durRef = useRef(MOVE_MS);
   const shownRef = useRef<CloudPayload | null>(null);
   const focusRef = useRef<number | null>(null);
-  const colorsRef = useRef<string[]>([]);
+  const fadeRef = useRef(new ColorFade());
   const sizeRef = useRef({ w: 600, h: 480 });
   const reduced = useRef(false);
   const tsnes = useRef(new Map<CloudPayload, Tsne>());
@@ -271,7 +267,7 @@ export function CostCloud() {
   // ---- drawing ----------------------------------------------------------
   useEffect(() => {
     reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    colorsRef.current = readColors();
+    fadeRef.current.set(vizColors(canvasRef.current ?? undefined), performance.now(), true);
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
     if (!canvas || !wrap) return;
@@ -290,8 +286,13 @@ export function CostCloud() {
     const ro = new ResizeObserver(fit);
     ro.observe(wrap);
     // The theme toggle repaints the viz tokens: re-read them when <html> changes.
-    const mo = new MutationObserver(() => (colorsRef.current = readColors()));
+    const mo = new MutationObserver(() =>
+      fadeRef.current.set(vizColors(canvas), performance.now(), reduced.current),
+    );
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-palette", "style"] });
+    // The scheme picker sets --viz-* on the page's <main>.
+    const scope = wrap.closest("main");
+    if (scope) mo.observe(scope, { attributes: true, attributeFilter: ["style"] });
 
     let raf = 0;
     const frame = (now: number) => {
@@ -332,7 +333,7 @@ export function CostCloud() {
           if (ts.iteration % 10 === 0 || ts.iteration >= TSNE_STEPS) setTsneIter(ts.iteration);
         }
 
-        const colors = colorsRef.current;
+        const colors = fadeRef.current.at(now);
         const f = focusRef.current;
         const drift = reduced.current ? 0 : 0.012;
         const r = w < 500 ? 1.8 : 2.4;
@@ -421,14 +422,14 @@ export function CostCloud() {
   }, [payload]);
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-5xl">
-      <Link href="/art" className="text-xs font-semibold text-neutral-500 hover:text-accent">
-        ← Art that Makes Itself
-      </Link>
-      <PageHeader
-        title="Cost Cloud"
-        description={payload ? `${payload.dot}. ${payload.points.length.toLocaleString("en-US")} dots, ${payload.features} measures each.` : "Every row drawn as one dot, placed by PCA."}
-      />
+    <ArtPage
+      title="Cost Cloud"
+      description={
+        payload
+          ? `${payload.dot}. ${payload.points.length.toLocaleString("en-US")} dots, ${payload.features} measures each.`
+          : "Every row drawn as one dot, placed by PCA."
+      }
+    >
 
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <Segmented label="Data set" value={set} onChange={chooseSet} options={SETS} size="md" />
@@ -563,6 +564,6 @@ export function CostCloud() {
           </section>
         </div>
       )}
-    </main>
+    </ArtPage>
   );
 }
