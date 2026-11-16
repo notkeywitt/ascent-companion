@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 
 import { useAccess } from "@/components/AccessProvider";
@@ -28,6 +28,7 @@ import { readBugSide } from "@/lib/timeClockShared";
 
 const OPEN_EVENT = "ascent:notes-open";
 const LS = "notesBug.v1";
+const LS_POS = "notesBug.pos.v1"; // { x, y, op } — card corner + opacity, per device
 
 export const openNotesBug = () => window.dispatchEvent(new Event(OPEN_EVENT));
 
@@ -67,12 +68,31 @@ export function NotesBug() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [side, setSide] = useState<"left" | "right">("right");
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null); // null = default corner
+  const [op, setOp] = useState(1);
+  const card = useRef<HTMLElement>(null);
+  const drag = useRef<{ dx: number; dy: number } | null>(null);
+
+  const clamp = (x: number, y: number) => {
+    const r = card.current?.getBoundingClientRect();
+    const w = r?.width ?? 320;
+    const h = r?.height ?? 300;
+    return {
+      x: Math.max(0, Math.min(x, window.innerWidth - w)),
+      y: Math.max(0, Math.min(y, window.innerHeight - h)),
+    };
+  };
 
   const canNotes = can("jobs-hub");
   const kinds = canNotes ? KINDS : KINDS.slice(0, 1);
 
   useEffect(() => {
     setD(load());
+    try {
+      const v = JSON.parse(localStorage.getItem(LS_POS) ?? "{}");
+      if (typeof v.op === "number") setOp(Math.max(0.3, Math.min(1, v.op)));
+      if (typeof v.x === "number" && typeof v.y === "number") setPos(clamp(v.x, v.y));
+    } catch {}
     const mq = window.matchMedia("(min-width: 1024px)");
     const on = () => setDesktop(mq.matches);
     on();
@@ -82,7 +102,10 @@ export function NotesBug() {
       setD((x) => (x ? { ...x, open: !x.open } : x));
     };
     window.addEventListener(OPEN_EVENT, show);
+    const onResize = () => setPos((p) => (p ? clamp(p.x, p.y) : p));
+    window.addEventListener("resize", onResize);
     return () => {
+      window.removeEventListener("resize", onResize);
       mq.removeEventListener("change", on);
       window.removeEventListener(OPEN_EVENT, show);
     };
@@ -94,6 +117,12 @@ export function NotesBug() {
       localStorage.setItem(LS, JSON.stringify(d));
     } catch {}
   }, [d]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LS_POS, JSON.stringify({ ...pos, op }));
+    } catch {}
+  }, [pos, op]);
 
   const needsJob = d?.kind === "job" || d?.kind === "month";
   useEffect(() => {
@@ -148,15 +177,47 @@ export function NotesBug() {
 
   return (
     <aside
+      ref={card}
       aria-label="Notes"
       className="fixed z-40 w-80 rounded-xl border border-line bg-white shadow-lg dark:bg-ink-raised print:hidden"
       style={{
-        bottom: "calc(var(--actionbar-bottom) + var(--actionbar-h) + 0.5rem)",
-        ...(side === "left" ? { left: "calc(var(--rail-w) + 2.75rem)" } : { right: "1rem" }),
+        opacity: op,
+        ...(pos
+          ? { left: pos.x, top: pos.y }
+          : {
+              bottom: "calc(var(--actionbar-bottom) + var(--actionbar-h) + 0.5rem)",
+              ...(side === "left" ? { left: "calc(var(--rail-w) + 2.75rem)" } : { right: "1rem" }),
+            }),
       }}
     >
-      <div className="flex items-center border-b border-line-soft py-1 pl-3 pr-1">
-        <span className="flex-1 text-sm font-semibold">Notes</span>
+      <div className="flex items-center gap-2 border-b border-line-soft py-1 pl-3 pr-1">
+        <span
+          className="flex-1 cursor-move touch-none select-none text-sm font-semibold"
+          title="Drag to move"
+          onPointerDown={(e) => {
+            const r = card.current!.getBoundingClientRect();
+            drag.current = { dx: e.clientX - r.left, dy: e.clientY - r.top };
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }}
+          onPointerMove={(e) => {
+            if (drag.current) setPos(clamp(e.clientX - drag.current.dx, e.clientY - drag.current.dy));
+          }}
+          onPointerUp={() => (drag.current = null)}
+          onPointerCancel={() => (drag.current = null)}
+        >
+          Notes
+        </span>
+        <input
+          type="range"
+          min={0.3}
+          max={1}
+          step={0.05}
+          value={op}
+          onChange={(e) => setOp(Number(e.target.value))}
+          aria-label="Card opacity"
+          title="Opacity"
+          className="w-16"
+        />
         <button
           type="button"
           onClick={() => set({ open: false })}
