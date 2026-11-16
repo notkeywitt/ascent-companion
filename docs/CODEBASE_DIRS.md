@@ -77,6 +77,8 @@ including edge middleware.
 | `clientDirectory.ts` | **The customer/job directory, and the only write path onto those records.** Reads are two-phase because they must be: `jobs` nested inside a paged `organization.accounts` returns 413, so it pages the two flat connections and joins on `job.location.account.id`; custom-field VALUES are the same trap, so the list carries Phase and Status read per FIELD and the rest per record. Writes are an ALLOWLIST (`JOB_WRITABLE` and its three siblings) — everything else JobTread exposes stays read-only, and two kinds are held back on purpose: `defaultRetainagePercentage` (a bare unbounded "number" — the unit is stated nowhere) and `customTaxRate` (bounds ARE stated; it is withheld because it decides what a client is taxed), plus MULTI-VALUE custom fields, whose array-replace behaviour is unprobed. `updateAccount` always sends `notify:false` — it defaults to TRUE, and fixing a spelling must not mail the customer. Every write re-reads the record, because `update*` returns a bare `root` and because a location's tidied address/city/state/ZIP are derived from what was typed. |
 | `leadPush.ts` | The ONE write in the leads feature — pushes a logged lead into JobTread as a customer. |
 | `leadInquiry.ts` | Web-inquiry lead parsing/normalization. |
+| `agentScripts.ts` | The AI Scripts list: every Claude Code script the Macs run, its process, default model, trigger and Run now value; the settings checks. Pure, tested. |
+| `agentRuns.ts` | AI Scripts, server side: settings, Run now, the Macs' check/start/events/end, Stop, the dashboard read. |
 | `leadResearch.ts` | **Lead research, server side.** Request, claim (`beginRun`), the Mac's dossier and file chunks, and approve: JobTread fields through `clientDirectory.applyPatch`, files to folder Background. |
 | `leadResearchRules.ts` | Lead research, pure: the dossier types, the check on Claude's submission (`cleanSubmission`), the approve patches (`buildPatches`). Tested. |
 | `leadSettings.ts` | The DB half of the quiet thresholds — read and write the ONE `lead_settings` row. Server-only, which is why it is not in `leadBoard.ts`: the pure half (defaults, validation, banding) has to stay client-safe. Read fresh, never cached; the point of the setting is that moving it shows on the next load. |
@@ -572,6 +574,9 @@ cross-device backup for the phone's copy; a finished trip goes to the Mileage
 sheet instead, see `src/lib/mileageTrip.ts`),
 `mileage_saves` (one row per finished-trip save, keyed by the phone's client key,
 so a resent save writes the sheet once — `src/lib/mileageSaves.ts`),
+`agent_script_settings`, `agent_runs`, `agent_run_events`, `agent_machines` (AI Scripts:
+each script's settings and pending Run now, each Claude Code run, its steps (30 days),
+and each Mac's last check — `src/lib/agentRuns.ts`),
 `lead_research`, `lead_research_files`, `lead_research_chunks` (lead research: one row
 per run with its penciled-in dossier, the photos and documents it downloaded, and
 their bytes until review — `src/lib/leadResearch.ts`),

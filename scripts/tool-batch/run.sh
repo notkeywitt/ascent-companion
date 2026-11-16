@@ -11,6 +11,7 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
+PROGRESS="$REPO/scripts/agent-progress/agent-run.mjs"
 DIR="$HOME/.ascent-tool-batch"
 mkdir -p "$DIR"
 
@@ -20,6 +21,13 @@ export NVM_DIR="$HOME/.nvm"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 say() { echo "$(date '+%F %T') $*"; }
+
+# The AI Scripts page (/ai-scripts): paused, Run now, or carry on.
+STATE="$(node "$PROGRESS" check tool-batch)"
+case "$STATE" in
+  paused) exit 0 ;;
+  now*) set -- --now ;;
+esac
 
 if [ "${1:-}" != "--now" ]; then
   DUE="$(node "$HERE/agent.mjs" due 2>&1)" || { say "due check failed: $DUE"; exit 1; }
@@ -41,7 +49,9 @@ fi
 RUNLOG="$DIR/last-run.log"
 say "tool batch starting ($CLAUDE)"
 cd "$REPO" || exit 1
-"$CLAUDE" -p "/tool-batch" \
+# agent-run.mjs applies the page's model, instructions and max turns, and
+# reports each step live. --model here is only the fallback.
+node "$PROGRESS" run tool-batch -- "$CLAUDE" -p "/tool-batch" \
   --model sonnet \
   --allowedTools \
     "Bash(node scripts/tool-batch/agent.mjs:*)" \

@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1djm-17bfh3u";
+export const SCHEMA_FINGERPRINT = "1f0j-1et01jf";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1784,6 +1784,53 @@ async function applySchema() {
       created_at TEXT NOT NULL
     )`,
     `CREATE INDEX IF NOT EXISTS lead_research_files_run_idx ON lead_research_files (run_id)`,
+    `CREATE TABLE IF NOT EXISTS agent_script_settings (
+      script_id TEXT PRIMARY KEY,
+      model TEXT NOT NULL DEFAULT '',
+      paused INTEGER NOT NULL DEFAULT 0,
+      extra_prompt TEXT NOT NULL DEFAULT '',
+      max_turns INTEGER NOT NULL DEFAULT 0,
+      run_requested_at TEXT NOT NULL DEFAULT '',
+      run_requested_by TEXT NOT NULL DEFAULT '',
+      run_arg TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )`,
+    `CREATE TABLE IF NOT EXISTS agent_runs (
+      id TEXT PRIMARY KEY,
+      script_id TEXT NOT NULL,
+      machine TEXT NOT NULL DEFAULT '',
+      model TEXT NOT NULL DEFAULT '',
+      title TEXT NOT NULL DEFAULT '',
+      ref TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'running',
+      started_at TEXT NOT NULL,
+      ended_at TEXT NOT NULL DEFAULT '',
+      last_event_at TEXT NOT NULL DEFAULT '',
+      last_step TEXT NOT NULL DEFAULT '',
+      steps INTEGER NOT NULL DEFAULT 0,
+      cost_usd REAL,
+      input_tokens INTEGER NOT NULL DEFAULT 0,
+      output_tokens INTEGER NOT NULL DEFAULT 0,
+      result TEXT NOT NULL DEFAULT '',
+      stop_requested_at TEXT NOT NULL DEFAULT '',
+      stop_requested_by TEXT NOT NULL DEFAULT ''
+    )`,
+    `CREATE INDEX IF NOT EXISTS agent_runs_script_idx ON agent_runs (script_id, started_at)`,
+    `CREATE INDEX IF NOT EXISTS agent_runs_ref_idx ON agent_runs (ref)`,
+    `CREATE TABLE IF NOT EXISTS agent_run_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      run_id TEXT NOT NULL,
+      at TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'step',
+      text TEXT NOT NULL DEFAULT ''
+    )`,
+    `CREATE INDEX IF NOT EXISTS agent_run_events_run_idx ON agent_run_events (run_id, id)`,
+    `CREATE TABLE IF NOT EXISTS agent_machines (
+      name TEXT PRIMARY KEY,
+      last_seen_at TEXT NOT NULL,
+      scripts TEXT NOT NULL DEFAULT '{}'
+    )`,
     `CREATE TABLE IF NOT EXISTS lead_research_chunks (
       file_id TEXT NOT NULL,
       seq INTEGER NOT NULL,

@@ -1,7 +1,6 @@
 ---
 name: tool-batch
 description: Fill in the details of tools from their photos — new tools captured with Batch add on the Tools page, and tools already on the list that the office asked Claude to update. Read each tool's photos (the tool, its serial plate, any extras, its current Drive photo), work out its name, type, tool group, serial number, accessories and condition, and write it to the Tools list. Runs on its own from the office Mac (scripts/tool-batch/), or from a prompt copied on the Tools page into any Claude Code session, phone included. Use when the owner types /tool-batch, pastes a tool-batch prompt, or asks to "analyze the tool batch", "fill in the batch tools" or "process the tool photos".
-model: sonnet
 argument-hint: "[itemId …]"
 ---
 

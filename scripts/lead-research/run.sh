@@ -3,7 +3,7 @@
 #
 # Asks the app whether a lead is waiting for research (the Research button on
 # /leads). If so, it runs the /lead-research skill once, headless, in Claude
-# Code on Opus. One HTTP call when idle. Any Mac with this installed can take
+# Code (Sonnet unless /ai-scripts says otherwise). One HTTP call when idle. Any Mac with this installed can take
 # the run (the office Mac mini, the owner's MacBook); the app gives each run
 # to the first Mac that claims it.
 #
@@ -13,6 +13,7 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
+PROGRESS="$REPO/scripts/agent-progress/agent-run.mjs"
 DIR="$HOME/.ascent-lead-research"
 LOCK="$DIR/lock"
 mkdir -p "$DIR"
@@ -33,6 +34,13 @@ if ! mkdir "$LOCK" 2>/dev/null; then
   fi
 fi
 trap 'rm -rf "$LOCK"' EXIT
+
+# The AI Scripts page (/ai-scripts): paused, Run now, or carry on.
+STATE="$(node "$PROGRESS" check lead-research)"
+case "$STATE" in
+  paused) exit 0 ;;
+  now*) set -- --now ;;
+esac
 
 if [ "${1:-}" != "--now" ]; then
   DUE="$(node "$HERE/agent.mjs" due 2>&1)" || { say "due check failed: $DUE"; exit 1; }
@@ -55,8 +63,10 @@ RUNLOG="$DIR/last-run.log"
 say "lead research starting ($CLAUDE)"
 cd "$REPO" || exit 1
 rm -f .lead-research/run.json
-"$CLAUDE" -p "/lead-research" \
-  --model opus \
+# agent-run.mjs applies the page's model, instructions and max turns, and
+# reports each step live. --model here is only the fallback.
+node "$PROGRESS" run lead-research -- "$CLAUDE" -p "/lead-research" \
+  --model sonnet \
   --allowedTools \
     "Bash(node scripts/lead-research/agent.mjs:*)" \
     "Read" "Glob" "Grep" \
@@ -68,7 +78,8 @@ STATUS=${PIPESTATUS[0]}
 if [ "$STATUS" -ne 0 ]; then
   say "lead research failed (exit $STATUS)"
   # Tells the office the run stopped; they can tap Research again.
-  [ -f .lead-research/run.json ] && node "$HERE/agent.mjs" fail "Claude Code exited with code $STATUS on $(hostname -s)." >/dev/null 2>&1 || true
+  if [ "$STATUS" -eq 130 ]; then WHY="Stopped from the AI Scripts page."; else WHY="Claude Code exited with code $STATUS on $(hostname -s)."; fi
+  [ -f .lead-research/run.json ] && node "$HERE/agent.mjs" fail "$WHY" >/dev/null 2>&1 || true
 else
   say "lead research finished"
 fi
