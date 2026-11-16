@@ -598,6 +598,11 @@ export const VIEWS: ViewDef[] = [
   // design tool, not a view onto anything. It writes nothing but this device's
   // own localStorage, so the gate is about clutter rather than safety.
   { id: "theme-editor", label: "Theme", group: "System", paths: ["/theme"] },
+  // Art that Makes Itself — pictures drawn from the company's own data (the
+  // Cost Cloud first). Admin-only (ADMIN_MENU): the cloud names every bill
+  // line's cost and every crew member's hours. The API prefix rides along so
+  // no other role can read the points by calling the route.
+  { id: "art", label: "Art that Makes Itself", group: "System", paths: ["/art", "/api/art"] },
   // The desktop screen for every job at once: a compact job list, the month's
   // rings, one job's overview and the Lopez Island map. Its own routes: the
   // job's files, the Punch List tab (writes only the companion DB,
@@ -667,6 +672,7 @@ const ADMIN_MENU: string[] = [
   "bank-details",
   "page-copy",
   "theme-editor",
+  "art",
   // The morning report on "/". Admin-only since 2026-09-08 — see the view's own
   // note above for why dropping the view is what removes the card.
   "digest",
