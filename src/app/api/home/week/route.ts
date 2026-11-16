@@ -40,7 +40,7 @@ export async function GET() {
       getJobs(cfg).catch(() => []),
     ]);
     const customers = new Map(jobs.filter((j) => j.customer).map((j) => [j.id, j.customer!]));
-    return NextResponse.json(buildWeekActivity(today, tasks, todos, customers, dates));
+    return NextResponse.json(buildWeekActivity(today, tasks, todos, customers, dates, jobs));
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unknown error" },

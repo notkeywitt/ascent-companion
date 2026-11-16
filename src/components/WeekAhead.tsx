@@ -198,8 +198,8 @@ export function WeekAhead() {
         }
       });
       return { job, runs: [...runs.values()], todos };
-    })
-    .filter((b) => b.runs.length || b.todos.length);
+    });
+  const busy = bands.some((b) => b.runs.length || b.todos.length);
 
   // Next: the soonest timed thing that has not started.
   const ahead = [
@@ -341,6 +341,9 @@ export function WeekAhead() {
             <div className="relative truncate pb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-500">
               {b.job.name}
             </div>
+            {b.runs.length === 0 && b.todos.length === 0 && (
+              <div className="pb-1 text-[11px] text-neutral-500">Nothing this week.</div>
+            )}
             {b.runs.map((r) => {
               const s =
                 r.first === data.dates.indexOf(r.item.start)
@@ -411,7 +414,7 @@ export function WeekAhead() {
         </div>
       </div>
 
-      {bands.length === 0 && evRows === 0 && (
+      {!busy && evRows === 0 && (
         <p className="text-[12px] text-neutral-500">Nothing on the schedule.</p>
       )}
     </div>
