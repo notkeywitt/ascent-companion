@@ -152,7 +152,7 @@ export const WORKSPACES: Workspace[] = [
   {
     id: "admin",
     title: "Admin",
-    desc: "Access, the app's wording and look, and the audit trails.",
+    desc: "Access, the app's wording and look, the audit trails, and the data art.",
     tabs: [
       tab("admin", "/admin", "Access", "Who can sign in, and what each role can open"),
       tab("ascentbot", "/ascentbot", "AscentBot", "Who can ask the Chat bot, and what each role's answers may include"),
@@ -161,6 +161,7 @@ export const WORKSPACES: Workspace[] = [
       tab("page-copy", "/admin/copy", "Look & Text", "Reword the app's on-screen text, and tune the palette"),
       tab("logs", "/logs", "Audit", "The automation log and the financial journal — who changed what"),
       tab("historical-cost", "/historical-cost", "Historical Cost Import", "Backfill a job's pre-JobTread costs as one draft bill"),
+      tab("art", "/art", "Art that Makes Itself", "Pictures the company's own data draws — the Cost Cloud first"),
     ],
   },
 ];
