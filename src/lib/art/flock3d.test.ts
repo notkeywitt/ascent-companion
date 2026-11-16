@@ -58,3 +58,54 @@ describe("Flock3D", () => {
     expect(Math.abs(f.z[0] - SIDE / 2)).toBeLessThan(20);
   });
 });
+
+import { TankCamera, tankSize } from "./camera3d";
+
+describe("TankCamera", () => {
+  const cam = () => {
+    const c = new TankCamera();
+    c.w = 900;
+    c.h = 600;
+    const t = tankSize(900, 600);
+    c.sx = t.sx;
+    c.sy = t.sy;
+    c.sz = t.sz;
+    return c;
+  };
+
+  it("puts the glass's corners on the canvas's corners, however the eye sways", () => {
+    const c = cam();
+    c.offX = 90;
+    c.offY = -40;
+    const a = c.project(0, c.sy, 0);
+    const b = c.project(c.sx, 0, 0);
+    expect(a.sx).toBeCloseTo(0);
+    expect(a.sy).toBeCloseTo(0);
+    expect(b.sx).toBeCloseTo(900);
+    expect(b.sy).toBeCloseTo(600);
+  });
+
+  it("shows the back wall smaller than the glass, and shifts it against the glass when the eye moves", () => {
+    const c = cam();
+    const back = c.project(c.sx / 2, c.sy / 2, c.sz);
+    expect(back.scale).toBeLessThan(c.project(c.sx / 2, c.sy / 2, 0).scale);
+    const still = c.project(c.sx * 0.8, c.sy / 2, c.sz).sx;
+    c.offX = 120;
+    expect(c.project(c.sx * 0.8, c.sy / 2, c.sz).sx).not.toBeCloseTo(still, 0);
+  });
+
+  it("sends a pixel back to a point that projects onto the same pixel", () => {
+    const c = cam();
+    c.offX = 60;
+    const w = c.unproject(300, 200, 250);
+    const p = c.project(w.x, w.y, w.z);
+    expect(p.sx).toBeCloseTo(300, 3);
+    expect(p.sy).toBeCloseTo(200, 3);
+  });
+
+  it("keeps the tank 700 tall and as wide as the canvas, within limits", () => {
+    expect(tankSize(900, 600).sx).toBeCloseTo(1050);
+    expect(tankSize(400, 800).sx).toBeCloseTo(700 * 0.55);
+    expect(tankSize(4000, 400).sx).toBeCloseTo(700 * 2.6);
+  });
+});

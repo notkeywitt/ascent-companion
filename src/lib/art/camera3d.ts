@@ -74,3 +74,76 @@ export class Camera3D {
     this.dist = Math.max(SIDE * 1.3, Math.min(SIDE * 4.5, this.dist * factor));
   }
 }
+
+/**
+ * The Tank camera: a fish tank seen straight on. The box is wide, shallow and
+ * fixed; the front glass is the canvas itself (a point on the glass lands on
+ * the same pixel whatever the camera does), and the back wall is smaller,
+ * as it would be through real glass. A slow sway of the camera's position
+ * (`offX`, `offY`, in world units) shifts deep things against near ones, which
+ * is what makes it read as depth. No orbit, no cube.
+ *
+ * World axes: x right, y up, z into the tank (0 is the glass).
+ */
+export class TankCamera {
+  w = 800;
+  h = 500;
+  /** The box, in world units. */
+  sx = 1000;
+  sy = 700;
+  sz = 500;
+  /** The eye's sideways and vertical offset from the tank's centre. */
+  offX = 0;
+  offY = 0;
+  /** The eye's distance in front of the glass, as a multiple of the depth. */
+  eye = 1.5;
+
+  private f() {
+    return this.sz * this.eye;
+  }
+  /** Pixels per world unit on the glass. */
+  private s0() {
+    return this.w / this.sx;
+  }
+
+  project(x: number, y: number, z: number): Projected {
+    const f = this.f();
+    const k = f / (f + z);
+    const camX = this.sx / 2 + this.offX;
+    const camY = this.sy / 2 + this.offY;
+    // The ray from the eye through the point, where it crosses the glass.
+    const gx = camX + (x - camX) * k;
+    const gy = camY + (y - camY) * k;
+    const s0 = this.s0();
+    return {
+      sx: this.w / 2 + (gx - this.sx / 2) * s0,
+      sy: this.h / 2 - (gy - this.sy / 2) * s0,
+      depth: f + z,
+      scale: s0 * k,
+    };
+  }
+
+  /** The world point under pixel (px, py) at depth z (the pointer's hawk). */
+  unproject(px: number, py: number, z: number): { x: number; y: number; z: number } {
+    const f = this.f();
+    const s0 = this.s0();
+    const gx = (px - this.w / 2) / s0 + this.sx / 2;
+    const gy = -(py - this.h / 2) / s0 + this.sy / 2;
+    const camX = this.sx / 2 + this.offX;
+    const camY = this.sy / 2 + this.offY;
+    const k = (f + z) / f;
+    return { x: camX + (gx - camX) * k, y: camY + (gy - camY) * k, z };
+  }
+}
+
+/**
+ * The tank's size for a canvas of w × h pixels: always as tall as 700 units
+ * and as wide as the canvas is, within a sensible range, and 500 deep. The
+ * simulation's distances are in these units, so a flock looks the same size
+ * on a phone held upright and on a wide window.
+ */
+export function tankSize(w: number, h: number): { sx: number; sy: number; sz: number } {
+  const sy = 700;
+  const aspect = Math.max(0.55, Math.min(2.6, w / Math.max(1, h)));
+  return { sx: sy * aspect, sy, sz: 500 };
+}
