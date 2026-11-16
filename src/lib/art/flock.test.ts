@@ -113,3 +113,29 @@ describe("the year", () => {
     expect(Math.hypot(f.x[0] - f.cx[0], f.y[0] - f.cy[0])).toBeLessThan(60);
   });
 });
+
+describe("wrap-around edges", () => {
+  it("brings a bird that leaves one edge back in at the other", () => {
+    const f = new Flock([{ group: 0, size: 1 }], { pace: [1], affinity: [] }, 400, 300);
+    f.wrap = true;
+    f.x[0] = 399;
+    f.y[0] = 150;
+    f.vx[0] = 1.5;
+    f.vy[0] = 0;
+    f.step();
+    expect(f.x[0]).toBeLessThan(10);
+  });
+
+  it("keeps a flock that straddles an edge as one flock, centred on the edge", () => {
+    const birds = Array.from({ length: 20 }, () => ({ group: 0, size: 0.5 }));
+    const f = new Flock(birds, { pace: [1], affinity: [] }, 400, 300);
+    f.wrap = true;
+    for (let i = 0; i < 20; i++) {
+      f.x[i] = i % 2 ? 395 : 5;
+      f.y[i] = 150;
+    }
+    f.step();
+    // A plain mean would say 200, the middle of the screen.
+    expect(Math.min(f.cx[0], 400 - f.cx[0])).toBeLessThan(20);
+  });
+});

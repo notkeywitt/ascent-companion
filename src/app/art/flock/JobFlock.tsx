@@ -52,6 +52,12 @@ const SPEEDS: { value: Speed; label: string }[] = [
 ];
 const LOOP_MS: Record<Speed, number> = { slow: 180_000, medium: 90_000, fast: 40_000 };
 
+type Edges = "walls" | "wrap";
+const EDGES: { value: Edges; label: string }[] = [
+  { value: "walls", label: "Walls" },
+  { value: "wrap", label: "Wrap around" },
+];
+
 const LINK_NOTE: Record<FlockBy, string> = {
   job: "Jobs that share vendors or crew fly near each other.",
   vendor: "Vendors that bill the same jobs fly near each other.",
@@ -83,6 +89,7 @@ export function JobFlock() {
   const [speed, setSpeed] = useState<Speed>("slow");
   const [focus, setFocus] = useState<number | null>(null);
   const [words, setWords] = useState(false);
+  const [edges, setEdges] = useState<Edges>("walls");
   const [panel, setPanel] = useState(false);
   const [saver, setSaver] = useState(true);
   const [full, setFull] = useState(false);
@@ -116,7 +123,8 @@ export function JobFlock() {
     engine.focus = focus;
     engine.labels = words;
     engine.timelineText = words;
-  }, [engine, yearOn, speed, focus, words]);
+    engine.wrap = edges === "wrap";
+  }, [engine, yearOn, speed, focus, words, edges]);
 
   const unit = set === "labor" ? "hours" : "money";
   const fmt = (v: number) => (unit === "hours" ? `${Math.round(v).toLocaleString("en-US")} h` : money0(v));
@@ -231,6 +239,16 @@ export function JobFlock() {
               </>
             )}
             <Toggle checked={words} onChange={setWords} label="Names and months on the picture" />
+          </section>
+
+          <section className="space-y-2">
+            <SectionLabel>Edges</SectionLabel>
+            <Segmented label="Edges" value={edges} onChange={setEdges} options={EDGES} size="md" fill />
+            <p className="text-xs text-neutral-500">
+              {edges === "wrap"
+                ? "A bird that flies off one edge comes back on the opposite one."
+                : "Birds turn back before they reach an edge."}
+            </p>
           </section>
 
           <section>

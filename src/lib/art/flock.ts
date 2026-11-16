@@ -14,8 +14,10 @@
  *                and away from groups it shares nothing with;
  *   pace         a group's top speed follows how busy it was lately;
  *   predator     flee the pointer.
- * The walls are soft: a bird near an edge is turned back, never wrapped, so a
- * flock's centre is always a real place on screen.
+ * Two kinds of edge (`wrap`). Walls, the default: a bird near an edge is
+ * turned back. Wrap around: a bird that leaves one edge comes in at the
+ * opposite one, and every distance is measured the short way round, so a
+ * flock crossing an edge stays one flock (its centre is a circular mean).
  *
  * Birds can be born and die (the year mode): `setTargets` gives each bird a
  * target opacity. A bird fading in is born beside its own flock (or enters at
@@ -67,6 +69,8 @@ export class Flock {
   live: Uint8Array;
   /** 1 for a bird born this step (a drawing resets its trail). */
   born: Uint8Array;
+  /** Wrap around at the edges instead of turning back at walls. */
+  wrap = false;
   private rand: () => number;
 
   constructor(birds: FlockBirdInit[], params: FlockParams, w: number, h: number, seed = 9) {
@@ -158,8 +162,18 @@ export class Flock {
 
   /** One step. `pointer` (canvas px) is the predator, or null. */
   step(pointer: { x: number; y: number } | null = null) {
-    const { n, x, y, vx, vy, group, w, h } = this;
+    const { n, x, y, vx, vy, group, w, h, wrap } = this;
     const G = this.groups;
+    // From a to b along one axis: the short way round when the edges wrap.
+    const dX = (a: number, b: number) => {
+      const d = b - a;
+      return !wrap ? d : d > w / 2 ? d - w : d < -w / 2 ? d + w : d;
+    };
+    const dY = (a: number, b: number) => {
+      const d = b - a;
+      return !wrap ? d : d > h / 2 ? d - h : d < -h / 2 ? d + h : d;
+    };
+    const into = (v: number, size: number) => (wrap ? ((v % size) + size) % size : Math.max(0, Math.min(size, v)));
 
     // Births and deaths. A bird being born appears beside its flock, using
     // the centres from the step before.
@@ -173,8 +187,8 @@ export class Flock {
         if (this.count[g] > 0) {
           const a = this.rand() * Math.PI * 2;
           const r = 8 + this.rand() * 26;
-          x[i] = Math.max(0, Math.min(w, this.cx[g] + Math.cos(a) * r));
-          y[i] = Math.max(0, Math.min(h, this.cy[g] + Math.sin(a) * r));
+          x[i] = into(this.cx[g] + Math.cos(a) * r, w);
+          y[i] = into(this.cy[g] + Math.sin(a) * r, h);
         } else {
           const side = Math.floor(this.rand() * 4);
           x[i] = side === 0 ? 2 : side === 1 ? w - 2 : this.rand() * w;
@@ -186,19 +200,37 @@ export class Flock {
       live[i] = this.alpha[i] > 0.02 ? 1 : 0;
     }
 
-    // Group centres, over the live birds.
+    // Group centres, over the live birds. With wrapping edges a plain mean
+    // would put a flock that straddles an edge in the middle of the screen,
+    // so each axis is averaged as an angle around its circle instead.
     this.cx.fill(0);
     this.cy.fill(0);
     this.count.fill(0);
+    const sxC = new Float32Array(G);
+    const sxS = new Float32Array(G);
+    const syC = new Float32Array(G);
+    const syS = new Float32Array(G);
+    const TAU = Math.PI * 2;
     for (let i = 0; i < n; i++) {
       if (!live[i]) continue;
       const g = group[i];
-      this.cx[g] += x[i];
-      this.cy[g] += y[i];
+      if (wrap) {
+        sxC[g] += Math.cos((x[i] / w) * TAU);
+        sxS[g] += Math.sin((x[i] / w) * TAU);
+        syC[g] += Math.cos((y[i] / h) * TAU);
+        syS[g] += Math.sin((y[i] / h) * TAU);
+      } else {
+        this.cx[g] += x[i];
+        this.cy[g] += y[i];
+      }
       this.count[g]++;
     }
     for (let g = 0; g < G; g++) {
-      if (this.count[g]) {
+      if (!this.count[g]) continue;
+      if (wrap) {
+        this.cx[g] = into((Math.atan2(sxS[g], sxC[g]) / TAU) * w, w);
+        this.cy[g] = into((Math.atan2(syS[g], syC[g]) / TAU) * h, h);
+      } else {
         this.cx[g] /= this.count[g];
         this.cy[g] /= this.count[g];
       }
@@ -212,16 +244,22 @@ export class Flock {
     for (let g = 0; g < G; g++) {
       if (!this.count[g]) continue;
       const ph = g * 2.399; // golden angle: goals start spread out
-      const goalX = w / 2 + w * 0.34 * Math.cos(this.t * (0.0021 + 0.00023 * (g % 5)) + ph);
-      const goalY = h / 2 + h * 0.32 * Math.sin(this.t * (0.0017 + 0.00019 * (g % 7)) + ph * 1.7);
-      gx[g] += (goalX - this.cx[g]) * 0.0011;
-      gy[g] += (goalY - this.cy[g]) * 0.0011;
+      // Walls: a slow loop around the middle. Wrap: a steady drift in the
+      // group's own direction, so flocks travel off one edge and back in.
+      const goalX = wrap
+        ? into(w * ((g * 0.37) % 1) + this.t * Math.cos(ph) * 0.45, w)
+        : w / 2 + w * 0.34 * Math.cos(this.t * (0.0021 + 0.00023 * (g % 5)) + ph);
+      const goalY = wrap
+        ? into(h * ((g * 0.61) % 1) + this.t * Math.sin(ph) * 0.3 + h * 0.08 * Math.sin(this.t * 0.004 + ph), h)
+        : h / 2 + h * 0.32 * Math.sin(this.t * (0.0017 + 0.00019 * (g % 7)) + ph * 1.7);
+      gx[g] += dX(this.cx[g], goalX) * 0.0011;
+      gy[g] += dY(this.cy[g], goalY) * 0.0011;
       const aff = this.params.affinity[g];
       for (let k = 0; k < G; k++) {
         if (k === g || !this.count[k]) continue;
         const a = aff?.[k] ?? 0;
-        const dx = this.cx[g] - this.cx[k];
-        const dy = this.cy[g] - this.cy[k];
+        const dx = dX(this.cx[k], this.cx[g]);
+        const dy = dY(this.cy[k], this.cy[g]);
         const d = Math.hypot(dx, dy) || 1e-3;
         gx[g] -= dx * 0.00025 * a;
         gy[g] -= dy * 0.00025 * a;
@@ -261,16 +299,22 @@ export class Flock {
       let same = 0;
       const ccol = Math.min(cols - 1, Math.max(0, Math.floor(x[i] / R)));
       const crow = Math.min(rows - 1, Math.max(0, Math.floor(y[i] / R)));
+      // With wrapping edges the neighbouring cells wrap too (when the grid is
+      // at least three cells across, so no cell is visited twice).
+      const wrapC = wrap && cols >= 3;
+      const wrapR = wrap && rows >= 3;
       for (let dr = -1; dr <= 1; dr++) {
-        const r = crow + dr;
-        if (r < 0 || r >= rows) continue;
+        let r = crow + dr;
+        if (wrapR) r = (r + rows) % rows;
+        else if (r < 0 || r >= rows) continue;
         for (let dc = -1; dc <= 1; dc++) {
-          const c = ccol + dc;
-          if (c < 0 || c >= cols) continue;
+          let c = ccol + dc;
+          if (wrapC) c = (c + cols) % cols;
+          else if (c < 0 || c >= cols) continue;
           for (let j = head[r * cols + c]; j !== -1; j = next[j]) {
             if (j === i) continue;
-            const dx = x[j] - x[i];
-            const dy = y[j] - y[i];
+            const dx = dX(x[i], x[j]);
+            const dy = dY(y[i], y[j]);
             const d2 = dx * dx + dy * dy;
             if (d2 > R * R) continue;
             if (d2 < SEP * SEP && d2 > 1e-6) {
@@ -296,12 +340,12 @@ export class Flock {
       }
       // The whole group's centre, gently, so a group becomes one flock;
       // then the group's own roaming, affinity and shyness.
-      fx += (this.cx[g] - x[i]) * 0.0006 + gx[g];
-      fy += (this.cy[g] - y[i]) * 0.0006 + gy[g];
+      fx += dX(x[i], this.cx[g]) * 0.0006 + gx[g];
+      fy += dY(y[i], this.cy[g]) * 0.0006 + gy[g];
       // The pointer is a hawk.
       if (pointer) {
-        const dx = x[i] - pointer.x;
-        const dy = y[i] - pointer.y;
+        const dx = dX(pointer.x, x[i]);
+        const dy = dY(pointer.y, y[i]);
         const d2 = dx * dx + dy * dy;
         if (d2 < 90 * 90 && d2 > 1e-6) {
           const d = Math.sqrt(d2);
@@ -309,11 +353,13 @@ export class Flock {
           fy += (dy / d) * (1 - d / 90) * 0.9;
         }
       }
-      // Soft walls.
-      if (x[i] < MARGIN) fx += (MARGIN - x[i]) * 0.01;
-      if (x[i] > w - MARGIN) fx -= (x[i] - (w - MARGIN)) * 0.01;
-      if (y[i] < MARGIN) fy += (MARGIN - y[i]) * 0.01;
-      if (y[i] > h - MARGIN) fy -= (y[i] - (h - MARGIN)) * 0.01;
+      // Soft walls, unless the edges wrap.
+      if (!wrap) {
+        if (x[i] < MARGIN) fx += (MARGIN - x[i]) * 0.01;
+        if (x[i] > w - MARGIN) fx -= (x[i] - (w - MARGIN)) * 0.01;
+        if (y[i] < MARGIN) fy += (MARGIN - y[i]) * 0.01;
+        if (y[i] > h - MARGIN) fy -= (y[i] - (h - MARGIN)) * 0.01;
+      }
       // A little wander keeps it alive.
       fx += (this.rand() - 0.5) * 0.05;
       fy += (this.rand() - 0.5) * 0.05;
@@ -330,8 +376,8 @@ export class Flock {
       const k = sp > top ? top / sp : sp < MIN_SPEED ? MIN_SPEED / sp : 1;
       vx[i] *= k;
       vy[i] *= k;
-      x[i] = Math.max(0, Math.min(w, x[i] + vx[i]));
-      y[i] = Math.max(0, Math.min(h, y[i] + vy[i]));
+      x[i] = into(x[i] + vx[i], w);
+      y[i] = into(y[i] + vy[i], h);
     }
   }
 }

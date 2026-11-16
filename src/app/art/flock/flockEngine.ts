@@ -81,6 +81,8 @@ export class FlockEngine {
   timeline = true;
   /** Write the months and the date on the picture. */
   timelineText = true;
+  /** Edges wrap around instead of turning birds back. */
+  wrap = false;
   /** Draw each flock's name at its centre. */
   labels = true;
 
@@ -167,6 +169,7 @@ export class FlockEngine {
     }
     this.shownSetup = setup;
     flock.resize(w, h);
+    flock.wrap = this.wrap;
 
     // The year: move the clock, set who is alive, and let each flock's pace
     // follow how many of its birds are alive now.
@@ -236,12 +239,17 @@ export class FlockEngine {
           ctx.beginPath();
           for (let i = 0; i < n; i++) {
             if (flock.group[i] !== g || !flock.live[i] || bucketOf(i) !== b) continue;
+            let qx = 0;
+            let qy = 0;
             for (let k = 1; k <= TRAIL; k++) {
               const s = (slot + k) % TRAIL;
               const px = tr[(s * n + i) * 2];
               const py = tr[(s * n + i) * 2 + 1];
-              if (k === 1) ctx.moveTo(px, py);
+              // A bird that wrapped across an edge: no line across the screen.
+              if (k === 1 || Math.abs(px - qx) > w / 2 || Math.abs(py - qy) > h / 2) ctx.moveTo(px, py);
               else ctx.lineTo(px, py);
+              qx = px;
+              qy = py;
             }
           }
           ctx.stroke();

@@ -41,14 +41,16 @@ export interface SaverPick {
   set: Extract<CloudSetId, "bills" | "labor">;
   by: "job" | "vendor" | "division" | "type" | "person";
   preset: string;
+  /** Edges wrap around instead of being walls. */
+  wrap: boolean;
 }
 
-/** A random data set, grouping and colour preset. Only dated sets: the saver
+/** A random data set, grouping, colour preset and kind of edge. Only dated sets: the saver
  *  always runs the year. */
 export function randomPick(rand: () => number = Math.random): SaverPick {
   const set = rand() < 0.5 ? "bills" : "labor";
   const groupings: SaverPick["by"][] = set === "bills" ? ["job", "vendor", "division", "type"] : ["job", "person", "division"];
   const by = groupings[Math.floor(rand() * groupings.length)];
   const preset = ART_PRESETS[Math.floor(rand() * ART_PRESETS.length)].id;
-  return { set, by, preset };
+  return { set, by, preset, wrap: rand() < 0.5 };
 }
