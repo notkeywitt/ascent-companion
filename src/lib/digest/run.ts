@@ -230,6 +230,7 @@ async function reportToInbox(payload: DigestPayload): Promise<void> {
             severity: r.status === "warning" ? ("warning" as const) : ("info" as const),
             title: item.title,
             link: item.sourceLink ?? "",
+            fixAction: item.fixAction ?? "",
           })),
           r.id,
           payload.generatedAt,

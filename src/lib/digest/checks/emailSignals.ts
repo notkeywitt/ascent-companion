@@ -42,6 +42,24 @@ interface DigestEmailContentResponse {
   emails?: DigestEmailContent[];
 }
 
+/**
+ * A signal's stable key: its type, the message it came from, and its place
+ * among that message's signals of that type. Never Claude's wording, which
+ * changes between runs. Only the second and later signals of one type in one
+ * message carry the place.
+ */
+export function signalKey(
+  type: "appt" | "action",
+  e: { messageId?: string; threadId?: string },
+  index: number,
+  seen: Map<string, number>,
+): string {
+  const id = `${type}:${e.messageId || e.threadId || `email${index}`}`;
+  const n = seen.get(id) ?? 0;
+  seen.set(id, n + 1);
+  return n ? `${id}:${n}` : id;
+}
+
 export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
   id: "email-signals",
   title: "From Your Email",
@@ -87,15 +105,13 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
     log(`Claude found ${extraction.appointments.length} appointment(s), ${extraction.actionItems.length} action item(s)`);
 
     const items: DigestItem[] = [];
+    const seen = new Map<string, number>();
     for (const a of extraction.appointments) {
       const e = emails[a.emailIndex];
       if (!e) continue;
       items.push({
         title: a.title,
-        // Thread + what Claude called it. Claude re-words a title between runs,
-        // so a dismissal here holds only while the wording holds — which is why
-        // the to-do checks key on a real id instead.
-        key: `appt:${e.threadId ?? e.messageId ?? a.emailIndex}:${a.title}`,
+        key: signalKey("appt", e, a.emailIndex, seen),
         detail: `Mentioned by ${e.fromName || e.from || "someone"} in "${e.subject}"${a.time ? ` — ${a.time}` : ""}.`,
         sourceLink: e.threadUrl,
         sourceLabel: "Gmail thread",
@@ -108,7 +124,7 @@ export const emailSignalsCheck = defineCheck<EmailSignalsConfig>({
       if (!e) continue;
       items.push({
         title: a.title,
-        key: `action:${e.threadId ?? e.messageId ?? a.emailIndex}:${a.title}`,
+        key: signalKey("action", e, a.emailIndex, seen),
         detail:
           `${a.owner === "us" ? "Asked of us" : "We're on the hook"} by ${e.fromName || e.from || "someone"}` +
           ` in "${e.subject}"${a.dueHint ? ` — ${a.dueHint}` : ""}.`,

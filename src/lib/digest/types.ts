@@ -37,6 +37,8 @@ export interface DigestItem {
    * comes back as a new item rather than staying hidden.
    */
   key?: string;
+  /** The inbox row's `fixAction` (lib/findings): "<action>:<id>", e.g. "complete-todo:<taskId>". */
+  fixAction?: string;
   /** The expanded explanation. Shown when the item is opened. */
   detail?: string;
   /** Where this came from: a Gmail thread, a JobTread document, a page here. */

@@ -8,6 +8,7 @@ import { parseSummary } from "./summary";
 import { openBillingPeriod } from "./checks/draftBillsPastCutoff";
 import { billMatchesEmail, matchVendor, normalizeVendorName } from "./checks/uncapturedBills";
 import { buildAddressIndex } from "@/lib/vendorMail";
+import { signalKey } from "./checks/emailSignals";
 import { humanizeFlag } from "./checks/reconciliationFlags";
 import { dayLabel } from "./checks/calendarEvents";
 import { isExcludedJob } from "./checks/costVsInvoice";
@@ -342,6 +343,19 @@ describe("the brief's topic blocks (parseSummary)", () => {
     );
     expect(blocks[0].kind).toBe("p");
     expect(blocks[1]).toEqual({ kind: "ul", items: ["X: 2 uncaptured bills found."] });
+  });
+});
+
+describe("email signals: keys that survive Claude re-wording", () => {
+  it("keys on the message and signal type, numbering repeats in one message", () => {
+    const seen = new Map<string, number>();
+    const e = { messageId: "m1", threadId: "t1" };
+    expect(signalKey("appt", e, 0, seen)).toBe("appt:m1");
+    expect(signalKey("appt", e, 0, seen)).toBe("appt:m1:1");
+    expect(signalKey("action", e, 0, seen)).toBe("action:m1");
+    // A fresh run gives the same keys, whatever the titles say.
+    expect(signalKey("appt", e, 0, new Map())).toBe("appt:m1");
+    expect(signalKey("appt", { threadId: "t2" }, 3, new Map())).toBe("appt:t2");
   });
 });
 
