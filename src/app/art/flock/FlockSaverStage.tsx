@@ -27,6 +27,7 @@ export default function FlockSaverStage({ onClose }: { onClose: () => void }) {
   useMemo(() => {
     if (!rows) return;
     engine.setData(pick.set, rows as unknown[], pick.by);
+    engine.wrap = pick.wrap;
     // Start somewhere around the middle of the work, so two sessions differ.
     engine.t += (Math.random() - 0.5) * 60;
   }, [engine, rows, pick]);
