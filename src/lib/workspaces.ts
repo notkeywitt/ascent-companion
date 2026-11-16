@@ -191,12 +191,14 @@ export const BILLS_TABS: WorkspaceTab[] = [
   tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
   tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
   tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
+  tab("bill-clone", "/bill-clone", "Bill Clones", "Re-file a vendor's month of Expenses as Bills"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
   "accounts-payable": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   payments: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   lswdd: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   "amazon-import": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
+  "bill-clone": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   attention: "a section of the Office Dashboard (/office); /attention redirects",
   notices: "a section of the Office Dashboard (/office); /notices redirects",
   changelog: "Help's What's new tab (PageTabs on /help)",

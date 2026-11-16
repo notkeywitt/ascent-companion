@@ -333,3 +333,4 @@ export { getYearRibbonRows } from "./jobtread/yearRibbon";
 export { getResearchSubject } from "./jobtread/leadResearch";
 export type { ResearchSubject } from "./jobtread/leadResearch";
 export { getArtRows } from "./jobtread/artCloud";
+export { getVendorMonthDocs, cloneVendorDocument } from "./jobtread/billClone";

@@ -339,6 +339,10 @@ export const VIEWS: ViewDef[] = [
     paths: ["/accounts-payable", "/api/accounts-payable"],
   },
   { id: "lswdd", label: "LSWDD Statement", group: "Financials", paths: ["/lswdd", "/api/lswdd"] },
+  // Bill Clones — re-file a vendor's month of Expenses as Bills: clone, switch,
+  // approve (pushes to QuickBooks), void the originals. Every step is a live
+  // JobTread write, so the route rides the page's gate.
+  { id: "bill-clone", label: "Bill Clones", group: "Financials", paths: ["/bill-clone", "/api/bill-clone"] },
   {
     id: "amazon-import",
     label: "Amazon Import",
