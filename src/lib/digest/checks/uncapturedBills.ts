@@ -26,6 +26,7 @@
  */
 import { callAppsScript } from "@/lib/appsScript";
 import { getVendorBills, getVendors, type VendorBillRow, type VendorRef } from "@/lib/jobtread";
+import { normalizeAddress } from "@/lib/vendorMail";
 import { defineCheck, allClear, checkError, type CheckResult, type DigestItem } from "../types";
 import type { UncapturedBillsConfig } from "../settings";
 
@@ -76,16 +77,22 @@ function domainRoot(domain: string): string {
 /**
  * Best JobTread vendor account for an email sender, or null.
  *
- * Three passes, strongest first: an exact normalized-name equality, then the
+ * With `byAddress` (vendorMail.ts `buildAddressIndex`, the vendor Email
+ * field), the sender's address on file wins outright. Otherwise three passes,
+ * strongest first: an exact normalized-name equality, then the
  * vendor name appearing inside the sender's display name (or vice versa), then
  * the sender's domain root matching the vendor name with its spaces removed.
  * A one- or two-character normalized name is never matched on containment —
  * "AB" is inside half the vendors in the org.
  */
 export function matchVendor(
-  email: { fromName?: string; fromDomain?: string },
+  email: { fromName?: string; fromDomain?: string; fromAddress?: string },
   vendors: VendorRef[],
+  byAddress?: Map<string, { vendorId: string }>,
 ): VendorRef | null {
+  const onFile = byAddress?.get(normalizeAddress(email.fromAddress ?? ""));
+  const known = onFile && vendors.find((v) => v.id === onFile.vendorId);
+  if (known) return known;
   const senderName = normalizeVendorName(email.fromName ?? "");
   const root = domainRoot(email.fromDomain ?? "");
 

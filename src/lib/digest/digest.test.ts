@@ -7,6 +7,7 @@ import { fallbackSummary } from "./run";
 import { parseSummary } from "./summary";
 import { openBillingPeriod } from "./checks/draftBillsPastCutoff";
 import { billMatchesEmail, matchVendor, normalizeVendorName } from "./checks/uncapturedBills";
+import { buildAddressIndex } from "@/lib/vendorMail";
 import { humanizeFlag } from "./checks/reconciliationFlags";
 import { dayLabel } from "./checks/calendarEvents";
 import { isExcludedJob } from "./checks/costVsInvoice";
@@ -161,6 +162,16 @@ describe("uncaptured bills: matching a sender to a vendor", () => {
 
   it("returns null rather than guessing", () => {
     expect(matchVendor({ fromName: "Some Newsletter", fromDomain: "example.org" }, vendors)).toBeNull();
+  });
+
+  it("matches the vendor's address on file first, and falls back to name and domain", () => {
+    const { byAddress } = buildAddressIndex([{ vendorId: "3", vendorName: "Ferguson Enterprises, Inc.", address: "AR@fei-billing.net" }]);
+    // Name and domain alone find nothing for this sender.
+    const sender = { fromName: "Accounts Receivable", fromDomain: "fei-billing.net", fromAddress: "Ferguson AR <ar@fei-billing.net>" };
+    expect(matchVendor(sender, vendors)).toBeNull();
+    expect(matchVendor(sender, vendors, byAddress)?.id).toBe("3");
+    // An address not on file still matches by name.
+    expect(matchVendor({ fromName: "Ace Hardware", fromAddress: "x@y.com" }, vendors, byAddress)?.id).toBe("1");
   });
 });
 

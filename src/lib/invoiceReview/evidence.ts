@@ -57,6 +57,7 @@ import {
   getMonthlyInvoiceJobs,
   getOrgUsers,
   getVendorBills,
+  getVendorEmails,
   getVendors,
   jtIsoToOrgLocal,
   pageEach,
@@ -69,6 +70,7 @@ import {
 import { isSalesTaxLine, SALES_TAX_CSI } from "@/lib/salesTax";
 import { cents, isNeverInvoiced } from "./types";
 import { loadSheetEvidence, type SheetEvidence } from "./sheetEvidence";
+import { buildAddressIndex } from "@/lib/vendorMail";
 import type {
   BackupFile,
   BillEmail,
@@ -683,10 +685,20 @@ async function loadPeriodMail(
     return { emails: [], window: d.window ?? null, truncated: d.truncated === true };
   }
 
-  // Phase 2 — sender → JobTread vendor account.
+  // Phase 2 — sender → JobTread vendor account: the address on file first
+  // (the vendor Email field), then the name and domain.
   let vendors: VendorRef[] = [];
+  let byAddress: ReturnType<typeof buildAddressIndex>["byAddress"] | undefined;
   try {
-    vendors = await getVendors(cfg);
+    try {
+      const rows = await getVendorEmails(cfg);
+      vendors = rows;
+      byAddress = buildAddressIndex(
+        rows.flatMap((v) => v.addresses.map((address) => ({ vendorId: v.id, vendorName: v.name, address }))),
+      ).byAddress;
+    } catch {
+      vendors = await getVendors(cfg); // the Email field could not be read: name and domain only
+    }
   } catch (e) {
     return {
       emails: raw.map(base),
@@ -702,7 +714,7 @@ async function loadPeriodMail(
   const byVendor = new Map<string, { vendor: VendorRef; emails: BillEmail[] }>();
   for (const e of raw) {
     const row = base(e);
-    const v = matchVendor({ fromName: row.fromName, fromDomain: row.fromDomain }, vendors);
+    const v = matchVendor(row, vendors, byAddress);
     if (v) {
       row.vendorId = v.id;
       row.vendorName = v.name;
