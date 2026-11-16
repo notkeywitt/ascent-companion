@@ -226,8 +226,8 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
     );
     const out = groupBy(sorted, (e) => e.jobId);
     // Internal jobs (Ascent Office, Shop) sink to the bottom of the list.
-    const internal = (jid: string, l: typeof shown) => /^(ascent office|shop)\b/i.test(jobName(jid, l)) ? 1 : 0;
-    out.sort((a, b) => internal(a[0], a[1]) - internal(b[0], b[1]));
+    const internal = (l: typeof shown) => /^(ascent office|shop)\b/i.test(l[0]?.jobName ?? "") ? 1 : 0;
+    out.sort((a, b) => internal(a[1]) - internal(b[1]));
     // A picked job with nothing in the period still gets its card, so time can
     // be added to it.
     if (jobId && out.length === 0) out.push([jobId, []]);
