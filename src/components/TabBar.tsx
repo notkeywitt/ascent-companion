@@ -61,7 +61,7 @@ const IconBase = ({ children }: { children: React.ReactNode }) => (
     strokeWidth={2}
     strokeLinecap="round"
     strokeLinejoin="round"
-    className="h-[19px] w-[19px]"
+    className="h-[19px] w-[19px] shrink-0"
     aria-hidden
   >
     {children}

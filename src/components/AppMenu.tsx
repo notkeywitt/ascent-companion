@@ -70,7 +70,7 @@ const AccountIcon = () => (
     stroke="currentColor"
     strokeWidth={2}
     strokeLinecap="round"
-    className="h-[19px] w-[19px]"
+    className="h-[19px] w-[19px] shrink-0"
     aria-hidden
   >
     <circle cx="12" cy="8" r="4" />
