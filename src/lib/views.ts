@@ -593,6 +593,9 @@ export const VIEWS: ViewDef[] = [
   // default, alongside the other audit surfaces; the API route is listed so a
   // non-admin cannot read it directly.
   { id: "ai-cost", label: "AI Cost", group: "System", paths: ["/ai-cost", "/api/ai-usage"] },
+  // AI Scripts — the Claude Code scripts the Macs run: live progress, Stop,
+  // Run now, and each script's model and instructions (src/lib/agentScripts.ts).
+  { id: "ai-scripts", label: "AI Scripts", group: "System", paths: ["/ai-scripts", "/api/ai-scripts"] },
   // What reached production — `git log`, rendered. Read-only and
   // self-contained: the page reads the log when it builds, so there is no API
   // route to gate alongside it. Office + admin by
@@ -676,6 +679,7 @@ const ADMIN_MENU: string[] = [
   "logs",
   "journal",
   "ai-cost",
+  "ai-scripts",
   "historical-cost",
   "bank-details",
   "page-copy",

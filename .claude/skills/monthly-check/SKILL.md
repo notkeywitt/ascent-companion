@@ -1,7 +1,6 @@
 ---
 name: monthly-check
 description: Run the COMPLETE monthly invoice check in Claude Code — make sure the month has a fresh coded run in the app (JobTread + Drive + mailbox), chase every finding with the JobTread, Gmail and Drive tools, reconcile each legacy client's Google Tracking Sheet (bills and labor) against JobTread, then post a verdict per finding, the month's reading and the full report back to the app's /invoice-review page. Runs on its own on review days from the office Mac (scripts/monthly-check/). Use when the owner types /monthly-check, or asks to "run the monthly check", "run the full invoice check", or "check the month on Opus".
-model: sonnet
 argument-hint: "[YYYY-MM]"
 ---
 

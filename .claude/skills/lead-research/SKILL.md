@@ -1,7 +1,6 @@
 ---
 name: lead-research
-description: Research a lead's property and build its dossier — the county's property (assessor), permit, building and inspection records and any other public source — download the photos and documents, pencil in the JobTread customer, address and job fields, and write a one-paragraph property summary shaped by what the customer asked for. Runs on its own on Opus from the office Mac mini or the owner's MacBook (scripts/lead-research/) when the office taps Research on a lead. Use when the owner types /lead-research, or asks to "research this lead" or "run the property research".
-model: opus
+description: Research a lead's property and build its dossier — the county's property (assessor), permit, building and inspection records and any other public source — download the photos and documents, pencil in the JobTread customer, address and job fields, and write a one-paragraph property summary shaped by what the customer asked for. Runs on its own (Sonnet by default; the model is set on /ai-scripts) from the office Mac mini or the owner's MacBook (scripts/lead-research/) when the office taps Research on a lead. Use when the owner types /lead-research, or asks to "research this lead" or "run the property research".
 ---
 
 # Research a lead's property

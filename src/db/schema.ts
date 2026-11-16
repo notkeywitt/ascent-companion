@@ -2275,3 +2275,71 @@ export const leadResearchChunks = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.fileId, t.seq] })],
 );
+
+/**
+ * AI SCRIPTS — the Claude Code scripts the Macs run (scripts/<id>/run.sh),
+ * managed from /ai-scripts. The script list itself is code: src/lib/agentScripts.ts.
+ * Logic: src/lib/agentRuns.ts. The Macs reach it through
+ * /api/invoice-review/agent/progress via scripts/agent-progress/agent-run.mjs.
+ *
+ * agent_script_settings  one row per script: model, paused, extra
+ *                        instructions, max turns, and a pending "Run now".
+ *                        No row = the registry's defaults.
+ * agent_runs             one row per Claude Code run: which script, Mac and
+ *                        model, its state, the last step, cost and tokens.
+ *                        `ref` ties it to the feature's own record (a lead
+ *                        research run id). `stop_requested_at` is the Stop
+ *                        button; the Mac sees it on its next report.
+ * agent_run_events       the steps of a run, read off Claude Code's own
+ *                        stream-json output (no extra tokens). Pruned at 30 days.
+ * agent_machines         each Mac that checked in, when, and per script.
+ */
+export const agentScriptSettings = sqliteTable("agent_script_settings", {
+  scriptId: text("script_id").primaryKey(),
+  model: text("model").notNull().default(""), // "" = the registry default
+  paused: integer("paused").notNull().default(0),
+  extraPrompt: text("extra_prompt").notNull().default(""),
+  maxTurns: integer("max_turns").notNull().default(0), // 0 = no limit
+  runRequestedAt: text("run_requested_at").notNull().default(""),
+  runRequestedBy: text("run_requested_by").notNull().default(""),
+  runArg: text("run_arg").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const agentRuns = sqliteTable("agent_runs", {
+  id: text("id").primaryKey(),
+  scriptId: text("script_id").notNull(),
+  machine: text("machine").notNull().default(""),
+  model: text("model").notNull().default(""),
+  title: text("title").notNull().default(""),
+  ref: text("ref").notNull().default(""),
+  status: text("status").notNull().default("running"), // running | done | error | stopped
+  startedAt: text("started_at").notNull(),
+  endedAt: text("ended_at").notNull().default(""),
+  lastEventAt: text("last_event_at").notNull().default(""),
+  lastStep: text("last_step").notNull().default(""),
+  steps: integer("steps").notNull().default(0),
+  costUsd: real("cost_usd"),
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  result: text("result").notNull().default(""),
+  stopRequestedAt: text("stop_requested_at").notNull().default(""),
+  stopRequestedBy: text("stop_requested_by").notNull().default(""),
+});
+
+export type AgentRunRow = typeof agentRuns.$inferSelect;
+
+export const agentRunEvents = sqliteTable("agent_run_events", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  runId: text("run_id").notNull(),
+  at: text("at").notNull(),
+  kind: text("kind").notNull().default("step"), // step | note | error
+  text: text("text").notNull().default(""),
+});
+
+export const agentMachines = sqliteTable("agent_machines", {
+  name: text("name").primaryKey(),
+  lastSeenAt: text("last_seen_at").notNull(),
+  scripts: text("scripts").notNull().default("{}"), // JSON { scriptId: lastCheckAt }
+});

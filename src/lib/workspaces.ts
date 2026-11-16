@@ -160,6 +160,7 @@ export const WORKSPACES: Workspace[] = [
       // (Theme beside it), Audit opens System Logs (Financial Journal beside it).
       tab("page-copy", "/admin/copy", "Look & Text", "Reword the app's on-screen text, and tune the palette"),
       tab("logs", "/logs", "Audit", "The automation log and the financial journal — who changed what"),
+      tab("ai-scripts", "/ai-scripts", "AI Scripts", "The Claude Code scripts the Macs run: live progress, Run now, Stop, model and instructions"),
       tab("historical-cost", "/historical-cost", "Historical Cost Import", "Backfill a job's pre-JobTread costs as one draft bill"),
       tab("art", "/art", "Art that Makes Itself", "Pictures the company's own data draws — the Cost Cloud first"),
     ],

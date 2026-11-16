@@ -12,6 +12,7 @@ set -u
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
+PROGRESS="$REPO/scripts/agent-progress/agent-run.mjs"
 DIR="$HOME/.ascent-monthly-check"
 TODAY="$(date +%F)"
 STAMP="$DIR/done-$TODAY"
@@ -26,6 +27,13 @@ say() { echo "$(date '+%F %T') $*"; }
 FORCE=""
 YM=""
 if [ "${1:-}" = "--now" ]; then FORCE=1; YM="${2:-}"; fi
+
+# The AI Scripts page (/ai-scripts): paused, Run now (with a month), or carry on.
+STATE="$(node "$PROGRESS" check monthly-check)"
+case "$STATE" in
+  paused) [ -z "$FORCE" ] && exit 0 ;;
+  now*) FORCE=1; YM="$(printf '%s' "$STATE" | awk '{print $2}')" ;;
+esac
 
 if [ -z "$FORCE" ]; then
   [ -f "$STAMP" ] && exit 0
@@ -63,7 +71,9 @@ mkdir -p "$DIR"
 say "monthly check starting${YM:+ for $YM} ($CLAUDE)"
 report started "Scheduled check started on the office Mac." "$YM"
 cd "$REPO" || exit 1
-"$CLAUDE" -p "/monthly-check ${YM}" \
+# agent-run.mjs applies the page's model, instructions and max turns, and
+# reports each step live. --model here is only the fallback.
+node "$PROGRESS" run monthly-check --title "Monthly check${YM:+ $YM}" -- "$CLAUDE" -p "/monthly-check ${YM}" \
   --model sonnet \
   --allowedTools \
     "Bash(node scripts/monthly-check/agent.mjs:*)" \

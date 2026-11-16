@@ -50,6 +50,7 @@ import {
   type WriteKind,
 } from "@/lib/clientDirectory";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { liveByRef, linkRun, requestStopByRef } from "@/lib/agentRuns";
 import { diffFields, openJournal } from "@/lib/financialJournal";
 import { clearJtRefCache, getResearchSubject, uploadFileToFolder, type ResearchSubject } from "@/lib/jobtread";
 import { inquirySummary, type InquiryFields } from "@/lib/leadInquiry";
@@ -143,6 +144,8 @@ function inquiryFields(row: NonNullable<LeadContext["inquiry"]>): InquiryFields 
 
 export interface RunView {
   id: string;
+  /** While a Mac works on it: its latest step (from /ai-scripts' run log). */
+  live?: { lastStep: string; lastEventAt: string; steps: number; runId: string };
   leadKey: string;
   leadName: string;
   address: string;
@@ -229,7 +232,8 @@ export async function runsForLead(leadKey: string): Promise<RunView[]> {
     .from(leadResearch)
     .where(inArray(leadResearch.leadKey, keys))
     .orderBy(desc(leadResearch.requestedAt));
-  return rows.map(view);
+  const live = await liveByRef(rows.filter((r) => r.status === "running").map((r) => r.id)).catch(() => ({}) as Awaited<ReturnType<typeof liveByRef>>);
+  return rows.map((r) => ({ ...view(r), live: live[r.id] }));
 }
 
 /** The newest run per lead, for the board's marks. */
@@ -284,6 +288,8 @@ export async function cancelRun(id: string, by: string): Promise<void> {
   await ensureDb();
   const [row] = await db.select().from(leadResearch).where(eq(leadResearch.id, id));
   if (!row) return;
+  // A Mac working on it stops on its next report.
+  if (row.status === "running") await requestStopByRef(id, by).catch(() => {});
   if (row.status === "requested" || row.status === "running" || row.status === "ready" || row.status === "error") {
     await db
       .update(leadResearch)
@@ -387,6 +393,8 @@ export async function beginRun(runner: string): Promise<BeginAnswer | null> {
     .where(and(eq(leadResearch.id, next.id), eq(leadResearch.status, "requested")))
     .returning({ id: leadResearch.id });
   if (!claimed.length) return null;
+  // Name the Mac's run on /ai-scripts after the lead it took.
+  await linkRun("lead-research", runner, next.id, `Lead research: ${next.leadName || next.leadKey}`).catch(() => {});
 
   const ctx = await leadContext(next.leadKey);
   let subject: ResearchSubject | null = null;

@@ -23,6 +23,7 @@ interface RunLite {
   error: string;
   reviewedAt: string;
   reviewedBy: string;
+  live?: { lastStep: string; lastEventAt: string; steps: number };
 }
 
 const when = (iso: string) =>
@@ -54,10 +55,10 @@ export function ResearchCard({ lead }: { lead: { id: string; name: string; addre
   const latest = runs?.[0] ?? null;
   const active = latest && (latest.status === "requested" || latest.status === "running");
 
-  // While a run waits or runs, check again every 30 seconds.
+  // While a run waits or runs, check again every 10 seconds.
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(load, 30_000);
+    const t = setInterval(load, 10_000);
     return () => clearInterval(t);
   }, [active, load]);
 
@@ -104,7 +105,10 @@ export function ResearchCard({ lead }: { lead: { id: string; name: string; addre
             <MetaLine items={["Waiting for a Mac to start it", `asked ${when(latest.requestedAt)}`]} />
           )}
           {latest?.status === "running" && (
-            <MetaLine items={[`Researching on ${latest.runner || "a Mac"}`, `since ${when(latest.startedAt)}`, "takes 10–40 minutes"]} />
+            <div className="space-y-0.5">
+              <MetaLine items={[`Researching on ${latest.runner || "a Mac"}`, `since ${when(latest.startedAt)}`, latest.live ? `${latest.live.steps} steps` : "takes 10–40 minutes"]} />
+              {latest.live?.lastStep && <p className="truncate text-neutral-700 dark:text-neutral-300">Now: {latest.live.lastStep}</p>}
+            </div>
           )}
           {latest?.status === "error" && <Banner tone="warning">Research stopped: {latest.error}</Banner>}
           {(latest?.status === "ready" || latest?.status === "reviewed") && (

@@ -38,6 +38,10 @@ const FEATURE_LABELS: Record<string, string> = {
   "invoice-review.investigate": "Checks — investigate",
   "invoice-review.learn": "Checks — suggest checks",
   "digest.email-signals": "Daily digest — email",
+  // Claude Code runs on the Macs (/ai-scripts), priced by Claude Code itself.
+  "mac.lead-research": "Mac — lead research",
+  "mac.tool-batch": "Mac — tool batch",
+  "mac.monthly-check": "Mac — monthly invoice check",
   "digest.reply": "Daily digest — replies",
   "bill-extract": "Add bill — read the invoice",
   "amazon-import": "Amazon import",
