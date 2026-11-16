@@ -198,8 +198,9 @@ export function WeekAhead() {
         }
       });
       return { job, runs: [...runs.values()], todos };
-    });
-  const busy = bands.some((b) => b.runs.length || b.todos.length);
+    })
+    // Every job with an entry in the week, even when its entries fall on later days.
+    .filter((b) => b.job.total > 0);
 
   // Next: the soonest timed thing that has not started.
   const ahead = [
@@ -342,7 +343,7 @@ export function WeekAhead() {
               {b.job.name}
             </div>
             {b.runs.length === 0 && b.todos.length === 0 && (
-              <div className="pb-1 text-[11px] text-neutral-500">Nothing this week.</div>
+              <div className="pb-1 text-[11px] text-neutral-500">Later this week.</div>
             )}
             {b.runs.map((r) => {
               const s =
@@ -414,7 +415,7 @@ export function WeekAhead() {
         </div>
       </div>
 
-      {!busy && evRows === 0 && (
+      {bands.length === 0 && evRows === 0 && (
         <p className="text-[12px] text-neutral-500">Nothing on the schedule.</p>
       )}
     </div>

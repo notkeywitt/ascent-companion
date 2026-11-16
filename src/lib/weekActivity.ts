@@ -103,8 +103,6 @@ export function buildWeekActivity(
   todos: ToDoIn[],
   customers: Map<string, string> = new Map(),
   dates: string[] = weekDates(today),
-  /** Every open job; one with nothing this week still gets a row. */
-  openJobs: { id: string; name: string }[] = [],
 ): WeekActivity {
   const jobs = new Map<string, WeekJob>();
   const job = (id: string, name: string) => {
@@ -115,7 +113,6 @@ export function buildWeekActivity(
     }
     return j;
   };
-  for (const o of openJobs) job(o.id, o.name);
   for (const t of tasks) {
     if (!t.jobId || !t.startDate || !t.endDate) continue;
     dates.forEach((d, i) => {
