@@ -6,6 +6,7 @@ import { AppHeader } from "@/components/AppHeader";
 import { TabBar } from "@/components/TabBar";
 import { ToastHost } from "@/components/Toast";
 import { AccessProvider } from "@/components/AccessProvider";
+import { FlockSaver } from "@/components/FlockSaver";
 import { CopyProvider } from "@/components/CopyProvider";
 import { CopyInPlace } from "@/components/CopyInPlace";
 import { StuckVendorPopup, StuckVendorsProvider } from "@/components/StuckVendors";
@@ -190,6 +191,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   the content and the tab bar, in ONE element it can scale into
                   its stage with a single transform. Nothing else belongs in
                   here — the overlay's own chrome must not scale with it. */}
+              {/* Desktop screen saver: the Job Flock after five idle minutes,
+                  for people who can open the art pages (src/components/FlockSaver.tsx). */}
+              {(session?.user || devOpen) && <FlockSaver />}
               <div id="app-shell">
               <Suspense fallback={null}>
                 <AppHeader />

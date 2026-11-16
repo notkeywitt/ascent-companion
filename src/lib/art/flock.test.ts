@@ -1,5 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { Flock, flockSetup, MAX_GROUPS, OTHER, type FlockItem } from "./flock";
+import {
+  aliveAt,
+  clockLabel,
+  Flock,
+  flockSetup,
+  LIFE_DAYS,
+  loopDays,
+  MAX_GROUPS,
+  monthTicks,
+  OTHER,
+  yearClock,
+  type FlockItem,
+} from "./flock";
 
 const spread = (f: Flock, g: number) => {
   let sx = 0;
@@ -61,5 +73,43 @@ describe("flockSetup", () => {
     expect(s.params.affinity[a][b]).toBe(1);
     expect(s.params.affinity[a][c]).toBe(0);
     expect(s.params.pace[a]).toBeGreaterThan(s.params.pace[b]);
+  });
+});
+
+describe("the year", () => {
+  const items = [{ date: "2026-03-01" }, { date: "2026-06-01" }, { date: "" }];
+  const clock = yearClock(items);
+
+  it("measures days from the first dated row, and leaves undated rows undated", () => {
+    expect(clock.days[0]).toBe(0);
+    expect(clock.days[1]).toBe(92);
+    expect(Number.isNaN(clock.days[2])).toBe(true);
+    expect(loopDays(clock)).toBe(92 + LIFE_DAYS);
+  });
+
+  it("keeps a bird alive for LIFE_DAYS from its date, and an undated one always", () => {
+    expect(Array.from(aliveAt(clock, 10))).toEqual([1, 0, 1]);
+    expect(Array.from(aliveAt(clock, LIFE_DAYS + 1))).toEqual([0, 0, 1]);
+    expect(Array.from(aliveAt(clock, 95))).toEqual([0, 1, 1]);
+  });
+
+  it("names the month on the clock and ticks each month start", () => {
+    expect(clockLabel(clock, 92)).toBe("Jun 2026");
+    expect(monthTicks(clock).map(([, m]) => m)).toEqual(["Apr", "May", "Jun", "Jul"]);
+  });
+
+  it("gives birth beside the bird's own flock, and leaves the dead out of the count", () => {
+    const birds = Array.from({ length: 40 }, (_, i) => ({ group: i < 30 ? 0 : 1, size: 0.5 }));
+    const f = new Flock(birds, { pace: [1, 1], affinity: [] }, 800, 600);
+    for (let s = 0; s < 200; s++) f.step();
+    const targets = birds.map((_, i) => (i === 0 ? 0 : 1));
+    f.setTargets(targets);
+    for (let s = 0; s < 120; s++) f.step();
+    expect(f.live[0]).toBe(0);
+    expect(f.count[0]).toBe(29);
+    f.setTargets(birds.map(() => 1));
+    f.step();
+    expect(f.live[0]).toBe(1);
+    expect(Math.hypot(f.x[0] - f.cx[0], f.y[0] - f.cy[0])).toBeLessThan(60);
   });
 });

@@ -39,6 +39,7 @@ export function Sheet({
   label,
   footer,
   expandable = true,
+  live = false,
   className = "",
   children,
 }: {
@@ -50,11 +51,17 @@ export function Sheet({
   footer?: React.ReactNode;
   /** Phone only: open at half height and drag to full. */
   expandable?: boolean;
+  /**
+   * See-through: no dimmed backdrop and no focus trap, and the page behind
+   * stays live, so a control panel can change a picture while the picture
+   * is in view (the Job Flock's controls). Escape and the swipe still close it.
+   */
+  live?: boolean;
   className?: string;
   children?: React.ReactNode;
 }) {
   const wide = useWide();
-  const snaps = !wide && expandable;
+  const snaps = !wide && expandable && !live;
 
   return (
     <Drawer.Root
@@ -62,10 +69,17 @@ export function Sheet({
       onOpenChange={(next) => !next && onClose()}
       swipeDirection={wide ? "right" : "down"}
       snapPoints={snaps ? SNAPS : undefined}
+      modal={live ? false : undefined}
     >
       <Drawer.Portal>
-        <Drawer.Backdrop className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 print:hidden" />
-        <Drawer.Viewport className="fixed inset-0 z-50 flex items-end justify-center pad:items-stretch pad:justify-end print:hidden">
+        {!live && (
+          <Drawer.Backdrop className="fixed inset-0 z-50 bg-black/50 transition-opacity duration-300 data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 print:hidden" />
+        )}
+        <Drawer.Viewport
+          className={`fixed inset-0 z-50 flex items-end justify-center pad:items-stretch pad:justify-end print:hidden ${
+            live ? "pointer-events-none [&>*]:pointer-events-auto" : ""
+          }`}
+        >
           <Drawer.Popup
             aria-label={label ?? (typeof title === "string" ? title : undefined)}
             className={`flex w-full flex-col border-line bg-white text-neutral-900 shadow-xl outline-none transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] data-[swiping]:select-none data-[swiping]:duration-0 dark:bg-ink-overlay dark:text-neutral-100 ${

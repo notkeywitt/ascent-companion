@@ -1,25 +1,35 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import { Banner, ChipScroller, FilterChip, Segmented, SectionLabel } from "@/components/ui";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Sheet } from "@/components/Sheet";
+import { Banner, ChipScroller, FilterChip, Segmented, SectionLabel, Toggle } from "@/components/ui";
 import { money0 } from "@/lib/money";
 import type { CloudSetId } from "@/lib/art/cloud";
-import { divisionOf, type ArtBillRow, type ArtBudgetRow, type ArtRows, type ArtTimeRow } from "@/lib/art/rows";
-import { Flock, flockSetup, OTHER, type FlockItem, type FlockSetup } from "@/lib/art/flock";
-import { ArtCanvas, ArtPage, CanvasNote, Tip, useArtRows, type DrawFrame } from "../artKit";
+import { OTHER } from "@/lib/art/flock";
+import { saverEnabled, setSaverEnabled } from "@/lib/art/saver";
+import { SchemeChoices, schemeStyle, useArtScheme } from "../SchemePicker";
+import { ArtCanvas, useArtRows } from "../artKit";
+import { FLOCK_BY, FlockEngine, type FlockBy } from "./flockEngine";
 
 /**
  * JOB FLOCK (owner, 2026-11-16). A boids simulation: every row is a bird, and
  * birds flock with their own group (src/lib/art/flock.ts). Groups that share
  * links drift toward each other: jobs that use the same vendors, or the same
- * crew. A group's speed follows how busy it was in the last 45 days.
+ * crew. The engine (flockEngine.ts) is shared with the desktop screen saver.
  *
- *   - A new grouping re-sorts the same birds: no bird jumps, the new flocks
- *     gather over a few seconds.
- *   - A new data set flies on from the old birds' places; extra birds enter
- *     from the edges.
- *   - The pointer is a hawk: birds scatter from it. On a phone, a tap is.
- * Under prefers-reduced-motion the flock is settled off screen and drawn still.
+ * The page is the picture alone (owner, 2026-11-16): no words, the frame
+ * centred and sized to the window, three faint icon buttons in its corners
+ * (back, controls, full screen). Every control lives in a see-through panel
+ * that slides in from the side, so the flock stays in view and reacts while
+ * the settings change. Full screen hides the panel button: only the frame's
+ * own subtree shows there, and the panel opens outside it.
+ *
+ *   - Year: each bird lives for 35 days from its row's date while a clock runs
+ *     through the year on a loop, so flocks grow, thin and fade with the work.
+ *   - Whole year: every bird at once; speed follows the last 45 days.
+ *   - A new grouping re-sorts the same birds; a new data set flies on from
+ *     the old birds' places. The pointer is a hawk.
  */
 
 const SETS: { value: CloudSetId; label: string }[] = [
@@ -28,28 +38,21 @@ const SETS: { value: CloudSetId; label: string }[] = [
   { value: "budget", label: "Budget lines" },
 ];
 
-type By = "job" | "division" | "vendor" | "type" | "person";
-const BY: Record<CloudSetId, { value: By; label: string }[]> = {
-  bills: [
-    { value: "job", label: "Job" },
-    { value: "vendor", label: "Vendor" },
-    { value: "division", label: "Division" },
-    { value: "type", label: "Cost type" },
-  ],
-  labor: [
-    { value: "job", label: "Job" },
-    { value: "person", label: "Person" },
-    { value: "division", label: "Division" },
-  ],
-  budget: [
-    { value: "job", label: "Job" },
-    { value: "division", label: "Division" },
-    { value: "type", label: "Cost type" },
-  ],
-};
+type Time = "year" | "all";
+const TIMES: { value: Time; label: string }[] = [
+  { value: "year", label: "Year in motion" },
+  { value: "all", label: "Whole year" },
+];
 
-/** What links two groups, for each grouping. */
-const LINK_NOTE: Record<By, string> = {
+type Speed = "slow" | "medium" | "fast";
+const SPEEDS: { value: Speed; label: string }[] = [
+  { value: "slow", label: "Slow" },
+  { value: "medium", label: "Medium" },
+  { value: "fast", label: "Fast" },
+];
+const LOOP_MS: Record<Speed, number> = { slow: 180_000, medium: 90_000, fast: 40_000 };
+
+const LINK_NOTE: Record<FlockBy, string> = {
   job: "Jobs that share vendors or crew fly near each other.",
   vendor: "Vendors that bill the same jobs fly near each other.",
   division: "Divisions that meet on the same jobs fly near each other.",
@@ -57,271 +60,227 @@ const LINK_NOTE: Record<By, string> = {
   person: "People who work the same jobs fly near each other.",
 };
 
-function items(set: CloudSetId, rows: unknown[], by: By): FlockItem[] {
-  if (set === "bills") {
-    return (rows as ArtBillRow[]).map((r) => {
-      const key = by === "vendor" ? r.vendor : by === "division" ? `Div ${divisionOf(r.code)}` : by === "type" ? r.type : r.job;
-      return { key: key || "None", link: by === "job" ? r.vendor : r.job, value: r.cost, date: r.date };
-    });
-  }
-  if (set === "labor") {
-    return (rows as ArtTimeRow[]).map((r) => {
-      const key = by === "person" ? r.person : by === "division" ? `Div ${divisionOf(r.code)}` : r.job;
-      return { key, link: by === "job" ? r.person : r.job, value: r.hours, date: r.start.slice(0, 10) };
-    });
-  }
-  return (rows as ArtBudgetRow[]).map((r) => {
-    const key = by === "division" ? `Div ${divisionOf(r.code)}` : by === "type" ? r.type : r.job;
-    return { key, link: by === "job" ? divisionOf(r.code) : r.job, value: r.cost, date: "" };
-  });
-}
+/** The frame's corner buttons: an icon only, faint until hovered or focused. */
+const ICON_BTN =
+  "pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full text-neutral-500 opacity-50 transition hover:bg-neutral-100 hover:text-neutral-900 hover:opacity-100 focus-visible:opacity-100 dark:hover:bg-white/[0.07] dark:hover:text-neutral-100";
 
-const TRAIL = 7; // positions kept per bird
-const SETTLE_STEPS = 500; // for a still picture under reduced motion
+function Icon({ d }: { d: string }) {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+const BACK = "M15 6l-6 6 6 6";
+const SLIDERS = "M4 7h10M18 7h2M4 17h4M12 17h8M14 5v4M8 15v4";
+const EXPAND = "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5";
+const SHRINK = "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5";
 
 export function JobFlock() {
   const [set, setSet] = useState<CloudSetId>("bills");
-  const [by, setBy] = useState<By>("job");
+  const [by, setBy] = useState<FlockBy>("job");
+  const [time, setTime] = useState<Time>("year");
+  const [speed, setSpeed] = useState<Speed>("slow");
   const [focus, setFocus] = useState<number | null>(null);
-  const [hover, setHover] = useState<{ g: number; x: number; y: number; w: number } | null>(null);
+  const [words, setWords] = useState(false);
+  const [panel, setPanel] = useState(false);
+  const [saver, setSaver] = useState(true);
+  const [full, setFull] = useState(false);
+  const [canFull, setCanFull] = useState(false);
+  const [scheme, setScheme] = useArtScheme();
   const { rows, error } = useArtRows(set);
+  const engine = useRef(new FlockEngine()).current;
+  const frame = useRef<HTMLDivElement>(null);
 
-  const setup: FlockSetup | null = useMemo(
-    () => (rows ? flockSetup(items(set, rows as ArtRows[typeof set], by)) : null),
-    [rows, set, by],
-  );
+  useEffect(() => {
+    setSaver(saverEnabled());
+    setCanFull(!!document.fullscreenEnabled);
+    const on = () => setFull(document.fullscreenElement === frame.current);
+    document.addEventListener("fullscreenchange", on);
+    return () => document.removeEventListener("fullscreenchange", on);
+  }, []);
 
-  const flockRef = useRef<Flock | null>(null);
-  const shownRows = useRef<unknown>(null);
-  const shownSetup = useRef<FlockSetup | null>(null);
-  const trail = useRef<Float32Array | null>(null);
-  const trailAt = useRef(0);
-  const hawk = useRef<{ x: number; y: number; until: number } | null>(null);
-  const focusRef = useRef<number | null>(null);
-  focusRef.current = focus;
+  // Hand the engine its rows during render, so the panel's list reads the
+  // same groups the canvas draws. setData only replaces the engine's setup.
+  const setup = useMemo(() => {
+    if (!rows) return null;
+    engine.setData(set, rows as unknown[], by);
+    return engine.setup;
+  }, [engine, rows, set, by]);
 
-  const draw = (f: DrawFrame) => {
-    const { ctx, w, h, colors, ink, quiet, reduced, now } = f;
-    if (!setup) return;
-
-    // Build, re-group or replace the flock when the data or grouping changed.
-    let flock = flockRef.current;
-    if (!flock || shownRows.current !== rows) {
-      const fresh = new Flock(setup.birds, setup.params, w, h);
-      if (flock) fresh.inherit(flock);
-      if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) fresh.step();
-      flock = flockRef.current = fresh;
-      shownRows.current = rows;
-      shownSetup.current = setup;
-      trail.current = null;
-    } else if (shownSetup.current !== setup) {
-      flock.regroup(
-        setup.birds.map((b) => b.group),
-        setup.params,
-      );
-      if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) flock.step();
-      shownSetup.current = setup;
-    }
-    flock.resize(w, h);
-
-    if (!reduced) {
-      const hk = hawk.current && hawk.current.until > now ? hawk.current : null;
-      flock.step(hk);
-    }
-
-    // Trails: a ring of the last few positions per bird.
-    const n = flock.n;
-    if (!trail.current || trail.current.length !== n * TRAIL * 2) {
-      trail.current = new Float32Array(n * TRAIL * 2);
-      for (let k = 0; k < TRAIL; k++) {
-        for (let i = 0; i < n; i++) {
-          trail.current[(k * n + i) * 2] = flock.x[i];
-          trail.current[(k * n + i) * 2 + 1] = flock.y[i];
-        }
-      }
-    }
-    const tr = trail.current;
-    const slot = trailAt.current;
-    for (let i = 0; i < n; i++) {
-      tr[(slot * n + i) * 2] = flock.x[i];
-      tr[(slot * n + i) * 2 + 1] = flock.y[i];
-    }
-    trailAt.current = (slot + 1) % TRAIL;
-
-    const G = setup.names.length;
-    const colorOf = (g: number) => (setup.names[g] === OTHER ? quiet : colors[g % colors.length]);
-    const fcs = focusRef.current;
-    const alphaOf = (g: number) => (fcs === null || fcs === g ? 1 : 0.12);
-
-    for (let g = 0; g < G; g++) {
-      const col = colorOf(g);
-      const a = alphaOf(g);
-      // Trail, oldest to newest.
-      if (!reduced) {
-        ctx.strokeStyle = col;
-        ctx.globalAlpha = 0.22 * a;
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        for (let i = 0; i < n; i++) {
-          if (flock.group[i] !== g) continue;
-          let first = true;
-          for (let k = 1; k <= TRAIL; k++) {
-            const s = (slot + k) % TRAIL;
-            const px = tr[(s * n + i) * 2];
-            const py = tr[(s * n + i) * 2 + 1];
-            if (first) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-            first = false;
-          }
-        }
-        ctx.stroke();
-      }
-      // Birds: a small dart pointing where it flies.
-      ctx.fillStyle = col;
-      ctx.globalAlpha = 0.9 * a;
-      ctx.beginPath();
-      for (let i = 0; i < n; i++) {
-        if (flock.group[i] !== g) continue;
-        const sp = Math.hypot(flock.vx[i], flock.vy[i]) || 1;
-        const ux = flock.vx[i] / sp;
-        const uy = flock.vy[i] / sp;
-        const L = 3 + flock.size[i] * 4;
-        const W = 1.2 + flock.size[i] * 1.6;
-        const x = flock.x[i];
-        const y = flock.y[i];
-        ctx.moveTo(x + ux * L, y + uy * L);
-        ctx.lineTo(x - ux * L * 0.6 - uy * W, y - uy * L * 0.6 + ux * W);
-        ctx.lineTo(x - ux * L * 0.6 + uy * W, y - uy * L * 0.6 - ux * W);
-        ctx.closePath();
-      }
-      ctx.fill();
-    }
-
-    // Each flock's name, faint, at its centre.
-    ctx.font = "600 11px ui-sans-serif, system-ui, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillStyle = ink;
-    for (let g = 0; g < G; g++) {
-      if (setup.names[g] === OTHER || flock.count[g] < 8) continue;
-      ctx.globalAlpha = 0.6 * alphaOf(g);
-      ctx.fillText(setup.names[g].slice(0, 24), flock.cx[g], flock.cy[g] - 10);
-    }
-    ctx.globalAlpha = 1;
-  };
-
-  const point = (x: number, y: number, w: number) => {
-    // A touch scatters the birds for a moment; a mouse hawks while it moves.
-    hawk.current = { x, y, until: performance.now() + 1200 };
-    const flock = flockRef.current;
-    if (!flock || !setup) return;
-    let best = -1;
-    let bd = 60 * 60;
-    for (let g = 0; g < setup.names.length; g++) {
-      if (!flock.count[g]) continue;
-      const d = (flock.cx[g] - x) ** 2 + (flock.cy[g] - y) ** 2;
-      if (d < bd) {
-        bd = d;
-        best = g;
-      }
-    }
-    setHover(best >= 0 ? { g: best, x, y, w } : null);
-  };
+  // Budget lines have no dates, so they only fly as a whole.
+  const yearOn = time === "year" && set !== "budget";
+  useEffect(() => {
+    engine.year = yearOn;
+    engine.loopMs = LOOP_MS[speed];
+    engine.focus = focus;
+    engine.labels = words;
+    engine.timelineText = words;
+  }, [engine, yearOn, speed, focus, words]);
 
   const unit = set === "labor" ? "hours" : "money";
   const fmt = (v: number) => (unit === "hours" ? `${Math.round(v).toLocaleString("en-US")} h` : money0(v));
-  const paceWord = (p: number) => (p >= 1.3 ? "busy" : p <= 0.8 ? "quiet" : "steady");
 
   const chooseSet = (s: CloudSetId) => {
     setFocus(null);
-    setHover(null);
     setSet(s);
-    if (!BY[s].some((o) => o.value === by)) setBy("job");
+    if (!FLOCK_BY[s].some((o) => o.value === by)) setBy("job");
+  };
+  const toggleFull = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void frame.current?.requestFullscreen().catch(() => {});
   };
 
   return (
-    <ArtPage
-      title="Job Flock"
-      description="Every row is a bird. Birds flock with their own group, groups that share work drift together, and busy groups fly faster. Move the pointer through them, or tap, to scatter them."
+    <main
+      className="flex w-full items-center justify-center px-4 py-4 pad:px-7"
+      style={{ minHeight: "calc(100dvh - 4rem - var(--tabbar-h, 0px))", ...schemeStyle(scheme) }}
     >
-      <div className="mb-3 flex flex-wrap items-center gap-3">
-        <Segmented label="Data set" value={set} onChange={chooseSet} options={SETS} size="md" />
-      </div>
-      <SectionLabel className="mb-1.5">Flock by</SectionLabel>
-      <ChipScroller className="mb-3">
-        {BY[set].map((o) => (
-          <FilterChip
-            key={o.value}
-            on={o.value === by}
-            onClick={() => {
-              setFocus(null);
-              setHover(null);
-              setBy(o.value);
-            }}
-          >
-            {o.label}
-          </FilterChip>
-        ))}
-      </ChipScroller>
-
-      {error && (
-        <Banner tone="error" className="mb-3">
-          {error}
-        </Banner>
-      )}
-
-      <ArtCanvas
-        draw={draw}
-        aspect={0.66}
-        label={setup ? `A flock of ${setup.birds.length} birds in ${setup.names.length} groups` : "Loading the flock"}
-        onPointer={point}
-        onLeave={() => {
-          hawk.current = null;
-          setHover(null);
-        }}
+      <div
+        ref={frame}
+        className="relative aspect-[3/2] w-full overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none [&:fullscreen]:border-0"
+        style={{ maxWidth: full ? "none" : "calc((100dvh - 6rem - var(--tabbar-h, 0px)) * 1.5)" }}
       >
+        {rows && (
+          <ArtCanvas
+            fill
+            draw={engine.draw}
+            label={setup ? `Job Flock: ${setup.birds.length} birds in ${setup.names.length} flocks` : "Job Flock"}
+            onPointer={(x, y) => engine.poke(x, y)}
+            onLeave={() => engine.calm()}
+          />
+        )}
         {!rows && !error && (
-          <CanvasNote>Reading {SETS.find((s) => s.value === set)?.label.toLowerCase()} from JobTread…</CanvasNote>
+          <span role="status" aria-label="Loading" className="absolute inset-0 flex items-center justify-center">
+            <span className="h-2 w-2 animate-ping rounded-full bg-neutral-400" />
+          </span>
         )}
-        {hover && setup && (
-          <Tip x={hover.x} y={hover.y} w={hover.w}>
-            <div className="font-semibold">{setup.names[hover.g]}</div>
-            <div>
-              {flockRef.current?.count[hover.g] ?? 0} birds · {fmt(setup.totals[hover.g])}
-            </div>
-            <div className="text-neutral-500">Flying {paceWord(setup.params.pace[hover.g])}</div>
-          </Tip>
+        {error && (
+          <div className="absolute inset-x-4 top-1/2 -translate-y-1/2">
+            <Banner tone="error">{error}</Banner>
+          </div>
         )}
-      </ArtCanvas>
 
-      {setup && (
-        <section className="mt-4">
-          <p className="mb-3 text-sm text-neutral-500">{LINK_NOTE[by]}</p>
-          <SectionLabel className="mb-1.5">Flocks — tap one to pick it out</SectionLabel>
-          <ul className="grid gap-x-6 gap-y-0.5 pad:grid-cols-2">
-            {setup.names.map((name, g) => (
-              <li key={name}>
-                <button
-                  type="button"
-                  onClick={() => setFocus((f) => (f === g ? null : g))}
-                  aria-pressed={focus === g}
-                  className={`flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm transition ${
-                    focus === g ? "bg-neutral-100 dark:bg-white/[0.07]" : ""
-                  } ${focus !== null && focus !== g ? "opacity-50" : ""}`}
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex justify-between p-1.5">
+          {full ? (
+            <span />
+          ) : (
+            <Link href="/art" aria-label="Back to Art that Makes Itself" className={ICON_BTN}>
+              <Icon d={BACK} />
+            </Link>
+          )}
+          <span className="flex gap-1">
+            {!full && (
+              <button type="button" aria-label="Controls" className={ICON_BTN} onClick={() => setPanel(true)}>
+                <Icon d={SLIDERS} />
+              </button>
+            )}
+            {canFull && (
+              <button type="button" aria-label={full ? "Leave full screen" : "Full screen"} className={ICON_BTN} onClick={toggleFull}>
+                <Icon d={full ? SHRINK : EXPAND} />
+              </button>
+            )}
+          </span>
+        </div>
+      </div>
+
+      <Sheet open={panel} onClose={() => setPanel(false)} title="Job Flock" live expandable={false}>
+        <div className="space-y-5 pb-2" style={schemeStyle(scheme)}>
+          <p className="text-sm text-neutral-500">
+            Every row is a bird. Birds flock with their own group, groups that share work drift together, and busy
+            groups fly faster. The pointer scatters them.
+          </p>
+
+          <section className="space-y-2">
+            <SectionLabel>Data</SectionLabel>
+            <Segmented label="Data set" value={set} onChange={chooseSet} options={SETS} size="md" fill />
+          </section>
+
+          <section className="space-y-2">
+            <SectionLabel>Flock by</SectionLabel>
+            <ChipScroller>
+              {FLOCK_BY[set].map((o) => (
+                <FilterChip
+                  key={o.value}
+                  on={o.value === by}
+                  onClick={() => {
+                    setFocus(null);
+                    setBy(o.value);
+                  }}
                 >
-                  <span
-                    aria-hidden
-                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{ background: name === OTHER ? "currentColor" : `var(--viz-${(g % 8) + 1})` }}
-                  />
-                  <span className="min-w-0 flex-1 truncate">{name}</span>
-                  <span className="text-xs text-neutral-500">{paceWord(setup.params.pace[g])}</span>
-                  <span className="w-20 text-right font-mono text-xs text-neutral-500">{fmt(setup.totals[g])}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-    </ArtPage>
+                  {o.label}
+                </FilterChip>
+              ))}
+            </ChipScroller>
+            <p className="text-xs text-neutral-500">{LINK_NOTE[by]}</p>
+          </section>
+
+          <section className="space-y-2">
+            <SectionLabel>Time</SectionLabel>
+            {set === "budget" ? (
+              <p className="text-xs text-neutral-500">Budget lines have no dates, so they fly as a whole.</p>
+            ) : (
+              <>
+                <Segmented label="Time" value={time} onChange={setTime} options={TIMES} size="md" fill />
+                {yearOn && <Segmented label="Speed of the year" value={speed} onChange={setSpeed} options={SPEEDS} size="md" fill />}
+                <p className="text-xs text-neutral-500">
+                  {yearOn
+                    ? "Each bird lives 35 days from its date while the year plays on a loop."
+                    : "Every bird at once. Speed follows the last 45 days of work."}
+                </p>
+              </>
+            )}
+            <Toggle checked={words} onChange={setWords} label="Names and months on the picture" />
+          </section>
+
+          <section>
+            <SchemeChoices choice={scheme} onChange={setScheme} />
+          </section>
+
+          {setup && (
+            <section className="space-y-1.5">
+              <SectionLabel>Flocks — tap one to pick it out</SectionLabel>
+              <ul className="space-y-0.5">
+                {setup.names.map((name, g) => (
+                  <li key={name}>
+                    <button
+                      type="button"
+                      onClick={() => setFocus((f) => (f === g ? null : g))}
+                      aria-pressed={focus === g}
+                      className={`flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm transition ${
+                        focus === g ? "bg-neutral-100 dark:bg-white/[0.07]" : ""
+                      } ${focus !== null && focus !== g ? "opacity-50" : ""}`}
+                    >
+                      <span
+                        aria-hidden
+                        className="h-2.5 w-2.5 shrink-0 rounded-full"
+                        style={{ background: name === OTHER ? "currentColor" : `var(--viz-${(g % 8) + 1})` }}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{name}</span>
+                      <span className="font-mono text-xs text-neutral-500">{fmt(setup.totals[g])}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+
+          <section className="space-y-1 border-t border-line-soft pt-4">
+            <Toggle
+              checked={saver}
+              onChange={(on) => {
+                setSaver(on);
+                setSaverEnabled(on);
+              }}
+              label="Screen saver on this computer"
+            />
+            <p className="text-xs text-neutral-500">
+              After five minutes with no mouse or keyboard, the app shows a Job Flock with a random data set, grouping
+              and colours, running the year. The pointer still scatters the birds; a click or a key closes it.
+            </p>
+          </section>
+        </div>
+      </Sheet>
+    </main>
   );
 }
