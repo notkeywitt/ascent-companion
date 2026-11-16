@@ -1303,19 +1303,19 @@ export function MileageClient({
   }
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-3 pad:pt-6 lg:max-w-[1600px]">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-[calc(var(--tabbar-h)+5rem)] pt-1 pad:pt-6 lg:max-w-[1600px]">
       <PageHeader title="Miles" className="pad:mb-5 max-pad:mb-0" />
 
       {/* lg+: form and logged miles on the left, the map on the right. */}
       <div className="lg:grid lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
 
       {/* The island, first: saved places in grey, start and end ringed, you in blue. */}
-      <div className={`${tab === "history" ? "max-lg:hidden " : ""}-mx-3 mb-2 h-[30vh] min-h-[200px] pad:mx-0 pad:mb-4 pad:h-[34vh] lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:h-[calc(100dvh-8rem)] [&_svg]:min-h-0 [&_svg]:flex-1`}>
+      <div className={`${tab === "history" ? "max-lg:hidden " : ""}-mx-4 mb-1 h-[26vh] min-h-[160px] pad:mx-0 pad:mb-4 pad:h-[34vh] lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:h-[calc(100dvh-8rem)] [&_svg]:min-h-0 [&_svg]:flex-1`}>
           <LopezMap
             jobs={savedPlaces}
             marks={marks}
             legend={false}
-            pad={6}
+            pad={0}
             className="h-full"
             label="Map of Lopez Island with jobs, saved places and the trip's start and end"
           />
