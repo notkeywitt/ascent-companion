@@ -1,6 +1,8 @@
-// The Cost Cloud's three reads (/art/cloud). Imported through "@/lib/jobtread".
-// Read-only: each is one paged walk, then a plain map to CloudRecord.
-import type { CloudRecord, CloudSetId } from "@/lib/art/cloud";
+// The /art pieces' three reads. Imported through "@/lib/jobtread".
+// Read-only: each is one paged walk, then a plain map to the row shapes in
+// src/lib/art/rows.ts.
+import type { CloudSetId } from "@/lib/art/cloud";
+import type { ArtBillRow, ArtBudgetRow, ArtRows, ArtTimeRow } from "@/lib/art/rows";
 import { pageAll, type PaveConfig } from "./core";
 import { getJobs } from "./jobCostDetail";
 import { jtIsoToOrgLocal } from "./timeEntries";
@@ -8,17 +10,6 @@ import { jtIsoToOrgLocal } from "./timeEntries";
 /** The Historical Cost Import's vendor: a job's whole pre-JobTread spend as a
  *  few giant lines. Left out for the same reason the year ribbon leaves it out. */
 const HISTORICAL_VENDOR = "Historical Job Cost";
-
-const division = (code: string | undefined) => (code ?? "").trim().slice(0, 2) || "none";
-const monthIndex = (iso: string) => {
-  const y = Number(iso.slice(0, 4));
-  const m = Number(iso.slice(5, 7));
-  return y && m ? y * 12 + m : 0;
-};
-const dayIndex = (iso: string) => {
-  const t = Date.parse(iso.slice(0, 10));
-  return Number.isFinite(t) ? Math.floor(t / 86_400_000) : 0;
-};
 
 function walk(cfg: PaveConfig, connection: string, label: string, where: unknown, nodes: Record<string, unknown>) {
   return pageAll<any>(cfg, {
@@ -33,7 +24,7 @@ function walk(cfg: PaveConfig, connection: string, label: string, where: unknown
   });
 }
 
-async function billLines(cfg: PaveConfig): Promise<CloudRecord[]> {
+async function billRows(cfg: PaveConfig): Promise<ArtBillRow[]> {
   const rows = await walk(
     cfg,
     "costItems",
@@ -55,27 +46,19 @@ async function billLines(cfg: PaveConfig): Promise<CloudRecord[]> {
       document: { issueDate: {}, account: { name: {} } },
     },
   );
-  return rows.map((r) => {
-    const date = String(r?.document?.issueDate ?? "");
-    const vendor = String(r?.document?.account?.name ?? "");
-    const code = String(r?.costCode?.number ?? "");
-    return {
-      title: String(r?.name || r?.costCode?.name || "Bill line"),
-      value: Number(r?.cost) || 0,
-      meta: [vendor, code, date].filter(Boolean).join(" · "),
-      num: {
-        cost: Number(r?.cost) || 0,
-        qty: Number(r?.quantity) || 0,
-        unit: Number(r?.unitCost) || 0,
-        month: monthIndex(date),
-      },
-      cat: { type: String(r?.costType?.name ?? "none"), div: division(code), vendor },
-      text: String(r?.name ?? ""),
-    };
-  });
+  return rows.map((r) => ({
+    name: String(r?.name || r?.costCode?.name || ""),
+    cost: Number(r?.cost) || 0,
+    qty: Number(r?.quantity) || 0,
+    unit: Number(r?.unitCost) || 0,
+    date: String(r?.document?.issueDate ?? "").slice(0, 10),
+    code: String(r?.costCode?.number ?? ""),
+    type: String(r?.costType?.name ?? "none"),
+    vendor: String(r?.document?.account?.name ?? ""),
+  }));
 }
 
-async function crewTime(cfg: PaveConfig, jobName: (id: string) => string): Promise<CloudRecord[]> {
+async function timeRows(cfg: PaveConfig, jobName: (id: string) => string): Promise<ArtTimeRow[]> {
   const rows = await walk(cfg, "timeEntries", "art crew time", ["minutes", ">", 0], {
     startedAt: {},
     minutes: {},
@@ -84,35 +67,17 @@ async function crewTime(cfg: PaveConfig, jobName: (id: string) => string): Promi
     job: { id: {} },
     costItem: { costCode: { number: {} } },
   });
-  return rows.map((r) => {
-    const local = jtIsoToOrgLocal(String(r?.startedAt ?? ""));
-    const hours = (Number(r?.minutes) || 0) / 60;
-    const person = String(r?.user?.name ?? "Unknown");
-    const job = jobName(String(r?.job?.id ?? ""));
-    const dow = local ? new Date(`${local.slice(0, 10)}T12:00:00Z`).getUTCDay() : 0;
-    const start = local ? Number(local.slice(11, 13)) + Number(local.slice(14, 16)) / 60 : 0;
-    return {
-      title: `${person} · ${job}`,
-      value: hours,
-      meta: [local.slice(0, 10), r?.costItem?.costCode?.number, r?.type].filter(Boolean).join(" · "),
-      num: {
-        hours,
-        start,
-        dowSin: Math.sin((2 * Math.PI * dow) / 7),
-        dowCos: Math.cos((2 * Math.PI * dow) / 7),
-        day: dayIndex(local),
-      },
-      cat: {
-        person,
-        div: division(r?.costItem?.costCode?.number),
-        job,
-        pay: String(r?.type ?? "none"),
-      },
-    };
-  });
+  return rows.map((r) => ({
+    start: jtIsoToOrgLocal(String(r?.startedAt ?? "")),
+    hours: (Number(r?.minutes) || 0) / 60,
+    person: String(r?.user?.name ?? "Unknown"),
+    job: jobName(String(r?.job?.id ?? "")),
+    code: String(r?.costItem?.costCode?.number ?? ""),
+    pay: String(r?.type ?? "none"),
+  }));
 }
 
-async function budgetLines(cfg: PaveConfig, jobName: (id: string) => string): Promise<CloudRecord[]> {
+async function budgetRows(cfg: PaveConfig, jobName: (id: string) => string): Promise<ArtBudgetRow[]> {
   const rows = await walk(
     cfg,
     "costItems",
@@ -135,32 +100,22 @@ async function budgetLines(cfg: PaveConfig, jobName: (id: string) => string): Pr
       job: { id: {} },
     },
   );
-  return rows.map((r) => {
-    const cost = Number(r?.cost) || 0;
-    const price = Number(r?.price) || 0;
-    const job = jobName(String(r?.job?.id ?? ""));
-    const code = String(r?.costCode?.number ?? "");
-    return {
-      title: String(r?.name || "Budget line"),
-      value: cost,
-      meta: [job, code].filter(Boolean).join(" · "),
-      num: {
-        cost,
-        price,
-        qty: Number(r?.quantity) || 0,
-        margin: price > 0 ? Math.max(-1, Math.min(1, (price - cost) / price)) : 0,
-      },
-      cat: { type: String(r?.costType?.name ?? "none"), div: division(code), job },
-      text: String(r?.name ?? ""),
-    };
-  });
+  return rows.map((r) => ({
+    name: String(r?.name ?? ""),
+    cost: Number(r?.cost) || 0,
+    price: Number(r?.price) || 0,
+    qty: Number(r?.quantity) || 0,
+    code: String(r?.costCode?.number ?? ""),
+    type: String(r?.costType?.name ?? "none"),
+    job: jobName(String(r?.job?.id ?? "")),
+  }));
 }
 
-/** Every row of one Cost Cloud data set, as plain records. */
-export async function getArtCloudRecords(cfg: PaveConfig, set: CloudSetId): Promise<CloudRecord[]> {
-  if (set === "bills") return billLines(cfg);
+/** Every row of one /art data set. */
+export async function getArtRows<S extends CloudSetId>(cfg: PaveConfig, set: S): Promise<ArtRows[S]> {
+  if (set === "bills") return (await billRows(cfg)) as ArtRows[S];
   const jobs = await getJobs(cfg, true);
   const names = new Map(jobs.map((j) => [j.id, j.name]));
   const jobName = (id: string) => names.get(id) ?? "No job";
-  return set === "labor" ? crewTime(cfg, jobName) : budgetLines(cfg, jobName);
+  return (set === "labor" ? await timeRows(cfg, jobName) : await budgetRows(cfg, jobName)) as ArtRows[S];
 }
