@@ -5,13 +5,16 @@ import { useEffect, useRef, useState } from "react";
 import { PageHeader } from "@/components/ui";
 import type { CloudSetId } from "@/lib/art/cloud";
 import type { ArtRows } from "@/lib/art/rows";
+import { SchemePicker, schemeStyle, useArtScheme } from "./SchemePicker";
 
 /**
  * Shared parts for the pieces on /art: the page frame, the row fetch and the
  * animated canvas. A piece supplies its selectors and a `draw` function.
  */
 
-/** The page frame every piece uses: the way back to the gallery, a title, a line. */
+/** The page frame every piece uses: the way back to the gallery, a title, a
+ *  line, and the colour scheme picker. The chosen scheme is set as
+ *  `--viz-1..8` on this <main>, so it reaches the piece and nothing else. */
 export function ArtPage({
   title,
   description,
@@ -21,12 +24,17 @@ export function ArtPage({
   description: React.ReactNode;
   children: React.ReactNode;
 }) {
+  const [scheme, setScheme] = useArtScheme();
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-5xl">
+    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-5xl" style={schemeStyle(scheme)}>
       <Link href="/art" className="text-xs font-semibold text-neutral-500 hover:text-accent">
         ← Art that Makes Itself
       </Link>
-      <PageHeader title={title} description={description} />
+      <PageHeader
+        title={title}
+        description={description}
+        actions={<SchemePicker choice={scheme} onChange={setScheme} />}
+      />
       {children}
     </main>
   );
@@ -64,10 +72,47 @@ export function useArtRows<S extends CloudSetId>(set: S): { rows: ArtRows[S] | n
   return state.set === set ? { rows: state.rows, error: state.error } : { rows: null, error: "" };
 }
 
-/** The eight categorical chart colours (`--viz-1..8`), read from the theme. */
-export function vizColors(): string[] {
-  const css = getComputedStyle(document.documentElement);
-  return Array.from({ length: 8 }, (_, i) => css.getPropertyValue(`--viz-${i + 1}`).trim() || "#888");
+/** The eight categorical chart colours (`--viz-1..8`) as `el` sees them: the
+ *  picked scheme inside an ArtPage, the theme's own elsewhere. */
+export function vizColors(el: Element = document.documentElement): string[] {
+  const css = getComputedStyle(el);
+  return Array.from({ length: 8 }, (_, i) => css.getPropertyValue(`--viz-${i + 1}`).trim() || "#888888");
+}
+
+function rgbOf(c: string): [number, number, number] | null {
+  const m = c.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].split("").map((x) => x + x).join("") : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as [number, number, number];
+}
+
+/**
+ * Cross-fades the canvas colours when the scheme or theme changes, so a new
+ * scheme washes over the piece instead of snapping. `set` starts a fade from
+ * whatever is showing; `at` gives the colours for a frame.
+ */
+export class ColorFade {
+  private from: string[] = [];
+  private to: string[] = [];
+  private t0 = 0;
+  constructor(private readonly ms = 700) {}
+  set(colors: string[], now: number, instant = false) {
+    this.from = this.to.length && !instant ? this.at(now) : colors;
+    this.to = colors;
+    this.t0 = now;
+  }
+  at(now: number): string[] {
+    const t = Math.min(1, (now - this.t0) / this.ms);
+    if (t >= 1 || !this.from.length) return this.to;
+    const e = ease(t);
+    return this.to.map((c, i) => {
+      const a = rgbOf(this.from[i] ?? c);
+      const b = rgbOf(c);
+      if (!a || !b) return c;
+      const mix = a.map((v, k) => Math.round(v + (b[k] - v) * e));
+      return `rgb(${mix[0]}, ${mix[1]}, ${mix[2]})`;
+    });
+  }
 }
 
 export const ease = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
@@ -122,11 +167,13 @@ export function ArtCanvas({
     const box = wrap.current;
     if (!c || !box) return;
     const reduced = prefersReducedMotion();
-    let colors = vizColors();
+    const fade = new ColorFade();
     let ink = getComputedStyle(c).color;
     let quiet = ink;
+    let first = true;
     const readTheme = () => {
-      colors = vizColors();
+      fade.set(vizColors(c), performance.now(), first || reduced);
+      first = false;
       ink = getComputedStyle(c).color;
       const q = document.createElement("span");
       q.className = "text-neutral-500";
@@ -150,6 +197,9 @@ export function ArtCanvas({
     ro.observe(box);
     const mo = new MutationObserver(readTheme);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["class", "data-palette", "style"] });
+    // The scheme picker sets --viz-* on the page's <main>.
+    const scope = box.closest("main");
+    if (scope) mo.observe(scope, { attributes: true, attributeFilter: ["style"] });
     let raf = 0;
     const frame = (now: number) => {
       const ctx = c.getContext("2d");
@@ -157,7 +207,7 @@ export function ArtCanvas({
         const { w, h } = size.current;
         ctx.clearRect(0, 0, w, h);
         ctx.globalAlpha = 1;
-        drawRef.current({ ctx, w, h, now, colors, ink, quiet, reduced });
+        drawRef.current({ ctx, w, h, now, colors: fade.at(now), ink, quiet, reduced });
         ctx.globalAlpha = 1;
       }
       raf = requestAnimationFrame(frame);
