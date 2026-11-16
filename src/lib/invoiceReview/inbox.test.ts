@@ -32,7 +32,8 @@ describe("the inbox row's link and target", () => {
   it("opens the bill on the job's board and carries its id", () => {
     const row = inboxRow(f({ target: { kind: "bill", billId: "b9" }, sourceLink: "https://x" }), "2026-10");
     expect(row.link).toBe("/jobs-hub?jobId=j1&ym=2026-10&bill=b9");
-    expect(row.fixAction).toBe("b9");
+    expect(row.fixAction).toBe("approve-bill:b9");
+    expect(inboxRow(f({ kind: "bill-uninvoiced", target: { kind: "bill", billId: "b9" } }), "2026-10").fixAction).toBe("bill:b9");
     expect(row.key).toBe("k");
     expect(row.subject).toBe("j1");
   });

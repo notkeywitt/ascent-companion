@@ -45,9 +45,10 @@ export interface FindingInput {
   /** The page where the fix lives today. */
   link?: string;
   /**
-   * The id an inline fix acts on, read together with `kind`: a JobTread bill
-   * id (invoice review, pre-send), a JobTread task id (digest
-   * `jobtread-todos`). Empty when the row has no single target.
+   * What an inline fix acts on, as "<action>:<id>" (components/findingFix.ts):
+   * `approve-bill:<billId>` (invoice review / pre-send `qbo-never-approved`),
+   * `bill:<billId>` (any other bill finding), `complete-todo:<taskId>`
+   * (digest `jobtread-todos`). Empty when the row has no single target.
    */
   fixAction?: string;
   /**

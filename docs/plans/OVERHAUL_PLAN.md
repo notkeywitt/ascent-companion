@@ -1,6 +1,6 @@
 # OVERHAUL_PLAN.md — development platform, performance, design, workflow
 
-Status: in progress — 2026-11-13
+Status: in progress — 2026-11-16
 
 Seven phases. Each phase fits one session unless marked. Phase 1 comes first
 because it makes every later phase cheaper. Phases 2 and 3 can then run in
@@ -453,6 +453,41 @@ The owner accepted the four kept stores as final on 2026-11-15.
 `findings` while the table exists, then drop it. A database that never ran the
 copy keeps its rows. `digest_dismissals` now uses it too; its drop had lost the
 copy step.
+
+### Check fixes — 2026-11-16
+
+The 90-day counts showed most open rows came from bugs in the checks. Fixed:
+
+- **Closed months.** A billing month past its send day is closed
+  (`monthClosed`, `schedule.ts`). `list` leaves out its invoice-review and
+  pre-send rows. They are not resolved: nobody saw them fixed. Admin →
+  Activity counts them as "Month closed". The month's review page still
+  shows them.
+- **Partial reads.** `report` takes a fifth argument, `keep`: kinds and
+  subjects whose open rows stay as they were. `unreadParts`
+  (`invoiceReview/inbox.ts`) builds it: the mail kinds when the mailbox was
+  not searched in full, labor-rate kinds without a rate card, sheet kinds
+  without the sheet list, the kinds of a check that threw, and every row of a
+  job with a failed read. The rest of the month resolves as usual.
+- **Pre-send.** The job route reports on every run, with `keep`. The Jobs Hub
+  board runs it on each month load, so a row clears when its condition
+  clears. The link opens the job and month on the hub.
+- **Links and targets.** `inboxRow` (`inbox.ts`) sets `link` to the bill or
+  labor on the job's board, else the finding's own page (PDF, thread, sheet),
+  else the hub job and month. `fixAction` holds `approve-bill:<billId>`
+  (`qbo-never-approved`), `bill:<billId>` (other bill findings) or
+  `complete-todo:<taskId>` (digest `jobtread-todos`). `key` and `subject` are
+  unchanged.
+- **Unknown senders.** `matchVendor` tries the vendor address on file
+  (`buildAddressIndex`) first, then the name and domain.
+- **Email signals.** The key is the signal type plus the message id (thread id
+  when absent), not Claude's title. Current rows reopened once on deploy.
+
+Left as is: `sheet-tracking-tab-off` compares a filled month block (a snapshot)
+with the live Sub/Vendor rows. A bill added after the block was filled shows as
+a cell off, with the advice "fix the lookup formula". Whether that is a real
+signal depends on when the office fills the block and when the sync moves to
+the next month. Both live in Apps Script. Decide with the owner.
 
 Done when: every warning in the app is a row in one list, and the most common
 finding kinds clear from that list.

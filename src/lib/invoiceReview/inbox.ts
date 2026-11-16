@@ -36,6 +36,7 @@ export function unreadParts(e: MonthEvidence): ReportKeep {
  * Jobs Hub, else the month's review. `hubFirst` (pre-send) prefers the hub
  * over the finding's own page, because opening the job there re-runs the
  * check. `fixAction` carries the bill id, so an inline fix need not parse `key`.
+ * Neither `key` nor `subject` (the job id) changes.
  */
 export function inboxRow(f: Finding, ym: string, hubFirst = false): FindingInput {
   const billId = f.target?.kind === "bill" ? f.target.billId : "";
@@ -52,6 +53,8 @@ export function inboxRow(f: Finding, ym: string, hubFirst = false): FindingInput
     severity: f.severity,
     title: f.jobName ? `${f.jobName}: ${f.title}` : f.title,
     link,
-    fixAction: billId,
+    // "<action>:<id>" (components/findingFix.ts). Only qbo-never-approved has
+    // an inline fix; any other bill finding names its bill as "bill:<id>".
+    fixAction: billId ? `${f.kind === "qbo-never-approved" ? "approve-bill" : "bill"}:${billId}` : "",
   };
 }
