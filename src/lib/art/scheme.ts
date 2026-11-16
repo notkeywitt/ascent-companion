@@ -3,9 +3,8 @@
  * the pieces hand them out (biggest group first).
  *
  * The viewer either picks one of eight presets, or picks TWO colours and the
- * app fills in the other six: hues spread as far as possible from the two
- * picks and from each other, at the picks' average saturation and lightness,
- * alternating a little lighter and darker so neighbours stay apart.
+ * app fills in the other six by colour harmony: complements, the midpoint and
+ * its complement, split complements and neighbours (see `schemeFromTwo`).
  *
  * Pure: no DOM. The page applies a scheme by setting `--viz-1..8` on its own
  * <main>, so it never touches the rest of the app's charts.
@@ -107,27 +106,79 @@ const arc = (a: number, b: number) => {
 };
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
-/** Two picked colours → eight. The picks stay exactly as chosen, first and second. */
+/** The midpoint of two hues, the short way round the wheel. */
+function midHue(a: number, b: number): number {
+  const d = ((b - a + 540) % 360) - 180;
+  return (a + d / 2 + 360) % 360;
+}
+
+/** Hues closer than this read as the same colour in a chart. */
+const MIN_GAP = 24;
+
+/**
+ * Two picked colours → eight, by colour harmony. The picks stay exactly as
+ * chosen, first and second. The other six come from this list, in order,
+ * skipping any hue too close to one already in:
+ *
+ *   1. the complement of each pick (opposite on the wheel);
+ *   2. the hue halfway between the picks, and its complement;
+ *   3. each pick's split complements (150° away either side);
+ *   4. each pick's neighbours (30° either side), for a related accent.
+ *
+ * If that leaves gaps, the widest open stretch of the wheel fills them.
+ * Saturation is the picks' average; lightness steps by role (complements at
+ * the picks' level, split complements a shade darker, neighbours a shade
+ * lighter) so the eight sit together and still tell apart.
+ */
 export function schemeFromTwo(a: string, b: string): string[] {
   const pa = hexToHsl(a);
   const pb = hexToHsl(b);
-  const s = clamp((pa.s + pb.s) / 2, 35, 80);
-  const l = clamp((pa.l + pb.l) / 2, 45, 62);
-  // Grey picks have no real hue; give them no say in where the others go.
-  const hues = [pa, pb].filter((p) => p.s > 8).map((p) => p.h);
+  const s = clamp((pa.s + pb.s) / 2, 40, 75);
+  const l = clamp((pa.l + pb.l) / 2, 46, 60);
+  // Grey picks have no real hue: they give no say in where the others go,
+  // and two greys build around a cool blue.
+  const hued = [pa, pb].filter((p) => p.s > 8).map((p) => p.h);
+  const anchors = hued.length ? hued : [210];
+  const [h1, h2 = (anchors[0] + 120) % 360] = anchors;
+  const mid = midHue(h1, h2);
+
+  const candidates: { h: number; dl: number }[] = [
+    { h: h1 + 180, dl: 0 },
+    { h: h2 + 180, dl: 0 },
+    { h: mid, dl: 4 },
+    { h: mid + 180, dl: -4 },
+    { h: h1 + 150, dl: -7 },
+    { h: h1 + 210, dl: -7 },
+    { h: h2 + 150, dl: -7 },
+    { h: h2 + 210, dl: -7 },
+    { h: h1 + 30, dl: 8 },
+    { h: h1 - 30, dl: 8 },
+    { h: h2 + 30, dl: 8 },
+    { h: h2 - 30, dl: 8 },
+  ].map((c) => ({ h: (c.h + 360) % 360, dl: c.dl }));
+
+  const taken = [...hued];
   const out = [a.toLowerCase(), b.toLowerCase()];
-  for (let i = 0; i < 6; i++) {
-    let best = (hues[hues.length - 1] ?? 0) + 137.5;
+  const add = (h: number, dl: number) => {
+    taken.push(h);
+    out.push(hslToHex({ h, s, l: clamp(l + dl, 38, 70) }));
+  };
+  for (const c of candidates) {
+    if (out.length === 8) break;
+    if (taken.every((t) => arc(t, c.h) >= MIN_GAP)) add(c.h, c.dl);
+  }
+  // Fill what is left from the widest open stretch of the wheel.
+  while (out.length < 8) {
+    let best = 0;
     let bestGap = -1;
     for (let h = 0; h < 360; h += 3) {
-      const gap = hues.length ? Math.min(...hues.map((x) => arc(x, h))) : 180;
+      const gap = taken.length ? Math.min(...taken.map((x) => arc(x, h))) : 180;
       if (gap > bestGap) {
         bestGap = gap;
         best = h;
       }
     }
-    hues.push(best);
-    out.push(hslToHex({ h: best, s, l: clamp(l + (i % 2 ? -9 : 7), 38, 70) }));
+    add(best, out.length % 2 ? -6 : 6);
   }
   return out;
 }

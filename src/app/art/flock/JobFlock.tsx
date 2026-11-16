@@ -10,7 +10,7 @@ import { OTHER } from "@/lib/art/flock";
 import { saverEnabled, setSaverEnabled } from "@/lib/art/saver";
 import { SchemeChoices, schemeStyle, useArtScheme } from "../SchemePicker";
 import { ArtCanvas, useArtRows } from "../artKit";
-import { FLOCK_BY, FlockEngine, type FlockBy } from "./flockEngine";
+import { FLOCK_BY, FlockEngine, type FlockBy, type FlockSpace } from "./flockEngine";
 
 /**
  * JOB FLOCK (owner, 2026-11-16). A boids simulation: every row is a bird, and
@@ -52,6 +52,15 @@ const SPEEDS: { value: Speed; label: string }[] = [
 ];
 const LOOP_MS: Record<Speed, number> = { slow: 180_000, medium: 90_000, fast: 40_000 };
 
+const SPACES: { value: FlockSpace; label: string }[] = [
+  { value: "flat", label: "Flat" },
+  { value: "3d", label: "3D" },
+];
+
+/** The panel's width from `pad` up (Sheet's max-w-md), and its height on a phone. */
+const PANEL_W = "28rem";
+const PANEL_H = "55dvh";
+
 type Edges = "walls" | "wrap";
 const EDGES: { value: Edges; label: string }[] = [
   { value: "walls", label: "Walls" },
@@ -90,6 +99,8 @@ export function JobFlock() {
   const [focus, setFocus] = useState<number | null>(null);
   const [words, setWords] = useState(false);
   const [edges, setEdges] = useState<Edges>("walls");
+  const [space, setSpace] = useState<FlockSpace>("flat");
+  const [wide, setWide] = useState(false);
   const [panel, setPanel] = useState(false);
   const [saver, setSaver] = useState(true);
   const [full, setFull] = useState(false);
@@ -102,9 +113,16 @@ export function JobFlock() {
   useEffect(() => {
     setSaver(saverEnabled());
     setCanFull(!!document.fullscreenEnabled);
+    const mq = window.matchMedia("(min-width: 744px)");
+    const onWide = () => setWide(mq.matches);
+    onWide();
+    mq.addEventListener("change", onWide);
     const on = () => setFull(document.fullscreenElement === frame.current);
     document.addEventListener("fullscreenchange", on);
-    return () => document.removeEventListener("fullscreenchange", on);
+    return () => {
+      document.removeEventListener("fullscreenchange", on);
+      mq.removeEventListener("change", onWide);
+    };
   }, []);
 
   // Hand the engine its rows during render, so the panel's list reads the
@@ -124,7 +142,8 @@ export function JobFlock() {
     engine.labels = words;
     engine.timelineText = words;
     engine.wrap = edges === "wrap";
-  }, [engine, yearOn, speed, focus, words, edges]);
+    engine.space = space;
+  }, [engine, yearOn, speed, focus, words, edges, space]);
 
   const unit = set === "labor" ? "hours" : "money";
   const fmt = (v: number) => (unit === "hours" ? `${Math.round(v).toLocaleString("en-US")} h` : money0(v));
@@ -141,13 +160,26 @@ export function JobFlock() {
 
   return (
     <main
-      className="flex w-full items-center justify-center px-4 py-4 pad:px-7"
-      style={{ minHeight: "calc(100dvh - 4rem - var(--tabbar-h, 0px))", ...schemeStyle(scheme) }}
+      className="flex w-full items-center justify-center px-4 py-4 transition-[padding] duration-300 pad:px-7"
+      style={{
+        minHeight: "calc(100dvh - 4rem - var(--tabbar-h, 0px))",
+        // With the panel open, the picture moves over to the space beside it
+        // (or above it, on a phone) so the whole flock stays in view.
+        ...(panel && !full ? (wide ? { paddingRight: `calc(${PANEL_W} + 1.75rem)` } : { paddingBottom: PANEL_H }) : {}),
+        ...schemeStyle(scheme),
+      }}
     >
       <div
         ref={frame}
-        className="relative aspect-[3/2] w-full overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none [&:fullscreen]:border-0"
-        style={{ maxWidth: full ? "none" : "calc((100dvh - 6rem - var(--tabbar-h, 0px)) * 1.5)" }}
+        className="relative aspect-[3/2] w-full overflow-hidden rounded-xl transition-[max-width] duration-300 border border-line bg-white dark:bg-ink-raised [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none [&:fullscreen]:border-0"
+        style={{
+          maxWidth: full
+            ? "none"
+            : panel && !wide
+              ? // A phone with the panel up: fit the picture in the space above it.
+                `calc((100dvh - ${PANEL_H} - 6rem) * 1.5)`
+              : "calc((100dvh - 6rem - var(--tabbar-h, 0px)) * 1.5)",
+        }}
       >
         {rows && (
           <ArtCanvas
@@ -156,6 +188,8 @@ export function JobFlock() {
             label={setup ? `Job Flock: ${setup.birds.length} birds in ${setup.names.length} flocks` : "Job Flock"}
             onPointer={(x, y) => engine.poke(x, y)}
             onLeave={() => engine.calm()}
+            onDrag={space === "3d" ? (dx, dy) => engine.drag(dx, dy) : undefined}
+            onWheel={space === "3d" ? (dy) => engine.wheel(dy) : undefined}
           />
         )}
         {!rows && !error && (
@@ -242,12 +276,22 @@ export function JobFlock() {
           </section>
 
           <section className="space-y-2">
+            <SectionLabel>Space</SectionLabel>
+            <Segmented label="Space" value={space} onChange={setSpace} options={SPACES} size="md" fill />
+            <p className="text-xs text-neutral-500">
+              {space === "3d"
+                ? "The flock flies in a box that turns slowly. Drag to turn it, scroll to zoom."
+                : "The flock flies on the page."}
+            </p>
+          </section>
+
+          <section className="space-y-2">
             <SectionLabel>Edges</SectionLabel>
             <Segmented label="Edges" value={edges} onChange={setEdges} options={EDGES} size="md" fill />
             <p className="text-xs text-neutral-500">
               {edges === "wrap"
-                ? "A bird that flies off one edge comes back on the opposite one."
-                : "Birds turn back before they reach an edge."}
+                ? `A bird that flies off one ${space === "3d" ? "face" : "edge"} comes back on the opposite one.`
+                : `Birds turn back before they reach ${space === "3d" ? "a wall of the box" : "an edge"}.`}
             </p>
           </section>
 

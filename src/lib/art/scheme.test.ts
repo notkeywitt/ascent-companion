@@ -21,6 +21,30 @@ describe("schemeFromTwo", () => {
     expect(new Set(out).size).toBe(8);
   });
 
+  it("starts with each pick's complement, then the midpoint between them", () => {
+    // Red and blue, a third of the wheel apart (not complements of each other).
+    const two = schemeFromTwo("#c44536", "#3d7dd8");
+    const [ha, hb] = [hexToHsl(two[0]).h, hexToHsl(two[1]).h];
+    expect(arc(hexToHsl(two[2]).h, ha + 180)).toBeLessThan(4);
+    expect(arc(hexToHsl(two[3]).h, hb + 180)).toBeLessThan(4);
+    const mids = two.slice(2).map((c) => hexToHsl(c).h);
+    const d = ((hb - ha + 540) % 360) - 180;
+    expect(Math.min(...mids.map((h) => arc(h, ha + d / 2)))).toBeLessThan(4);
+  });
+
+  it("skips a complement that would sit on the other pick", () => {
+    // Red and teal are near complements: red's complement is teal's twin.
+    const hs = out.map((c) => hexToHsl(c).h);
+    for (const h of hs.slice(2)) expect(arc(h, hs[1])).toBeGreaterThanOrEqual(20);
+  });
+
+  it("keeps every hue apart, and builds a palette from two greys too", () => {
+    const hs = out.map((c) => hexToHsl(c).h);
+    for (let i = 0; i < hs.length; i++) for (let j = i + 1; j < hs.length; j++) expect(arc(hs[i], hs[j])).toBeGreaterThan(15);
+    const greys = schemeFromTwo("#777777", "#999999");
+    expect(new Set(greys).size).toBe(8);
+  });
+
   it("spreads the six new hues away from the picks", () => {
     const picks = [hexToHsl(out[0]).h, hexToHsl(out[1]).h];
     for (const c of out.slice(2)) {

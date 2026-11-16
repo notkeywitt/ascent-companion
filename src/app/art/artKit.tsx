@@ -148,6 +148,8 @@ export function ArtCanvas({
   label,
   onPointer,
   onLeave,
+  onDrag,
+  onWheel,
   children,
 }: {
   draw: (f: DrawFrame) => void;
@@ -157,6 +159,10 @@ export function ArtCanvas({
   label: string;
   onPointer?: (x: number, y: number, w: number, h: number) => void;
   onLeave?: () => void;
+  /** A press-and-move: the movement in pixels since the last move. */
+  onDrag?: (dx: number, dy: number) => void;
+  /** The wheel or a trackpad scroll over the canvas (the page does not scroll). */
+  onWheel?: (dy: number) => void;
   children?: React.ReactNode;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -229,6 +235,41 @@ export function ArtCanvas({
     onPointer(e.clientX - r.left, e.clientY - r.top, size.current.w, size.current.h);
   };
 
+  // Dragging: track the last position by hand (movementX is 0 for touch on
+  // some browsers), and capture the pointer so a drag can leave the canvas.
+  const pressed = useRef<{ x: number; y: number } | null>(null);
+  const down = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    point(e);
+    if (!onDrag) return;
+    pressed.current = { x: e.clientX, y: e.clientY };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const move = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    point(e);
+    const p = pressed.current;
+    if (!onDrag || !p) return;
+    onDrag(e.clientX - p.x, e.clientY - p.y);
+    pressed.current = { x: e.clientX, y: e.clientY };
+  };
+  const up = () => {
+    pressed.current = null;
+  };
+
+  // The wheel needs a non-passive listener to keep the page from scrolling.
+  const wheelRef = useRef(onWheel);
+  wheelRef.current = onWheel;
+  const wantsWheel = !!onWheel;
+  useEffect(() => {
+    const c = canvas.current;
+    if (!c || !wantsWheel) return;
+    const on = (e: WheelEvent) => {
+      e.preventDefault();
+      wheelRef.current?.(e.deltaY);
+    };
+    c.addEventListener("wheel", on, { passive: false });
+    return () => c.removeEventListener("wheel", on);
+  }, [wantsWheel]);
+
   return (
     <div
       ref={wrap}
@@ -243,8 +284,10 @@ export function ArtCanvas({
         role="img"
         aria-label={label}
         className="block w-full touch-none"
-        onPointerMove={point}
-        onPointerDown={point}
+        onPointerMove={move}
+        onPointerDown={down}
+        onPointerUp={up}
+        onPointerCancel={up}
         onPointerLeave={onLeave}
       />
       {children}
