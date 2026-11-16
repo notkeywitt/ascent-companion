@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { money } from "@/components/BillingSummary";
+import { BillView } from "@/app/bill/[docId]/BillView";
+import { Dialog } from "@/components/Dialog";
 import { MonthPicker } from "@/components/MonthPicker";
 import { billingMonths } from "@/lib/billingMonths";
-import type { PayablesSummary } from "@/lib/accountsPayable";
+import type { Payable, PayablesSummary } from "@/lib/accountsPayable";
 import type { PaidState } from "@/lib/billPaid";
 import {
   Banner,
@@ -15,6 +17,8 @@ import {
   ListCard,
   ListRow,
   Loading,
+  SectionHeading,
+  Segmented,
   StatementBlock,
 } from "@/components/ui";
 
@@ -25,6 +29,7 @@ import {
  */
 
 type Filter = "all" | "unpaid" | "paid";
+type GroupBy = "none" | "vendor" | "job";
 
 const PAID_CHIP: Record<PaidState, { tone: "danger" | "warning" | "success"; label: string }> = {
   unpaid: { tone: "danger", label: "Unpaid" },
@@ -39,6 +44,10 @@ export function AccountsPayable() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [groupBy, setGroupBy] = useState<GroupBy>("none");
+  // The bill open in the pop-up. The list stays put behind it.
+  const [openId, setOpenId] = useState("");
+  const [reload, setReload] = useState(0);
 
   // Open on the billing month in force (Home's masthead month).
   useEffect(() => {
@@ -55,7 +64,8 @@ export function AccountsPayable() {
   useEffect(() => {
     if (!ym) return;
     let live = true;
-    setLoading(true);
+    // A re-read after the pop-up closes keeps the list on screen.
+    if (reload === 0) setLoading(true);
     setError("");
     fetch(`/api/accounts-payable?ym=${encodeURIComponent(ym)}`)
       .then(async (r) => {
@@ -73,13 +83,29 @@ export function AccountsPayable() {
     return () => {
       live = false;
     };
-  }, [ym]);
+  }, [ym, reload]);
 
   const shown = useMemo(() => {
     if (!data) return [];
     if (filter === "all") return data.bills;
     return data.bills.filter((b) => (b.paid === "paid") === (filter === "paid"));
   }, [data, filter]);
+
+  // Groups keep the list's order inside (unpaid first); the groups run A to Z.
+  const groups = useMemo(() => {
+    if (groupBy === "none") return [{ key: "all", title: "", bills: shown }];
+    const m = new Map<string, Payable[]>();
+    for (const b of shown) {
+      const k =
+        groupBy === "vendor"
+          ? b.vendor || "Unknown vendor"
+          : [b.customerName, b.jobName].filter(Boolean).join(" - ") || "No job";
+      m.set(k, [...(m.get(k) ?? []), b]);
+    }
+    return [...m.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([title, bills]) => ({ key: title, title, bills }));
+  }, [shown, groupBy]);
 
   const leftOut = data
     ? [
@@ -127,38 +153,78 @@ export function AccountsPayable() {
             ))}
           </ChipScroller>
 
+          <div className="mt-2">
+            <Segmented<GroupBy>
+              label="Group bills"
+              value={groupBy}
+              onChange={setGroupBy}
+              options={[
+                { value: "none", label: "All" },
+                { value: "vendor", label: "Vendor" },
+                { value: "job", label: "Job" },
+              ]}
+            />
+          </div>
+
           {shown.length === 0 ? (
             <EmptyState>
               {data.bills.length === 0 ? "No bills in this month." : "No bills match this filter."}
             </EmptyState>
           ) : (
-            <ListCard className="mt-3">
-              {shown.map((b) => {
-                const chip = PAID_CHIP[b.paid];
-                const job = [b.customerName, b.jobName].filter(Boolean).join(" - ");
-                return (
-                  <ListRow
-                    key={b.id}
-                    href={`/bill/${encodeURIComponent(b.id)}?jobId=${encodeURIComponent(b.jobId)}`}
-                    label={b.vendor}
-                    desc={[job, b.status === "draft" ? "draft" : ""].filter(Boolean).join(" · ")}
-                    trailing={
-                      <span className="flex shrink-0 flex-col items-end gap-1">
-                        <span className="text-sm font-semibold tabular-nums">{money(b.cost)}</span>
-                        <Chip tone={chip.tone}>{chip.label}</Chip>
-                        {b.paid === "partial" && (
-                          <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                            {money(b.owed)} owed
-                          </span>
-                        )}
-                      </span>
-                    }
-                  />
-                );
-              })}
-            </ListCard>
+            <div className="mt-3 space-y-4">
+              {groups.map((g) => (
+                <div key={g.key} className="space-y-2">
+                  {g.title && (
+                    <SectionHeading>
+                      {`${g.title} · ${g.bills.length} · ${money(g.bills.reduce((t, x) => t + x.owed, 0))} owed`}
+                    </SectionHeading>
+                  )}
+                  <ListCard>
+                    {g.bills.map((b) => {
+                      const chip = PAID_CHIP[b.paid];
+                      const job = [b.customerName, b.jobName].filter(Boolean).join(" - ");
+                      return (
+                        <ListRow
+                          key={b.id}
+                          onClick={() => setOpenId(b.id)}
+                          label={b.vendor}
+                          desc={[groupBy === "job" ? "" : job, b.status === "draft" ? "draft" : ""]
+                            .filter(Boolean)
+                            .join(" · ")}
+                          trailing={
+                            <span className="flex shrink-0 flex-col items-end gap-1">
+                              <span className="text-sm font-semibold tabular-nums">{money(b.cost)}</span>
+                              <Chip tone={chip.tone}>{chip.label}</Chip>
+                              {b.paid === "partial" && (
+                                <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                                  {money(b.owed)} owed
+                                </span>
+                              )}
+                            </span>
+                          }
+                        />
+                      );
+                    })}
+                  </ListCard>
+                </div>
+              ))}
+            </div>
           )}
         </>
+      )}
+
+      {openId && (
+        <Dialog
+          size="xl"
+          pad={false}
+          label="Bill"
+          onClose={() => {
+            setOpenId("");
+            setReload((n) => n + 1);
+          }}
+        >
+          <BillView key={openId} docId={openId} embedded />
+        </Dialog>
       )}
     </div>
   );
