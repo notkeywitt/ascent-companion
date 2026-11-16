@@ -47,4 +47,10 @@ export const ART_PROJECTS: ArtProject[] = [
     desc: "The words on bill and budget lines, sized by the dollars behind them",
     href: "/art/words",
   },
+  {
+    slug: "flock",
+    title: "Job Flock",
+    desc: "A live flock: every row a bird, flocking with its job; jobs that share vendors or crew fly together",
+    href: "/art/flock",
+  },
 ];
