@@ -330,6 +330,14 @@ export const VIEWS: ViewDef[] = [
   // sweep stages its charges; this page assigns each to a job and creates one
   // draft bill per job. The API prefix rides the same gate as the page — it
   // pushes bills to JobTread, so a role without the view must not reach it.
+  // Accounts Payable — a tab of the Bills dashboard: the month's bills, Sunset
+  // and Expenses left out, each marked paid or not. Read-only.
+  {
+    id: "accounts-payable",
+    label: "Accounts Payable",
+    group: "Financials",
+    paths: ["/accounts-payable", "/api/accounts-payable"],
+  },
   { id: "lswdd", label: "LSWDD Statement", group: "Financials", paths: ["/lswdd", "/api/lswdd"] },
   {
     id: "amazon-import",

@@ -186,11 +186,13 @@ export const JOB_PAGES: WorkspaceTab[] = [
 /** The Bills dashboard's statement tabs: on no menu (its tab row reaches them),
  *  but still found by the header search, so a lead (Sunset, no Bills) has a way in. */
 export const BILLS_TABS: WorkspaceTab[] = [
+  tab("accounts-payable", "/accounts-payable", "Accounts Payable", "The month's bills, paid or not (no Sunset, no Expenses)"),
   tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
   tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
   tab("amazon-import", "/amazon-import", "Amazon Import", "Monthly Amazon report → batch of bills"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  "accounts-payable": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   payments: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   lswdd: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   "amazon-import": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
