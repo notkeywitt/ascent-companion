@@ -16,6 +16,8 @@ export interface ArtBillRow {
   code: string;
   type: string;
   vendor: string;
+  /** The job's name; "No job" for a bill line not on one. */
+  job: string;
 }
 
 export interface ArtTimeRow {

@@ -24,7 +24,7 @@ function walk(cfg: PaveConfig, connection: string, label: string, where: unknown
   });
 }
 
-async function billRows(cfg: PaveConfig): Promise<ArtBillRow[]> {
+async function billRows(cfg: PaveConfig, jobName: (id: string) => string): Promise<ArtBillRow[]> {
   const rows = await walk(
     cfg,
     "costItems",
@@ -43,6 +43,7 @@ async function billRows(cfg: PaveConfig): Promise<ArtBillRow[]> {
       cost: {},
       costCode: { number: {}, name: {} },
       costType: { name: {} },
+      job: { id: {} },
       document: { issueDate: {}, account: { name: {} } },
     },
   );
@@ -55,6 +56,7 @@ async function billRows(cfg: PaveConfig): Promise<ArtBillRow[]> {
     code: String(r?.costCode?.number ?? ""),
     type: String(r?.costType?.name ?? "none"),
     vendor: String(r?.document?.account?.name ?? ""),
+    job: jobName(String(r?.job?.id ?? "")),
   }));
 }
 
@@ -113,9 +115,9 @@ async function budgetRows(cfg: PaveConfig, jobName: (id: string) => string): Pro
 
 /** Every row of one /art data set. */
 export async function getArtRows<S extends CloudSetId>(cfg: PaveConfig, set: S): Promise<ArtRows[S]> {
-  if (set === "bills") return (await billRows(cfg)) as ArtRows[S];
   const jobs = await getJobs(cfg, true);
   const names = new Map(jobs.map((j) => [j.id, j.name]));
   const jobName = (id: string) => names.get(id) ?? "No job";
+  if (set === "bills") return (await billRows(cfg, jobName)) as ArtRows[S];
   return (set === "labor" ? await timeRows(cfg, jobName) : await budgetRows(cfg, jobName)) as ArtRows[S];
 }

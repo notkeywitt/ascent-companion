@@ -10,7 +10,7 @@ import { cloudRecords, type ArtRows } from "@/lib/art/rows";
  */
 export const readRows = unstable_cache(
   async <S extends CloudSetId>(set: S): Promise<ArtRows[S]> => getArtRows(getPaveConfig(), set),
-  ["art-rows-v1"],
+  ["art-rows-v2"],
   { revalidate: 3600, tags: ["jt-art"] },
 ) as <S extends CloudSetId>(set: S) => Promise<ArtRows[S]>;
 
@@ -18,7 +18,7 @@ export const readRows = unstable_cache(
 export const readCloud = unstable_cache(
   async (set: CloudSetId): Promise<CloudPayload> =>
     buildCloud(CLOUD_SPECS[set], cloudRecords(set, await readRows(set))),
-  ["art-cloud-v2"],
+  ["art-cloud-v3"],
   { revalidate: 3600, tags: ["jt-art"] },
 );
 
