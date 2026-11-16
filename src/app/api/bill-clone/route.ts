@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import {
+  canReclone,
   checkAgainstStatements,
+  hasLiveClone,
   invoiceKey,
   monthRange,
   planClones,
@@ -39,6 +41,12 @@ import { readSunsetReconcile } from "@/lib/sunsetFindings";
 //          void     approved      → the ORIGINAL is voided in JobTread (status
 //                                   denied, via appscript voidBill). Refused
 //                                   until the copy is in QuickBooks.
+//          reclone  a draft copy on   → the wrong copy is voided, and a new copy
+//                   another job         is made from the original, on its job
+//                                       with its coding. One row at a time.
+//
+// Clone refuses an original that already has a live "-B" copy anywhere in the
+// month, whatever the pairing says: a second copy would push twice.
 //
 // The void skips the QuickBooks lock (src/lib/qboLock.ts) on purpose: the owner
 // chose, 2026-11-16, to void these Expenses in JobTread and delete them in
@@ -46,9 +54,9 @@ import { readSunsetReconcile } from "@/lib/sunsetFindings";
 export const maxDuration = 120;
 
 const MAX_PER_CALL = 5;
-const ACTIONS = ["clone", "toBill", "approve", "void"] as const;
+const ACTIONS = ["clone", "toBill", "approve", "void", "reclone"] as const;
 type Action = (typeof ACTIONS)[number];
-const STAGE_FOR: Record<Action, ClonePair["stage"]> = {
+const STAGE_FOR: Record<Exclude<Action, "reclone">, ClonePair["stage"]> = {
   clone: "no clone",
   toBill: "cloned",
   approve: "bill",
@@ -121,6 +129,50 @@ export async function GET(req: NextRequest) {
   }
 }
 
+type Cfg = ReturnType<typeof getPaveConfig>;
+
+/** Void one document through appscript voidBill (payments off, status denied), journalled. */
+async function voidDoc(cfg: Cfg, route: string, docId: string) {
+  await journalBillWrite({
+    route,
+    action: "bill.void",
+    cfg,
+    docId,
+    field: "status",
+    priorField: "status",
+    attempted: "denied",
+    run: async () => {
+      const res = await callAppsScript<{ ok?: boolean; error?: string }>(
+        { action: "voidBill", docId, confirm: true },
+        { timeoutMs: 100_000 },
+      );
+      if (res.error) throw new Error(res.error);
+      if (!res.data?.ok) throw new Error(res.data?.error ?? "The void did not complete.");
+      return res.data;
+    },
+    after: () => "denied",
+  });
+}
+
+/** Copy one original, journalled as a bill.create. */
+async function cloneJournalled(cfg: Cfg, route: string, docId: string, jobId: string) {
+  const j = await openJournal(route);
+  const made = await cloneVendorDocument(cfg, docId);
+  await j.record([
+    {
+      action: "bill.create",
+      entity: "bill",
+      entityId: made.id,
+      docId: made.id,
+      jobId,
+      after: { externalId: made.externalId, clonedFrom: docId },
+      beforeSource: "none",
+      amount: made.cost,
+      meta: { source: "bill-clone", clonedFrom: docId },
+    },
+  ]);
+}
+
 interface Outcome {
   docId: string;
   ok: boolean;
@@ -145,13 +197,14 @@ export async function POST(req: NextRequest) {
   if (!vendorId || !range || !ACTIONS.includes(action) || docIds.length === 0) {
     return NextResponse.json({ error: "vendorId, ym, action and docIds required" }, { status: 400 });
   }
-  if (docIds.length > MAX_PER_CALL) {
-    return NextResponse.json({ error: `At most ${MAX_PER_CALL} per call.` }, { status: 400 });
+  if (docIds.length > (action === "reclone" || action === "void" ? 1 : MAX_PER_CALL)) {
+    return NextResponse.json({ error: "Too many documents for one call." }, { status: 400 });
   }
   if (!writesEnabled()) return NextResponse.json({ previewed: true, wrote: false, results: [] });
 
   const cfg = getPaveConfig();
-  const plan = planClones(await getVendorMonthDocs(cfg, vendorId, range.first, range.last));
+  const monthDocs = await getVendorMonthDocs(cfg, vendorId, range.first, range.last);
+  const plan = planClones(monthDocs);
   const pairOf = new Map(plan.pairs.map((p) => [p.original.id, p]));
   const route = "/api/bill-clone";
   const results: Outcome[] = [];
@@ -162,27 +215,21 @@ export async function POST(req: NextRequest) {
       results.push({ docId, ok: false, reason: "not an Expense of this vendor and month" });
       continue;
     }
-    if (p.stage !== STAGE_FOR[action]) {
+    if (action === "reclone" ? !canReclone(p) : p.stage !== STAGE_FOR[action]) {
       results.push({ docId, ok: false, reason: `skipped: at stage "${p.stage}"` });
       continue;
     }
+    if (action === "clone" && hasLiveClone(monthDocs, p.original)) {
+      results.push({ docId, ok: false, reason: "skipped: a copy already exists" });
+      continue;
+    }
     try {
-      if (action === "clone") {
-        const j = await openJournal(route);
-        const made = await cloneVendorDocument(cfg, docId);
-        await j.record([
-          {
-            action: "bill.create",
-            entity: "bill",
-            entityId: made.id,
-            docId: made.id,
-            jobId: p.original.jobId,
-            after: { externalId: made.externalId, clonedFrom: docId },
-            beforeSource: "none",
-            amount: made.cost,
-            meta: { source: "bill-clone", clonedFrom: docId },
-          },
-        ]);
+      if (action === "reclone") {
+        const wrong = p.clone!;
+        await voidDoc(cfg, route, wrong.id);
+        await cloneJournalled(cfg, route, docId, p.original.jobId);
+      } else if (action === "clone") {
+        await cloneJournalled(cfg, route, docId, p.original.jobId);
       } else if (action === "toBill") {
         const clone = p.clone!;
         if (clone.status !== "draft" || clone.qboId) throw new Error("the copy is no longer a draft");
@@ -215,25 +262,7 @@ export async function POST(req: NextRequest) {
       } else {
         const clone = p.clone!;
         if (!clone.qboId) throw new Error("the copy is not in QuickBooks yet — try again in a minute");
-        await journalBillWrite({
-          route,
-          action: "bill.void",
-          cfg,
-          docId,
-          field: "status",
-          priorField: "status",
-          attempted: "denied",
-          run: async () => {
-            const res = await callAppsScript<{ ok?: boolean; error?: string }>(
-              { action: "voidBill", docId, confirm: true },
-              { timeoutMs: 110_000 },
-            );
-            if (res.error) throw new Error(res.error);
-            if (!res.data?.ok) throw new Error(res.data?.error ?? "The void did not complete.");
-            return res.data;
-          },
-          after: () => "denied",
-        });
+        await voidDoc(cfg, route, docId);
       }
       results.push({ docId, ok: true });
     } catch (e) {
