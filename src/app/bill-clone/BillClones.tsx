@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Card, Chip, Input, Loading, Select, tableCls, type ChipTone } from "@/components/ui";
-import type { ClonePair, CloneDoc, StatementLine, StatementVerdict } from "@/lib/billClone";
+import { canReclone, type ClonePair, type CloneDoc, type StatementLine, type StatementVerdict } from "@/lib/billClone";
 import { money } from "@/lib/money";
 
 // BILL CLONES — re-file one vendor's month of Expenses as Bills. Four steps,
@@ -161,6 +161,36 @@ export function BillClones() {
     }
   }
 
+  // A draft copy on the wrong job: void it and copy the original again, on the
+  // original's job with its coding.
+  async function reclone(p: ClonePair) {
+    if (!p.clone) return;
+    const ok = window.confirm(
+      `Move the copy of ${p.original.externalId} from ${p.clone.jobName} to ${p.original.jobName}?\n\n` +
+        "The wrong copy is voided, and a new copy is made from the Expense on its own job.",
+    );
+    if (!ok) return;
+    setBusy("reclone");
+    setLog([`Moving ${p.original.externalId} to ${p.original.jobName}…`]);
+    try {
+      const r = await fetch("/api/bill-clone", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vendorId, ym, action: "reclone", docIds: [p.original.id] }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+      if (j.previewed) throw new Error("Writes are off on this deploy. Nothing changed.");
+      const o = j.results?.[0];
+      setLog([o?.ok ? `${p.original.externalId}: moved to ${p.original.jobName}.` : `${p.original.externalId}: ${o?.reason ?? "failed"}`]);
+    } catch (e) {
+      setLog([e instanceof Error ? e.message : "Failed"]);
+    } finally {
+      setBusy("");
+      load();
+    }
+  }
+
   const st = data?.statement;
   const totalOrig = (data?.pairs ?? []).reduce((s, p) => s + p.original.cost, 0);
   const totalClone = (data?.pairs ?? []).reduce((s, p) => s + (p.clone?.cost ?? 0), 0);
@@ -287,6 +317,11 @@ export function BillClones() {
                         <Chip tone={STAGE_TONE[p.stage]}>{p.stage}</Chip>
                         {p.differences.length > 0 && (
                           <div className="text-xs text-danger">Differs: {p.differences.join(", ")}</div>
+                        )}
+                        {canReclone(p) && (
+                          <Button size="xs" variant="secondary" disabled={!!busy} onClick={() => reclone(p)}>
+                            Move to {p.original.jobName}
+                          </Button>
                         )}
                         {v && (
                           <div>

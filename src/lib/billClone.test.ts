@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { checkAgainstStatements, cloneExternalId, monthRange, planClones, type CloneDoc } from "./billClone";
+import {
+  canReclone,
+  checkAgainstStatements,
+  cloneExternalId,
+  hasLiveClone,
+  monthRange,
+  planClones,
+  type CloneDoc,
+} from "./billClone";
 
 const doc = (o: Partial<CloneDoc>): CloneDoc => ({
   id: "d1",
@@ -48,6 +56,27 @@ describe("bill clones", () => {
     expect(plan.pairs).toHaveLength(0);
     expect(plan.skipped.map((d) => d.id)).toEqual(["cr", "s"]);
     expect(plan.extraClones.map((d) => d.id)).toEqual(["e"]);
+  });
+
+  it("pairs a clone with the live re-made bill, not the void on the old job", () => {
+    const voided = doc({ id: "old", jobId: "bunk", status: "denied" });
+    const live = doc({ id: "new", jobId: "main" });
+    const clone = doc({ id: "c1", jobId: "main", externalId: "714268-B", status: "draft", qboId: "" });
+    const plan = planClones([voided, live, clone]);
+    expect(plan.pairs).toHaveLength(1);
+    expect(plan.pairs[0].original.id).toBe("new");
+    expect(plan.pairs[0].clone?.id).toBe("c1");
+    expect(plan.pairs[0].differences).toEqual([]);
+    expect(hasLiveClone([voided, live, clone], live)).toBe(true);
+  });
+
+  it("offers a move for a draft copy on the wrong job", () => {
+    const plan = planClones([
+      doc({ jobId: "main" }),
+      doc({ id: "c1", jobId: "bunk", externalId: "714268-B", status: "draft", qboId: "" }),
+    ]);
+    expect(plan.pairs[0].differences).toEqual(["job"]);
+    expect(canReclone(plan.pairs[0])).toBe(true);
   });
 
   it("flags a clone whose amount differs", () => {

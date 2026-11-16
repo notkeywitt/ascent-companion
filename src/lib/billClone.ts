@@ -88,9 +88,13 @@ export function compareClone(original: CloneDoc, clone: CloneDoc): string[] {
 
 /**
  * Pair each Expense with its clone. A clone pairs with the original whose
- * cloneExternalId it carries; when two originals share one externalId (an old
- * re-file), the clone's job breaks the tie. Voided originals still pair, so a
- * finished pair stays on the table.
+ * cloneExternalId it carries, and prefers one on its own job.
+ *
+ * LIVE originals pair first. A bill voided and re-made on another job shares
+ * its externalId with the live re-make, so pairing in document order handed the
+ * clone to the void and left the live bill looking un-cloned — and a second
+ * Clone would then have made a duplicate. A voided original pairs only with a
+ * clone no live original took: that is a finished pair, voided by step 4.
  */
 export function planClones(docs: CloneDoc[]): ClonePlan {
   const clones = docs.filter((d) => isCloneExternalId(d.externalId) && d.status !== "denied");
@@ -98,36 +102,51 @@ export function planClones(docs: CloneDoc[]): ClonePlan {
   const pairs: ClonePair[] = [];
   const skipped: CloneDoc[] = [];
 
-  // An original is a source now, or a voided Expense that a clone points at.
-  const cloneKeys = new Set(clones.map((c) => c.externalId.trim()));
-  for (const d of docs) {
-    if (isCloneExternalId(d.externalId)) continue;
+  const take = (d: CloneDoc): CloneDoc | null => {
     const key = cloneExternalId(d);
-    const voidedWithClone =
-      d.status === "denied" && cloneKeys.has(key) && isCloneSource({ ...d, status: "approved" });
-    if (!isCloneSource(d) && !voidedWithClone) {
-      if (d.status !== "denied") skipped.push(d);
-      continue;
-    }
     const candidates = clones.filter((c) => !used.has(c.id) && c.externalId.trim() === key);
     const clone = candidates.find((c) => c.jobId === d.jobId) ?? candidates[0] ?? null;
     if (clone) used.add(clone.id);
-    pairs.push({
-      original: d,
-      clone,
-      stage: pairStage(d, clone),
-      differences: clone ? compareClone(d, clone) : [],
-    });
+    return clone;
+  };
+  const push = (d: CloneDoc, clone: CloneDoc | null) =>
+    pairs.push({ original: d, clone, stage: pairStage(d, clone), differences: clone ? compareClone(d, clone) : [] });
+
+  const originals = docs.filter((d) => !isCloneExternalId(d.externalId));
+  for (const d of originals) {
+    if (d.status === "denied") continue;
+    if (!isCloneSource(d)) {
+      skipped.push(d);
+      continue;
+    }
+    push(d, take(d));
   }
-  // A voided original without a clone is not ours to show.
-  const kept = pairs.filter((p) => p.original.status !== "denied" || p.clone);
-  kept.sort(
+  for (const d of originals) {
+    if (d.status !== "denied" || !isCloneSource({ ...d, status: "approved" })) continue;
+    const clone = take(d);
+    if (clone) push(d, clone);
+  }
+  pairs.sort(
     (a, b) =>
       a.original.issueDate.localeCompare(b.original.issueDate) ||
       a.original.externalId.localeCompare(b.original.externalId),
   );
-  return { pairs: kept, extraClones: clones.filter((c) => !used.has(c.id)), skipped };
+  return { pairs, extraClones: clones.filter((c) => !used.has(c.id)), skipped };
 }
+
+/** True when a live (not voided) document already carries this clone's externalId. */
+export function hasLiveClone(docs: CloneDoc[], original: { id: string; externalId?: string | null }): boolean {
+  const key = cloneExternalId(original);
+  return docs.some((d) => d.status !== "denied" && d.externalId.trim() === key);
+}
+
+/** A draft clone on the wrong job can be voided and cloned again from its original. */
+export const canReclone = (p: ClonePair) =>
+  !!p.clone &&
+  p.original.status !== "denied" &&
+  p.clone.jobId !== p.original.jobId &&
+  p.clone.status === "draft" &&
+  !p.clone.qboId;
 
 /** "2026-10" → its first and last day. */
 export function monthRange(ym: string): { first: string; last: string } | null {
