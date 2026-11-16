@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1f0j-1et01jf";
+export const SCHEMA_FINGERPRINT = "1fbf-1fqkqr7";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1839,6 +1839,18 @@ async function applySchema() {
     )`,
   ]) {
     await getClient().execute(ddl);
+  }
+  // Which code each Mac runs, reported by scripts/mac-update/update.sh.
+  for (const column of [
+    "code_version TEXT NOT NULL DEFAULT ''",
+    "code_note TEXT NOT NULL DEFAULT ''",
+    "code_checked_at TEXT NOT NULL DEFAULT ''",
+  ]) {
+    try {
+      await getClient().execute(`ALTER TABLE agent_machines ADD COLUMN ${column}`);
+    } catch {
+      /* column already exists */
+    }
   }
 }
 

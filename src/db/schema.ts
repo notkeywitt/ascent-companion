@@ -2342,4 +2342,9 @@ export const agentMachines = sqliteTable("agent_machines", {
   name: text("name").primaryKey(),
   lastSeenAt: text("last_seen_at").notNull(),
   scripts: text("scripts").notNull().default("{}"), // JSON { scriptId: lastCheckAt }
+  // The commit its repo copy is on, and what its updater last did
+  // (scripts/mac-update/update.sh).
+  codeVersion: text("code_version").notNull().default(""),
+  codeNote: text("code_note").notNull().default(""),
+  codeCheckedAt: text("code_checked_at").notNull().default(""),
 });

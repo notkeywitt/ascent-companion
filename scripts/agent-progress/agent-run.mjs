@@ -12,6 +12,10 @@
  *       If the app cannot be reached it prints "idle", so a run.sh falls back
  *       to its own logic.
  *
+ *   node scripts/agent-progress/agent-run.mjs code <commit> "<note>"
+ *       The updater (scripts/mac-update/update.sh) reports which commit this
+ *       Mac's repo copy is on and what it last did.
+ *
  *   node scripts/agent-progress/agent-run.mjs run <script> [--title "…"] -- "$CLAUDE" -p "/skill" [args…]
  *       Starts Claude Code with the page's settings: the model (replacing any
  *       --model in the args), the extra instructions (added to the prompt) and
@@ -239,6 +243,11 @@ async function cmdRun(script, title, claudeArgs) {
 async function main() {
   const argv = process.argv.slice(2);
   const [cmd, script] = argv;
+  if (cmd === "code") {
+    const version = String(argv[1] ?? "").trim();
+    await call("GET", `action=code&machine=${encodeURIComponent(MACHINE)}&version=${encodeURIComponent(version)}&note=${encodeURIComponent(String(argv[2] ?? ""))}`);
+    return;
+  }
   if (!script) {
     console.error('usage: agent-run.mjs check <script> | run <script> [--title "…"] -- <claude> args…');
     process.exit(2);
