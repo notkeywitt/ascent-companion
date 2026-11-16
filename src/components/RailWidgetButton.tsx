@@ -74,7 +74,7 @@ export function RailWidgetButton() {
         title="Open desktop widget"
         className="flex items-center justify-center rounded-xl px-3 py-2 text-neutral-500 hover:text-accent dark:text-neutral-400 [@media(pointer:coarse)]:hidden"
       >
-        <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="3" width="16" height="18" rx="2.5" />
           <path d="M8 8h8M8 12h8M8 16h5" />
         </svg>
