@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1bzr-1yshbdy";
+export const SCHEMA_FINGERPRINT = "1djm-17bfh3u";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1743,6 +1743,56 @@ async function applySchema() {
            r.read_at, r.read_at, r.read_at, lower(r.email), r.read_at
     FROM notice_reads r LEFT JOIN notices n ON n.id = r.notice_id`,
   );
+  // Lead research: one row per run, the files it downloaded, and their bytes
+  // in chunks until review (src/lib/leadResearch.ts).
+  for (const ddl of [
+    `CREATE TABLE IF NOT EXISTS lead_research (
+      id TEXT PRIMARY KEY,
+      lead_key TEXT NOT NULL,
+      lead_name TEXT NOT NULL DEFAULT '',
+      address TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'requested',
+      request_note TEXT NOT NULL DEFAULT '',
+      requested_by TEXT NOT NULL DEFAULT '',
+      requested_at TEXT NOT NULL,
+      runner TEXT NOT NULL DEFAULT '',
+      started_at TEXT NOT NULL DEFAULT '',
+      finished_at TEXT NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      match TEXT NOT NULL DEFAULT '',
+      dossier TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      reviewed_by TEXT NOT NULL DEFAULT '',
+      reviewed_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS lead_research_lead_idx ON lead_research (lead_key, requested_at)`,
+    `CREATE INDEX IF NOT EXISTS lead_research_status_idx ON lead_research (status, requested_at)`,
+    `CREATE TABLE IF NOT EXISTS lead_research_files (
+      id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'document',
+      mime TEXT NOT NULL DEFAULT 'application/octet-stream',
+      size INTEGER NOT NULL DEFAULT 0,
+      chunks INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'staged',
+      jt_file_id TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    )`,
+    `CREATE INDEX IF NOT EXISTS lead_research_files_run_idx ON lead_research_files (run_id)`,
+    `CREATE TABLE IF NOT EXISTS lead_research_chunks (
+      file_id TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      bytes BLOB NOT NULL,
+      PRIMARY KEY (file_id, seq)
+    )`,
+  ]) {
+    await getClient().execute(ddl);
+  }
 }
 
 export { schema };
