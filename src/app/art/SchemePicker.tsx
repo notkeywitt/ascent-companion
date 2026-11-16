@@ -81,7 +81,7 @@ export function SchemeChoices({
           </label>
         ))}
       </div>
-      <p className="mb-3 text-xs text-neutral-500">The app picks the other six to sit apart from your two.</p>
+      <p className="mb-3 text-xs text-neutral-500">The app adds six that go with your two: their complements, the hue between them, and close neighbours.</p>
 
       <SectionLabel className="mb-1.5">Or a preset</SectionLabel>
       <ul className="grid grid-cols-2 gap-1.5">

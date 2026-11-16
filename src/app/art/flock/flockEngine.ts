@@ -13,6 +13,8 @@ import {
   type FlockSetup,
   type YearClock,
 } from "@/lib/art/flock";
+import { Camera3D } from "@/lib/art/camera3d";
+import { Flock3D, SIDE } from "@/lib/art/flock3d";
 import type { DrawFrame } from "../artKit";
 
 /**
@@ -20,6 +22,14 @@ import type { DrawFrame } from "../artKit";
  * drawing, in one object that lives across frames. The Job Flock page and the
  * desktop screen saver (src/components/FlockSaver.tsx) both drive one.
  * Not React: a page keeps it in a ref and calls `draw` from ArtCanvas.
+ *
+ * Two spaces. Flat: the 2-D flock (src/lib/art/flock.ts) in canvas pixels.
+ * 3D: the flock in a cube (flock3d.ts), seen through an orbit camera
+ * (camera3d.ts) that turns slowly on its own, and by drag and wheel. Both are
+ * reduced each frame to the same screen arrays (place, heading, size, fade),
+ * and one drawing routine draws either. Switching space keeps every bird
+ * where it appears: flat → 3D lifts the picture onto a sheet in the box and
+ * tilts the camera back; 3D → flat starts each bird at its projected place.
  */
 
 export type FlockBy = "job" | "division" | "vendor" | "type" | "person";
@@ -67,10 +77,18 @@ const SETTLE_STEPS = 500;
 /** Opacity steps a group's birds are drawn in, so each is one fill. */
 const BUCKETS = 4;
 
+export type FlockSpace = "flat" | "3d";
+
+/** A camera that has not been touched for this long starts orbiting again. */
+const IDLE_ORBIT_MS = 4000;
+
 export class FlockEngine {
   setup: FlockSetup | null = null;
   flock: Flock | null = null;
+  flock3: Flock3D | null = null;
+  camera = new Camera3D();
   clock: YearClock | null = null;
+  space: FlockSpace = "flat";
   /** Year mode on, and how long one loop of the year takes. */
   year = false;
   loopMs = 120_000;
@@ -97,6 +115,18 @@ export class FlockEngine {
   private lastNow = 0;
   private targets: Float32Array<ArrayBuffer> | null = null;
   private frames = 0;
+  private touched = 0;
+  /** The camera's tilt eases toward this after a switch into 3D. */
+  private pitchTo: number | null = null;
+  // Screen arrays, refilled each frame.
+  private sx = new Float32Array(0);
+  private sy = new Float32Array(0);
+  private hx = new Float32Array(0);
+  private hy = new Float32Array(0);
+  private sc = new Float32Array(0);
+  private fade = new Float32Array(0);
+  private gsx = new Float32Array(0);
+  private gsy = new Float32Array(0);
 
   /** New rows or a new grouping. Same rows re-group the birds in place. */
   setData(set: CloudSetId, rows: unknown[], by: FlockBy) {
@@ -122,15 +152,28 @@ export class FlockEngine {
     this.hawk = null;
   }
 
-  /** The flock nearest (x, y) within 60px, or -1. */
+  /** Turn the 3D camera by a drag of (dx, dy) pixels. */
+  drag(dx: number, dy: number) {
+    this.touched = performance.now();
+    this.pitchTo = null;
+    this.camera.orbit(dx * 0.006, dy * 0.006);
+  }
+
+  /** Zoom the 3D camera; a wheel's deltaY. */
+  wheel(dy: number) {
+    this.touched = performance.now();
+    this.camera.zoom(Math.exp(dy * 0.0012));
+  }
+
+  /** The flock nearest (x, y) on screen within 60px, or -1. */
   groupAt(x: number, y: number): number {
-    const f = this.flock;
-    if (!f || !this.setup) return -1;
+    if (!this.setup || !this.gsx.length) return -1;
+    const count = this.sim()?.count;
     let best = -1;
     let bd = 60 * 60;
     for (let g = 0; g < this.setup.names.length; g++) {
-      if (!f.count[g]) continue;
-      const d = (f.cx[g] - x) ** 2 + (f.cy[g] - y) ** 2;
+      if (!count?.[g]) continue;
+      const d = (this.gsx[g] - x) ** 2 + (this.gsy[g] - y) ** 2;
       if (d < bd) {
         bd = d;
         best = g;
@@ -144,6 +187,72 @@ export class FlockEngine {
     return this.year && this.clock ? clockLabel(this.clock, this.t) : "";
   }
 
+  /** The simulation now running. */
+  private sim(): Flock | Flock3D | null {
+    return this.space === "3d" ? this.flock3 : this.flock;
+  }
+
+  /** Make sure the right simulation exists for the space, the rows and the grouping. */
+  private ensure(setup: FlockSetup, w: number, h: number, reduced: boolean) {
+    const settle = (f: Flock | Flock3D) => {
+      if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) f.step();
+    };
+    if (this.space === "3d") {
+      if (!this.flock3 || this.flockGen !== this.gen) {
+        const fresh = new Flock3D(setup.birds, setup.params);
+        if (this.flock3) fresh.inherit(this.flock3);
+        else if (this.flock) {
+          // Lift the flat picture into the box, seen face-on, then tilt back.
+          const f = this.flock;
+          fresh.fromFlat(f.x, f.y, f.w, f.h, f.vx, f.vy);
+          this.camera.yaw = 0;
+          this.camera.pitch = 0;
+          this.pitchTo = 0.32;
+          this.touched = 0;
+        }
+        this.flock3 = fresh;
+        this.flock = null;
+        this.flockGen = this.gen;
+        this.trail = null;
+        settle(fresh);
+      } else if (this.shownSetup !== setup) {
+        this.flock3.regroup(
+          setup.birds.map((b) => b.group),
+          setup.params,
+        );
+        settle(this.flock3);
+      }
+    } else {
+      if (!this.flock || this.flockGen !== this.gen) {
+        const fresh = new Flock(setup.birds, setup.params, w, h);
+        if (this.flock) fresh.inherit(this.flock);
+        else if (this.flock3 && this.sx.length) {
+          // Start each bird where it appeared in 3D.
+          const f3 = this.flock3;
+          for (let i = 0; i < fresh.n && i < f3.n; i++) {
+            fresh.x[i] = Math.max(0, Math.min(w, this.sx[i]));
+            fresh.y[i] = Math.max(0, Math.min(h, this.sy[i]));
+            fresh.vx[i] = this.hx[i] * 1.4;
+            fresh.vy[i] = this.hy[i] * 1.4;
+          }
+        }
+        this.flock = fresh;
+        this.flock3 = null;
+        this.flockGen = this.gen;
+        this.trail = null;
+        settle(fresh);
+      } else if (this.shownSetup !== setup) {
+        this.flock.regroup(
+          setup.birds.map((b) => b.group),
+          setup.params,
+        );
+        settle(this.flock);
+      }
+      this.flock.resize(w, h);
+    }
+    this.shownSetup = setup;
+  }
+
   draw = (f: DrawFrame) => {
     const { ctx, w, h, colors, ink, quiet, reduced, now } = f;
     const setup = this.setup;
@@ -151,25 +260,13 @@ export class FlockEngine {
     const dt = this.lastNow ? Math.min(100, now - this.lastNow) : 16;
     this.lastNow = now;
 
-    // Build, re-group or replace the flock.
-    let flock = this.flock;
-    if (!flock || this.flockGen !== this.gen) {
-      this.flockGen = this.gen;
-      const fresh = new Flock(setup.birds, setup.params, w, h);
-      if (flock) fresh.inherit(flock);
-      flock = this.flock = fresh;
-      this.trail = null;
-      if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) fresh.step();
-    } else if (this.shownSetup !== setup) {
-      flock.regroup(
-        setup.birds.map((b) => b.group),
-        setup.params,
-      );
-      if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) flock.step();
-    }
-    this.shownSetup = setup;
-    flock.resize(w, h);
-    flock.wrap = this.wrap;
+    this.ensure(setup, w, h, reduced);
+    const sim = this.sim();
+    if (!sim) return;
+    sim.wrap = this.wrap;
+    const cam = this.camera;
+    cam.w = w;
+    cam.h = h;
 
     // The year: move the clock, set who is alive, and let each flock's pace
     // follow how many of its birds are alive now.
@@ -183,30 +280,119 @@ export class FlockEngine {
       const rate = !this.targets ? 1 : alive === 0 ? 10 : alive < 12 ? 4 : 1;
       if (!reduced) this.t = (this.t + ((dt * rate) / this.loopMs) * loopDays(clock)) % loopDays(clock);
       this.targets = aliveAt(clock, this.t, this.targets ?? undefined);
-      flock.setTargets(this.targets);
+      sim.setTargets(this.targets);
       if (this.frames++ % 20 === 0) {
-        const max = Math.max(1, ...Array.from(flock.count));
-        flock.params = {
-          ...flock.params,
-          pace: setup.params.pace.map((_, g) => 0.6 + flock!.count[g] / max),
+        const max = Math.max(1, ...Array.from(sim.count));
+        sim.params = {
+          ...sim.params,
+          pace: setup.params.pace.map((_, g) => 0.6 + sim.count[g] / max),
         };
       }
-    } else if (flock.target[0] !== 1 || flock.params !== setup.params) {
-      flock.allAlive();
-      flock.params = setup.params;
+    } else if (sim.target[0] !== 1 || sim.params !== setup.params) {
+      sim.allAlive();
+      sim.params = setup.params;
     }
 
-    if (!reduced) flock.step(this.hawk && this.hawk.until > now ? this.hawk : null);
-    else if (yearOn) flock.step(null);
+    // The camera: ease into its tilt after a switch, then orbit on its own
+    // unless someone turned it in the last few seconds.
+    if (this.space === "3d" && !reduced) {
+      if (this.pitchTo !== null) {
+        cam.pitch += (this.pitchTo - cam.pitch) * 0.03;
+        if (Math.abs(this.pitchTo - cam.pitch) < 0.002) this.pitchTo = null;
+      }
+      if (now - this.touched > IDLE_ORBIT_MS) cam.yaw += 0.00012 * dt;
+    }
 
-    // Trails: a ring of the last few positions per bird.
-    const n = flock.n;
+    const hk = this.hawk && this.hawk.until > now ? this.hawk : null;
+    if (!reduced || yearOn) {
+      if (sim instanceof Flock3D) sim.step(hk && !reduced ? cam.unproject(hk.x, hk.y) : null);
+      else sim.step(hk && !reduced ? hk : null);
+    }
+
+    // Reduce either space to screen arrays.
+    const n = sim.n;
+    if (this.sx.length !== n) {
+      this.sx = new Float32Array(n);
+      this.sy = new Float32Array(n);
+      this.hx = new Float32Array(n);
+      this.hy = new Float32Array(n);
+      this.sc = new Float32Array(n);
+      this.fade = new Float32Array(n);
+    }
+    const G = setup.names.length;
+    if (this.gsx.length !== G) {
+      this.gsx = new Float32Array(G);
+      this.gsy = new Float32Array(G);
+    }
+    if (sim instanceof Flock3D) {
+      // Depth fog: the nearest birds full strength, the farthest at a third.
+      const near = cam.dist - SIDE * 0.87;
+      const far = cam.dist + SIDE * 0.87;
+      const ref = cam.project(SIDE / 2, SIDE / 2, SIDE / 2).scale;
+      for (let i = 0; i < n; i++) {
+        const p = cam.project(sim.x[i], sim.y[i], sim.z[i]);
+        const q = cam.project(sim.x[i] + sim.vx[i] * 6, sim.y[i] + sim.vy[i] * 6, sim.z[i] + sim.vz[i] * 6);
+        const dx = q.sx - p.sx;
+        const dy = q.sy - p.sy;
+        const len = Math.hypot(dx, dy) || 1;
+        this.sx[i] = p.sx;
+        this.sy[i] = p.sy;
+        this.hx[i] = dx / len;
+        this.hy[i] = dy / len;
+        this.sc[i] = Math.max(0.35, Math.min(2.2, p.scale / ref));
+        const fog = 1 - ((p.depth - near) / (far - near)) * 0.67;
+        this.fade[i] = Math.max(0.2, Math.min(1, fog)) * sim.faceFade(i);
+      }
+      for (let g = 0; g < G; g++) {
+        const p = cam.project(sim.cx[g], sim.cy[g], sim.cz[g]);
+        this.gsx[g] = p.sx;
+        this.gsy[g] = p.sy;
+      }
+    } else {
+      for (let i = 0; i < n; i++) {
+        const sp = Math.hypot(sim.vx[i], sim.vy[i]) || 1;
+        this.sx[i] = sim.x[i];
+        this.sy[i] = sim.y[i];
+        this.hx[i] = sim.vx[i] / sp;
+        this.hy[i] = sim.vy[i] / sp;
+        this.sc[i] = 1;
+        this.fade[i] = 1;
+      }
+      for (let g = 0; g < G; g++) {
+        this.gsx[g] = sim.cx[g];
+        this.gsy[g] = sim.cy[g];
+      }
+    }
+
+    // The 3D box: its twelve edges, faint (dashed when the faces wrap).
+    if (sim instanceof Flock3D) {
+      const c = [0, SIDE];
+      const corners = c.flatMap((x) => c.flatMap((y) => c.map((z) => cam.project(x, y, z))));
+      const edges = [
+        [0, 1], [2, 3], [4, 5], [6, 7],
+        [0, 2], [1, 3], [4, 6], [5, 7],
+        [0, 4], [1, 5], [2, 6], [3, 7],
+      ];
+      ctx.strokeStyle = ink;
+      ctx.globalAlpha = 0.12;
+      ctx.lineWidth = 1;
+      ctx.setLineDash(this.wrap ? [4, 6] : []);
+      ctx.beginPath();
+      for (const [a, b] of edges) {
+        ctx.moveTo(corners[a].sx, corners[a].sy);
+        ctx.lineTo(corners[b].sx, corners[b].sy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // Trails: a ring of the last few screen positions per bird.
     if (!this.trail || this.trail.length !== n * TRAIL * 2) {
       this.trail = new Float32Array(n * TRAIL * 2);
       for (let k = 0; k < TRAIL; k++) {
         for (let i = 0; i < n; i++) {
-          this.trail[(k * n + i) * 2] = flock.x[i];
-          this.trail[(k * n + i) * 2 + 1] = flock.y[i];
+          this.trail[(k * n + i) * 2] = this.sx[i];
+          this.trail[(k * n + i) * 2 + 1] = this.sy[i];
         }
       }
     }
@@ -214,19 +400,19 @@ export class FlockEngine {
     const slot = this.trailAt;
     for (let i = 0; i < n; i++) {
       // A bird just born starts with no trail, not a streak from where it died.
-      const from = flock.born[i] ? 0 : slot;
-      const to = flock.born[i] ? TRAIL - 1 : slot;
+      const from = sim.born[i] ? 0 : slot;
+      const to = sim.born[i] ? TRAIL - 1 : slot;
       for (let k = from; k <= to; k++) {
-        tr[(k * n + i) * 2] = flock.x[i];
-        tr[(k * n + i) * 2 + 1] = flock.y[i];
+        tr[(k * n + i) * 2] = this.sx[i];
+        tr[(k * n + i) * 2 + 1] = this.sy[i];
       }
     }
     this.trailAt = (slot + 1) % TRAIL;
 
-    const G = setup.names.length;
     const colorOf = (g: number) => (setup.names[g] === OTHER ? quiet : colors[g % colors.length]);
     const alphaOf = (g: number) => (this.focus === null || this.focus === g ? 1 : 0.12);
-    const bucketOf = (i: number) => Math.min(BUCKETS - 1, Math.floor(flock!.alpha[i] * BUCKETS));
+    // One fill per group per opacity step: life × depth fog × face fade.
+    const bucketOf = (i: number) => Math.min(BUCKETS - 1, Math.floor(sim.alpha[i] * this.fade[i] * BUCKETS));
 
     for (let g = 0; g < G; g++) {
       const col = colorOf(g);
@@ -238,7 +424,7 @@ export class FlockEngine {
           ctx.lineWidth = 1;
           ctx.beginPath();
           for (let i = 0; i < n; i++) {
-            if (flock.group[i] !== g || !flock.live[i] || bucketOf(i) !== b) continue;
+            if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b) continue;
             let qx = 0;
             let qy = 0;
             for (let k = 1; k <= TRAIL; k++) {
@@ -246,7 +432,7 @@ export class FlockEngine {
               const px = tr[(s * n + i) * 2];
               const py = tr[(s * n + i) * 2 + 1];
               // A bird that wrapped across an edge: no line across the screen.
-              if (k === 1 || Math.abs(px - qx) > w / 2 || Math.abs(py - qy) > h / 2) ctx.moveTo(px, py);
+              if (k === 1 || Math.abs(px - qx) > w / 3 || Math.abs(py - qy) > h / 3) ctx.moveTo(px, py);
               else ctx.lineTo(px, py);
               qx = px;
               qy = py;
@@ -258,14 +444,13 @@ export class FlockEngine {
         ctx.globalAlpha = 0.9 * a;
         ctx.beginPath();
         for (let i = 0; i < n; i++) {
-          if (flock.group[i] !== g || !flock.live[i] || bucketOf(i) !== b) continue;
-          const sp = Math.hypot(flock.vx[i], flock.vy[i]) || 1;
-          const ux = flock.vx[i] / sp;
-          const uy = flock.vy[i] / sp;
-          const L = 3 + flock.size[i] * 4;
-          const W = 1.2 + flock.size[i] * 1.6;
-          const x = flock.x[i];
-          const y = flock.y[i];
+          if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b) continue;
+          const ux = this.hx[i];
+          const uy = this.hy[i];
+          const L = (3 + sim.size[i] * 4) * this.sc[i];
+          const W = (1.2 + sim.size[i] * 1.6) * this.sc[i];
+          const x = this.sx[i];
+          const y = this.sy[i];
           ctx.moveTo(x + ux * L, y + uy * L);
           ctx.lineTo(x - ux * L * 0.6 - uy * W, y - uy * L * 0.6 + ux * W);
           ctx.lineTo(x - ux * L * 0.6 + uy * W, y - uy * L * 0.6 - ux * W);
@@ -280,9 +465,9 @@ export class FlockEngine {
       ctx.textAlign = "center";
       ctx.fillStyle = ink;
       for (let g = 0; g < G; g++) {
-        if (setup.names[g] === OTHER || flock.count[g] < 8) continue;
+        if (setup.names[g] === OTHER || sim.count[g] < 8) continue;
         ctx.globalAlpha = 0.6 * alphaOf(g);
-        ctx.fillText(setup.names[g].slice(0, 24), flock.cx[g], flock.cy[g] - 10);
+        ctx.fillText(setup.names[g].slice(0, 24), this.gsx[g], this.gsy[g] - 10);
       }
     }
 
