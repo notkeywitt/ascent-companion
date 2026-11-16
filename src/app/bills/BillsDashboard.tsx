@@ -16,13 +16,14 @@ const SECTIONS = [
   { id: "sunset", label: "Sunset Statements", href: "/payments", view: "payments" },
   { id: "lswdd", label: "LSWDD Statements", href: "/lswdd", view: "lswdd" },
   { id: "amazon", label: "Amazon Import", href: "/amazon-import", view: "amazon-import" },
+  { id: "clones", label: "Bill Clones", href: "/bill-clone", view: "bill-clone" },
 ] as const;
 
 export type BillsSection = (typeof SECTIONS)[number]["id"];
 
 export function BillsDashboard({ section, children }: { section: BillsSection; children: React.ReactNode }) {
   const { can } = useAccess();
-  const wide = section === "bills" || section === "sunset";
+  const wide = section === "bills" || section === "sunset" || section === "clones";
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-[96rem] pb-24 pt-6">
       <h1 className="sr-only">Bills</h1>
