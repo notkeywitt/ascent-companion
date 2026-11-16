@@ -108,7 +108,8 @@ export function WeekCalendar({
   /** Your own default cost code per job (/labor-rates). */
   codeDefaults: CostCodeDefault[];
   /** Back to the grid Split View. */
-  onExit: () => void;
+  /** Time page only: shows the Beta tag and a way back to Split View. */
+  onExit?: () => void;
   /** Given → a tapped entry opens this panel to the right of the calendar (below it on a narrow screen) instead of the details card. */
   renderPanel?: (a: {
     entry: Entry;
@@ -326,14 +327,14 @@ export function WeekCalendar({
         >
           + Add time
         </Button>
-        <span className="ml-auto flex items-center gap-2">
+        {onExit && <span className="ml-auto flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
             Beta
           </span>
           <Button variant="secondary" size="xs" onClick={onExit}>
             Back to Split View
           </Button>
-        </span>
+        </span>}
       </div>
 
       <ChipScroller>

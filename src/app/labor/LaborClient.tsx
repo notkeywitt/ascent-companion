@@ -225,6 +225,9 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
         String(a.startedAt).localeCompare(String(b.startedAt)),
     );
     const out = groupBy(sorted, (e) => e.jobId);
+    // Internal jobs (Ascent Office, Shop) sink to the bottom of the list.
+    const internal = (jid: string, l: typeof shown) => /^(ascent office|shop)\b/i.test(jobName(jid, l)) ? 1 : 0;
+    out.sort((a, b) => internal(a[0], a[1]) - internal(b[0], b[1]));
     // A picked job with nothing in the period still gets its card, so time can
     // be added to it.
     if (jobId && out.length === 0) out.push([jobId, []]);
@@ -328,7 +331,6 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
         {viewToggle}
         <WeekCalendar
           {...calendar}
-          onExit={() => setView("list")}
           renderPanel={({ entry: e, who, name, close, reload: reloadWeek }) => (
             <CalendarEntryPanel
               key={e.id}
@@ -379,17 +381,6 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
             Today
           </Button>
         </div>
-        <div className="min-w-[14rem] flex-1 sm:max-w-sm">
-          <JobPicker
-            value={jobId}
-            onChange={setJobId}
-            onSelect={setPickedJob}
-            onResolved={setPickedJob}
-            allDescription="Every job's time in the period"
-            showPhaseFilter
-          />
-        </div>
-        <Toggle checked={showBudget} onChange={setShowBudget} label="Budget" />
       </div>
 
       {error && (
@@ -407,6 +398,16 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
         <Loading label="Loading the period's labor…" />
       ) : (
         <>
+        <div className="mb-3 max-w-sm">
+          <JobPicker
+            value={jobId}
+            onChange={setJobId}
+            onSelect={setPickedJob}
+            onResolved={setPickedJob}
+            allDescription="Every job's time in the period"
+            showPhaseFilter
+          />
+        </div>
           <MetaLine
             className="mb-3"
             items={[
@@ -466,6 +467,7 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
           <Button size="xs" variant="secondary" onClick={() => setImporting(true)}>
             Import labor
           </Button>
+          <Toggle checked={showBudget} onChange={setShowBudget} label="Budget" />
         </Card>
         {!belowXl &&
           (entryPanel || (
