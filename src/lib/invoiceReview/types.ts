@@ -639,6 +639,16 @@ export interface MonthEvidence {
    *  mistaken for a clean one. */
   warnings: string[];
   /**
+   * Jobs with a read that failed (JobTread, Drive or its Tracking Sheet). A
+   * finding about one of them may be missing for that reason alone, so the
+   * inbox report leaves their rows as they were (run.ts, `unreadParts`).
+   */
+  unreadJobIds?: string[];
+  /** The Tracking Sheet list could not be read: no sheet was compared. */
+  sheetsUnread?: boolean;
+  /** Kinds of a check that threw on this run (registry.ts `runChecks`). */
+  failedKinds?: string[];
+  /**
    * Each legacy client's Google Tracking Sheet compared with JobTread
    * (sheetEvidence.ts). Absent when the sheets were not read: a one-job check,
    * or a failed read, which a warning then names. Absent means SKIPPED.

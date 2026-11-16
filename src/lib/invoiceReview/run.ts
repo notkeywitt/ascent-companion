@@ -14,6 +14,7 @@
  */
 import { loadMonthEvidence } from "./evidence";
 import { attachDispositions, readDispositions } from "./dispositions";
+import { inboxRow, unreadParts } from "./inbox";
 import { attachHistory, readFindingState, recordFindings } from "./lifecycle";
 import { learnNorms } from "./norms";
 import { applyRulings, listRulings } from "./rulings";
@@ -106,23 +107,20 @@ export async function runInvoiceReview(
     // The same findings into the app's one inbox (lib/findings). A finding
     // under a standing ruling goes in as dismissed, with the ruling's author
     // and reason. A finding with no ruling has its dismissal cleared, so a
-    // lifted ruling shows it again.
+    // lifted ruling shows it again. A row whose evidence did not load this
+    // run (the mailbox, a sheet, a job's reads) is left as it was, not resolved.
     try {
       await report(
         "invoice-review",
         payload.findings.map((f) => ({
-          key: f.key,
-          kind: f.kind,
-          subject: f.jobId,
-          severity: f.severity,
-          title: f.jobName ? `${f.jobName}: ${f.title}` : f.title,
-          link: `/invoice-review?ym=${evidence.ym}`,
+          ...inboxRow(f, evidence.ym),
           dismissed: f.suppressedBy
             ? { by: f.suppressedBy.by, reason: f.suppressedBy.reason, at: f.suppressedBy.at }
             : null,
         })),
         evidence.ym,
         ranAt,
+        unreadParts(evidence),
       );
     } catch (e) {
       payload.evidence.warnings.push(

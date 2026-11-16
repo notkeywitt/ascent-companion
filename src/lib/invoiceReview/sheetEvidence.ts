@@ -62,11 +62,19 @@ export async function loadSheetEvidence(
   cfg: PaveConfig,
   year: number,
   month: number,
-): Promise<{ sheets: SheetEvidence[]; warnings: string[] }> {
+): Promise<{
+  sheets: SheetEvidence[];
+  warnings: string[];
+  /** Jobs whose sheet could not be read: their sheet findings must not resolve. */
+  failedJobIds: string[];
+  /** The sheet list itself could not be read, so no sheet was compared. */
+  listFailed?: boolean;
+}> {
   const warnings: string[] = [];
+  const failedJobIds: string[] = [];
   const list = await callAppsScript<Record<string, unknown>>({ action: "listTrackingSheetJobs" });
   if (list.error) {
-    return { sheets: [], warnings: [`Tracking Sheets were not checked — the sheet list could not be read: ${list.error}`] };
+    return { sheets: [], failedJobIds, listFailed: true, warnings: [`Tracking Sheets were not checked — the sheet list could not be read: ${list.error}`] };
   }
   const jobs = ((list.data?.jobs as Record<string, unknown>[]) ?? [])
     .map((j) => ({ jobId: String(j.jtJobId ?? ""), label: String(j.label ?? ""), url: String(j.url ?? "") }))
@@ -106,6 +114,7 @@ export async function loadSheetEvidence(
           }),
         });
       } catch (e) {
+        failedJobIds.push(job.jobId);
         warnings.push(
           `${job.label}: the Tracking Sheet was not checked — ${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -115,8 +124,8 @@ export async function loadSheetEvidence(
   // Every sheet failing is one cause (the Apps Script side is down or behind),
   // so it is one warning.
   if (!sheets.length && warnings.length > 1) {
-    return { sheets, warnings: [`Tracking Sheets were not checked — ${warnings[0].split(" — ")[1] ?? "unknown error"}`] };
+    return { sheets, failedJobIds, warnings: [`Tracking Sheets were not checked — ${warnings[0].split(" — ")[1] ?? "unknown error"}`] };
   }
   sheets.sort((a, b) => a.label.localeCompare(b.label));
-  return { sheets, warnings };
+  return { sheets, warnings, failedJobIds };
 }

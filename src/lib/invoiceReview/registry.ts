@@ -198,6 +198,9 @@ export function runChecks(
     try {
       out.push(...fn());
     } catch (e) {
+      // Its rows must not resolve for want of a run (inbox.ts, unreadParts).
+      const kinds = ALL_CHECKS.find((c) => c.id === id)?.kinds ?? [];
+      fullMonth.failedKinds = [...new Set([...(fullMonth.failedKinds ?? []), ...kinds])];
       month.warnings.push(
         `The "${id}" check failed on ${subject} — ${
           e instanceof Error ? e.message : "unknown error"
