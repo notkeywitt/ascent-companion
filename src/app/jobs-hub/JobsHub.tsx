@@ -653,6 +653,10 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
           </div>
         </div>
 
+        {/* Everything under the list/map row holds at least an open bill card's
+            height (its cap, `.max-h-below-header`), so the page scrolls before
+            a bill opens (owner, 2026-11-16). */}
+        <div className="space-y-6 xl:min-h-[calc(100dvh-var(--appheader-h)-var(--tabbar-h)-1.5rem)]">
         {/* The tabs, a row of their own under the header: at the card's foot
             they ran off a narrow screen (owner, 2026-11-03). Too wide still,
             the row scrolls sideways. With no job picked they are the month's. */}
@@ -702,6 +706,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
           /* Keyed so a new job starts its own fetch rather than showing the last one's. */
           <JobOverview key={selected.id} jobId={selected.id} />
         )}
+        </div>
       </div>
       {customerOf && (
         <CustomerPopup
