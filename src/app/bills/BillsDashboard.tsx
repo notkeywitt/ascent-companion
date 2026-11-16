@@ -4,7 +4,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { Tabs } from "@/components/ui";
 
 /**
- * BILLS DASHBOARD. One tab row over the bill list and the three monthly
+ * BILLS DASHBOARD. One tab row over the bill list, accounts payable and the three monthly
  * statement / import pages. Each tab is its own route (so each keeps its own
  * view gate and saved links) and loads only its own component: the page passes
  * the section's component as `children`. A tab shows only to someone who holds
@@ -12,6 +12,7 @@ import { Tabs } from "@/components/ui";
  */
 const SECTIONS = [
   { id: "bills", label: "Bills", href: "/bills", view: "bills" },
+  { id: "payable", label: "Accounts Payable", href: "/accounts-payable", view: "accounts-payable" },
   { id: "sunset", label: "Sunset Statements", href: "/payments", view: "payments" },
   { id: "lswdd", label: "LSWDD Statements", href: "/lswdd", view: "lswdd" },
   { id: "amazon", label: "Amazon Import", href: "/amazon-import", view: "amazon-import" },
