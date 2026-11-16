@@ -304,8 +304,9 @@ export function CostCloud() {
         ctx.clearRect(0, 0, w, h);
 
         // Faint cross-hairs through the centre: the zero of each component.
+        // Islands have no axes, so they get none.
         ctx.strokeStyle = getComputedStyle(canvas).color;
-        ctx.globalAlpha = 0.12;
+        ctx.globalAlpha = liveTsne.current ? 0 : 0.12;
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(pad, h / 2);
