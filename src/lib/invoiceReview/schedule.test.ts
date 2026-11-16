@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { reviewWindow, scheduledReview } from "./schedule";
+import { monthClosed, reviewWindow, scheduledReview } from "./schedule";
 import { DEFAULT_SETTINGS } from "./settings";
 
 const CFG = DEFAULT_SETTINGS.schedule;
@@ -35,6 +35,16 @@ describe("the invoicing timeline", () => {
   it("keeps the countdown visible on days with no run, and goes quiet after send day", () => {
     expect(reviewWindow(night("2026-10-03"), CFG, 10)).toMatchObject({ due: false, daysToSend: 12 });
     expect(reviewWindow(night("2026-10-16"), CFG, 10)).toBeNull();
+  });
+
+  it("closes a billing month the day after its send day", () => {
+    expect(monthClosed("2026-09", night("2026-10-15"), 15)).toBe(false);
+    expect(monthClosed("2026-09", night("2026-10-16"), 15)).toBe(true);
+    expect(monthClosed("2026-10", night("2026-10-16"), 15)).toBe(false);
+    expect(monthClosed("2026-12", night("2027-01-16"), 15)).toBe(true);
+    // A pre-send scope carries the job after the month.
+    expect(monthClosed("2026-08:job1", night("2026-10-01"), 15)).toBe(true);
+    expect(monthClosed("", night("2026-10-16"), 15)).toBe(false);
   });
 
   it("does nothing when switched off", () => {

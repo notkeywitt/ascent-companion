@@ -26,6 +26,8 @@ import { and, eq } from "drizzle-orm";
 
 import { db, ensureDb, rawDb } from "@/db";
 import { findings, type FindingRow } from "@/db/schema";
+import { monthClosed } from "@/lib/invoiceReview/schedule";
+import { DEFAULT_SETTINGS as REVIEW_SETTINGS } from "@/lib/invoiceReview/settings";
 
 export type { FindingRow };
 export type FindingSeverity = "error" | "warning" | "info";
@@ -42,7 +44,11 @@ export interface FindingInput {
   severity?: FindingSeverity;
   /** The page where the fix lives today. */
   link?: string;
-  /** Inline fix id. None exist yet. */
+  /**
+   * The id an inline fix acts on, read together with `kind`: a JobTread bill
+   * id (invoice review, pre-send), a JobTread task id (digest
+   * `jobtread-todos`). Empty when the row has no single target.
+   */
   fixAction?: string;
   /**
    * Only for a source that keeps its own dismissals (invoice review's
@@ -65,11 +71,22 @@ const DISMISSAL =
  * resolves the open rows that are missing. One transaction. Throws when the
  * database is unreachable; a caller that must not fail wraps it.
  */
+/**
+ * Open rows a report must leave alone because the source could not look at
+ * them this run: every row of a kind in `kinds`, and every row whose subject
+ * is in `subjects`. They keep their state until a run that did look.
+ */
+export interface ReportKeep {
+  kinds?: string[];
+  subjects?: string[];
+}
+
 export async function report(
   source: string,
   items: FindingInput[],
   scope = "",
   now = new Date().toISOString(),
+  keep: ReportKeep = {},
 ): Promise<void> {
   await ensureDb();
   const statements = items.map((f) => ({
@@ -94,10 +111,17 @@ export async function report(
     ],
   }));
   // Every row this report carried now has last_seen_at = now. An open row of
-  // this source + scope with any other time was not reported: it is fixed.
+  // this source + scope with any other time was not reported: it is fixed,
+  // unless `keep` says the source did not look at it.
+  const kinds = keep.kinds ?? [];
+  const subjects = keep.subjects ?? [];
+  const notIn = (col: string, xs: string[]) => (xs.length ? ` AND ${col} NOT IN (${xs.map(() => "?").join(", ")})` : "");
   statements.push({
-    sql: "UPDATE findings SET resolved_at = ? WHERE source = ? AND scope = ? AND resolved_at = '' AND last_seen_at <> ?",
-    args: [now, source, scope, now],
+    sql:
+      "UPDATE findings SET resolved_at = ? WHERE source = ? AND scope = ? AND resolved_at = '' AND last_seen_at <> ?" +
+      notIn("kind", kinds) +
+      notIn("subject", subjects),
+    args: [now, source, scope, now, ...kinds, ...subjects],
   });
   await rawDb().batch(statements, "write");
 }
@@ -132,8 +156,21 @@ export const isHidden = (r: FindingRow, now = new Date().toISOString()) =>
 
 const RANK: Record<string, number> = { error: 0, warning: 1, info: 2 };
 
+/** Sources whose scope starts with a billing month ("2026-10", "2026-10:<jobId>"). */
+const MONTH_SCOPED = new Set(["invoice-review", "pre-send"]);
+
 /**
- * The open rows, worst first, then newest first.
+ * True when the row belongs to a billing month past its send day. No run looks
+ * at that month again, so the row can never resolve. It is not resolved either:
+ * nobody saw it fixed. `list` leaves it out, and Admin → Activity counts it as
+ * "month closed". The review page for that month still shows it.
+ */
+export const isClosedRow = (r: { source: string; scope: string }, now = new Date()) =>
+  MONTH_SCOPED.has(r.source) && monthClosed(r.scope, now, REVIEW_SETTINGS.schedule.sendDay);
+
+/**
+ * The open rows, worst first, then newest first. Rows of a closed billing
+ * month (`isClosedRow`) are left out.
  *
  * `reader` hides the per-user rows of other people. `hidden: true` returns
  * the snoozed and dismissed rows as well.
@@ -152,9 +189,11 @@ export async function list(
         opts.scope === undefined ? undefined : eq(findings.scope, opts.scope),
       ),
     );
-  const now = new Date().toISOString();
+  const at = new Date();
+  const now = at.toISOString();
   return rows
     .filter((r) => !r.scope.includes("@") || r.scope === opts.reader)
+    .filter((r) => !isClosedRow(r, at))
     .filter((r) => opts.hidden || !isHidden(r, now))
     .sort(
       (a, b) => (RANK[a.severity] ?? 1) - (RANK[b.severity] ?? 1) || b.firstSeenAt.localeCompare(a.firstSeenAt),
@@ -211,6 +250,8 @@ export interface KindStats {
   seen: number;
   open: number;
   selfResolved: number;
+  /** Open when its billing month closed (`isClosedRow`): never fixed, never seen again. */
+  closed: number;
   dismissed: number;
   snoozed: number;
 }
@@ -218,19 +259,21 @@ export interface KindStats {
 /**
  * Count findings by (source, kind). Each finding lands in exactly one bucket,
  * checked in this order: dismissed, then resolved (the source stopped
- * reporting it), then snoozed now, else open. So the four sum to `seen`.
+ * reporting it), then month closed, then snoozed now, else open. So the five
+ * sum to `seen`.
  */
 export function tallyKinds(
-  rows: { source: string; kind: string; resolved: boolean; dismissed: boolean; snoozed: boolean }[],
+  rows: { source: string; kind: string; resolved: boolean; closed?: boolean; dismissed: boolean; snoozed: boolean }[],
 ): KindStats[] {
   const by = new Map<string, KindStats>();
   for (const r of rows) {
     const k = `${r.source}\u0000${r.kind}`;
     let g = by.get(k);
-    if (!g) by.set(k, (g = { source: r.source, kind: r.kind, seen: 0, open: 0, selfResolved: 0, dismissed: 0, snoozed: 0 }));
+    if (!g) by.set(k, (g = { source: r.source, kind: r.kind, seen: 0, open: 0, selfResolved: 0, closed: 0, dismissed: 0, snoozed: 0 }));
     g.seen += 1;
     if (r.dismissed) g.dismissed += 1;
     else if (r.resolved) g.selfResolved += 1;
+    else if (r.closed) g.closed += 1;
     else if (r.snoozed) g.snoozed += 1;
     else g.open += 1;
   }
@@ -250,10 +293,10 @@ export async function findingKindStats(days = 90): Promise<KindStats[]> {
   const since = new Date(Date.now() - days * 86400000).toISOString();
   const res = await rawDb().execute({
     sql:
-      "SELECT source, kind, resolved_at <> '' AS r, dismissed_by <> '' AS d, snoozed_until > ? AS s " +
+      "SELECT source, scope, kind, resolved_at <> '' AS r, dismissed_by <> '' AS d, snoozed_until > ? AS s " +
       "FROM findings WHERE first_seen_at >= ? " +
       "UNION ALL " +
-      "SELECT 'invoice-review', kind, resolved_at <> '', was_suppressed, 0 FROM invoice_review_finding_state st " +
+      "SELECT 'invoice-review', ym, kind, resolved_at <> '', was_suppressed, 0 FROM invoice_review_finding_state st " +
       "WHERE first_seen_at >= ? AND NOT EXISTS (SELECT 1 FROM findings f " +
       "WHERE f.source = 'invoice-review' AND f.scope = st.ym AND f.key = st.key)",
     args: [now, since, since],
@@ -263,6 +306,7 @@ export async function findingKindStats(days = 90): Promise<KindStats[]> {
       source: String(x.source),
       kind: String(x.kind),
       resolved: Number(x.r) === 1,
+      closed: isClosedRow({ source: String(x.source), scope: String(x.scope) }),
       dismissed: Number(x.d) === 1,
       snoozed: Number(x.s) === 1,
     })),

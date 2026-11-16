@@ -91,6 +91,20 @@ export function reviewWindow(
   };
 }
 
+/**
+ * True once billing month `ym` is past its send day: its invoices went out and
+ * no scheduled run looks at it again. Its findings can no longer resolve on
+ * their own, so the inbox stops showing them (lib/findings, `isClosedRow`).
+ * Send day itself is still open: the last run happens then.
+ */
+export function monthClosed(ym: string, now: Date, sendDay: number): boolean {
+  const m = /^(\d{4})-(\d{2})/.exec(ym);
+  if (!m) return false;
+  const next = Number(m[2]) === 12 ? { y: Number(m[1]) + 1, m: 1 } : { y: Number(m[1]), m: Number(m[2]) + 1 };
+  const { year, month, day } = companyDateParts(now);
+  return `${year}-${pad(month)}-${pad(day)}` > `${next.y}-${pad(next.m)}-${pad(sendDay)}`;
+}
+
 /** The run due today, or null. What the digest's scheduler call acts on. */
 export function scheduledReview(
   now: Date,

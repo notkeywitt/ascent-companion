@@ -88,12 +88,41 @@ describe("findings store", () => {
         sql: "INSERT INTO invoice_review_finding_state (ym, key, kind, first_seen_at, last_seen_at, resolved_at, was_suppressed) VALUES (?,?,?,?,?,?,?)",
         args: [ym, key, "dup", new Date().toISOString(), old, res, sup],
       });
-    await f.report("invoice-review", [{ key: "m", title: "M", kind: "dup" }], "2026-10");
-    await ins("2026-10", "m", 0, ""); // already in findings: not counted twice
+    await f.report("invoice-review", [{ key: "m", title: "M", kind: "dup" }], "2999-10");
+    await ins("2999-10", "m", 0, ""); // already in findings: not counted twice
     await ins("2026-05", "n", 0, old); // old, resolved
     await ins("2026-05", "o", 1, ""); // old, set aside
     const stats = await f.findingKindStats();
     expect(stats.find((s) => s.source === "stats-src")).toMatchObject({ seen: 3, open: 1, selfResolved: 1, dismissed: 1, snoozed: 0 });
     expect(stats.find((s) => s.source === "invoice-review")).toMatchObject({ seen: 3, open: 1, selfResolved: 1, dismissed: 1 });
+  });
+
+  it("leaves kept kinds and subjects open when a read failed", async () => {
+    const f = await import("./findings");
+    const rows = [
+      { key: "mail", title: "M", kind: "email-bill-missed", subject: "j1" },
+      { key: "bill", title: "B", kind: "bill-uninvoiced", subject: "j2" },
+      { key: "other", title: "O", kind: "bill-uninvoiced", subject: "j3" },
+    ];
+    await f.report("keep", rows, "2999-01", "2026-01-01T00:00:00.000Z");
+    // The mailbox and job j2 could not be read: only j3's row may resolve.
+    await f.report("keep", [], "2999-01", "2026-01-02T00:00:00.000Z", {
+      kinds: ["email-bill-missed"],
+      subjects: ["j2"],
+    });
+    expect((await f.list({ source: "keep" })).map((r) => r.key).sort()).toEqual(["bill", "mail"]);
+  });
+
+  it("hides a closed month's rows without resolving them", async () => {
+    const f = await import("./findings");
+    await f.report("invoice-review", [{ key: "old", title: "Old", kind: "closed-k" }], "2000-01");
+    await f.report("pre-send", [{ key: "old", title: "Old", kind: "closed-k" }], "2000-01:job1");
+    await f.report("other-src", [{ key: "old", title: "Old", kind: "closed-k" }], "2000-01");
+    expect(await f.list({ source: "invoice-review", scope: "2000-01" })).toHaveLength(0);
+    expect(await f.list({ source: "pre-send" })).toHaveLength(0);
+    expect(await f.list({ source: "other-src" })).toHaveLength(1); // not a billing-month source
+    const k = (await f.findingKindStats()).filter((s) => s.kind === "closed-k");
+    expect(k.find((s) => s.source === "invoice-review")).toMatchObject({ seen: 1, open: 0, selfResolved: 0, closed: 1 });
+    expect(k.find((s) => s.source === "other-src")).toMatchObject({ open: 1, closed: 0 });
   });
 });
