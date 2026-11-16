@@ -44,6 +44,7 @@ interface KindStats {
   seen: number;
   open: number;
   selfResolved: number;
+  closed?: number;
   dismissed: number;
   snoozed: number;
 }
@@ -295,6 +296,7 @@ export function ActivityPanel() {
                     <th className="px-2 py-1.5 text-right font-medium">Seen</th>
                     <th className="px-2 py-1.5 text-right font-medium">Open</th>
                     <th className="px-2 py-1.5 text-right font-medium">Self-resolved</th>
+                    <th className="px-2 py-1.5 text-right font-medium">Month closed</th>
                     <th className="px-2 py-1.5 text-right font-medium">Dismissed</th>
                     <th className="px-2 py-1.5 text-right font-medium">Snoozed</th>
                   </tr>
@@ -309,6 +311,7 @@ export function ActivityPanel() {
                       <td className="px-2 py-1.5 text-right font-semibold tabular-nums">{k.seen}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{k.open}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{k.selfResolved}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{k.closed ?? 0}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{k.dismissed}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{k.snoozed}</td>
                     </tr>
@@ -319,8 +322,9 @@ export function ActivityPanel() {
           )}
           <p className="mt-1 text-xs text-neutral-400">
             Findings first seen in the last 90 days. Each finding counts once: Dismissed (any dismissal), else
-            Self-resolved (the source stopped reporting it), else Snoozed (hidden now), else Open. The four add up
-            to Seen. Invoice review also counts months before the inbox existed; for those, Dismissed means it
+            Self-resolved (the source stopped reporting it), else Month closed (an invoice-review or pre-send
+            finding still open when its billing month passed send day; it leaves the inbox but was never fixed),
+            else Snoozed (hidden now), else Open. The five add up to Seen. Invoice review also counts months before the inbox existed; for those, Dismissed means it
             carried a ruling when last seen, and Snoozed is always 0.
           </p>
 

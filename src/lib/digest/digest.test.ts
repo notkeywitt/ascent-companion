@@ -7,6 +7,8 @@ import { fallbackSummary } from "./run";
 import { parseSummary } from "./summary";
 import { openBillingPeriod } from "./checks/draftBillsPastCutoff";
 import { billMatchesEmail, matchVendor, normalizeVendorName } from "./checks/uncapturedBills";
+import { buildAddressIndex } from "@/lib/vendorMail";
+import { signalKey } from "./checks/emailSignals";
 import { humanizeFlag } from "./checks/reconciliationFlags";
 import { dayLabel } from "./checks/calendarEvents";
 import { isExcludedJob } from "./checks/costVsInvoice";
@@ -161,6 +163,16 @@ describe("uncaptured bills: matching a sender to a vendor", () => {
 
   it("returns null rather than guessing", () => {
     expect(matchVendor({ fromName: "Some Newsletter", fromDomain: "example.org" }, vendors)).toBeNull();
+  });
+
+  it("matches the vendor's address on file first, and falls back to name and domain", () => {
+    const { byAddress } = buildAddressIndex([{ vendorId: "3", vendorName: "Ferguson Enterprises, Inc.", address: "AR@fei-billing.net" }]);
+    // Name and domain alone find nothing for this sender.
+    const sender = { fromName: "Accounts Receivable", fromDomain: "fei-billing.net", fromAddress: "Ferguson AR <ar@fei-billing.net>" };
+    expect(matchVendor(sender, vendors)).toBeNull();
+    expect(matchVendor(sender, vendors, byAddress)?.id).toBe("3");
+    // An address not on file still matches by name.
+    expect(matchVendor({ fromName: "Ace Hardware", fromAddress: "x@y.com" }, vendors, byAddress)?.id).toBe("1");
   });
 });
 
@@ -331,6 +343,19 @@ describe("the brief's topic blocks (parseSummary)", () => {
     );
     expect(blocks[0].kind).toBe("p");
     expect(blocks[1]).toEqual({ kind: "ul", items: ["X: 2 uncaptured bills found."] });
+  });
+});
+
+describe("email signals: keys that survive Claude re-wording", () => {
+  it("keys on the message and signal type, numbering repeats in one message", () => {
+    const seen = new Map<string, number>();
+    const e = { messageId: "m1", threadId: "t1" };
+    expect(signalKey("appt", e, 0, seen)).toBe("appt:m1");
+    expect(signalKey("appt", e, 0, seen)).toBe("appt:m1:1");
+    expect(signalKey("action", e, 0, seen)).toBe("action:m1");
+    // A fresh run gives the same keys, whatever the titles say.
+    expect(signalKey("appt", e, 0, new Map())).toBe("appt:m1");
+    expect(signalKey("appt", { threadId: "t2" }, 3, new Map())).toBe("appt:t2");
   });
 });
 

@@ -51,8 +51,10 @@ import { loadMonthEvidence } from "./evidence";
 import { ALL_CHECKS, checkIdForKind, runChecks } from "./registry";
 import { depositPart } from "./checks/shared";
 import { DEFAULT_SETTINGS } from "./settings";
+import { unreadParts } from "./inbox";
 import { applyRulings, listRulings } from "./rulings";
 import type { Finding } from "./types";
+import type { ReportKeep } from "@/lib/findings";
 import type { PaveConfig } from "@/lib/jobtread";
 
 /** One check's result on this job, for the Invoice Status page's indicators. */
@@ -92,6 +94,8 @@ export interface PreSendResult {
   /** Non-fatal problems gathering the evidence. A gate that could not read the
    *  job must never render as a clean one. */
   evidenceWarnings: string[];
+  /** What the inbox report must leave alone: the reads that failed (inbox.ts). */
+  unread?: ReportKeep;
   /** Every check this gate runs, with its live finding counts. */
   checks: CheckStatus[];
   figures: PreSendFigures;
@@ -167,6 +171,7 @@ export async function preSendCheck(
     errors: live.filter((f) => f.severity === "error").length,
     warnings: live.filter((f) => f.severity === "warning").length,
     evidenceWarnings: evidence.warnings,
+    unread: unreadParts(evidence),
     checks,
     figures,
     // Labor counts. A month with no bills but a rate problem on its time

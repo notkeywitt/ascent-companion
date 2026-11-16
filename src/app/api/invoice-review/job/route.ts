@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { report } from "@/lib/findings";
 import { parseYm } from "@/lib/invoiceReview/evidence";
+import { inboxRow } from "@/lib/invoiceReview/inbox";
 import { preSendCheck } from "@/lib/invoiceReview/preSend";
 
 /**
@@ -40,26 +41,23 @@ export async function GET(req: NextRequest) {
 
   try {
     const result = await preSendCheck(getPaveConfig(), jobId, parsed.year, parsed.month);
-    // Into the findings inbox, one scope per job and month. A check that could
-    // not read the whole job must not report: an empty report would resolve
-    // the rows it failed to see.
-    if (!result.evidenceWarnings.length) {
-      await report(
-        "pre-send",
-        result.findings.map((f) => ({
-          key: f.key,
-          kind: f.kind,
-          subject: f.jobId,
-          severity: f.severity,
-          title: f.jobName ? `${f.jobName}: ${f.title}` : f.title,
-          link: "/trackingsheet",
-          dismissed: f.suppressedBy
-            ? { by: f.suppressedBy.by, reason: f.suppressedBy.reason, at: f.suppressedBy.at }
-            : undefined, // an inbox dismissal of a pre-send row stands
-        })),
-        `${result.ym}:${jobId}`,
-      ).catch(() => {});
-    }
+    // Into the findings inbox, one scope per job and month. Every run of this
+    // route re-checks the job (the Jobs Hub board runs it on each month load),
+    // so a row clears here when its condition clears. What a failed read could
+    // not see is left as it was (`unread`); a failed job read keeps every row.
+    // The link opens the job and month on the hub, which re-runs this check.
+    await report(
+      "pre-send",
+      result.findings.map((f) => ({
+        ...inboxRow(f, result.ym, true),
+        dismissed: f.suppressedBy
+          ? { by: f.suppressedBy.by, reason: f.suppressedBy.reason, at: f.suppressedBy.at }
+          : undefined, // an inbox dismissal of a pre-send row stands
+      })),
+      `${result.ym}:${jobId}`,
+      undefined,
+      result.unread,
+    ).catch(() => {});
     return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json(

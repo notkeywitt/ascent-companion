@@ -57,6 +57,7 @@ import {
   getMonthlyInvoiceJobs,
   getOrgUsers,
   getVendorBills,
+  getVendorEmails,
   getVendors,
   jtIsoToOrgLocal,
   pageEach,
@@ -69,6 +70,7 @@ import {
 import { isSalesTaxLine, SALES_TAX_CSI } from "@/lib/salesTax";
 import { cents, isNeverInvoiced } from "./types";
 import { loadSheetEvidence, type SheetEvidence } from "./sheetEvidence";
+import { buildAddressIndex } from "@/lib/vendorMail";
 import type {
   BackupFile,
   BillEmail,
@@ -683,10 +685,20 @@ async function loadPeriodMail(
     return { emails: [], window: d.window ?? null, truncated: d.truncated === true };
   }
 
-  // Phase 2 — sender → JobTread vendor account.
+  // Phase 2 — sender → JobTread vendor account: the address on file first
+  // (the vendor Email field), then the name and domain.
   let vendors: VendorRef[] = [];
+  let byAddress: ReturnType<typeof buildAddressIndex>["byAddress"] | undefined;
   try {
-    vendors = await getVendors(cfg);
+    try {
+      const rows = await getVendorEmails(cfg);
+      vendors = rows;
+      byAddress = buildAddressIndex(
+        rows.flatMap((v) => v.addresses.map((address) => ({ vendorId: v.id, vendorName: v.name, address }))),
+      ).byAddress;
+    } catch {
+      vendors = await getVendors(cfg); // the Email field could not be read: name and domain only
+    }
   } catch (e) {
     return {
       emails: raw.map(base),
@@ -702,7 +714,7 @@ async function loadPeriodMail(
   const byVendor = new Map<string, { vendor: VendorRef; emails: BillEmail[] }>();
   for (const e of raw) {
     const row = base(e);
-    const v = matchVendor({ fromName: row.fromName, fromDomain: row.fromDomain }, vendors);
+    const v = matchVendor(row, vendors, byAddress);
     if (v) {
       row.vendorId = v.id;
       row.vendorName = v.name;
@@ -856,6 +868,8 @@ export async function loadMonthEvidence(
   const ym = `${year}-${String(month).padStart(2, "0")}`;
   const monthLabel = `${MONTH_NAMES[month - 1]} ${year}`;
   const warnings: string[] = [];
+  /** Jobs with a failed read — see MonthEvidence.unreadJobIds. */
+  const unread = new Set<string>();
 
   // The roster: every job with bills in the billing month, invoiced or not,
   // drafts included — a job whose whole month is still in draft is precisely
@@ -879,6 +893,8 @@ export async function loadMonthEvidence(
     ? null
     : loadSheetEvidence(cfg, year, month).catch((e) => ({
         sheets: [] as SheetEvidence[],
+        failedJobIds: [] as string[],
+        listFailed: true,
         warnings: [`Tracking Sheets were not checked — ${e instanceof Error ? e.message : "unknown error"}`],
       }));
 
@@ -904,6 +920,7 @@ export async function loadMonthEvidence(
           customerName: header.customer,
         } as (typeof roster)[number]);
       } catch (e) {
+        unread.add(jobId);
         warnings.push(
           `${jobId}: could not read the job — ${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -912,6 +929,10 @@ export async function loadMonthEvidence(
   }
 
   const jobs = await mapWithLimit(roster, CONCURRENCY, async (row): Promise<JobEvidence> => {
+    const fail = (msg: string) => {
+      unread.add(row.jobId);
+      warnings.push(msg);
+    };
     const shell: JobEvidence = {
       jobId: row.jobId,
       jobName: row.jobName,
@@ -948,7 +969,7 @@ export async function loadMonthEvidence(
       // from, so a draft-only invoice does not read as "labor never billed"
       // when the labor is sitting right there on the draft.
     } catch (e) {
-      warnings.push(
+      fail(
         `${row.jobName || row.jobId}: could not reconcile the month — ` +
           `${e instanceof Error ? e.message : "unknown error"}`,
       );
@@ -956,7 +977,7 @@ export async function loadMonthEvidence(
 
     const [bills, drafts, voided, invoices, folder, labor, priorBills] = await Promise.all([
       loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds).catch((e) => {
-        warnings.push(
+        fail(
           `${row.jobName || row.jobId}: could not read the month's bills — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -965,7 +986,7 @@ export async function loadMonthEvidence(
       // The month's drafts, in full. `draftBillCount` from the reconciliation
       // says how many there are; the duplicate-draft check needs to see them.
       loadMonthBills(cfg, row.jobId, year, month, liveIds, sentIds, ["draft"]).catch((e) => {
-        warnings.push(
+        fail(
           `${row.jobName || row.jobId}: could not read the month's draft bills — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -979,7 +1000,7 @@ export async function loadMonthEvidence(
       ),
       mapWithLimit(Array.from(liveIds), 2, (id) =>
         loadInvoice(cfg, row.jobId, id).catch((e) => {
-          warnings.push(
+          fail(
             `${row.jobName || row.jobId}: could not read invoice ${id} — ` +
               `${e instanceof Error ? e.message : "unknown error"}`,
           );
@@ -988,7 +1009,7 @@ export async function loadMonthEvidence(
       ),
       loadFolder(year, month, row.customerName, row.jobName),
       loadMonthLabor(cfg, row.jobId, year, month, liveIds).catch((e) => {
-        warnings.push(
+        fail(
           `${row.jobName || row.jobId}: could not read the month's time entries — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -1000,7 +1021,7 @@ export async function loadMonthEvidence(
         first: daysBeforeMonth(year, month, PRIOR_BILL_DAYS),
         last: daysBeforeMonth(year, month, 1),
       }).catch((e) => {
-        warnings.push(
+        fail(
           `${row.jobName || row.jobId}: could not read earlier bills for the duplicate check — ` +
             `${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -1008,7 +1029,7 @@ export async function loadMonthEvidence(
       }),
     ]);
 
-    if (folder.warning) warnings.push(folder.warning);
+    if (folder.warning) fail(folder.warning);
     shell.bills = bills;
     shell.draftBills = drafts;
     shell.voidedBills = voided;
@@ -1028,7 +1049,7 @@ export async function loadMonthEvidence(
       } catch (e) {
         inv.billSources = undefined;
         inv.timeSources = undefined;
-        warnings.push(
+        fail(
           `${row.jobName || row.jobId}: could not read the bills and time behind invoice ` +
             `#${inv.number || inv.id} (line check skipped) — ${e instanceof Error ? e.message : "unknown error"}`,
         );
@@ -1068,7 +1089,10 @@ export async function loadMonthEvidence(
   }
 
   const sheetRead = sheetsPending ? await sheetsPending : null;
-  if (sheetRead) warnings.push(...sheetRead.warnings);
+  if (sheetRead) {
+    warnings.push(...sheetRead.warnings);
+    for (const id of sheetRead.failedJobIds) unread.add(id);
+  }
 
   return {
     ym,
@@ -1089,5 +1113,7 @@ export async function loadMonthEvidence(
       }),
     ),
     warnings,
+    unreadJobIds: [...unread],
+    sheetsUnread: sheetRead?.listFailed === true,
   };
 }
