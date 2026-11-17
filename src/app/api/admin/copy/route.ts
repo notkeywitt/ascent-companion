@@ -69,7 +69,7 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   if (!(await requireAdmin())) return FORBIDDEN;
 
-  let body: { key?: unknown; value?: unknown };
+  let body: { key?: unknown; value?: unknown; mode?: unknown };
   try {
     body = await req.json();
   } catch {
