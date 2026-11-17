@@ -5,6 +5,8 @@
   "description": "JobTread assistant: invoice coding, unbilled expenses, monthly invoice staging",
   "scripts": {
     "dev": "sh scripts/dev.sh",
+    "prebuild": "node scripts/gen-page-map.mjs",
+    "gen:pagemap": "node scripts/gen-page-map.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
