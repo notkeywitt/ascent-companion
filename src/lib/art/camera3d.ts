@@ -24,9 +24,10 @@ export class Camera3D {
   w = 800;
   h = 500;
 
-  /** Focal length in pixels: the cube's diagonal just fits the shorter side. */
+  /** Focal length in pixels: the cube fills the frame (owner, 2026-11-17);
+   *  its far corners may cross the edge as it turns. */
   private focal() {
-    return (Math.min(this.w, this.h * 1.35) * this.dist) / (SIDE * 2.3);
+    return (Math.min(this.w, this.h * 1.35) * 1.35 * this.dist) / (SIDE * 2.3);
   }
 
   project(x: number, y: number, z: number): Projected {
@@ -95,8 +96,9 @@ export class TankCamera {
   /** The eye's sideways and vertical offset from the tank's centre. */
   offX = 0;
   offY = 0;
-  /** The eye's distance in front of the glass, as a multiple of the depth. */
-  eye = 1.5;
+  /** The eye's distance in front of the glass, as a multiple of the depth.
+   *  Far enough that the back of the tank still fills most of the frame. */
+  eye = 2.2;
 
   private f() {
     return this.sz * this.eye;
