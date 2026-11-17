@@ -1,0 +1,1742 @@
+{
+ "pages": [
+  {
+   "route": "/",
+   "file": "src/app/page.tsx"
+  },
+  {
+   "route": "/accounts-payable",
+   "file": "src/app/accounts-payable/page.tsx"
+  },
+  {
+   "route": "/add-bill",
+   "file": "src/app/add-bill/page.tsx"
+  },
+  {
+   "route": "/admin",
+   "file": "src/app/admin/page.tsx"
+  },
+  {
+   "route": "/admin/copy",
+   "file": "src/app/admin/copy/page.tsx"
+  },
+  {
+   "route": "/ai-cost",
+   "file": "src/app/ai-cost/page.tsx"
+  },
+  {
+   "route": "/ai-scripts",
+   "file": "src/app/ai-scripts/page.tsx"
+  },
+  {
+   "route": "/amazon-import",
+   "file": "src/app/amazon-import/page.tsx"
+  },
+  {
+   "route": "/ar-aging",
+   "file": "src/app/ar-aging/page.tsx"
+  },
+  {
+   "route": "/art",
+   "file": "src/app/art/page.tsx"
+  },
+  {
+   "route": "/art/cloud",
+   "file": "src/app/art/cloud/page.tsx"
+  },
+  {
+   "route": "/art/fingerprints",
+   "file": "src/app/art/fingerprints/page.tsx"
+  },
+  {
+   "route": "/art/flock",
+   "file": "src/app/art/flock/page.tsx"
+  },
+  {
+   "route": "/art/river",
+   "file": "src/app/art/river/page.tsx"
+  },
+  {
+   "route": "/art/rose",
+   "file": "src/app/art/rose/page.tsx"
+  },
+  {
+   "route": "/art/weave",
+   "file": "src/app/art/weave/page.tsx"
+  },
+  {
+   "route": "/art/words",
+   "file": "src/app/art/words/page.tsx"
+  },
+  {
+   "route": "/ascentbot",
+   "file": "src/app/ascentbot/page.tsx"
+  },
+  {
+   "route": "/attention",
+   "file": "src/app/attention/page.tsx"
+  },
+  {
+   "route": "/bill-clone",
+   "file": "src/app/bill-clone/page.tsx"
+  },
+  {
+   "route": "/bill-search",
+   "file": "src/app/bill-search/page.tsx"
+  },
+  {
+   "route": "/bill/[docId]",
+   "file": "src/app/bill/[docId]/page.tsx"
+  },
+  {
+   "route": "/bills",
+   "file": "src/app/bills/page.tsx"
+  },
+  {
+   "route": "/budget-import",
+   "file": "src/app/budget-import/page.tsx"
+  },
+  {
+   "route": "/changelog",
+   "file": "src/app/changelog/page.tsx"
+  },
+  {
+   "route": "/chat",
+   "file": "src/app/chat/page.tsx"
+  },
+  {
+   "route": "/clients",
+   "file": "src/app/clients/page.tsx"
+  },
+  {
+   "route": "/deposit-tracker",
+   "file": "src/app/deposit-tracker/page.tsx"
+  },
+  {
+   "route": "/email",
+   "file": "src/app/email/page.tsx"
+  },
+  {
+   "route": "/employee-time",
+   "file": "src/app/employee-time/page.tsx"
+  },
+  {
+   "route": "/employees",
+   "file": "src/app/employees/page.tsx"
+  },
+  {
+   "route": "/expenditure-history",
+   "file": "src/app/expenditure-history/page.tsx"
+  },
+  {
+   "route": "/help",
+   "file": "src/app/help/page.tsx"
+  },
+  {
+   "route": "/historical-cost",
+   "file": "src/app/historical-cost/page.tsx"
+  },
+  {
+   "route": "/house-manual",
+   "file": "src/app/house-manual/page.tsx"
+  },
+  {
+   "route": "/invoice-review",
+   "file": "src/app/invoice-review/page.tsx"
+  },
+  {
+   "route": "/invoicing-summary",
+   "file": "src/app/invoicing-summary/page.tsx"
+  },
+  {
+   "route": "/job-board",
+   "file": "src/app/job-board/page.tsx"
+  },
+  {
+   "route": "/job-board/[id]",
+   "file": "src/app/job-board/[id]/page.tsx"
+  },
+  {
+   "route": "/jobs",
+   "file": "src/app/jobs/page.tsx"
+  },
+  {
+   "route": "/jobs-hub",
+   "file": "src/app/jobs-hub/page.tsx"
+  },
+  {
+   "route": "/jobs-hub/[...path]",
+   "file": "src/app/jobs-hub/[...path]/page.tsx"
+  },
+  {
+   "route": "/journal",
+   "file": "src/app/journal/page.tsx"
+  },
+  {
+   "route": "/labor",
+   "file": "src/app/labor/page.tsx"
+  },
+  {
+   "route": "/labor-rates",
+   "file": "src/app/labor-rates/page.tsx"
+  },
+  {
+   "route": "/leads",
+   "file": "src/app/leads/page.tsx"
+  },
+  {
+   "route": "/leads/research/[id]",
+   "file": "src/app/leads/research/[id]/page.tsx"
+  },
+  {
+   "route": "/login",
+   "file": "src/app/login/page.tsx"
+  },
+  {
+   "route": "/logs",
+   "file": "src/app/logs/page.tsx"
+  },
+  {
+   "route": "/lopezrocks",
+   "file": "src/app/lopezrocks/page.tsx"
+  },
+  {
+   "route": "/lswdd",
+   "file": "src/app/lswdd/page.tsx"
+  },
+  {
+   "route": "/mileage-tracker",
+   "file": "src/app/mileage-tracker/page.tsx"
+  },
+  {
+   "route": "/notices",
+   "file": "src/app/notices/page.tsx"
+  },
+  {
+   "route": "/office",
+   "file": "src/app/office/page.tsx"
+  },
+  {
+   "route": "/onboarding",
+   "file": "src/app/onboarding/page.tsx"
+  },
+  {
+   "route": "/onboarding/office",
+   "file": "src/app/onboarding/office/page.tsx"
+  },
+  {
+   "route": "/payments",
+   "file": "src/app/payments/page.tsx"
+  },
+  {
+   "route": "/payroll",
+   "file": "src/app/payroll/page.tsx"
+  },
+  {
+   "route": "/privacy",
+   "file": "src/app/privacy/page.tsx"
+  },
+  {
+   "route": "/requests",
+   "file": "src/app/requests/page.tsx"
+  },
+  {
+   "route": "/requisitions",
+   "file": "src/app/requisitions/page.tsx"
+  },
+  {
+   "route": "/roadmap",
+   "file": "src/app/roadmap/page.tsx"
+  },
+  {
+   "route": "/safety-meeting",
+   "file": "src/app/safety-meeting/page.tsx"
+  },
+  {
+   "route": "/specs",
+   "file": "src/app/specs/page.tsx"
+  },
+  {
+   "route": "/theme",
+   "file": "src/app/theme/page.tsx"
+  },
+  {
+   "route": "/time-off",
+   "file": "src/app/time-off/page.tsx"
+  },
+  {
+   "route": "/tool-schedule",
+   "file": "src/app/tool-schedule/page.tsx"
+  },
+  {
+   "route": "/tool-schedule/edit",
+   "file": "src/app/tool-schedule/edit/page.tsx"
+  },
+  {
+   "route": "/tool-tracker",
+   "file": "src/app/tool-tracker/page.tsx"
+  },
+  {
+   "route": "/tools",
+   "file": "src/app/tools/page.tsx"
+  },
+  {
+   "route": "/trackingsheet",
+   "file": "src/app/trackingsheet/page.tsx"
+  },
+  {
+   "route": "/unbilled",
+   "file": "src/app/unbilled/page.tsx"
+  },
+  {
+   "route": "/vendor-mail/index",
+   "file": "src/app/vendor-mail/index/page.tsx"
+  },
+  {
+   "route": "/vendors",
+   "file": "src/app/vendors/page.tsx"
+  },
+  {
+   "route": "/widget",
+   "file": "src/app/widget/page.tsx"
+  }
+ ],
+ "redirects": [
+  {
+   "from": "/actions",
+   "to": "/email"
+  },
+  {
+   "from": "/coding",
+   "to": "/"
+  },
+  {
+   "from": "/course",
+   "to": "/help"
+  },
+  {
+   "from": "/labor-import",
+   "to": "/payroll?section=labor"
+  },
+  {
+   "from": "/labor-review",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/more",
+   "to": "/"
+  },
+  {
+   "from": "/needs-project",
+   "to": "/email?section=stuck"
+  },
+  {
+   "from": "/needs-review",
+   "to": "/invoice-review?section=flagged"
+  },
+  {
+   "from": "/rfis",
+   "to": "/"
+  },
+  {
+   "from": "/stage",
+   "to": "/"
+  },
+  {
+   "from": "/taxable-lines",
+   "to": "/invoice-review?section=taxable"
+  },
+  {
+   "from": "/time-off/office",
+   "to": "/payroll?section=timeoff"
+  },
+  {
+   "from": "/time-sync",
+   "to": "/payroll?section=sync"
+  },
+  {
+   "from": "/tracking-sheet",
+   "to": "/jobs-hub"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/jobs-hub"
+  },
+  {
+   "from": "/vendor-mail",
+   "to": "/email?section=mail"
+  }
+ ],
+ "links": [
+  {
+   "from": "/",
+   "to": "/add-bill",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/employee-time",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/invoice-review",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/invoicing-summary",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/leads",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/login",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/lopezrocks",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/lswdd",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/mileage-tracker",
+   "kind": "push",
+   "q": [
+    "tab=manual"
+   ]
+  },
+  {
+   "from": "/",
+   "to": "/office",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/onboarding",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/payments",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/privacy",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/requests",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/tools",
+   "kind": "push"
+  },
+  {
+   "from": "/",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/vendors",
+   "kind": "link"
+  },
+  {
+   "from": "/accounts-payable",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/add-bill",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/add-bill",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/add-bill",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/amazon-import",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/bills",
+   "kind": "link"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/changelog",
+   "kind": "link"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/email",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/invoice-review",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/lswdd",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/office",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/payments",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/time-off",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/vendors",
+   "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/changelog",
+   "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/amazon-import",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/ar-aging",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/art/flock",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/ascentbot",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/attention",
+   "to": "/office",
+   "kind": "redirect"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/bill/[docId]",
+   "to": "/bills",
+   "kind": "link"
+  },
+  {
+   "from": "/bill/[docId]",
+   "to": "/jobs-hub",
+   "kind": "push"
+  },
+  {
+   "from": "/bill/[docId]",
+   "to": "/payments",
+   "kind": "link"
+  },
+  {
+   "from": "/bill/[docId]",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/bill/[docId]",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
+   "to": "/accounts-payable",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
+   "to": "/amazon-import",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
+   "to": "/bill-clone",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
+   "to": "/lswdd",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
+   "to": "/payments",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/clients",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/house-manual",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/specs",
+   "kind": "link"
+  },
+  {
+   "from": "/budget-import",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/changelog",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/changelog",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/changelog",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/changelog",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/changelog",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/changelog",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/chat",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/budget-import",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/house-manual",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/specs",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/clients",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/deposit-tracker",
+   "to": "/office",
+   "kind": "link"
+  },
+  {
+   "from": "/email",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/employee-time",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/employee-time",
+   "to": "/time-off",
+   "kind": "link"
+  },
+  {
+   "from": "/employee-time",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/employee-time",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/help",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/help",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/help",
+   "to": "/changelog",
+   "kind": "link"
+  },
+  {
+   "from": "/help",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/help",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/help",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/historical-cost",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/budget-import",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/clients",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/specs",
+   "kind": "link"
+  },
+  {
+   "from": "/house-manual",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/invoice-review",
+   "to": "/invoicing-summary",
+   "kind": "link"
+  },
+  {
+   "from": "/invoice-review",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/invoicing-summary",
+   "to": "/invoice-review",
+   "kind": "link"
+  },
+  {
+   "from": "/invoicing-summary",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/budget-import",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/clients",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/house-manual",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/specs",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/job-board",
+   "to": "/leads",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/bill/[docId]",
+   "kind": "push"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/budget-import",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/clients",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/house-manual",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/specs",
+   "kind": "link"
+  },
+  {
+   "from": "/jobs",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/changelog",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/journal",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/labor",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/labor",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/labor",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/labor",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/leads",
+   "to": "/leads/research/[id]",
+   "kind": "link"
+  },
+  {
+   "from": "/leads/research/[id]",
+   "to": "/leads",
+   "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/changelog",
+   "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/lswdd",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/lswdd",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/mileage-tracker",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/mileage-tracker",
+   "to": "/trackingsheet",
+   "kind": "link"
+  },
+  {
+   "from": "/mileage-tracker",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/notices",
+   "to": "/office",
+   "kind": "redirect"
+  },
+  {
+   "from": "/office",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/office",
+   "to": "/invoice-review",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/onboarding",
+   "kind": "link"
+  },
+  {
+   "from": "/payments",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/employee-time",
+   "kind": "link"
+  },
+  {
+   "from": "/requisitions",
+   "to": "/tool-schedule",
+   "kind": "link"
+  },
+  {
+   "from": "/requisitions",
+   "to": "/tools",
+   "kind": "link"
+  },
+  {
+   "from": "/requisitions",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/budget-import",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/clients",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/house-manual",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/specs",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/theme",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/theme",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/theme",
+   "to": "/changelog",
+   "kind": "link"
+  },
+  {
+   "from": "/theme",
+   "to": "/help",
+   "kind": "link"
+  },
+  {
+   "from": "/theme",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/theme",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/time-off",
+   "to": "/payroll",
+   "kind": "link",
+   "q": [
+    "section=timeoff"
+   ]
+  },
+  {
+   "from": "/tool-schedule/edit",
+   "to": "/tool-schedule",
+   "kind": "link"
+  },
+  {
+   "from": "/tool-schedule/edit",
+   "to": "/tools",
+   "kind": "link"
+  },
+  {
+   "from": "/tool-schedule",
+   "to": "/requisitions",
+   "kind": "link"
+  },
+  {
+   "from": "/tool-schedule",
+   "to": "/tool-schedule/edit",
+   "kind": "link",
+   "q": [
+    "tab=tasks"
+   ]
+  },
+  {
+   "from": "/tool-schedule",
+   "to": "/tools",
+   "kind": "link"
+  },
+  {
+   "from": "/tool-tracker",
+   "to": "/tools",
+   "kind": "redirect"
+  },
+  {
+   "from": "/tools",
+   "to": "/requisitions",
+   "kind": "link"
+  },
+  {
+   "from": "/tools",
+   "to": "/tool-schedule",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/invoice-review",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/invoicing-summary",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/labor",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/labor-review",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/vendors",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/budget-import",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/clients",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/house-manual",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/job-board",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/unbilled",
+   "to": "/specs",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/email",
+   "kind": "link",
+   "q": [
+    "section=mail"
+   ]
+  },
+  {
+   "from": "/vendors",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/invoice-review",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/invoicing-summary",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/jobs",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/leads",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/lopezrocks",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/mileage-tracker",
+   "kind": "push",
+   "q": [
+    "tab=manual"
+   ]
+  },
+  {
+   "from": "/widget",
+   "to": "/office",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/requests",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/tools",
+   "kind": "push"
+  }
+ ],
+ "embeds": [
+  {
+   "from": "/",
+   "to": "/art/flock"
+  },
+  {
+   "from": "/",
+   "to": "/invoicing-summary"
+  },
+  {
+   "from": "/",
+   "to": "/office"
+  },
+  {
+   "from": "/",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/accounts-payable",
+   "to": "/bill/[docId]"
+  },
+  {
+   "from": "/accounts-payable",
+   "to": "/bills"
+  },
+  {
+   "from": "/add-bill",
+   "to": "/deposit-tracker"
+  },
+  {
+   "from": "/add-bill",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/admin",
+   "to": "/admin/copy"
+  },
+  {
+   "from": "/admin",
+   "to": "/ascentbot"
+  },
+  {
+   "from": "/admin",
+   "to": "/historical-cost"
+  },
+  {
+   "from": "/admin",
+   "to": "/logs"
+  },
+  {
+   "from": "/amazon-import",
+   "to": "/bills"
+  },
+  {
+   "from": "/art/cloud",
+   "to": "/art"
+  },
+  {
+   "from": "/art/fingerprints",
+   "to": "/art"
+  },
+  {
+   "from": "/art/flock",
+   "to": "/art"
+  },
+  {
+   "from": "/art/river",
+   "to": "/art"
+  },
+  {
+   "from": "/art/rose",
+   "to": "/art"
+  },
+  {
+   "from": "/art/weave",
+   "to": "/art"
+  },
+  {
+   "from": "/art/words",
+   "to": "/art"
+  },
+  {
+   "from": "/bill-clone",
+   "to": "/bills"
+  },
+  {
+   "from": "/bill/[docId]",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/bills",
+   "to": "/bill/[docId]"
+  },
+  {
+   "from": "/email",
+   "to": "/"
+  },
+  {
+   "from": "/employees",
+   "to": "/onboarding/office"
+  },
+  {
+   "from": "/invoice-review",
+   "to": "/"
+  },
+  {
+   "from": "/invoicing-summary",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/job-board/[id]",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/budget-import"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/clients"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/house-manual"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/invoice-review"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/invoicing-summary"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/job-board"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/specs"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/labor",
+   "to": "/"
+  },
+  {
+   "from": "/labor",
+   "to": "/employee-time"
+  },
+  {
+   "from": "/labor",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/leads",
+   "to": "/clients"
+  },
+  {
+   "from": "/lswdd",
+   "to": "/bills"
+  },
+  {
+   "from": "/payments",
+   "to": "/bills"
+  },
+  {
+   "from": "/payments",
+   "to": "/trackingsheet"
+  },
+  {
+   "from": "/payroll",
+   "to": "/"
+  },
+  {
+   "from": "/payroll",
+   "to": "/employee-time"
+  },
+  {
+   "from": "/payroll",
+   "to": "/time-off"
+  },
+  {
+   "from": "/tool-schedule/edit",
+   "to": "/tool-schedule"
+  },
+  {
+   "from": "/tools",
+   "to": "/tool-schedule"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/historical-cost"
+  },
+  {
+   "from": "/widget",
+   "to": "/invoicing-summary"
+  },
+  {
+   "from": "/widget",
+   "to": "/trackingsheet"
+  }
+ ]
+}
