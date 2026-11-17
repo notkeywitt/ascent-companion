@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1fbf-1fqkqr7";
+export const SCHEMA_FINGERPRINT = "1fko-1yvjx8y";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1836,6 +1836,15 @@ async function applySchema() {
       seq INTEGER NOT NULL,
       bytes BLOB NOT NULL,
       PRIMARY KEY (file_id, seq)
+    )`,
+    // Roadmap: each person's priority for each proposed feature (src/lib/roadmap.ts).
+    `CREATE TABLE IF NOT EXISTS roadmap_votes (
+      email TEXT NOT NULL,
+      feature TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      name TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (email, feature)
     )`,
   ]) {
     await getClient().execute(ddl);

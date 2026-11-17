@@ -2348,3 +2348,16 @@ export const agentMachines = sqliteTable("agent_machines", {
   codeNote: text("code_note").notNull().default(""),
   codeCheckedAt: text("code_checked_at").notNull().default(""),
 });
+
+/** Roadmap — each person's priority (0–3) for each proposed feature in src/lib/roadmap.ts. */
+export const roadmapVotes = sqliteTable(
+  "roadmap_votes",
+  {
+    email: text("email").notNull(),
+    feature: text("feature").notNull(),
+    score: integer("score").notNull(),
+    name: text("name").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.email, t.feature] })],
+);

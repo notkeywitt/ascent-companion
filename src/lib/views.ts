@@ -403,6 +403,9 @@ export const VIEWS: ViewDef[] = [
   // to-do WRITES (create, edit, delete), so it rides the same gate: a role
   // without the page must not reach them by calling the route directly.
   { id: "office", label: "Office Dashboard", group: "Office", paths: ["/office", "/api/office"] },
+  // Roadmap — the features the Drive survey (2026-11-17) proposed, ranked by
+  // the office. Votes only; office + admin by default.
+  { id: "roadmap", label: "Roadmap", group: "Office", paths: ["/roadmap", "/api/roadmap"] },
   // The email-blast API is listed here so it inherits the office/admin gate; the
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting
   // (a field view) reads the Active roster through it.
