@@ -55,6 +55,7 @@ export interface LineOpsView {
   /** docId → bill label */
   voids: Map<string, string>;
   unstageAdd: (key: string) => void;
+  stageAdd: (add: Omit<StagedAdd, "key">) => void;
 }
 
 export interface LineOps {
@@ -212,8 +213,8 @@ export function useLineOps(): LineOps {
   }, [bought, deleted, adds, voids, unstageBuyback, unstageAdd]);
 
   const view = useMemo<LineOpsView>(
-    () => ({ deleted, bought, adds, voids, unstageAdd }),
-    [deleted, bought, adds, voids, unstageAdd],
+    () => ({ deleted, bought, adds, voids, unstageAdd, stageAdd }),
+    [deleted, bought, adds, voids, unstageAdd, stageAdd],
   );
 
   return {

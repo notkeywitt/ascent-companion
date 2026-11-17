@@ -27,7 +27,8 @@ import {
 import { InvoiceAttachment } from "@/components/InvoiceViewer";
 import type { LineEdit } from "@/lib/billLineMath";
 import type { LineOpsView } from "./useLineOps";
-import { round2 } from "@/lib/billLineMath";
+import { descriptionForCode, round2 } from "@/lib/billLineMath";
+import { SplitLineDialog } from "./SplitLineDialog";
 import { isTaxRecoverable, SALES_TAX_LINE_NAME } from "@/lib/salesTax";
 import { money, money0 } from "@/lib/money";
 import { ClosedMonthNote } from "@/components/ClosedMonthNote";
@@ -546,6 +547,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
   const [buybackRunning, setBuybackRunning] = useState(false);
   const [splitOpen, setSplitOpen] = useState(false);
   const [splitSel, setSplitSel] = useState<string[]>([]);
+  /** The line open in the Split-this-line dialog (one line into two). */
+  const [splitLineId, setSplitLineId] = useState<string | null>(null);
   const [splitRunning, setSplitRunning] = useState(false);
   // "Buy back the entire bill" reassigns to Ascent - Shop, so the browser needs
   // that job's id. /api/shop-job resolves it the same way buyback itself does
@@ -673,6 +676,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     setBuybackSel([]);
     setSplitOpen(false);
     setSplitSel([]);
+    setSplitLineId(null);
     setCreateFileOpen(false);
     setCreateFileDesc("");
     setCreateFileMsg("");
@@ -1499,6 +1503,18 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             {money(t.qty * t.preTaxUnit)}
                           </span>
                         )}
+                        {/* Split: one line into two, amounts always summing to
+                      the original. STAGED — Save writes the edit and the add. */}
+                        {math.isDraft && writes && lineOps && t && !mergeLocked && !gone && !bought && extended > 0.01 && (
+                          <button
+                            type="button"
+                            onClick={() => setSplitLineId(l.id)}
+                            title="Split this line into two"
+                            className="shrink-0 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:bg-accent/10 hover:text-accent"
+                          >
+                            Split
+                          </button>
+                        )}
                         {/* Delete: removes this line from the bill entirely —
                       ported from the bill page. Draft-only + writes-gated,
                       like Buyback/Combine/Add line. */}
@@ -1875,6 +1891,46 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
             </ul>
         </Dialog>
       )}
+
+      {splitLineId && bill && lineOps && (() => {
+        const idx = lines.findIndex((x) => x.id === splitLineId);
+        const l = lines[idx];
+        const t = math.targets[idx];
+        if (!l || !t) return null;
+        const amount = round2(t.qty * t.preTaxUnit);
+        return (
+          <SplitLineDialog
+            name={edits[l.id]?.name ?? l.name ?? "Line item"}
+            total={amount}
+            leafId={leafOf(l)}
+            codeOptions={codeOptions}
+            onClose={() => setSplitLineId(null)}
+            onConfirm={(first, second) => {
+              // First half: the original line, edited in place. It becomes
+              // 1 × amount so the cents cannot drift on a qty > 1 line.
+              setLineEdit(l.id, {
+                name: first.name,
+                quantity: "1",
+                unitCost: first.amount.toFixed(2),
+              });
+              if (first.leafId !== leafOf(l)) stageLine(l.id, first.leafId, l.jobCostItemId);
+              // Second half: a staged add, grossed up like Add line.
+              const newSum = math.subtotal + second.amount;
+              const reTaxAdd = newSum > 0 ? (newSum + taxView) / newSum : 1;
+              lineOps.stageAdd({
+                docId: bill.id,
+                name: second.name,
+                quantity: 1,
+                preTaxUnit: second.amount,
+                unitCost: round2(second.amount * reTaxAdd),
+                jobCostItemId: second.leafId || undefined,
+                description: descriptionForCode(second.leafId, codeOptions),
+              });
+              setSplitLineId(null);
+            }}
+          />
+        );
+      })()}
 
       {/* Split — tick the lines that go on the new bill. Nothing writes until
           the button at the foot. */}
