@@ -121,11 +121,11 @@ describe("the iPad rail", () => {
     const views = resolveAllowedViews(role);
     return (v: string) => views.has(v);
   };
-  it("starts the office's rail with the owner's nine, then a space, then every other workspace once", () => {
+  it("starts the office's rail with the owner's ten, then a space, then every other workspace once", () => {
     const items = railFor("office", can("office"));
     const rail = items.map((i) => i.key);
-    expect(rail.slice(0, 9)).toEqual(["today", "close", "employees", "clients", "leads", "vendors", "time", "labor", "tools"]);
-    expect(items[9].gap).toBe(true);
+    expect(rail.slice(0, 10)).toEqual(["today", "close", "employees", "clients", "leads", "vendors", "time", "labor", "tools", "roadmap"]);
+    expect(items[10].gap).toBe(true);
     expect(items.filter((i) => i.gap)).toHaveLength(1);
     expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "help", "office"]));
     expect(rail).not.toContain("mywork");
@@ -182,8 +182,8 @@ describe("a role's side-menu edit", () => {
   });
   it("puts an added item at the end of the top group, before the space", () => {
     const items = railFor("office", can("office"), "", { add: ["page:bills"], hide: [] });
-    expect(items[9].key).toBe("bills");
-    expect(items[10].gap).toBe(true);
+    expect(items[10].key).toBe("bills");
+    expect(items[11].gap).toBe(true);
   });
   it("skips an added item the role cannot open", () => {
     const keys = railFor("field", can("field"), "", { add: ["ws:admin"], hide: [] }).map((i) => i.key);
@@ -200,7 +200,7 @@ describe("a role's side-menu edit", () => {
     expect(keys.slice(0, 3)).toEqual(["time", "today", "employees"]);
     expect(keys[6]).toBe("close");
     expect(new Set(keys)).toEqual(new Set(base));
-    expect(items[9].gap).toBe(true);
+    expect(items[10].gap).toBe(true);
   });
   it("keeps only known keys", () => {
     expect(cleanMenuKeys(["today", "ws:clients", "page:bills", "ws:nope", 3, "today"])).toEqual([

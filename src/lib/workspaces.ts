@@ -428,9 +428,9 @@ const DESK_TOP: BarSlot[] = [
   { kind: "tab", view: "labor" },
   // Tools on the rail too (owner, 2026-10-29), as on the phone bar.
   { kind: "tab", view: "tools" },
-  // Roadmap and App Feedback on the office rail (owner, 2026-11-17).
+  // Roadmap on the office rail (owner, 2026-11-17). App Feedback already has
+  // its own entry under Help.
   { kind: "tab", view: "roadmap" },
-  { kind: "tab", view: "requests" },
 ];
 export const RAIL_TOP: Partial<Record<Role, BarSlot[]>> = { admin: DESK_TOP, office: DESK_TOP };
 
