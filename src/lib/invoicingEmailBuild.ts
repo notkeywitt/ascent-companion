@@ -11,11 +11,11 @@
  * changes the hash.
  */
 import { createHash } from "node:crypto";
-import type { Detail } from "@/components/BillingSummary";
 import { callAppsScript } from "@/lib/appsScript";
 import { getPaveConfig } from "@/lib/config";
-import { getInvoiceRefs, getJobPhaseMap, getUninvoicedBills } from "@/lib/jobtread";
-import { invoicePreviewHtml } from "@/lib/invoicePreview";
+import { getInvoiceRefs, getJobPhaseMap, getMonthInvoiceDetails } from "@/lib/jobtread";
+import { invoiceActualHtml } from "@/lib/invoicePreview";
+import { issueDateFor } from "@/lib/billingMonths";
 import { composeInvoicingEmail, type PackageJob } from "@/lib/invoicingEmail";
 import { jobInvoices } from "@/lib/packageInvoices";
 
@@ -61,28 +61,28 @@ export async function buildInvoicingEmail(ym: string) {
       getInvoiceRefs(cfg, wanted.map((j) => j.jtJobId)),
       getJobPhaseMap(cfg),
     ]);
-    // One Invoicing Summary per invoiced job: the same preview the Summary view
-    // prints, read with the Board's own flags (invoiced and draft bills included).
+    // One Invoicing Summary per invoiced job: the job's live JobTread invoices for
+    // the month, read as they stand (fee, tax and total are JobTread's own). It
+    // never rebuilds them from bills: a draft copy of an approved bill, or a bill
+    // already on an earlier invoice, would add cost the invoice does not carry.
     // Apps Script renders each to a PDF in the job's billing folder (or attaches it).
     const warnings: string[] = [];
     const folderOf = new Map(pkg.jobs.map((j) => [j.jtJobId, j.billingFolderUrl ?? ""]));
     const summaryPdfs: SummaryPdf[] = [];
-    for (let i = 0; i < wanted.length; i += 4) {
-      await Promise.all(
-        wanted.slice(i, i + 4).map(async (j) => {
-          try {
-            const detail = await getUninvoicedBills(cfg, j.jtJobId, Number(m[1]), Number(m[2]), true, true);
-            summaryPdfs.push({
-              jobId: j.jtJobId,
-              name: `${j.customerLabel} - ${j.jobLabel} - Invoicing Summary ${ym}.pdf`.replace(/[\\/]/g, "-"),
-              html: invoicePreviewHtml(detail as unknown as Detail, ym),
-              folderUrl: j.billingFolderUrl ?? "",
-            });
-          } catch (e) {
-            warnings.push(`${j.customerLabel} - ${j.jobLabel}: summary not built (${e instanceof Error ? e.message : "error"}).`);
-          }
-        }),
-      );
+    const first = `${ym}-01`;
+    const byJob = await getMonthInvoiceDetails(cfg, wanted.map((j) => j.jtJobId), first, issueDateFor(ym));
+    for (const j of wanted) {
+      const list = byJob[j.jtJobId];
+      if (!list?.length) {
+        warnings.push(`${j.customerLabel} - ${j.jobLabel}: summary not built (no live JobTread invoice dated ${ym}).`);
+        continue;
+      }
+      summaryPdfs.push({
+        jobId: j.jtJobId,
+        name: `${j.customerLabel} - ${j.jobLabel} - Invoicing Summary ${ym}.pdf`.replace(/[\\/]/g, "-"),
+        html: invoiceActualHtml(list, ym),
+        folderUrl: j.billingFolderUrl ?? "",
+      });
     }
     summaryPdfs.sort((a, b) => a.jobId.localeCompare(b.jobId)); // the reads finish in any order
     const email = composeInvoicingEmail({

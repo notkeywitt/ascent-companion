@@ -317,6 +317,8 @@ export {
 export type {
   PackageInvoice,
 } from "./jobtread/clientInvoiceRefs";
+export { getMonthInvoiceDetails } from "./jobtread/clientInvoiceDetail";
+export type { MonthInvoice } from "./jobtread/clientInvoiceDetail";
 export {
   uploadFileToJobFolder,
   uploadFileToFolder,
