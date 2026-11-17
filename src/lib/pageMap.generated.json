@@ -543,33 +543,8 @@
   },
   {
    "from": "/admin/copy",
-   "to": "/ai-cost",
-   "kind": "link"
-  },
-  {
-   "from": "/admin/copy",
-   "to": "/changelog",
-   "kind": "link"
-  },
-  {
-   "from": "/admin/copy",
-   "to": "/help",
-   "kind": "link"
-  },
-  {
-   "from": "/admin/copy",
-   "to": "/journal",
-   "kind": "link"
-  },
-  {
-   "from": "/admin/copy",
-   "to": "/logs",
-   "kind": "link"
-  },
-  {
-   "from": "/admin/copy",
    "to": "/theme",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/admin",
@@ -653,33 +628,13 @@
   },
   {
    "from": "/ai-cost",
-   "to": "/admin/copy",
-   "kind": "link"
-  },
-  {
-   "from": "/ai-cost",
-   "to": "/changelog",
-   "kind": "link"
-  },
-  {
-   "from": "/ai-cost",
-   "to": "/help",
-   "kind": "link"
-  },
-  {
-   "from": "/ai-cost",
    "to": "/journal",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/ai-cost",
    "to": "/logs",
-   "kind": "link"
-  },
-  {
-   "from": "/ai-cost",
-   "to": "/theme",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/amazon-import",
@@ -764,67 +719,42 @@
   {
    "from": "/budget-import",
    "to": "/clients",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/budget-import",
    "to": "/house-manual",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/budget-import",
    "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/budget-import",
    "to": "/jobs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/budget-import",
    "to": "/jobs-hub",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/budget-import",
    "to": "/specs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/budget-import",
    "to": "/unbilled",
-   "kind": "link"
-  },
-  {
-   "from": "/changelog",
-   "to": "/admin/copy",
-   "kind": "link"
-  },
-  {
-   "from": "/changelog",
-   "to": "/ai-cost",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/changelog",
    "to": "/help",
-   "kind": "link"
-  },
-  {
-   "from": "/changelog",
-   "to": "/journal",
-   "kind": "link"
-  },
-  {
-   "from": "/changelog",
-   "to": "/logs",
-   "kind": "link"
-  },
-  {
-   "from": "/changelog",
-   "to": "/theme",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/chat",
@@ -834,32 +764,32 @@
   {
    "from": "/clients",
    "to": "/budget-import",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/clients",
    "to": "/house-manual",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/clients",
    "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/clients",
    "to": "/jobs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/clients",
    "to": "/jobs-hub",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/clients",
    "to": "/specs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/clients",
@@ -869,7 +799,7 @@
   {
    "from": "/clients",
    "to": "/unbilled",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/deposit-tracker",
@@ -903,33 +833,8 @@
   },
   {
    "from": "/help",
-   "to": "/admin/copy",
-   "kind": "link"
-  },
-  {
-   "from": "/help",
-   "to": "/ai-cost",
-   "kind": "link"
-  },
-  {
-   "from": "/help",
    "to": "/changelog",
-   "kind": "link"
-  },
-  {
-   "from": "/help",
-   "to": "/journal",
-   "kind": "link"
-  },
-  {
-   "from": "/help",
-   "to": "/logs",
-   "kind": "link"
-  },
-  {
-   "from": "/help",
-   "to": "/theme",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/historical-cost",
@@ -939,96 +844,61 @@
   {
    "from": "/house-manual",
    "to": "/budget-import",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/house-manual",
    "to": "/clients",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/house-manual",
    "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/house-manual",
    "to": "/jobs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/house-manual",
    "to": "/jobs-hub",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/house-manual",
    "to": "/specs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/house-manual",
    "to": "/unbilled",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/invoice-review",
    "to": "/invoicing-summary",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/invoice-review",
    "to": "/trackingsheet",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/invoicing-summary",
    "to": "/invoice-review",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/invoicing-summary",
    "to": "/trackingsheet",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/budget-import",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/clients",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/house-manual",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/job-board/[id]",
    "to": "/jobs",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/jobs-hub",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/specs",
-   "kind": "link"
-  },
-  {
-   "from": "/job-board/[id]",
-   "to": "/unbilled",
    "kind": "link"
   },
   {
@@ -1059,47 +929,42 @@
   {
    "from": "/jobs",
    "to": "/budget-import",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/jobs",
    "to": "/clients",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/jobs",
    "to": "/house-manual",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/jobs",
    "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/jobs",
    "to": "/jobs-hub",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/jobs",
    "to": "/specs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/jobs",
    "to": "/unbilled",
-   "kind": "link"
-  },
-  {
-   "from": "/journal",
-   "to": "/admin/copy",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/journal",
    "to": "/ai-cost",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/journal",
@@ -1108,23 +973,8 @@
   },
   {
    "from": "/journal",
-   "to": "/changelog",
-   "kind": "link"
-  },
-  {
-   "from": "/journal",
-   "to": "/help",
-   "kind": "link"
-  },
-  {
-   "from": "/journal",
    "to": "/logs",
-   "kind": "link"
-  },
-  {
-   "from": "/journal",
-   "to": "/theme",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/labor-rates",
@@ -1163,33 +1013,13 @@
   },
   {
    "from": "/logs",
-   "to": "/admin/copy",
-   "kind": "link"
-  },
-  {
-   "from": "/logs",
    "to": "/ai-cost",
-   "kind": "link"
-  },
-  {
-   "from": "/logs",
-   "to": "/changelog",
-   "kind": "link"
-  },
-  {
-   "from": "/logs",
-   "to": "/help",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/logs",
    "to": "/journal",
-   "kind": "link"
-  },
-  {
-   "from": "/logs",
-   "to": "/theme",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/lswdd",
@@ -1249,12 +1079,12 @@
   {
    "from": "/requisitions",
    "to": "/tool-schedule",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/requisitions",
    "to": "/tools",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/requisitions",
@@ -1264,67 +1094,42 @@
   {
    "from": "/specs",
    "to": "/budget-import",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/specs",
    "to": "/clients",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/specs",
    "to": "/house-manual",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/specs",
    "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/specs",
    "to": "/jobs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/specs",
    "to": "/jobs-hub",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/specs",
    "to": "/unbilled",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/theme",
    "to": "/admin/copy",
-   "kind": "link"
-  },
-  {
-   "from": "/theme",
-   "to": "/ai-cost",
-   "kind": "link"
-  },
-  {
-   "from": "/theme",
-   "to": "/changelog",
-   "kind": "link"
-  },
-  {
-   "from": "/theme",
-   "to": "/help",
-   "kind": "link"
-  },
-  {
-   "from": "/theme",
-   "to": "/journal",
-   "kind": "link"
-  },
-  {
-   "from": "/theme",
-   "to": "/logs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/time-off",
@@ -1347,7 +1152,7 @@
   {
    "from": "/tool-schedule",
    "to": "/requisitions",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/tool-schedule",
@@ -1360,7 +1165,7 @@
   {
    "from": "/tool-schedule",
    "to": "/tools",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/tool-tracker",
@@ -1370,12 +1175,12 @@
   {
    "from": "/tools",
    "to": "/requisitions",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/tools",
    "to": "/tool-schedule",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/trackingsheet",
@@ -1385,12 +1190,12 @@
   {
    "from": "/trackingsheet",
    "to": "/invoice-review",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/trackingsheet",
    "to": "/invoicing-summary",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/trackingsheet",
@@ -1430,37 +1235,37 @@
   {
    "from": "/unbilled",
    "to": "/budget-import",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/unbilled",
    "to": "/clients",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/unbilled",
    "to": "/house-manual",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/unbilled",
    "to": "/job-board",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/unbilled",
    "to": "/jobs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/unbilled",
    "to": "/jobs-hub",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/unbilled",
    "to": "/specs",
-   "kind": "link"
+   "kind": "strip"
   },
   {
    "from": "/vendor-mail/index",
