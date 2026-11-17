@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, Segmented, Select } from "@/components/ui";
+import { Button, Input, Segmented, Select } from "@/components/ui";
 
 import type { Row } from "./PageMapPanel";
 
@@ -43,6 +43,7 @@ interface N {
   color: string;
   route?: string;
   kind: "root" | "ws" | "page" | "group";
+  isNew?: boolean;
   kids: N[];
   parent?: N;
   rel: Rel;
@@ -50,6 +51,19 @@ interface N {
   y: number;
 }
 type Overrides = Record<string, { parent: string; rel?: Rel }>;
+interface Added {
+  id: string; // "new:<n>"
+  label: string;
+  parent: string;
+  rel: Rel;
+}
+/** The whole sketch: moves, pages added, pages removed. */
+interface Sketch {
+  ov: Overrides;
+  added: Added[];
+  gone: string[];
+}
+const EMPTY: Sketch = { ov: {}, added: [], gone: [] };
 
 const REL_NAME: Record<Rel, string> = {
   menu: "Menu row",
@@ -59,7 +73,8 @@ const REL_NAME: Record<Rel, string> = {
   none: "",
 };
 const REL_SHORT: Record<Rel, string> = { menu: "", tab: "TAB", strip: "STRIP", nav: "NAV", none: "" };
-const STORE = "pagemap.overrides.v1";
+const STORE = "pagemap.sketch.v2";
+const STORE_V1 = "pagemap.overrides.v1";
 
 const W = 196;
 const H = 24;
@@ -90,7 +105,10 @@ export function PageFlow({
   const [scale, setScale] = useState(1);
   const [full, setFull] = useState(false);
   const [fake, setFake] = useState(false); // viewport-filling frame where the browser has no element fullscreen
-  const [ov, setOv] = useState<Overrides>({});
+  const [sk, setSk] = useState<Sketch>(EMPTY);
+  const { ov, added, gone } = sk;
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<{ label: string; parent: string; rel: Rel }>({ label: "", parent: "", rel: "nav" });
   const [picking, setPicking] = useState(false);
   const [note, setNote] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
@@ -99,16 +117,23 @@ export function PageFlow({
   // ---- saved changes (this device)
   useEffect(() => {
     try {
-      const v = JSON.parse(localStorage.getItem(STORE) ?? "{}");
-      if (v && typeof v === "object") setOv(v);
+      const raw = localStorage.getItem(STORE);
+      if (raw) {
+        const v = JSON.parse(raw);
+        setSk({ ov: v.ov ?? {}, added: v.added ?? [], gone: v.gone ?? [] });
+      } else {
+        const v1 = JSON.parse(localStorage.getItem(STORE_V1) ?? "{}");
+        if (v1 && typeof v1 === "object") setSk({ ...EMPTY, ov: v1 });
+      }
     } catch {}
   }, []);
-  const saveOv = (next: Overrides) => {
-    setOv(next);
+  const saveSk = (next: Sketch) => {
+    setSk(next);
     try {
       localStorage.setItem(STORE, JSON.stringify(next));
     } catch {}
   };
+  const saveOv = (next: Overrides) => saveSk({ ...sk, ov: next });
 
   const relOf = useCallback(
     (from: string, to: string): Rel => {
@@ -123,7 +148,8 @@ export function PageFlow({
 
   // ---- the tree
   const build = useCallback(
-    (over: Overrides) => {
+    (sketch: Sketch) => {
+      const over = sketch.ov;
       const byRoute = new Map(rows.map((r) => [r.route, r]));
       const nodes = new Map<string, N>();
       for (const r of rows) {
@@ -190,13 +216,30 @@ export function PageFlow({
         const rel: Rel = o.rel ?? (p.kind === "ws" ? "menu" : p.kind === "page" ? relOf(p.route!, c.route!) : "none");
         attach(p, c, rel);
       }
+      // pages added in the sketch
+      for (const a of sketch.added) {
+        const p = nodes.get(a.parent);
+        if (!p || p.kind === "group") continue;
+        const n: N = { id: a.id, route: a.id, label: a.label, color: p.kind === "root" ? "var(--viz-other)" : p.color, kind: "page", isNew: true, kids: [], rel: "none", depth: 0, y: 0 };
+        nodes.set(a.id, n);
+        attach(p, n, a.rel);
+      }
+      // pages removed in the sketch: their own pages move up to the removed page's parent
+      for (const id of sketch.gone) {
+        const c = nodes.get(id);
+        if (!c || c.kind !== "page" || c === top || !c.parent) continue;
+        const up = c.parent;
+        up.kids = up.kids.filter((k) => k !== c);
+        for (const k of c.kids) attach(up, k, up.kind === "ws" ? "menu" : k.rel);
+        nodes.delete(id);
+      }
       return { top, nodes };
     },
     [rows, workspaces, links, embeds, colorOf, relOf],
   );
 
-  const base = useMemo(() => build({}), [build]);
-  const { top: root, nodes } = useMemo(() => build(ov), [build, ov]);
+  const base = useMemo(() => build(EMPTY), [build]);
+  const { top: root, nodes } = useMemo(() => build(sk), [build, sk]);
   const baseParent = useMemo(() => {
     const m = new Map<string, string>();
     base.nodes.forEach((n, id) => n.parent && m.set(id, n.parent.id));
@@ -299,35 +342,105 @@ export function PageFlow({
 
   // ---- changes
   const selNode = sel ? nodes.get(sel) : undefined;
-  const moveTo = (routeOrId: string, parentId: string, rel?: Rel) => {
+  const isNewId = (id: string) => id.startsWith("new:");
+  const insideOf = (anc: N, n: N | undefined) => {
+    for (let x: N | undefined = n; x; x = x.parent) if (x === anc) return true;
+    return false;
+  };
+  const patchAdded = (id: string, patch: Partial<Added>) =>
+    saveSk({ ...sk, added: added.map((a) => (a.id === id ? { ...a, ...patch } : a)) });
+  const moveTo = (id: string, parentId: string, rel?: Rel) => {
+    const c = nodes.get(id);
+    const p = nodes.get(parentId);
+    if (!c || !p) return;
+    if (p === c || insideOf(c, p)) {
+      setNote("A page cannot sit under itself or its own pages");
+      setTimeout(() => setNote(""), 2500);
+      return;
+    }
+    if (isNewId(id)) {
+      const relNow: Rel = rel ?? (p.kind === "ws" ? "menu" : c.rel === "menu" || c.rel === "none" ? "nav" : c.rel);
+      patchAdded(id, { parent: parentId, rel: relNow });
+      return;
+    }
     const next = { ...ov };
-    const o = parentId === baseParent.get(routeOrId) && !rel ? undefined : { parent: parentId, ...(rel ? { rel } : {}) };
-    if (o) next[routeOrId] = o;
-    else delete next[routeOrId];
+    if (parentId === baseParent.get(id) && !rel) delete next[id];
+    else next[id] = { parent: parentId, ...(rel ? { rel } : {}) };
     saveOv(next);
   };
-  const setRel = (rel: Rel) => {
-    if (!selNode?.parent) return;
-    saveOv({ ...ov, [selNode.id]: { parent: selNode.parent.id, rel } });
+  const setRelFor = (id: string, rel: Rel) => {
+    const c = nodes.get(id);
+    if (!c?.parent) return;
+    if (isNewId(id)) patchAdded(id, { rel });
+    else saveOv({ ...ov, [id]: { parent: c.parent.id, rel } });
   };
-  const nameOfId = (id: string) => nodes.get(id)?.label ?? id;
-  const changes = Object.entries(ov)
-    .filter(([id, o]) => {
-      const c = nodes.get(id);
-      return c && c.parent?.id === o.parent;
-    })
-    .map(([id, o]) => {
-      const c = nodes.get(id)!;
-      const moved = o.parent !== baseParent.get(id);
-      const from = nameOfId(baseParent.get(id) ?? "");
-      return `${c.label} (${id}): ${moved ? `move from ${from} to ${nameOfId(o.parent)}` : `stay under ${nameOfId(o.parent)}`}${c.rel !== "none" ? `, reached as ${REL_NAME[c.rel]}` : ""}`;
-    });
+  const CYCLE: Rel[] = ["tab", "strip", "nav"];
+  const cycleRel = (id: string) => {
+    const c = nodes.get(id);
+    if (!c || c.parent?.kind !== "page") return;
+    const i = CYCLE.indexOf(c.rel);
+    setRelFor(id, CYCLE[(i + 1) % CYCLE.length]);
+  };
+  const addPage = () => {
+    const label = draft.label.trim();
+    const parent = nodes.get(draft.parent);
+    if (!label || !parent) return;
+    const id = "new:" + Date.now();
+    const rel: Rel = parent.kind === "ws" ? "menu" : draft.rel;
+    saveSk({ ...sk, added: [...added, { id, label, parent: parent.id, rel }] });
+    setDraft({ label: "", parent: draft.parent, rel: draft.rel });
+    setAdding(false);
+    setSel(id);
+  };
+  const removePage = (id: string) => {
+    const c = nodes.get(id);
+    if (!c?.parent) return;
+    const up = c.parent.id;
+    if (isNewId(id)) {
+      // its own added pages move up with it
+      saveSk({
+        ...sk,
+        added: added.filter((a) => a.id !== id).map((a) => (a.parent === id ? { ...a, parent: up } : a)),
+        ov: Object.fromEntries(Object.entries(ov).map(([k, o]) => [k, o.parent === id ? { ...o, parent: up } : o])),
+      });
+    } else {
+      const { [id]: _drop, ...rest } = ov;
+      saveSk({
+        ...sk,
+        ov: rest,
+        gone: [...gone, id],
+        added: added.map((a) => (a.parent === id ? { ...a, parent: up } : a)),
+      });
+    }
+    setSel(null);
+  };
+  const restorePage = (id: string) => saveSk({ ...sk, gone: gone.filter((g) => g !== id) });
+  const nameOfId = (id: string) => nodes.get(id)?.label ?? base.nodes.get(id)?.label ?? id;
+  const changes = [
+    ...Object.entries(ov)
+      .filter(([id, o]) => {
+        const c = nodes.get(id);
+        return c && c.parent?.id === o.parent;
+      })
+      .map(([id, o]) => {
+        const c = nodes.get(id)!;
+        const moved = o.parent !== baseParent.get(id);
+        const from = nameOfId(baseParent.get(id) ?? "");
+        return `${moved ? "MOVE" : "RE-LINK"} ${c.label} (${id}): ${moved ? `from ${from} to ${nameOfId(o.parent)}` : `under ${nameOfId(o.parent)}`}${c.rel !== "none" ? `, reached as ${REL_NAME[c.rel]}` : ""}`;
+      }),
+    ...added
+      .filter((a) => nodes.get(a.id))
+      .map((a) => `ADD "${a.label}" under ${nameOfId(a.parent)}${a.rel !== "none" ? `, reached as ${REL_NAME[a.rel]}` : ""}`),
+    ...gone
+      .filter((id) => base.nodes.get(id))
+      .map((id) => `REMOVE ${nameOfId(id)} (${id}); its pages move up to ${nameOfId(baseParent.get(id) ?? "")}`),
+  ];
 
   const outline = () => {
     const lines: string[] = [];
     const go = (n: N, d: number) => {
       const tag = n.rel === "none" || n.rel === "menu" ? (n.rel === "menu" ? " [menu]" : "") : ` [${REL_SHORT[n.rel]}]`;
-      lines.push("  ".repeat(d) + n.label + (n.route && n.route !== n.label ? ` ${n.route}` : "") + tag + (ov[n.id] ? " *moved*" : ""));
+      lines.push("  ".repeat(d) + n.label + (n.route && !n.isNew && n.route !== n.label ? ` ${n.route}` : "") + tag + (ov[n.id] ? " *moved*" : "") + (n.isNew ? " *new*" : ""));
       n.kids.forEach((k) => go(k, d + 1));
     };
     go(root, 0);
@@ -344,7 +457,7 @@ export function PageFlow({
   };
 
   // ---- drawing
-  const edges: { d: string; c: string; k: string; rel: Rel; mx: number; my: number }[] = [];
+  const edges: { d: string; c: string; k: string; rel: Rel; mx: number; my: number; cid: string; pk: N["kind"] }[] = [];
   const walk = (n: N) => {
     if (shut.has(n.id)) return;
     for (const k of n.kids) {
@@ -354,6 +467,8 @@ export function PageFlow({
       const y2 = y(k) + H / 2;
       edges.push({
         k: n.id + ">" + k.id,
+        cid: k.id,
+        pk: n.kind,
         c: k.color,
         rel: k.rel,
         mx: x2 - 24,
@@ -464,7 +579,7 @@ export function PageFlow({
           <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: "var(--danger, #b91c1c)" }} />
           no way in
         </span>
-        <span>Dashed box = moved in your sketch</span>
+        <span>Dashed box = moved or added in your sketch</span>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg bg-neutral-100 p-2 text-xs dark:bg-white/[0.07]">
@@ -495,7 +610,7 @@ export function PageFlow({
               <Segmented
                 label="How it is reached"
                 value={(selNode.rel === "none" || selNode.rel === "menu" ? "nav" : selNode.rel) as "tab" | "strip" | "nav"}
-                onChange={(v) => setRel(v)}
+                onChange={(v) => setRelFor(selNode.id, v)}
                 options={[
                   { value: "tab", label: "Tab" },
                   { value: "strip", label: "Strip" },
@@ -503,7 +618,7 @@ export function PageFlow({
                 ]}
               />
             )}
-            {ov[selNode.id] && (
+            {!isNewId(selNode.id) && ov[selNode.id] && (
               <Button
                 size="xs"
                 variant="secondary"
@@ -515,9 +630,27 @@ export function PageFlow({
                 Undo this page
               </Button>
             )}
+            <Button size="xs" variant="danger" onClick={() => removePage(selNode.id)}>
+              Remove page
+            </Button>
           </>
         ) : (
           <span className="text-neutral-500">Tap a page to move it or change how it is reached. Tap a workspace to fold it.</span>
+        )}
+        <Button size="xs" variant={adding ? "primary" : "secondary"} onClick={() => setAdding(!adding)}>
+          {adding ? "Cancel add" : "Add page"}
+        </Button>
+        {gone.some((id) => base.nodes.get(id)) && (
+          <Select aria-label="Restore a removed page" value="" onChange={(e) => e.target.value && restorePage(e.target.value)} className="!w-auto max-w-[12rem]">
+            <option value="">Restore removed…</option>
+            {gone
+              .filter((id) => base.nodes.get(id))
+              .map((id) => (
+                <option key={id} value={id}>
+                  {nameOfId(id)}
+                </option>
+              ))}
+          </Select>
         )}
         {changes.length > 0 && (
           <span className="ml-auto flex items-center gap-2">
@@ -525,12 +658,49 @@ export function PageFlow({
             <Button size="xs" variant="secondary" onClick={() => copy(changes.join("\n"), "Changes")}>
               Copy changes
             </Button>
-            <Button size="xs" variant="secondary" onClick={() => saveOv({})}>
+            <Button size="xs" variant="secondary" onClick={() => saveSk(EMPTY)}>
               Reset all
             </Button>
           </span>
         )}
       </div>
+
+      {adding && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2 text-xs">
+          <Input
+            aria-label="New page name"
+            placeholder="New page name"
+            value={draft.label}
+            onChange={(e) => setDraft({ ...draft, label: e.target.value })}
+            onKeyDown={(e) => e.key === "Enter" && addPage()}
+            className="!w-48"
+          />
+          <Select aria-label="Put it under" value={draft.parent} onChange={(e) => setDraft({ ...draft, parent: e.target.value })} className="!w-auto max-w-[14rem]">
+            <option value="">Put it under…</option>
+            {targets.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.kind === "ws" ? "Workspace: " : ""}
+                {t.label}
+              </option>
+            ))}
+          </Select>
+          {nodes.get(draft.parent)?.kind === "page" || nodes.get(draft.parent)?.kind === "root" ? (
+            <Segmented
+              label="How it is reached"
+              value={draft.rel === "menu" || draft.rel === "none" ? "nav" : (draft.rel as "tab" | "strip" | "nav")}
+              onChange={(v) => setDraft({ ...draft, rel: v })}
+              options={[
+                { value: "tab", label: "Tab" },
+                { value: "strip", label: "Strip" },
+                { value: "nav", label: "Nav" },
+              ]}
+            />
+          ) : null}
+          <Button size="xs" onClick={addPage} disabled={!draft.label.trim() || !draft.parent}>
+            Add
+          </Button>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -555,9 +725,15 @@ export function PageFlow({
               const t = REL_SHORT[e.rel];
               const w = t.length * 6 + 8;
               return (
-                <g key={"b" + e.k} transform={`translate(${e.mx - w / 2} ${e.my - 7})`} pointerEvents="none">
+                <g
+                  key={"b" + e.k}
+                  transform={`translate(${e.mx - w / 2} ${e.my - 7})`}
+                  onClick={() => cycleRel(e.cid)}
+                  style={{ cursor: e.pk === "page" ? "pointer" : "default" }}
+                >
+                  <title>{e.pk === "page" ? "Click to change: Tab, Strip, Nav" : REL_NAME[e.rel]}</title>
                   <rect width={w} height={14} rx={3} fill="var(--chart-badge, #fff)" stroke={e.c} strokeWidth={1} />
-                  <text x={w / 2} y={10.5} fontSize={9} fontWeight={700} textAnchor="middle" fill="#444">
+                  <text x={w / 2} y={10.5} fontSize={9} style={{ userSelect: "none" }} fontWeight={700} textAnchor="middle" fill="#444">
                     {t}
                   </text>
                 </g>
@@ -568,7 +744,7 @@ export function PageFlow({
             const on = !!n.route && n.route === sel;
             const dim = r ? !match(r) : false;
             const big = n.kind !== "page";
-            const moved = !!n.parent && ov[n.id]?.parent === n.parent.id;
+            const moved = n.isNew || (!!n.parent && ov[n.id]?.parent === n.parent.id);
             return (
               <g
                 key={n.id}
@@ -599,6 +775,11 @@ export function PageFlow({
                   {trunc(n.label)}
                   {shut.has(n.id) ? `  (+${count(n)})` : ""}
                 </text>
+                {n.isNew && (
+                  <text x={W - 28} y={H / 2 + 4} fontSize={9} fontWeight={700} fill="var(--ok, #047857)">
+                    NEW
+                  </text>
+                )}
                 {r?.p7 && <circle cx={W - 10} cy={H / 2} r={4} fill="var(--warn, #b45309)" />}
                 {r && !r.menu && r.bars.length === 0 && r.inn.length + r.embedsIn.length === 0 && (
                   <circle cx={W - 10} cy={H / 2} r={4} fill="var(--danger, #b91c1c)" />
