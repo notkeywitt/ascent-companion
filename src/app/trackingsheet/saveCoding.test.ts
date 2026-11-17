@@ -69,7 +69,7 @@ const data = {
 /** No staged structural ops; `run` answers with whatever the test wants. */
 function noOps(run: LineOps["run"] = async () => ({ done: [], failures: [], voided: [] })): LineOps {
   return {
-    view: { deleted: new Map(), bought: new Map(), adds: [], voids: new Map(), unstageAdd: () => {} },
+    view: { deleted: new Map(), bought: new Map(), adds: [], voids: new Map(), unstageAdd: () => {}, stageAdd: () => {} },
     count: 0,
     toggleDelete: () => {},
     stageAdd: () => {},
