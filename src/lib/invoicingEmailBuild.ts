@@ -35,7 +35,14 @@ export interface SummaryPdf {
   folderUrl: string;
 }
 
-export async function buildInvoicingEmail(ym: string) {
+/**
+ * `fresh` makes Apps Script re-read JobTread for the month instead of answering
+ * from its cache (up to six hours old). Drafting passes it: the invoice links come
+ * from that read, and a voided or re-made invoice must not reach the email. The
+ * fresh read also refreshes Apps Script's cache, so the stale check that follows
+ * (fresh off, because it runs on every page open) compares against the same data.
+ */
+export async function buildInvoicingEmail(ym: string, { fresh = false }: { fresh?: boolean } = {}) {
   const m = /^(\d{4})-(\d{2})$/.exec(ym);
   if (!m) throw new EmailBuildError("ym must look like 2026-09.", 400);
 
@@ -45,7 +52,7 @@ export async function buildInvoicingEmail(ym: string) {
     docTitle: string;
     invoiceMonthLabel: string;
     jobs: PackageJob[];
-  }>({ action: "invoicingSummary", month: Number(m[2]), year: Number(m[1]) }, { timeoutMs: 110_000 });
+  }>({ action: "invoicingSummary", month: Number(m[2]), year: Number(m[1]), fresh }, { timeoutMs: 110_000 });
   // Each failure names its step: reading the month (Apps Script), building the
   // email (JobTread), or saving the draft (the route).
   if (sum.error) throw new EmailBuildError(`Reading the month: ${sum.error}`, sum.status);
