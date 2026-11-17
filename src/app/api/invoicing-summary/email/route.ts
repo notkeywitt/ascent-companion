@@ -14,9 +14,9 @@ import { getMonthAction, recordMonthAction } from "@/lib/monthActions";
  * that month's draft with the latest (Apps Script keeps the draft id). Gated by
  * the `invoicing-summary` view's /api/invoicing-summary prefix.
  *
- * Reads: the month's package (Apps Script's cached read, the one
- * /invoicing-summary shows — so its include/exclude, labels and notes carry into
- * the email), the invoices' ids and QuickBooks ids, the jobs' phases and each
+ * Reads: the month's package (Apps Script, read FRESH from JobTread so the
+ * invoice links are live, not the cached month; its include/exclude, labels and
+ * notes still carry into the email), the invoices' ids and QuickBooks ids, the jobs' phases and each
  * job's summary (JobTread). Then Apps Script files each PDF, resolves each link
  * and saves the draft. On success the email's fingerprint is stamped.
  *
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   }
   const ym = String(((await req.json().catch(() => ({}))) as { ym?: unknown }).ym ?? "");
   try {
-    const built = await buildInvoicingEmail(ym);
+    const built = await buildInvoicingEmail(ym, { fresh: true });
     const { email, sheetPdfLinks, summaryPdfs, warnings, fingerprint } = built;
     const res = await callAppsScript<{
       ok?: boolean;
