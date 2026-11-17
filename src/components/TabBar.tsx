@@ -212,6 +212,12 @@ const MapPinIcon = () => (
     <circle cx="12" cy="9.5" r="2.5" />
   </IconBase>
 );
+const RoadmapIcon = () => (
+  <IconBase>
+    <path d="M4 20V4" />
+    <path d="M4 5h13l-2.5 3.5L17 12H4" />
+  </IconBase>
+);
 const MailIcon = () => (
   <IconBase>
     <rect x="3" y="5" width="18" height="14" rx="2" />
@@ -287,6 +293,7 @@ const ICONS: Record<string, () => React.ReactNode> = {
   "bill-search": SearchIcon,
   leads: UserPlusIcon,
   requests: MessageIcon,
+  roadmap: RoadmapIcon,
   chat: MessageIcon,
   lopezrocks: MapPinIcon,
 };
