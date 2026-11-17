@@ -15,6 +15,8 @@ The values live in two files and nowhere else:
 
 Moved here from `CLAUDE.md` so they load only for UI work.
 
+- **No page subtitle.** A new page's `PageHeader` has a title and no
+  `description`. Put help in the page body only when a task needs it.
 - **UI design system:** `src/components/ui.tsx` — **build every UI on these
   primitives**, never hand-rolled styles (`PageHeader`, `Card`, `Input`, `Select`,
   `Textarea`, `Button`, `Banner`, `Loading`, `EmptyState`, `SectionLabel`, `Toggle`),

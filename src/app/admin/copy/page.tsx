@@ -21,9 +21,12 @@ import {
  * Save writes an override row; the change is live on the next page load, with
  * no rebuild — the layout reads overrides per request.
  *
- * CLEARING a box reverts that string to the wording shipped in the code, which
- * is why there's no separate delete: blank means "use the default".
+ * Each field has three radio choices: Default (the wording shipped in the code),
+ * Custom (the text box turns on) and Blank (show nothing). Default and Blank
+ * turn the text box off.
  */
+
+type Mode = "default" | "custom" | "blank";
 
 interface Entry {
   key: string;
@@ -33,6 +36,11 @@ interface Entry {
   text: string; // shipped default
   value: string; // what renders today
   overridden: boolean;
+  blank: boolean;
+}
+
+function savedMode(e: Entry): Mode {
+  return e.blank ? "blank" : e.overridden ? "custom" : "default";
 }
 
 interface Group {
@@ -43,6 +51,7 @@ interface Group {
 export default function PageTextEditor() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [modes, setModes] = useState<Record<string, Mode>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState<string | null>(null);
@@ -56,8 +65,14 @@ export default function PageTextEditor() {
       const json = (await res.json()) as { groups: Group[] };
       setGroups(json.groups);
       const d: Record<string, string> = {};
-      for (const g of json.groups) for (const e of g.entries) d[e.key] = e.value;
+      const m: Record<string, Mode> = {};
+      for (const g of json.groups)
+        for (const e of g.entries) {
+          d[e.key] = e.blank ? e.text : e.value;
+          m[e.key] = savedMode(e);
+        }
       setDraft(d);
+      setModes(m);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Load failed");
     } finally {
@@ -76,9 +91,18 @@ export default function PageTextEditor() {
       const res = await fetch("/api/admin/copy", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: entry.key, value: draft[entry.key] ?? "" }),
+        body: JSON.stringify({
+          key: entry.key,
+          mode: modes[entry.key] ?? "default",
+          value: draft[entry.key] ?? "",
+        }),
       });
-      const json = (await res.json()) as { value?: string; overridden?: boolean; error?: string };
+      const json = (await res.json()) as {
+        value?: string;
+        overridden?: boolean;
+        mode?: Mode;
+        error?: string;
+      };
       if (!res.ok) throw new Error(json.error ?? `Save failed (${res.status})`);
       // Reflect what the server actually stored (a cleared box comes back as the
       // shipped default), so the box and the badge can't drift from the DB.
@@ -87,12 +111,20 @@ export default function PageTextEditor() {
           ...g,
           entries: g.entries.map((e) =>
             e.key === entry.key
-              ? { ...e, value: json.value ?? e.text, overridden: json.overridden ?? false }
+              ? {
+                  ...e,
+                  value: json.value ?? e.text,
+                  overridden: json.overridden ?? false,
+                  blank: json.mode === "blank",
+                }
               : e,
           ),
         })),
       );
-      setDraft((d) => ({ ...d, [entry.key]: json.value ?? entry.text }));
+      setDraft((d) => ({
+        ...d,
+        [entry.key]: json.mode === "custom" ? (json.value ?? entry.text) : entry.text,
+      }));
       toast("Saved");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
@@ -106,10 +138,7 @@ export default function PageTextEditor() {
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 lg:max-w-[1600px]">
       <PageTabs tabs={LOOK_TABS} />
-      <PageHeader
-        title="Page Text"
-        description="Reword what the app says. Changes go live immediately — no deploy."
-      />
+      <PageHeader title="Page Text" />
 
       {error && (
         <Banner tone="error" className="mb-4">
@@ -118,7 +147,7 @@ export default function PageTextEditor() {
       )}
 
       <Banner tone="info" className="mb-6">
-        Clear a box and save to put back the original wording.
+        Pick Default, Custom or Blank for each line. Custom turns the box on. Blank shows nothing.
       </Banner>
 
       <div className="lg:columns-2 lg:gap-8 2xl:columns-3">
@@ -127,13 +156,16 @@ export default function PageTextEditor() {
           <SectionHeading>{g.group}</SectionHeading>
           <div className="rounded-lg border border-line">
             {g.entries.map((e, i) => {
-              const value = draft[e.key] ?? "";
-              const dirty = value !== e.value;
+              const mode = modes[e.key] ?? "default";
+              const value = mode === "default" ? e.text : (draft[e.key] ?? "");
+              const dirty =
+                mode !== savedMode(e) || (mode === "custom" && value !== e.value);
               const isLong = !e.short && e.text.length > 40;
               // A dropped {token} silently loses the value it stood for (the
               // month, a count), so say so before it's saved — but don't block
               // it: a rewording that genuinely doesn't need the value is valid.
-              const missing = e.tokens.filter((t) => !value.includes(`{${t}}`));
+              const missing =
+                mode === "custom" ? e.tokens.filter((t) => !value.includes(`{${t}}`)) : [];
               return (
                 <div
                   key={e.key}
@@ -142,21 +174,39 @@ export default function PageTextEditor() {
                   <label htmlFor={e.key} className="mb-2 block text-sm font-medium">
                     {e.label}
                     {e.overridden && (
-                      <span className="ml-2 text-xs font-normal text-neutral-500">edited</span>
+                      <span className="ml-2 text-xs font-normal text-neutral-500">
+                        {e.blank ? "blank" : "edited"}
+                      </span>
                     )}
                   </label>
+
+                  <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                    {(["default", "custom", "blank"] as const).map((m) => (
+                      <label key={m} className="inline-flex items-center gap-1.5">
+                        <input
+                          type="radio"
+                          name={`mode-${e.key}`}
+                          checked={mode === m}
+                          onChange={() => setModes((s) => ({ ...s, [e.key]: m }))}
+                        />
+                        {m === "default" ? "Default" : m === "custom" ? "Custom" : "Blank"}
+                      </label>
+                    ))}
+                  </div>
 
                   {isLong ? (
                     <Textarea
                       id={e.key}
                       rows={2}
-                      value={value}
+                      disabled={mode !== "custom"}
+                      value={mode === "blank" ? "" : value}
                       onChange={(ev) => setDraft((d) => ({ ...d, [e.key]: ev.target.value }))}
                     />
                   ) : (
                     <Input
                       id={e.key}
-                      value={value}
+                      disabled={mode !== "custom"}
+                      value={mode === "blank" ? "" : value}
                       onChange={(ev) => setDraft((d) => ({ ...d, [e.key]: ev.target.value }))}
                     />
                   )}
@@ -175,24 +225,13 @@ export default function PageTextEditor() {
                   <div className="mt-2 flex items-center gap-3">
                     <Button
                       onClick={() => void save(e)}
-                      disabled={!dirty || saving === e.key}
+                      disabled={!dirty || saving === e.key || (mode === "custom" && value.trim() === "")}
                     >
                       {saving === e.key ? "Saving…" : "Save"}
                     </Button>
-                    {e.overridden && !dirty && (
-                      <button
-                        type="button"
-                        className="text-xs underline text-neutral-500"
-                        onClick={() => {
-                          setDraft((d) => ({ ...d, [e.key]: "" }));
-                        }}
-                      >
-                        Revert to default
-                      </button>
-                    )}
                   </div>
 
-                  {e.overridden && (
+                  {e.overridden && mode !== "default" && (
                     <p className="mt-2 text-xs text-neutral-500">
                       Default: {e.text}
                     </p>

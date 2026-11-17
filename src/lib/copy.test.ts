@@ -8,6 +8,7 @@ import {
   fillTokens,
   pruneOverrides,
   resolveCopy,
+  BLANK_COPY,
 } from "./copy";
 
 /**
@@ -21,6 +22,11 @@ import {
  */
 describe("resolveCopy", () => {
   const key = "home.dest.recode.label";
+
+  it("renders nothing for the blank marker", () => {
+    const key = Object.keys(COPY)[0];
+    expect(resolveCopy({ [key]: BLANK_COPY }, key)).toBe("");
+  });
 
   it("returns the shipped default when there is no override", () => {
     expect(resolveCopy({}, key)).toBe(COPY[key].text);

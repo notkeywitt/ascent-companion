@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Banner, Button, Textarea } from "@/components/ui";
 import { useCopyEdit } from "@/components/CopyProvider";
-import { COPY, resolveCopy } from "@/lib/copy";
+import { BLANK_COPY, COPY, resolveCopy } from "@/lib/copy";
 
 /**
  * Admin → edit page text IN PLACE. While "Edit page text" is on (the ☰ menu or
@@ -156,7 +156,7 @@ function Editor({ open, onClose }: { open: Open; onClose: () => void }) {
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? "Save failed");
-      setOverride(key, j.overridden ? j.value : null);
+      setOverride(key, j.overridden ? (j.mode === "blank" ? BLANK_COPY : j.value) : null);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Save failed");
