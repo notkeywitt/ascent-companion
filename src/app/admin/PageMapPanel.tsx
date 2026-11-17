@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { Banner, Card, FilterChip, Input, SectionLabel } from "@/components/ui";
+import { Banner, Card, FilterChip, Input, SectionLabel, Segmented } from "@/components/ui";
+import { PageFlow } from "./PageFlow";
 import raw from "@/lib/pageMap.generated.json";
 import { ROLE_VIEWS, ROLES, VIEWS, viewIdForPath, type Role } from "@/lib/views";
 import {
@@ -53,7 +54,7 @@ const OUTSIDE = "outside";
 /** Eight chart colours, then they repeat; the name is always written beside the colour. */
 const hue = (i: number) => (i < 0 ? "var(--viz-other)" : `var(--viz-${(i % 8) + 1})`);
 
-interface Row {
+export interface Row {
   route: string;
   label: string;
   ws: string; // workspace id or OUTSIDE
@@ -115,6 +116,13 @@ function build(): { rows: Row[]; wsIndex: Map<string, number> } {
       views30: null,
     };
   });
+  // Pages that share a gate share its label. A page with no menu row of its
+  // own that repeats a label shows its route instead, so every node reads apart.
+  const used = new Map<string, number>();
+  for (const r of rows) used.set(r.label, (used.get(r.label) ?? 0) + 1);
+  for (const r of rows) {
+    if ((used.get(r.label) ?? 0) > 1 && !tabByHref.has(r.route)) r.label = r.route;
+  }
   return { rows, wsIndex };
 }
 
@@ -128,6 +136,7 @@ export function PageMapPanel() {
   const [role, setRole] = useState<Role | null>(null);
   const [lens, setLens] = useState<"" | "p7" | "noway">("");
   const [sel, setSel] = useState<string | null>(null);
+  const [mode, setMode] = useState<"flow" | "cards">("flow");
 
   useEffect(() => {
     let live = true;
@@ -156,17 +165,25 @@ export function PageMapPanel() {
   };
   const nameOf = (route: string) => byRoute.get(route)?.label ?? route;
 
-  const groups = useMemo(() => {
+  const keepNoWs = (r: Row) => {
     const needle = q.trim().toLowerCase();
-    const keep = (r: Row) =>
-      (!wsOn || r.ws === wsOn) &&
+    return (
       (!role || r.roles.includes(role)) &&
       (lens === "" || (lens === "p7" ? !!r.p7 : noWay(r))) &&
-      (!needle || (r.label + " " + r.route).toLowerCase().includes(needle));
+      (!needle || (r.label + " " + r.route).toLowerCase().includes(needle))
+    );
+  };
+  const wsList = useMemo(
+    () => WORKSPACES.map((w, i) => ({ id: w.id, title: w.title, color: hue(i) })),
+    [],
+  );
+  const groups = useMemo(() => {
+    const keep = (r: Row) => (!wsOn || r.ws === wsOn) && keepNoWs(r);
     const order = [...WORKSPACES.map((w) => ({ id: w.id, title: w.title })), { id: OUTSIDE, title: "Reached only from other pages, or on no menu" }];
     return order
       .map((g) => ({ ...g, rows: rows.filter((r) => (r.ws === g.id || (g.id === OUTSIDE && r.ws === OUTSIDE)) && keep(r)) }))
       .filter((g) => g.rows.length > 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, q, wsOn, role, lens]);
 
   const picked = sel ? byRoute.get(sel) : undefined;
@@ -174,7 +191,7 @@ export function PageMapPanel() {
 
   const jump = (route: string) => {
     setSel(route);
-    requestAnimationFrame(() => document.getElementById("pm-" + route)?.scrollIntoView({ block: "center", behavior: "smooth" }));
+    if (mode === "cards") requestAnimationFrame(() => document.getElementById("pm-" + route)?.scrollIntoView({ block: "center", behavior: "smooth" }));
   };
 
   return (
@@ -220,7 +237,42 @@ export function PageMapPanel() {
         </div>
       )}
 
-      <div className="mt-5 space-y-6">
+      <div className="mt-3">
+        <Segmented
+          label="View"
+          value={mode}
+          onChange={setMode}
+          options={[
+            { value: "flow", label: "Flow chart" },
+            { value: "cards", label: "Cards" },
+          ]}
+        />
+      </div>
+
+      {mode === "flow" && (
+        <div className="mt-4">
+          <PageFlow
+            rows={rows}
+            workspaces={wsList}
+            links={MAP.links}
+            embeds={MAP.embeds}
+            colorOf={colorOf}
+            match={keepNoWs}
+            sel={sel}
+            setSel={setSel}
+          />
+          {picked && (
+            <Card pad={false} className="mt-3">
+              <div className="px-3 pt-2 text-sm font-semibold">
+                {picked.label} <span className="font-mono text-[11px] font-normal text-neutral-500">{picked.route}</span>
+              </div>
+              <Detail r={picked} colorOf={colorOf} nameOf={nameOf} jump={jump} />
+            </Card>
+          )}
+        </div>
+      )}
+
+      <div className={mode === "cards" ? "mt-5 space-y-6" : "hidden"}>
         {groups.map((g) => {
           const c = hue(g.id === OUTSIDE ? -1 : wsIndex.get(g.id) ?? -1);
           return (
