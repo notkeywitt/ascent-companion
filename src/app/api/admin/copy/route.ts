@@ -4,8 +4,10 @@
  *
  * GET  → { entries: [{ key, label, group, text, value, overridden }] }
  *        `text` is the shipped default, `value` is what renders today.
- * PUT  { key, value } → upsert ONE override. A blank/whitespace value DELETES
- *        the row, which is how the editor's "revert to default" works.
+ * PUT  { key, mode?, value } → upsert ONE override.
+ *        mode "default" (or no mode + blank value) DELETES the row: revert.
+ *        mode "blank" stores BLANK_COPY: the text shows nothing.
+ *        mode "custom" (or no mode) stores `value`.
  *
  * Admin-only, same `requireAdmin()` shape as /api/team/roles. Writes are keyed
  * to the registry: an unknown key is rejected, so no dangling row can be created
@@ -21,7 +23,7 @@ import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
 import { pageCopy } from "@/db/schema";
 import { auth, envAllowed } from "@/auth";
-import { COPY, copyByGroup, resolveCopy } from "@/lib/copy";
+import { BLANK_COPY, COPY, copyByGroup, resolveCopy } from "@/lib/copy";
 
 async function requireAdmin(): Promise<boolean> {
   const session = await auth();
@@ -58,6 +60,7 @@ export async function GET() {
       text: COPY[key].text, // shipped default
       value: resolveCopy(overrides, key), // what renders today
       overridden: typeof overrides[key] === "string" && overrides[key].trim() !== "",
+      blank: overrides[key] === BLANK_COPY,
     })),
   }));
   return NextResponse.json({ groups });
@@ -66,7 +69,7 @@ export async function GET() {
 export async function PUT(req: NextRequest) {
   if (!(await requireAdmin())) return FORBIDDEN;
 
-  let body: { key?: unknown; value?: unknown };
+  let body: { key?: unknown; value?: unknown; mode?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -78,14 +81,22 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: `Unknown copy key: ${key}` }, { status: 400 });
   }
   const raw = typeof body.value === "string" ? body.value : "";
-  const value = raw.trim();
+  const mode = body.mode === "blank" || body.mode === "default" || body.mode === "custom" ? body.mode : null;
+  // No mode (the in-place editor): empty text means "revert to default".
+  const value = mode === "blank" ? BLANK_COPY : mode === "default" ? "" : raw.trim();
 
   await ensureDb();
 
-  // Blank = revert: drop the row so the shipped default renders again.
+  // Default = drop the row so the shipped default renders again.
   if (value === "") {
     await db.delete(pageCopy).where(eq(pageCopy.key, key));
-    return NextResponse.json({ ok: true, key, value: COPY[key].text, overridden: false });
+    return NextResponse.json({
+      ok: true,
+      key,
+      value: COPY[key].text,
+      overridden: false,
+      mode: "default",
+    });
   }
 
   await db
@@ -101,5 +112,12 @@ export async function PUT(req: NextRequest) {
       set: { value, updatedAt: new Date().toISOString(), updatedBy: await currentEmail() },
     });
 
-  return NextResponse.json({ ok: true, key, value, overridden: true });
+  const blank = value === BLANK_COPY;
+  return NextResponse.json({
+    ok: true,
+    key,
+    value: blank ? "" : value,
+    overridden: true,
+    mode: blank ? "blank" : "custom",
+  });
 }

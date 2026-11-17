@@ -422,6 +422,13 @@ export const COPY: Record<string, CopyEntry> = {
 
 export type CopyKey = keyof typeof COPY;
 
+/**
+ * The value stored in `page_copy` when the office picks "Blank" — the text
+ * renders as nothing. A truly empty row cannot mean this: empty means "use the
+ * default". No schema change needed; this marker is an ordinary string.
+ */
+export const BLANK_COPY = "{{blank}}";
+
 /** Every registry id, in declaration order. */
 export const ALL_COPY_KEYS: string[] = Object.keys(COPY);
 
@@ -458,6 +465,8 @@ export function resolveCopy(
   vars?: Record<string, string | number>,
 ): string {
   const override = overrides[key];
+  // The stored marker for "show nothing" — see BLANK_COPY.
+  if (override === BLANK_COPY) return "";
   const text =
     typeof override === "string" && override.trim() !== "" ? override : defaultCopy(key);
   return fillTokens(text, vars);
