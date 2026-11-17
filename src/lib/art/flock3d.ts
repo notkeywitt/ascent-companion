@@ -11,16 +11,16 @@
  * box; wrap sends a bird that leaves one face in at the opposite one.
  * Pure: no DOM.
  */
-import type { FlockBirdInit, FlockParams } from "./flock";
+import { MAX_SIGHT, type FlockBirdInit, type FlockParams } from "./flock";
 
 export const SIDE = 1000;
 const R = 58; // how far a bird sees its own flock
-const SEP = 24; // how close is too close
+const SEP = 32; // how close is too close (loose flocks fill the box: owner, 2026-11-17)
 const SHY = 280; // unrelated flocks keep about this far apart
 const BASE_SPEED = 2.6;
 const MIN_SPEED = 0.9;
 const MARGIN = 70;
-const CELL = R;
+const CELL = R * MAX_SIGHT;
 
 export class Flock3D {
   n: number;
@@ -32,6 +32,11 @@ export class Flock3D {
   vz: Float32Array;
   group: Int32Array;
   size: Float32Array;
+  /** Per bird: top-speed factor, sight factor, drawn scale and hue shade. */
+  speed: Float32Array;
+  sight: Float32Array;
+  scale: Float32Array;
+  shade: Float32Array;
   groups: number;
   params: FlockParams;
   cx: Float32Array;
@@ -67,6 +72,10 @@ export class Flock3D {
     this.vz = new Float32Array(n);
     this.group = Int32Array.from(birds, (b) => b.group);
     this.size = Float32Array.from(birds, (b) => b.size);
+    this.speed = Float32Array.from(birds, (b) => b.speed ?? 1);
+    this.sight = Float32Array.from(birds, (b) => Math.min(MAX_SIGHT, b.sight ?? 1));
+    this.scale = Float32Array.from(birds, (b) => b.scale ?? 1);
+    this.shade = Float32Array.from(birds, (b) => b.shade ?? 0);
     this.groups = params.pace.length;
     this.params = params;
     this.cx = new Float32Array(this.groups);
@@ -243,13 +252,14 @@ export class Flock3D {
             inZ(BZ * ((g * 0.23) % 1) + t * Math.sin(ph) * 0.7),
           ]
         : [
-            BX / 2 + BX * 0.2 * Math.cos(t * (0.0019 + 0.0002 * (g % 5)) + ph),
-            BY / 2 + BY * 0.16 * Math.sin(t * (0.0013 + 0.00017 * (g % 7)) + ph * 1.7),
-            BZ / 2 + BZ * 0.2 * Math.sin(t * (0.0016 + 0.00021 * (g % 3)) + ph * 0.6),
+            // Wide loops (owner, 2026-11-17): the flocks use most of the box.
+            BX / 2 + BX * 0.33 * Math.cos(t * (0.0019 + 0.0002 * (g % 5)) + ph),
+            BY / 2 + BY * 0.3 * Math.sin(t * (0.0013 + 0.00017 * (g % 7)) + ph * 1.7),
+            BZ / 2 + BZ * 0.3 * Math.sin(t * (0.0016 + 0.00021 * (g % 3)) + ph * 0.6),
           ];
-      gv[g * 3] += dX(this.cx[g], goal[0]) * 0.0011;
-      gv[g * 3 + 1] += dY(this.cy[g], goal[1]) * 0.0011;
-      gv[g * 3 + 2] += dZ(this.cz[g], goal[2]) * 0.0011;
+      gv[g * 3] += dX(this.cx[g], goal[0]) * 0.0016;
+      gv[g * 3 + 1] += dY(this.cy[g], goal[1]) * 0.0016;
+      gv[g * 3 + 2] += dZ(this.cz[g], goal[2]) * 0.0016;
       const aff = this.params.affinity[g];
       for (let k = 0; k < G; k++) {
         if (k === g || !this.count[k]) continue;
@@ -303,6 +313,7 @@ export class Flock3D {
       let coy = 0;
       let coz = 0;
       let same = 0;
+      const r2 = (R * this.sight[i]) ** 2;
       const ci = cOf(x[i], cxN);
       const cj = cOf(y[i], cyN);
       const ck = cOf(z[i], czN);
@@ -324,7 +335,7 @@ export class Flock3D {
               const dy = dY(y[i], y[j]);
               const dz = dZ(z[i], z[j]);
               const dd = dx * dx + dy * dy + dz * dz;
-              if (dd > R * R) continue;
+              if (dd > r2) continue;
               if (dd < SEP * SEP && dd > 1e-6) {
                 const d = Math.sqrt(dd);
                 sx -= dx / d / d;
@@ -355,9 +366,9 @@ export class Flock3D {
       // Close flocks (owner, 2026-11-16): a firm pull to the group's centre,
       // and the roaming goals stay near the middle of the box, so flocks hold
       // together and stay near each other.
-      fx += dX(x[i], this.cx[g]) * 0.0007 + gv[g * 3];
-      fy += dY(y[i], this.cy[g]) * 0.0007 + gv[g * 3 + 1];
-      fz += dZ(z[i], this.cz[g]) * 0.0007 + gv[g * 3 + 2];
+      fx += dX(x[i], this.cx[g]) * 0.00045 + gv[g * 3];
+      fy += dY(y[i], this.cy[g]) * 0.00045 + gv[g * 3 + 1];
+      fz += dZ(z[i], this.cz[g]) * 0.00045 + gv[g * 3 + 2];
       if (hawk) {
         const dx = dX(hawk.x, x[i]);
         const dy = dY(hawk.y, y[i]);
@@ -393,7 +404,7 @@ export class Flock3D {
       vx[i] += ax[i];
       vy[i] += ay[i];
       vz[i] += az[i];
-      const top = BASE_SPEED * (this.params.pace[group[i]] ?? 1);
+      const top = BASE_SPEED * (this.params.pace[group[i]] ?? 1) * this.speed[i];
       const sp = Math.hypot(vx[i], vy[i], vz[i]) || 1e-6;
       const k = sp > top ? top / sp : sp < MIN_SPEED ? MIN_SPEED / sp : 1;
       vx[i] *= k;

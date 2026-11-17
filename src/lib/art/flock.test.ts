@@ -139,3 +139,31 @@ describe("wrap-around edges", () => {
     expect(Math.min(f.cx[0], 400 - f.cx[0])).toBeLessThan(20);
   });
 });
+
+describe("per-bird differences", () => {
+  it("gives each bird a small scale, speed and sight, and one shade per link", () => {
+    const items: FlockItem[] = Array.from({ length: 60 }, (_, i) => ({
+      key: "job",
+      link: i % 2 ? "vendor a" : "vendor b",
+      value: 10,
+      date: "",
+    }));
+    const { birds } = flockSetup(items);
+    for (const b of birds) {
+      for (const v of [b.scale, b.speed, b.sight]) {
+        expect(v).toBeGreaterThanOrEqual(0.85);
+        expect(v).toBeLessThanOrEqual(1.15);
+      }
+      expect(Math.abs(b.shade ?? 0)).toBeLessThanOrEqual(1);
+    }
+    expect(new Set(birds.map((b) => b.speed)).size).toBeGreaterThan(30);
+    expect(birds[1].shade).toBe(birds[3].shade);
+    expect(birds[0].shade).toBe(birds[2].shade);
+  });
+
+  it("caps a bird's speed at its group's pace times its own speed", () => {
+    const f = new Flock([{ group: 0, size: 1, speed: 0.85 }], { pace: [1], affinity: [] }, 300, 300);
+    for (let s = 0; s < 50; s++) f.step({ x: 150, y: 150 });
+    expect(Math.hypot(f.vx[0], f.vy[0])).toBeLessThanOrEqual(1.6 * 0.85 + 1e-4);
+  });
+});

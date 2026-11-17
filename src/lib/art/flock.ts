@@ -28,7 +28,18 @@ export interface FlockBirdInit {
   group: number;
   /** 0..1, how big the bird draws (from its row's value). */
   size: number;
+  /** Each bird's own small differences (owner, 2026-11-17), about 0.85..1.15:
+   *  its drawn scale, its top speed and how far it sees. Missing means 1. */
+  scale?: number;
+  speed?: number;
+  sight?: number;
+  /** -1..1, a shift of the bird's hue within its flock's colour, from its
+   *  row's link (the vendor of a job's bill line, say). Missing means 0. */
+  shade?: number;
 }
+
+/** The largest `sight` a bird can have; the neighbour grid is sized for it. */
+export const MAX_SIGHT = 1.15;
 
 export interface FlockParams {
   /** Groups' top-speed factors, about 0.6..1.6. */
@@ -43,6 +54,7 @@ const SHY = 170; // unrelated flocks keep about this far apart
 const BASE_SPEED = 1.6; // px per step at pace 1
 const MIN_SPEED = 0.55;
 const MARGIN = 36;
+const CELL = R * MAX_SIGHT;
 
 export class Flock {
   n: number;
@@ -54,6 +66,11 @@ export class Flock {
   vy: Float32Array;
   group: Int32Array;
   size: Float32Array;
+  /** Per bird: top-speed factor, sight factor, drawn scale and hue shade. */
+  speed: Float32Array;
+  sight: Float32Array;
+  scale: Float32Array;
+  shade: Float32Array;
   groups: number;
   params: FlockParams;
   /** Each group's centre and count, refreshed every step. */
@@ -90,6 +107,10 @@ export class Flock {
     this.vy = new Float32Array(this.n);
     this.group = Int32Array.from(birds, (b) => b.group);
     this.size = Float32Array.from(birds, (b) => b.size);
+    this.speed = Float32Array.from(birds, (b) => b.speed ?? 1);
+    this.sight = Float32Array.from(birds, (b) => Math.min(MAX_SIGHT, b.sight ?? 1));
+    this.scale = Float32Array.from(birds, (b) => b.scale ?? 1);
+    this.shade = Float32Array.from(birds, (b) => b.shade ?? 0);
     this.groups = params.pace.length;
     this.params = params;
     this.cx = new Float32Array(this.groups);
@@ -271,13 +292,14 @@ export class Flock {
       }
     }
 
-    // A grid of cells R wide, so each bird looks at its neighbours only.
-    const cols = Math.max(1, Math.ceil(w / R));
-    const rows = Math.max(1, Math.ceil(h / R));
+    // A grid of cells CELL wide (the farthest any bird sees), so each bird
+    // looks at its neighbours only.
+    const cols = Math.max(1, Math.ceil(w / CELL));
+    const rows = Math.max(1, Math.ceil(h / CELL));
     const head = new Int32Array(cols * rows).fill(-1);
     const next = new Int32Array(n);
     const cellOf = (i: number) =>
-      Math.min(rows - 1, Math.max(0, Math.floor(y[i] / R))) * cols + Math.min(cols - 1, Math.max(0, Math.floor(x[i] / R)));
+      Math.min(rows - 1, Math.max(0, Math.floor(y[i] / CELL))) * cols + Math.min(cols - 1, Math.max(0, Math.floor(x[i] / CELL)));
     for (let i = 0; i < n; i++) {
       if (!live[i]) continue;
       const c = cellOf(i);
@@ -297,8 +319,9 @@ export class Flock {
       let cox = 0;
       let coy = 0;
       let same = 0;
-      const ccol = Math.min(cols - 1, Math.max(0, Math.floor(x[i] / R)));
-      const crow = Math.min(rows - 1, Math.max(0, Math.floor(y[i] / R)));
+      const r2 = (R * this.sight[i]) ** 2;
+      const ccol = Math.min(cols - 1, Math.max(0, Math.floor(x[i] / CELL)));
+      const crow = Math.min(rows - 1, Math.max(0, Math.floor(y[i] / CELL)));
       // With wrapping edges the neighbouring cells wrap too (when the grid is
       // at least three cells across, so no cell is visited twice).
       const wrapC = wrap && cols >= 3;
@@ -316,7 +339,7 @@ export class Flock {
             const dx = dX(x[i], x[j]);
             const dy = dY(y[i], y[j]);
             const d2 = dx * dx + dy * dy;
-            if (d2 > R * R) continue;
+            if (d2 > r2) continue;
             if (d2 < SEP * SEP && d2 > 1e-6) {
               const d = Math.sqrt(d2);
               sx -= dx / d / d;
@@ -371,7 +394,7 @@ export class Flock {
       if (!live[i]) continue;
       vx[i] += ax[i];
       vy[i] += ay[i];
-      const top = BASE_SPEED * (this.params.pace[group[i]] ?? 1);
+      const top = BASE_SPEED * (this.params.pace[group[i]] ?? 1) * this.speed[i];
       const sp = Math.hypot(vx[i], vy[i]) || 1e-6;
       const k = sp > top ? top / sp : sp < MIN_SPEED ? MIN_SPEED / sp : 1;
       vx[i] *= k;
@@ -383,6 +406,21 @@ export class Flock {
 }
 
 // ---- from rows to flock -------------------------------------------------
+
+/** 0..1 from a bird's index and a salt: a fixed, even spread. */
+function unit(i: number, salt: number): number {
+  let h = (Math.imul(i + 1, 0x9e3779b1) ^ Math.imul(salt, 0x85ebca6b)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+/** 0..1 from a string: the same link always gets the same shade. */
+function unitOf(s: string): number {
+  let h = 2166136261;
+  for (let k = 0; k < s.length; k++) h = Math.imul(h ^ s.charCodeAt(k), 16777619);
+  return unit(h >>> 0, 7);
+}
 
 export interface FlockItem {
   /** What it flocks by (a job, a division, a vendor…). */
@@ -425,12 +463,20 @@ export function flockSetup(items: FlockItem[]): FlockSetup {
   const cutoff = last ? new Date(Date.parse(last) - 45 * 86_400_000).toISOString().slice(0, 10) : "";
 
   const maxLog = Math.max(1e-6, ...items.map((i) => Math.log10(1 + Math.abs(i.value))));
-  const birds = items.map((it) => {
+  const birds = items.map((it, i): FlockBirdInit => {
     const g = gOf(it.key);
     groupTotals[g] += Math.abs(it.value);
     if (it.link) links[g].add(it.link);
     if (!cutoff || (it.date && it.date >= cutoff)) recent[g] += Math.abs(it.value);
-    return { group: g, size: Math.log10(1 + Math.abs(it.value)) / maxLog };
+    return {
+      group: g,
+      size: Math.log10(1 + Math.abs(it.value)) / maxLog,
+      // Small, fixed differences per bird: the same bird is the same every load.
+      scale: 0.85 + 0.3 * unit(i, 1),
+      speed: 0.85 + 0.3 * unit(i, 2),
+      sight: 0.85 + 0.3 * unit(i, 3),
+      shade: it.link ? unitOf(it.link) * 2 - 1 : 0,
+    };
   });
 
   // Pace: the share of a group's value that fell in the last 45 days, mapped

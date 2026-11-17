@@ -74,10 +74,59 @@ export function flockItems(set: CloudSetId, rows: unknown[], by: FlockBy): Flock
   });
 }
 
-const TRAIL = 7;
+/** Screen positions kept per bird for its trail, newest last. */
+const TRAIL = 16;
 const SETTLE_STEPS = 500;
 /** Opacity steps a group's birds are drawn in, so each is one fill. */
 const BUCKETS = 4;
+/** Hue steps within a flock's colour; a bird's `shade` picks one. */
+const SHADES = 5;
+/** The widest hue shift either way, in degrees, and the lightness shift, in %. */
+const HUE_SPREAD = 18;
+const LIGHT_SPREAD = 5;
+
+/** "#rrggbb", "#rgb" or "rgb(r, g, b)" → [h 0..360, s 0..100, l 0..100]. */
+function hslOf(c: string): [number, number, number] | null {
+  const t = c.trim();
+  let rgb: number[] | null = null;
+  const hex = t.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+  if (hex) {
+    const v = hex[1].length === 3 ? hex[1].split("").map((x) => x + x).join("") : hex[1];
+    rgb = [0, 2, 4].map((i) => parseInt(v.slice(i, i + 2), 16));
+  } else {
+    const m = t.match(/^rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/i);
+    if (m) rgb = [Number(m[1]), Number(m[2]), Number(m[3])];
+  }
+  if (!rgb) return null;
+  const [r, g, b] = rgb.map((v) => v / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (!d) return [0, 0, l * 100];
+  const sat = d / (1 - Math.abs(2 * l - 1));
+  const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [(h * 60 + 360) % 360, sat * 100, l * 100];
+}
+
+const shadeCache = new Map<string, string[]>();
+/** A flock's colour in SHADES steps of hue, from one side of it to the other. */
+function shadesOf(c: string): string[] {
+  const hit = shadeCache.get(c);
+  if (hit) return hit;
+  const hsl = hslOf(c);
+  const out = Array.from({ length: SHADES }, (_, k) => {
+    if (!hsl) return c;
+    const f = (k / (SHADES - 1)) * 2 - 1;
+    const h = (hsl[0] + f * HUE_SPREAD + 360) % 360;
+    const l = Math.max(8, Math.min(92, hsl[2] + f * LIGHT_SPREAD));
+    return `hsl(${h.toFixed(1)}, ${hsl[1].toFixed(1)}%, ${l.toFixed(1)}%)`;
+  });
+  // A colour fade makes a new colour every frame; keep the cache small.
+  if (shadeCache.size > 64) shadeCache.clear();
+  shadeCache.set(c, out);
+  return out;
+}
 
 export type FlockSpace = "flat" | "3d" | "tank";
 
@@ -404,35 +453,15 @@ export class FlockEngine {
       }
     }
 
-    // The box. Cube: its twelve edges, faint (dashed when the faces wrap).
-    // Tank: the back wall and the lines running back from the glass's corners.
-    if (sim instanceof Flock3D) {
+    // The cube's twelve edges, faint (dashed when the faces wrap). The tank
+    // draws no box (owner, 2026-11-17): depth reads from size and fog alone.
+    if (sim instanceof Flock3D && !inTank) {
       ctx.strokeStyle = ink;
       ctx.globalAlpha = 0.12;
       ctx.lineWidth = 1;
       ctx.setLineDash(this.wrap ? [4, 6] : []);
       ctx.beginPath();
-      if (inTank) {
-        const fb = [
-          proj(0, sim.sy, 0), proj(sim.sx, sim.sy, 0), proj(sim.sx, 0, 0), proj(0, 0, 0),
-        ];
-        const bk = [
-          proj(0, sim.sy, sim.sz), proj(sim.sx, sim.sy, sim.sz), proj(sim.sx, 0, sim.sz), proj(0, 0, sim.sz),
-        ];
-        ctx.moveTo(bk[0].sx, bk[0].sy);
-        for (const c of [bk[1], bk[2], bk[3], bk[0]]) ctx.lineTo(c.sx, c.sy);
-        for (let k = 0; k < 4; k++) {
-          ctx.moveTo(fb[k].sx, fb[k].sy);
-          ctx.lineTo(bk[k].sx, bk[k].sy);
-        }
-        // Mid-depth rings help the eye judge depth.
-        for (const zf of [0.33, 0.66]) {
-          const z = sim.sz * zf;
-          const r = [proj(0, sim.sy, z), proj(sim.sx, sim.sy, z), proj(sim.sx, 0, z), proj(0, 0, z)];
-          ctx.moveTo(r[0].sx, r[0].sy);
-          for (const c of [r[1], r[2], r[3], r[0]]) ctx.lineTo(c.sx, c.sy);
-        }
-      } else {
+      {
         const c = [0, SIDE];
         const corners = c.flatMap((x) => c.flatMap((y) => c.map((z) => proj(x, y, z))));
         const edges = [
@@ -449,7 +478,7 @@ export class FlockEngine {
       ctx.setLineDash([]);
     }
 
-    // Trails: a ring of the last few screen positions per bird.
+    // Trails: a ring of the last TRAIL screen positions per bird.
     if (!this.trail || this.trail.length !== n * TRAIL * 2) {
       this.trail = new Float32Array(n * TRAIL * 2);
       for (let k = 0; k < TRAIL; k++) {
@@ -473,6 +502,7 @@ export class FlockEngine {
     this.trailAt = (slot + 1) % TRAIL;
 
     const colorOf = (g: number) => (setup.names[g] === OTHER ? quiet : colors[g % colors.length]);
+    const shadeOf = (i: number) => Math.round(((sim.shade[i] + 1) / 2) * (SHADES - 1));
     const alphaOf = (g: number) => (this.focus === null || this.focus === g ? 1 : 0.12);
     // One fill per group per opacity step: life × depth fog × face fade.
     const bucketOf = (i: number) => Math.min(BUCKETS - 1, Math.floor(sim.alpha[i] * this.fade[i] * BUCKETS));
@@ -482,44 +512,52 @@ export class FlockEngine {
       for (let b = 0; b < BUCKETS; b++) {
         const a = alphaOf(g) * ((b + 1) / BUCKETS);
         if (!reduced) {
+          // Trails fade out behind the bird: one stroke per segment age, the
+          // oldest faintest and thinnest.
           ctx.strokeStyle = col;
-          ctx.globalAlpha = 0.22 * a;
-          ctx.lineWidth = 1;
+          for (let k = 1; k < TRAIL; k++) {
+            const fresh = k / (TRAIL - 1);
+            ctx.globalAlpha = 0.45 * a * fresh * fresh;
+            ctx.lineWidth = 0.4 + 1.2 * fresh;
+            ctx.beginPath();
+            const s0 = (slot + k) % TRAIL;
+            const s1 = (slot + k + 1) % TRAIL;
+            for (let i = 0; i < n; i++) {
+              if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b) continue;
+              const px = tr[(s0 * n + i) * 2];
+              const py = tr[(s0 * n + i) * 2 + 1];
+              const qx = tr[(s1 * n + i) * 2];
+              const qy = tr[(s1 * n + i) * 2 + 1];
+              // A bird that wrapped across an edge: no line across the screen.
+              if (Math.abs(px - qx) > w / 3 || Math.abs(py - qy) > h / 3) continue;
+              ctx.moveTo(px, py);
+              ctx.lineTo(qx, qy);
+            }
+            ctx.stroke();
+          }
+        }
+        // Each bird in its own shade of the flock's colour, from its data.
+        const shades = shadesOf(col);
+        ctx.globalAlpha = 0.9 * a;
+        for (let sh = 0; sh < SHADES; sh++) {
+          ctx.fillStyle = shades[sh];
           ctx.beginPath();
           for (let i = 0; i < n; i++) {
-            if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b) continue;
-            let qx = 0;
-            let qy = 0;
-            for (let k = 1; k <= TRAIL; k++) {
-              const s = (slot + k) % TRAIL;
-              const px = tr[(s * n + i) * 2];
-              const py = tr[(s * n + i) * 2 + 1];
-              // A bird that wrapped across an edge: no line across the screen.
-              if (k === 1 || Math.abs(px - qx) > w / 3 || Math.abs(py - qy) > h / 3) ctx.moveTo(px, py);
-              else ctx.lineTo(px, py);
-              qx = px;
-              qy = py;
-            }
+            if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b || shadeOf(i) !== sh) continue;
+            const ux = this.hx[i];
+            const uy = this.hy[i];
+            const k = this.sc[i] * sim.scale[i];
+            const L = (3 + sim.size[i] * 4) * k;
+            const W = (1.2 + sim.size[i] * 1.6) * k;
+            const x = this.sx[i];
+            const y = this.sy[i];
+            ctx.moveTo(x + ux * L, y + uy * L);
+            ctx.lineTo(x - ux * L * 0.6 - uy * W, y - uy * L * 0.6 + ux * W);
+            ctx.lineTo(x - ux * L * 0.6 + uy * W, y - uy * L * 0.6 - ux * W);
+            ctx.closePath();
           }
-          ctx.stroke();
+          ctx.fill();
         }
-        ctx.fillStyle = col;
-        ctx.globalAlpha = 0.9 * a;
-        ctx.beginPath();
-        for (let i = 0; i < n; i++) {
-          if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b) continue;
-          const ux = this.hx[i];
-          const uy = this.hy[i];
-          const L = (3 + sim.size[i] * 4) * this.sc[i];
-          const W = (1.2 + sim.size[i] * 1.6) * this.sc[i];
-          const x = this.sx[i];
-          const y = this.sy[i];
-          ctx.moveTo(x + ux * L, y + uy * L);
-          ctx.lineTo(x - ux * L * 0.6 - uy * W, y - uy * L * 0.6 + ux * W);
-          ctx.lineTo(x - ux * L * 0.6 + uy * W, y - uy * L * 0.6 - ux * W);
-          ctx.closePath();
-        }
-        ctx.fill();
       }
     }
 
