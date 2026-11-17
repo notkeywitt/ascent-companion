@@ -29,7 +29,7 @@ import {
 interface Link {
   from: string;
   to: string;
-  kind: "link" | "push" | "redirect";
+  kind: "link" | "push" | "redirect" | "strip";
   q?: string[];
 }
 const MAP = raw as {
@@ -379,7 +379,7 @@ function Detail({
   nameOf: (route: string) => string;
   jump: (route: string) => void;
 }) {
-  const kindMark = (k: Link["kind"]) => (k === "redirect" ? " (redirects)" : k === "push" ? " (after an action)" : "");
+  const kindMark = (k: Link["kind"]) => (k === "redirect" ? " (redirects)" : k === "push" ? " (after an action)" : k === "strip" ? " (tab strip)" : "");
   return (
     <div className="grid gap-4 border-t border-line-soft px-3 py-3 pad:grid-cols-2">
       <div>

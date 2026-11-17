@@ -109,7 +109,9 @@ export function buildPageMap() {
 
   const links = new Map();
   const embeds = new Set();
-  const RANK = { link: 0, push: 1, redirect: 2 };
+  const RANK = { link: 0, push: 1, redirect: 2, strip: 3 };
+  // A tab row that joins separate routes: each tab looks like a tab but opens its own page.
+  const STRIP = /(PageTabs|JobTabs|ToolsTabs|InvoicingTabs)\.tsx$/;
   const add = (from, to, kind, q) => {
     if (from === to) return;
     const k = from + ">" + to;
@@ -118,14 +120,34 @@ export function buildPageMap() {
     if (q) e.q.add(q);
     links.set(k, e);
   };
-  function scan(from, src) {
+  function scan(from, src, file) {
+    if (STRIP.test(file)) {
+      // A strip file can hold several tab sets (PageTabs does). Only the set that
+      // holds this page is its strip.
+      for (const blk of src.matchAll(/=\s*(?:\w+\s*)?\[([\s\S]*?)\n\];?/g)) {
+        const routes = new Set();
+        for (const m of blk[1].matchAll(/href:\s*["'`](\/[^"'`?]*)/g)) {
+          const r = resolveRoute(m[1]);
+          if (r) routes.add(r);
+        }
+        if (!routes.has(from)) continue;
+        for (const to of routes) add(from, to, "strip", "");
+      }
+      return;
+    }
     for (const m of src.matchAll(LITERAL)) {
       const path = m[2];
       if (path.startsWith("/api/") || path.startsWith("/_next")) continue;
       const to = resolveRoute(path);
       if (!to) continue;
       const before = src.slice(Math.max(0, m.index - 40), m.index);
-      const kind = /redirect\(\s*$/i.test(before) ? "redirect" : /(push|replace)\(\s*$/.test(before) ? "push" : "link";
+      const kind = STRIP.test(file)
+        ? "strip"
+        : /redirect\(\s*$/i.test(before)
+          ? "redirect"
+          : /(push|replace)\(\s*$/.test(before)
+            ? "push"
+            : "link";
       const q = m[3] ? m[3].replace(/^\?/, "").split("&")[0] : "";
       add(from, to, kind, /^(section|tab)=\w+$/.test(q) ? q : "");
     }
@@ -145,7 +167,7 @@ export function buildPageMap() {
       if (seenFiles.has(file)) continue;
       seenFiles.add(file);
       const src = readFileSync(file, "utf8");
-      scan(p.route, src);
+      scan(p.route, src, file);
       if (depth >= 3) continue;
       for (const m of src.matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
         const target = resolveImport(file, m[1]);
