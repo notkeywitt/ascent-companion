@@ -61,6 +61,12 @@ import type { PaveConfig } from "@/lib/jobtread";
 export interface CheckStatus {
   id: string;
   title: string;
+  /** What the check tests, and the finding kinds it emits. Carried here so a
+   *  browser page groups findings by check without importing the registry,
+   *  which pulls server code (norms → db). Absent on runs saved before
+   *  2026-11-18; a re-check fills them. */
+  description?: string;
+  kinds?: string[];
   /** Live (unsuppressed) findings of this check. */
   errors: number;
   warnings: number;
@@ -151,6 +157,8 @@ export async function preSendCheck(
     return {
       id: c.id,
       title: c.title,
+      description: c.description,
+      kinds: [...c.kinds],
       errors: mine.filter((f) => f.severity === "error").length,
       warnings: mine.filter((f) => f.severity === "warning").length,
     };

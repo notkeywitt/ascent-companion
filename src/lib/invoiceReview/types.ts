@@ -161,6 +161,14 @@ export interface Finding {
    * their `sourceLink` is already the place to go.
    */
   target?: FindingTarget;
+  /**
+   * The one-click fix the finding's Fix sheet offers (Invoice Status). Owner
+   * approved two on 2026-11-18: void a duplicate draft's copies, and move or
+   * quarantine a stray backup PDF. Absent on every other kind.
+   */
+  fix?: FindingFix;
+  /** More places the Fix sheet lists beside `sourceLink`: a folder, a bill. */
+  docs?: { label: string; href: string }[];
   /** Set when a standing ruling suppresses this finding — see rulings.ts. */
   suppressedBy?: SuppressionNote;
   /**
@@ -196,6 +204,19 @@ export interface Finding {
 export type FindingTarget =
   | { kind: "bill"; billId: string }
   | { kind: "labor"; employee?: string; code?: string; entryIds: string[] };
+
+/**
+ * A fix the app can make for a finding.
+ *
+ *   void-bills   copies of one bill. Each id but the one kept is voided through
+ *                /api/bill-void (CLAUDE.md, "Never delete a bill").
+ *   backup-file  a PDF in the billing folder no invoiced bill accounts for.
+ *                /api/backup-fix asks Apps Script where it belongs, then moves
+ *                or quarantines it.
+ */
+export type FindingFix =
+  | { action: "void-bills"; keepId: string; bills: { id: string; label: string; status: string }[] }
+  | { action: "backup-file"; fileId: string };
 
 /** Claude's reading of one finding after chasing it. See investigate.ts. */
 export interface FindingDisposition {
