@@ -128,6 +128,13 @@ export const duplicateDraftCheck = defineJobCheck<DuplicateDraftConfig>({
         sourceLink: billLink(job.jobId, drafts[0].id),
         target: { kind: "bill", billId: drafts[0].id },
         sourceLabel: "Open the draft",
+        // Keep a finalized copy when there is one: it is already counted, and
+        // voiding it would undo work. Else the office picks in the Fix sheet.
+        fix: {
+          action: "void-bills",
+          keepId: (finalized[0] ?? drafts[0]).id,
+          bills: group.map((b) => ({ id: b.id, label: b.label, status: b.status })),
+        },
       });
     }
 

@@ -41,8 +41,7 @@ import {
   type JobRow,
 } from "./summary";
 import { checkedAtLabel, openFindings, tally } from "@/app/trackingsheet/preSendMemory";
-import { laborFocusHref } from "@/app/trackingsheet/findingFocus";
-import { checkIdForKind } from "@/lib/invoiceReview/registry";
+import { FixSheet } from "./FixSheet";
 import type { Finding } from "@/lib/invoiceReview/types";
 import { useJobChecks, type JobRun } from "@/app/trackingsheet/usePreSendCheck";
 
@@ -530,30 +529,18 @@ function Figure({ label, value }: { label: string; value: number }) {
  * Every invoice check's result on this job. The summary line is the answer; the
  * list behind it names each check, so a clean job still shows what ran.
  */
-/**
- * Where to fix a finding: the same place the report sends it (invoiceReview/inbox) —
- * the bill or labor entries on the job's hub page, else the finding's own page,
- * else the job and month on the hub.
- */
-function fixLink(f: Finding, ym: string): { label: string; href: string } {
-  if (f.jobId && f.target?.kind === "bill") {
-    return { label: "Open the bill", href: hubHref(f.jobId, ym, { bill: f.target.billId }) };
-  }
-  if (f.jobId && f.target?.kind === "labor") {
-    return { label: "Open the labor list", href: laborFocusHref(f.jobId, ym, f.target) };
-  }
-  if (f.sourceLink) return { label: f.sourceLabel ?? "Open", href: f.sourceLink };
-  return { label: "Open the job", href: hubHref(f.jobId, ym) };
-}
-
 function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: () => void; ym: string }) {
   const [open, setOpen] = useState(false);
+  const [fixing, setFixing] = useState<Finding | null>(null);
   const busy = run?.state === "queued" || run?.state === "running";
   const mem = run?.mem;
   const checks = mem?.result.checks;
   const t = mem ? tally(mem) : null;
   const incomplete = !!mem?.result.evidenceWarnings.length;
   const open_ = mem ? openFindings(mem) : [];
+  const fixingCheck = fixing ? checks?.find((c) => c.kinds?.includes(fixing.kind)) : undefined;
+  // A run saved before checks carried their kinds: list its findings unsorted.
+  const unsorted = open_.filter((f) => !checks?.some((c) => c.kinds?.includes(f.kind)));
 
   return (
     <div className="mt-2 text-xs">
@@ -587,41 +574,63 @@ function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: ()
       {open && checks && (
         <ul className="mt-1.5 grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-2">
           {checks.map((c) => (
-            <li key={c.id} className="flex items-baseline gap-1.5">
-              <span
-                className={
-                  c.errors ? "text-danger" : c.warnings ? "text-warn" : incomplete ? "text-neutral-500" : "text-ok"
-                }
-                aria-hidden
-              >
-                {c.errors ? "✕" : c.warnings ? "!" : incomplete ? "?" : "✓"}
-              </span>
-              <span>{c.title}</span>
-              {c.errors + c.warnings > 0 && (
-                <span className="tabular-nums text-neutral-500">{c.errors + c.warnings}</span>
-              )}
+            <li key={c.id}>
+              <div className="flex items-baseline gap-1.5">
+                <span
+                  className={
+                    c.errors ? "text-danger" : c.warnings ? "text-warn" : incomplete ? "text-neutral-500" : "text-ok"
+                  }
+                  aria-hidden
+                >
+                  {c.errors ? "✕" : c.warnings ? "!" : incomplete ? "?" : "✓"}
+                </span>
+                <span>{c.title}</span>
+                {c.errors + c.warnings > 0 && (
+                  <span className="tabular-nums text-neutral-500">{c.errors + c.warnings}</span>
+                )}
+              </div>
               {open_
-                .filter((f) => checkIdForKind(f.kind) === c.id)
-                .map((f) => {
-                  const l = fixLink(f, ym);
-                  const ext = l.href.startsWith("http");
-                  return (
-                    <a
-                      key={f.key}
-                      href={l.href}
-                      {...(ext ? { target: "_blank", rel: "noreferrer" } : {})}
-                      title={f.title}
-                      className="font-semibold text-accent hover:underline"
-                    >
-                      {l.label}
-                      {ext ? " ↗" : ""}
-                    </a>
-                  );
-                })}
+                .filter((f) => c.kinds?.includes(f.kind))
+                .map((f) => (
+                  <FindingRow key={f.key} f={f} onFix={() => setFixing(f)} />
+                ))}
             </li>
           ))}
         </ul>
       )}
+      {open && unsorted.length > 0 && (
+        <div className="mt-1.5">
+          {unsorted.map((f) => (
+            <FindingRow key={f.key} f={f} onFix={() => setFixing(f)} />
+          ))}
+        </div>
+      )}
+      <FixSheet
+        finding={fixing}
+        checkTitle={fixingCheck?.title ?? ""}
+        checkDescription={fixingCheck?.description ?? ""}
+        ym={ym}
+        onClose={() => setFixing(null)}
+        onFixed={onCheck}
+      />
+    </div>
+  );
+}
+
+/** One open finding under its check: its title, and the button to the Fix sheet. */
+function FindingRow({ f, onFix }: { f: Finding; onFix: () => void }) {
+  return (
+    <div className="ml-4 flex items-center gap-2">
+      <span className="min-w-0 flex-1 truncate text-neutral-500" title={f.title}>
+        {f.title}
+      </span>
+      <button
+        type="button"
+        onClick={onFix}
+        className="inline-flex min-h-9 shrink-0 items-center font-semibold text-accent hover:underline lg:min-h-0"
+      >
+        Fix
+      </button>
     </div>
   );
 }

@@ -65,6 +65,10 @@ export const backupCheck = defineJobCheck<BackupConfig>({
       return out; // No folder ⇒ every per-file check below is noise.
     }
 
+    const folderDocs = job.folder.folderId
+      ? [{ label: "Open the billing folder", href: `https://drive.google.com/drive/folders/${job.folder.folderId}` }]
+      : undefined;
+
     // Only bills that were actually BILLED to the client need backup on file.
     const invoicedBills = job.bills.filter((b) => b.invoiced);
     const m = matchBackup(invoicedBills, job.folder.files, global.tolerance);
@@ -104,6 +108,7 @@ export const backupCheck = defineJobCheck<BackupConfig>({
           sourceLink: billLink(job.jobId, bill.id),
           target: { kind: "bill", billId: bill.id },
           sourceLabel: "Open the bill",
+          docs: folderDocs,
         });
       }
     }
@@ -125,6 +130,7 @@ export const backupCheck = defineJobCheck<BackupConfig>({
         sourceLink: billLink(job.jobId, bill.id),
         target: { kind: "bill", billId: bill.id },
         sourceLabel: "Open the bill",
+        docs: folderDocs,
       });
     }
 
@@ -154,6 +160,8 @@ export const backupCheck = defineJobCheck<BackupConfig>({
             amount: f.amount,
             sourceLink: f.url,
             sourceLabel: "Open the PDF",
+            docs: folderDocs,
+            fix: { action: "backup-file", fileId: f.id },
           });
           continue;
         }
@@ -172,6 +180,8 @@ export const backupCheck = defineJobCheck<BackupConfig>({
           amount: f.amount,
           sourceLink: f.url,
           sourceLabel: "Open the PDF",
+          docs: folderDocs,
+          fix: { action: "backup-file", fileId: f.id },
         });
       }
     }
