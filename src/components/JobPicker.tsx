@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { isAscentJob } from "@/lib/ascentJobs";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
@@ -275,13 +276,18 @@ export function JobPicker({
         phaseFilter === NO_PHASE ? !j.phase : phaseFilter.split(",").includes(j.phase ?? ""),
       )
     : jobs;
-  const filtered = q
+  const matched = q
     ? inPhase.filter((j) =>
         `${j.customer ?? ""} ${j.number ?? ""} ${j.name} ${j.address ?? ""}`
           .toLowerCase()
           .includes(q),
       )
     : inPhase;
+  // Ascent's own jobs sink to the bottom (a stable sort keeps each half's order).
+  const filtered = [...matched].sort(
+    (a, b) =>
+      Number(isAscentJob(a.customer, a.name)) - Number(isAscentJob(b.customer, b.name)),
+  );
 
   // Where the picker is standing. Asked for on the first open of a `showNearest`
   // picker and never otherwise — see lib/nearestJob.

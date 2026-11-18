@@ -10,6 +10,8 @@
  * name and job: A to Z). `reverse` flips the rows AND the order of the groups.
  */
 
+import { isAscentJob } from "@/lib/ascentJobs";
+
 export type BillSort = "date" | "name" | "amount" | "job";
 export type BillGroupBy = "none" | "job" | "vendor" | "date" | "month" | "code";
 
@@ -96,8 +98,10 @@ export function groupBills<T extends ListBill>(
     if (!keys.has(t)) keys.set(t, keyOf(b));
   }
   // Groups: dates newest first, "To code" before "Reviewed", the rest A to Z.
-  // The catch-all, then Sunset, sit at the foot. Reverse flips all but the foot.
-  const rank = (t: string) => (t === SUNSET ? 2 : t === fallback ? 1 : 0);
+  // Ascent jobs, the catch-all, then Sunset, sit at the foot. Reverse flips all but the foot.
+  // Ascent's own jobs sit just above the catch-all, below the client jobs.
+  const rank = (t: string) =>
+    t === SUNSET ? 3 : t === fallback ? 2 : groupBy === "job" && isAscentJob(t) ? 1 : 0;
   const dated = groupBy === "month" || groupBy === "date";
   const order = (a: string, b: string) =>
     dated
