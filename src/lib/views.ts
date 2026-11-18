@@ -184,7 +184,7 @@ export const VIEWS: ViewDef[] = [
     // The job check is the same read the Tracking Sheets card makes; the page
     // shows its per-check marks and the app-versus-JobTread figures.
     // /api/backup-fix is the Fix sheet's "move this stray backup PDF".
-    paths: ["/invoicing-summary", "/api/invoicing-summary", "/api/invoice-review/job", "/api/backup-fix"],
+    paths: ["/invoicing-summary", "/api/invoicing-summary", "/api/invoice-review/job", "/api/invoice-review/ok", "/api/backup-fix"],
   },
   // The queue of bills flagged "Needs review" — billing corrections the app
   // can't make (paid / invoiced / QuickBooks-pushed bills). Office+admin. The

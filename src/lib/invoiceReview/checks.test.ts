@@ -212,6 +212,20 @@ describe("matchBackup", () => {
     );
   });
 
+  it("prefers the PDF whose name carries the bill's own id when amounts tie", () => {
+    // A Sunset bill voided and recreated leaves two PDFs at one amount. The
+    // older one names a bill that no longer exists; the live bill must take its own.
+    const r = matchBackup(
+      [bill({ id: "22PiDSuGAkpb", cost: 1872.4, vendor: "Sunset Builders Supply" })],
+      [
+        file({ id: "old", name: "x - $1872.40 - Sunset Builders Supply 22PiDahE5ULg Ferron.pdf", amount: 1872.4, tail: "Sunset Builders Supply 22PiDahE5ULg Ferron Pushed to JT" }),
+        file({ id: "new", name: "x - $1872.40 - Sunset Builders Supply 22PiDSuGAkpb Ferron.pdf", amount: 1872.4, tail: "Sunset Builders Supply 22PiDSuGAkpb Ferron Pushed to JT" }),
+      ],
+    );
+    expect(r.matched.get("22PiDSuGAkpb")?.id).toBe("new");
+    expect(r.unmatchedFiles.map((f) => f.id)).toEqual(["old"]);
+  });
+
   it("uses the vendor name only to break an amount tie", () => {
     const r = matchBackup(
       [bill({ id: "b1", cost: 50, vendor: "Reggio Register" })],
