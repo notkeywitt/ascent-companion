@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { toast } from "@/components/Toast";
-import { Banner, Loading, inputCls } from "@/components/ui";
+import { Banner, Button, Loading, inputCls } from "@/components/ui";
+
+import { SHEET_RATES } from "./sheetRates";
 
 interface Job {
   id: string;
@@ -40,7 +42,19 @@ function RateInput({ label, value, placeholder, onCommit }: { label: string; val
 }
 
 /** One job: its Labor cost codes grouped by division. A division sets every code's rate at once; expand it to edit single rows. */
-function JobCard({ job, rates, onSaved }: { job: Job; rates: Rates; onSaved: (codes: string[], rate: number | null) => void }) {
+function JobCard({
+  job,
+  rates,
+  onSaved,
+  fillTick,
+  onFilled,
+}: {
+  job: Job;
+  rates: Rates;
+  onSaved: (codes: string[], rate: number | null) => void;
+  fillTick: number;
+  onFilled: (count: number) => void;
+}) {
   const [codes, setCodes] = useState<Code[] | null>(null);
   const [err, setErr] = useState("");
   const [open, setOpen] = useState<Set<string>>(new Set()); // groups start collapsed
@@ -61,16 +75,43 @@ function JobCard({ job, rates, onSaved }: { job: Job; rates: Rates; onSaved: (co
   async function save(list: Code[], text: string) {
     const rate = parseRate(text);
     const changed = list.filter((c) => (rates[`${job.id}|${c.number}`] ?? null) !== rate);
-    if (changed.length === 0) return;
+    if (changed.length === 0) return false;
     const r = await fetch("/api/labor-rates/map", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ jobId: job.id, costCodes: changed.map((c) => c.number), hourlyRate: rate }),
     });
     const b = await r.json();
-    if (b.error) toast(b.error, { tone: "error" });
-    else onSaved(changed.map((c) => c.number), rate);
+    if (b.error) {
+      toast(b.error, { tone: "error" });
+      return false;
+    }
+    onSaved(changed.map((c) => c.number), rate);
+    return true;
   }
+
+  // "Fill blanks from tracking sheets": each blank code that the job's sheet
+  // prices gets that rate. A rate already set is never touched.
+  const filledTick = useRef(0);
+  useEffect(() => {
+    if (!fillTick || !codes || filledTick.current === fillTick) return;
+    filledTick.current = fillTick;
+    const sheet = SHEET_RATES[job.id]?.rates ?? {};
+    const byRate = new Map<number, Code[]>();
+    for (const c of codes) {
+      const r = sheet[c.number];
+      if (r === undefined || rates[`${job.id}|${c.number}`] !== undefined) continue;
+      byRate.set(r, [...(byRate.get(r) ?? []), c]);
+    }
+    void (async () => {
+      let n = 0;
+      for (const [r, list] of byRate) {
+        if (await save(list, String(r))) n += list.length;
+      }
+      onFilled(n);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fillTick, codes]);
 
   const toggle = (d: string) =>
     setOpen((o) => {
@@ -146,6 +187,8 @@ export function LaborRatesMap() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [rates, setRates] = useState<Rates>({});
   const [err, setErr] = useState("");
+  const [fillTick, setFillTick] = useState(0);
+  const [filled, setFilled] = useState<number | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -175,6 +218,25 @@ export function LaborRatesMap() {
       <p className="mb-3 text-xs text-neutral-500">
         What each job pays per hour for each Labor cost code. Labor › Check pay rates assigns these to time entries.
       </p>
+      {jobs && jobs.some((j) => SHEET_RATES[j.id]) && (
+        <div className="mb-3 flex flex-wrap items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setFilled(0);
+              setFillTick((t) => t + 1);
+            }}
+          >
+            Fill blanks from tracking sheets
+          </Button>
+          {filled !== null && (
+            <span className="text-xs text-neutral-500">
+              Filled {filled} rate{filled === 1 ? "" : "s"} from the sheets&apos; Service Cost Reference tabs. Set rates are not changed.
+            </span>
+          )}
+        </div>
+      )}
       {err && <Banner tone="error">{err}</Banner>}
       {!jobs && !err && <Loading label="Loading jobs…" />}
       {phases.map(([phase, list]) => (
@@ -186,6 +248,8 @@ export function LaborRatesMap() {
                 key={j.id}
                 job={j}
                 rates={rates}
+                fillTick={fillTick}
+                onFilled={(n) => setFilled((f) => (f ?? 0) + n)}
                 onSaved={(codes, rate) =>
                   setRates((r) => {
                     const next = { ...r };
