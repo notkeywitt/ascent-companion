@@ -73,10 +73,23 @@ export function FixSheet({
   onClose: () => void;
   /** Re-check the job after a fix. */
   onFixed: () => void;
-  /** "It's OK": hide this one finding. See the button's note. */
-  onOk: (key: string) => void;
+  /** "It's OK": rule this one finding OK for everyone. Rejects when it did not save. */
+  onOk: (f: Finding) => Promise<void>;
 }) {
   const f = finding;
+  const [okBusy, setOkBusy] = useState(false);
+  const [okError, setOkError] = useState("");
+  const ok = async (x: Finding) => {
+    setOkBusy(true);
+    setOkError("");
+    try {
+      await onOk(x);
+    } catch (e) {
+      setOkError(e instanceof Error ? e.message : "That did not save.");
+    } finally {
+      setOkBusy(false);
+    }
+  };
   return (
     <Sheet open={!!f} onClose={onClose} title={f?.title ?? ""}>
       {f && (
@@ -102,12 +115,13 @@ export function FixSheet({
           {f.fix?.action === "backup-file" && <MoveBackup key={f.key} fileId={f.fix.fileId} onFixed={onFixed} />}
           <div className="border-t border-line-soft pt-3">
             <SectionLabel>Or leave it</SectionLabel>
-            <Button className="mt-1" variant="secondary" onClick={() => onOk(f.key)}>
-              It&apos;s OK
+            <Button className="mt-1" variant="secondary" disabled={okBusy} onClick={() => void ok(f)}>
+              {okBusy ? "Saving…" : "It's OK"}
             </Button>
+            {okError && <p className="mt-1 text-xs text-danger">{okError}</p>}
             <p className="mt-1 text-xs text-neutral-500">
-              Hides this one finding on this device, for this job and month. It sets no rule: a different
-              finding of the same kind still shows, and Show again brings this one back.
+              Hides this one finding for everyone. It covers this finding only: a different finding of the
+              same kind still shows. Each person sees it hidden after their next check. Show again brings it back.
             </p>
           </div>
         </div>

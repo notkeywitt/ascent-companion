@@ -553,6 +553,33 @@ function CheckMarks({
   const incomplete = !!mem?.result.evidenceWarnings.length;
   const open_ = mem ? openFindings(mem) : [];
   const cleared = mem ? clearedCount(mem) : 0;
+  const [okError, setOkError] = useState("");
+  const jobId = mem?.result.jobId ?? "";
+  const postOk = (payload: Record<string, unknown>) =>
+    fetch("/api/invoice-review/ok", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(async (r) => {
+      const b = await r.json().catch(() => ({}));
+      if (!r.ok || b?.error) throw new Error(b?.error || `HTTP ${r.status}`);
+    });
+  // For everyone: a standing ruling on this one finding. Hidden here at once,
+  // and from every other user at their next check.
+  const onOk = async (f: Finding) => {
+    await postOk({ key: f.key, kind: f.kind, jobId: f.jobId || jobId });
+    onClear(f.key);
+    setFixing(null);
+  };
+  const showAgain = async () => {
+    setOkError("");
+    try {
+      for (const key of mem?.cleared ?? []) await postOk({ key, lift: true });
+      onUnclear();
+    } catch (e) {
+      setOkError(e instanceof Error ? e.message : "That did not save.");
+    }
+  };
   const fixingCheck = fixing ? checks?.find((c) => c.kinds?.includes(fixing.kind)) : undefined;
   // A run saved before checks carried their kinds: list its findings unsorted.
   const unsorted = open_.filter((f) => !checks?.some((c) => c.kinds?.includes(f.kind)));
@@ -613,10 +640,11 @@ function CheckMarks({
           ))}
         </ul>
       )}
+      {okError && <p className="mt-1 text-danger">{okError}</p>}
       {open && cleared > 0 && (
         <p className="mt-1.5 text-neutral-500">
-          {cleared} marked OK on this device.{" "}
-          <button type="button" onClick={onUnclear} className="font-semibold text-accent hover:underline">
+          {cleared} marked OK.{" "}
+          <button type="button" onClick={() => void showAgain()} className="font-semibold text-accent hover:underline">
             Show again
           </button>
         </p>
@@ -635,10 +663,7 @@ function CheckMarks({
         ym={ym}
         onClose={() => setFixing(null)}
         onFixed={onCheck}
-        onOk={(key) => {
-          onClear(key);
-          setFixing(null);
-        }}
+        onOk={onOk}
       />
     </div>
   );

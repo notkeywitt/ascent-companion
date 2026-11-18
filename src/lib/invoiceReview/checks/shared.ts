@@ -222,7 +222,11 @@ export function matchBackup(
       if (taken.has(f.id)) continue;
       const tol = backupTolerance(bill, f, tolerance);
       if (!wants.some((want) => withinTolerance(f.amount, want, tol))) continue;
-      const score = overlap(f.tail, bill.vendor || bill.label);
+      // Sunset files carry the bill's own JobTread id in the name. With two
+      // PDFs at one amount (a bill voided and recreated), the one that names
+      // THIS bill is its backup; vendor words alone tie and the first wins.
+      // Ferron Otis Perkins, Oct 2026: $1,872.40.
+      const score = overlap(f.tail, bill.vendor || bill.label) + (f.name.includes(bill.id) ? 100 : 0);
       if (score > bestScore) {
         best = f;
         bestScore = score;
