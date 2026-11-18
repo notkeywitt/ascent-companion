@@ -38,6 +38,41 @@ export interface UnmappedPair {
   types: { payType: string; count: number }[];
 }
 
+/** One Labor Rates Map row: what a job pays a cost code per hour. */
+export interface CodeRate {
+  jobId: string;
+  costCode: string;
+  hourlyRate: number;
+}
+
+export interface RateChange {
+  /** The map's rate for the entry's job + code. */
+  rate: number;
+  /** The employee's pay type at that rate, or null when they hold none. */
+  type: string | null;
+}
+
+/**
+ * The entries the Labor Rates Map would re-rate, by entry id. An entry's rate
+ * is its pay type's, so the fix is the employee's pay type whose hourly rate
+ * equals the map's (first held wins). `type` null = no such pay type to assign.
+ */
+export function rateChanges(
+  entries: { id: string; userId: string; jobId: string; code: string; hourlyRate: number }[],
+  map: CodeRate[],
+  members: { userId: string; types: { name: string; hourlyRate: number }[] }[],
+): Map<string, RateChange> {
+  const by = new Map(map.map((r) => [`${r.jobId}|${r.costCode}`, r.hourlyRate]));
+  const out = new Map<string, RateChange>();
+  for (const e of entries) {
+    const rate = by.get(`${e.jobId}|${e.code}`);
+    if (rate === undefined || Math.abs(e.hourlyRate - rate) < 0.005) continue;
+    const type = members.find((m) => m.userId === e.userId)?.types.find((t) => Math.abs(t.hourlyRate - rate) < 0.005);
+    out.set(e.id, { rate, type: type?.name ?? null });
+  }
+  return out;
+}
+
 const key = (jobId: string, code: string) => `${jobId}|${code}`;
 
 export function findMismatches(entries: RateEntry[], map: JobCodeRate[]): RateMismatch[] {

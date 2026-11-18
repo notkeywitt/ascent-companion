@@ -451,6 +451,20 @@ export const jobCodeRates = sqliteTable("job_code_rates", {
 });
 
 /**
+ * Labor Rates Map — the hourly dollar rate each job pays each of its Labor cost
+ * codes. Edited on /labor-rates; the Labor page's Check pay rates assigns it to
+ * time entries by cost code. Unique on (job_id, cost_code).
+ */
+export const laborRatesMap = sqliteTable("labor_rates_map", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  jobId: text("job_id").notNull(),
+  costCode: text("cost_code").notNull(), // cost code number
+  hourlyRate: real("hourly_rate").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+/**
  * Default cost codes — the code an employee lands on when they pick a job on
  * the time page. Edited on /labor-rates beside the pay-type rules. `cost_code`
  * is the code NUMBER; the time page picks that job's labor line carrying it.
