@@ -105,21 +105,22 @@ export function expenseAccountFor(v: { id?: string | null; name?: string | null 
 }
 
 /**
- * What a Sunset vendorBill should be: an "Expense" paid from Banner Bank, or —
- * for a credit (negative cost) — a "Credit", JobTread's own template for one.
- * QuickBooks has no negative expense; JT sends a negative document as a vendor
- * credit. Same rule as `_jtSunsetDocName` in ascent-appscript.
+ * What a Sunset vendorBill should be: a "Bill" (owner, 2026-11-18 — Sunset
+ * invoices went back to Bills after a stretch as Expenses paid from Banner
+ * Bank), or — for a credit (negative cost) — a "Credit", JobTread's own
+ * template for one. JT sends a negative document as a vendor credit. Same rule
+ * as `_jtSunsetDocName` in ascent-appscript.
  */
-export type SunsetDocName = "Expense" | "Credit";
+export type SunsetDocName = "Bill" | "Credit";
 export const sunsetDocName = (cost: number | null | undefined): SunsetDocName =>
-  (cost ?? 0) < 0 ? "Credit" : "Expense";
+  (cost ?? 0) < 0 ? "Credit" : "Bill";
 
 /**
  * SUNSET RETURNS RIDE ON THEIR OWN CREDIT. QuickBooks reads a credit's amounts
  * as positive, so one document carrying a purchase AND a return pushes the
  * return inverted. A Sunset invoice with both is split: its returns (the
  * negative lines) go on a Credit numbered "<invoice #>-CR", and its purchases
- * stay on the original as an Expense. The sales-tax line counts as neither and
+ * stay on the original as a Bill. The sales-tax line counts as neither and
  * stays with the purchases. Same rule as `_jtSplitSunsetReturns` in
  * ascent-appscript, which splits a captured invoice before its first push.
  *
@@ -198,9 +199,9 @@ export interface DraftSunsetBill {
 
 /**
  * Why the bulk switch must leave this Sunset bill alone, or "" when it may act
- * on it. Not a draft, or already in QuickBooks, or already done: an Expense on
- * both fields, or a document named Credit. A `mixed` bill always has work left —
- * its returns still have to come off.
+ * on it. Not a draft, or already in QuickBooks, or already done: a Bill on
+ * both fields (neither the name nor Push as says Expense), or a document named
+ * Credit. A `mixed` bill always has work left — its returns still have to come off.
  */
 export function sunsetSwitchBlocker(d: {
   status?: string | null;
@@ -210,14 +211,14 @@ export function sunsetSwitchBlocker(d: {
   qboId?: string | null;
   mixed?: boolean;
   externalId?: string | null;
-}): "" | "not draft" | "in QuickBooks" | "already an Expense" | "already a Credit" | "a statement bill" {
-  // A statement bill is the payable, on terms — never an Expense.
+}): "" | "not draft" | "in QuickBooks" | "already a Bill" | "already a Credit" | "a statement bill" {
+  // A statement bill has its own flow (Sunset Statements); the switch leaves it alone.
   if (isSunsetStatementBill(d.externalId)) return "a statement bill";
   if (d.status && d.status !== "draft") return "not draft";
   if (d.qboId) return "in QuickBooks";
   if (d.mixed) return "";
   if (sunsetDocName(d.cost) === "Credit") return d.name === "Credit" ? "already a Credit" : "";
-  if (d.name === "Expense" && d.qboDocumentType === "purchase") return "already an Expense";
+  if (!isExpenseDoc(d)) return "already a Bill";
   return "";
 }
 

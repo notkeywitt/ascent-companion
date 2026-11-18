@@ -6,11 +6,11 @@ import { JtLink } from "./JtLink";
 import { Banner, Button, Card, Checkbox, MetaLine, Spinner } from "./ui";
 import { money as moneyN } from "@/lib/money";
 
-// The bulk switch for the Sunset Statements page. Sunset is paid in bulk off
-// its statement, from Banner Bank, so its bills are Expenses paid from
-// "Checking - Banner Bank" and its credits are JobTread Credits. The intake
-// files new ones that way; this lists the DRAFT Sunset bills not yet filed
-// that way and switches the ones ticked (GET / POST /api/sunset-expense).
+// The bulk switch for the Sunset Statements page. Sunset invoices are Bills
+// and its credits are JobTread Credits (owner, 2026-11-18). The intake files
+// new ones that way; this lists the DRAFT Sunset bills still filed as an
+// Expense and switches the ones ticked back to a Bill (GET / POST
+// /api/sunset-expense).
 
 interface Bill {
   id: string;
@@ -20,7 +20,7 @@ interface Bill {
   issueDate: string;
   cost: number;
   /** "Split" = a purchase AND a return: the returns move onto their own Credit. */
-  target: "Expense" | "Credit" | "Split";
+  target: "Bill" | "Credit" | "Split";
 }
 interface Outcome {
   docId: string;
@@ -138,11 +138,10 @@ export function SunsetExpenseSwitch() {
     <Card className="mb-4">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="font-semibold">Draft bills to expenses</div>
+          <div className="font-semibold">Draft expenses to bills</div>
           <div className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-            Sunset is paid from Banner Bank off the statement. Switch draft Sunset bills to an Expense paid from
-            Checking - Banner Bank, and draft Sunset credits to a Credit. A bill with a return has the return split
-            onto its own Credit first.
+            Sunset invoices are Bills. Switch draft Sunset Expenses back to a Bill, and draft Sunset credits to a
+            Credit. A bill with a return has the return split onto its own Credit first.
           </div>
         </div>
         {state !== "ready" && state !== "saving" && (
@@ -200,7 +199,7 @@ export function SunsetExpenseSwitch() {
         <div className="mt-3">
           {bills.length === 0 ? (
             <div className="text-xs font-semibold text-ok">
-              ✓ Every draft Sunset bill is already an Expense, and every credit a Credit.
+              ✓ Every draft Sunset bill is already a Bill, and every credit a Credit.
             </div>
           ) : (
             <>

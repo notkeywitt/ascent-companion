@@ -72,7 +72,7 @@ import { setVendorBillType } from "@/lib/clientDirectory";
  *               Number for everyone else
  *   vendorId    optional JT account override (skip/replace the model's match)
  *   billType    "Bill" | "Expense" (already paid) — omitted = the vendor's
- *               "Bill Type" custom field, else Bill. Sunset is always an Expense
+ *               "Bill Type" custom field, else Bill. Sunset is always a Bill
  *               (a Sunset credit is a Credit), whatever this says.
  *   folderLink  a Google Drive FOLDER link in place of `file`: the folder's
  *               files, named "<CSI> - <amount> - <what>.pdf", become ONE bill
@@ -411,12 +411,11 @@ export async function POST(req: NextRequest) {
     // ---- 4. dates + Vendor Bill Number — both anchored to the upload moment ---
     const isSunset = isSunsetVendor(vendor);
     // Bill or Expense: the upload's pick, else the vendor's default. Sunset is
-    // always an Expense paid from Banner Bank — the monthly statement pays it in
-    // bulk — and a Sunset credit is a JobTread Credit (appscript enforces the
-    // same). A pick that differs from the default becomes the new default,
-    // after the create.
+    // always a Bill (owner, 2026-11-18), and a Sunset credit is a JobTread
+    // Credit (appscript enforces the same). A pick that differs from the
+    // default becomes the new default, after the create.
     let sunsetCredit = isSunset && sunsetDocName(Number(extracted.Amount) || 0) === "Credit";
-    let billType: BillType = isSunset && !sunsetCredit ? "Expense" : "Bill";
+    let billType: BillType = "Bill";
     let vendorDefault: BillType | null = null;
     if (!isSunset) {
       try {
@@ -604,14 +603,14 @@ export async function POST(req: NextRequest) {
     // QuickBooks reads a credit's amounts as positive, so a purchase and a
     // return on one document push the return inverted. The returns go on a
     // Credit "<number>-CR" (created after this bill, below); the purchases stay
-    // here as an Expense. See splitSunsetLines.
+    // here as a Bill. See splitSunsetLines.
     const sunsetSplit = isSunset
       ? splitSunsetLines(lines, (l) => (Number(l.unitCost) || 0) * (Number(l.quantity) || 0))
       : null;
     const returnLines = sunsetSplit?.mixed ? sunsetSplit.returns : [];
     if (sunsetSplit?.mixed) {
       lines = sunsetSplit.purchases;
-      billType = "Expense";
+      billType = "Bill";
       sunsetCredit = false;
       warnings.push(
         `${returnLines.length} return line${returnLines.length === 1 ? "" : "s"} split onto ` +
