@@ -45,13 +45,13 @@ export const WORKSPACES: Workspace[] = [
     id: "close",
     title: "Invoicing",
     desc: "Code the month, check it, bill it — in close order.",
-    // The close order, confirmed by the owner 2026-09-29 (decision 9).
+    // Invoice Status leads: the rail and the menu row open the first tab (owner, 2026-11-18).
     tabs: [
+      tab("invoicing-summary", "/invoicing-summary", "Invoice Status", "Every job billed this month — paid or open, emailed or opened, and the invoicing email"),
       tab("recode", "/trackingsheet", "Tracking Sheets", "Code a month's bills against live budget headroom"),
       // Checks holds Bill Corrections and Taxable Flags as sections since
       // 2026-10-18 (CONSOLIDATION_PLAN.md stage 2); their routes redirect.
       tab("invoice-review", "/invoice-review", "Checks", "Findings, flagged bills and non-taxable lines for the month"),
-      tab("invoicing-summary", "/invoicing-summary", "Invoice Status", "Every job billed this month — paid or open, emailed or opened, and the invoicing email"),
     ],
   },
   {
