@@ -4,12 +4,17 @@ import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { BillView, prefetchBill } from "@/app/bill/[docId]/BillView";
 import {
+  Banner,
+  Button,
+  Dialog,
   EmptyState,
+  FilterChip,
   Input,
   ListCard,
   ListRow,
   Loading,
   SectionHeading,
+  SectionLabel,
   Segmented,
   SplitView,
   Toggle,
@@ -19,6 +24,9 @@ import { money } from "@/lib/money";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import { CoiDot } from "@/components/CoiDot";
+import { JobPicker } from "@/components/JobPicker";
+import { useAccess } from "@/components/AccessProvider";
+import { toast } from "@/components/Toast";
 
 /**
  * Bills — the draft bills waiting to be coded, newest first, with the open
@@ -37,6 +45,8 @@ interface Draft {
   id: string;
   jobId?: string;
   jobName?: string;
+  /** "Bill" or "Expense" — the document's own name in JobTread. */
+  name?: string;
   fromName?: string;
   number?: string;
   externalId?: string;
@@ -67,6 +77,13 @@ export function BillsBrowser() {
   const [showReviewed, setShowReviewed] = useState(true);
   // Flips the sort's natural direction (and the order of the groups).
   const [reverse, setReverse] = useState(false);
+  // The Tracking Sheet's filters: one job, and Bills vs Expenses.
+  const [jobId, setJobId] = useState("");
+  const [kind, setKind] = useState<"all" | "bill" | "expense">("all");
+  const canApprove = useAccess().can("bill-approve");
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveMsg, setApproveMsg] = useState("");
 
   // Re-read the list when a bill was written in the panel (saved, approved,
   // voided) — an approved bill is no longer a draft and leaves the list.
@@ -92,14 +109,51 @@ export function BillsBrowser() {
       (bills ?? []).filter(
         (b) =>
           (showReviewed || !b.reviewed) &&
+          (!jobId || b.jobId === jobId) &&
+          (kind === "all" || (b.name === "Expense") === (kind === "expense")) &&
           (!q ||
             [b.fromName, b.jobName, b.externalId, b.number].some((s) =>
               (s ?? "").toLowerCase().includes(q),
             )),
       ),
-    [bills, q, showReviewed],
+    [bills, q, showReviewed, jobId, kind],
   );
   const groups = useMemo(() => groupBills(shown, sort, groupBy, reverse), [shown, sort, groupBy, reverse]);
+
+  // Same write as the Tracking Sheet's batch Approve: a Bill goes draft →
+  // pending, an Expense draft → approved, one /api/bill-status POST each.
+  const approveShown = async () => {
+    setApproving(true);
+    let ok = 0;
+    let previewed = false;
+    const failures: string[] = [];
+    for (const b of shown) {
+      try {
+        const r = await fetch("/api/bill-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId: b.id, status: b.name === "Expense" ? "approved" : "pending" }),
+        });
+        const j = await r.json();
+        if (!r.ok || j.error) failures.push(`${b.fromName || b.id}: ${j.error ?? "Approve failed"}`);
+        else {
+          ok++;
+          if (j.previewed) previewed = true;
+        }
+      } catch (e) {
+        failures.push(`${b.fromName || b.id}: ${e instanceof Error ? e.message : "Request failed"}`);
+      }
+    }
+    setApproving(false);
+    setApproveOpen(false);
+    const verb = previewed ? "Would approve" : "Approved";
+    if (failures.length === 0) toast(`${verb} ${ok} bill${ok === 1 ? "" : "s"}.`);
+    else
+      setApproveMsg(
+        `${verb} ${ok} bill(s), ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
+      );
+    await loadList();
+  };
 
   // Going down the list: warm the next few bills (and the one above) in the
   // order shown, one at a time so they never crowd the open bill's own read.
@@ -151,6 +205,12 @@ export function BillsBrowser() {
           // No page header: the open bill's title is the page's title.
           <div className="space-y-2">
             {!openId && <h1 className="sr-only">Bills</h1>}
+            <JobPicker
+              value={jobId}
+              onChange={setJobId}
+              allDescription="Draft bills across every job"
+              showPhaseFilter
+            />
             <Input
               type="search"
               value={query}
@@ -194,6 +254,39 @@ export function BillsBrowser() {
               />
               <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <SectionLabel className="shrink-0">Show</SectionLabel>
+              <FilterChip on={kind === "all"} onClick={() => setKind("all")}>
+                All
+              </FilterChip>
+              <FilterChip
+                on={kind === "bill"}
+                onClick={() => setKind("bill")}
+                title="Filed as a Bill — money Ascent still owes the vendor"
+              >
+                Bills
+              </FilterChip>
+              <FilterChip
+                on={kind === "expense"}
+                onClick={() => setKind("expense")}
+                title="Filed as an Expense — already paid, on a card or out of pocket"
+              >
+                Expenses
+              </FilterChip>
+            </div>
+            {canApprove && (
+              <Button
+                className="min-h-11 w-full"
+                onClick={() => {
+                  setApproveMsg("");
+                  setApproveOpen(true);
+                }}
+                disabled={shown.length === 0 || approving}
+              >
+                Approve Draft Bills{shown.length > 0 ? ` (${shown.length})` : ""}
+              </Button>
+            )}
+            {approveMsg && <Banner tone="error">{approveMsg}</Banner>}
             {error && <p className="text-sm text-danger">{error}</p>}
             {!bills && !error && <Loading label="Loading bills…" />}
             {bills && (
@@ -251,6 +344,38 @@ export function BillsBrowser() {
           </div>
         }
       />
+      {approveOpen && (
+        <Dialog
+          busy={approving}
+          onClose={() => setApproveOpen(false)}
+          title={`Approve ${shown.length} draft bill${shown.length === 1 ? "" : "s"}?`}
+          description="Bills move to Pending (approved for payment); Expenses move straight to Approved (paid)."
+          footer={
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                variant="secondary"
+                className="min-h-11 w-full"
+                onClick={() => setApproveOpen(false)}
+                disabled={approving}
+              >
+                Cancel
+              </Button>
+              <Button className="min-h-11 w-full" onClick={approveShown} disabled={approving || shown.length === 0}>
+                {approving ? "Approving…" : `Approve ${shown.length} bill${shown.length === 1 ? "" : "s"}`}
+              </Button>
+            </div>
+          }
+        >
+          <ul className="space-y-2">
+            {shown.map((b) => (
+              <li key={b.id} className="flex items-baseline justify-between gap-3 rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700">
+                <span className="min-w-0 truncate font-medium">{b.fromName || "Unknown vendor"}</span>
+                <span className="shrink-0 tabular-nums">{typeof b.cost === "number" ? money(b.cost) : ""}</span>
+              </li>
+            ))}
+          </ul>
+        </Dialog>
+      )}
     </div>
   );
 }

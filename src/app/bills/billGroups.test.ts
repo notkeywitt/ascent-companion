@@ -80,4 +80,13 @@ describe("groupBills", () => {
     ];
     expect(shape(groupBills(b, "date", "code")).map((g) => g[0])).toEqual(["To code", "Reviewed"]);
   });
+
+  it("puts Ascent jobs below client jobs when grouped by job", () => {
+    const b = [
+      { id: "a", fromName: "X", jobName: "Ascent Office" },
+      { id: "b", fromName: "Y", jobName: "Zeta" },
+      { id: "c", fromName: "Z" },
+    ];
+    expect(shape(groupBills(b, "date", "job")).map((g) => g[0])).toEqual(["Zeta", "Ascent Office", "No job"]);
+  });
 });
