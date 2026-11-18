@@ -13,13 +13,37 @@ interface Job {
 interface Code {
   number: string;
   name: string;
+  division: string;
 }
 type Rates = Record<string, number>; // "jobId|code" → $/h
 
-/** One job: each Labor cost code in its budget beside a dollar rate. */
-function JobCard({ job, rates, onSaved }: { job: Job; rates: Rates; onSaved: (code: string, rate: number | null) => void }) {
+const parseRate = (text: string) => {
+  const clean = text.replace(/[^0-9.]/g, "");
+  return clean === "" ? null : Number(clean);
+};
+
+function RateInput({ label, value, placeholder, onCommit }: { label: string; value: number | "" ; placeholder?: string; onCommit: (text: string) => void }) {
+  return (
+    <div className="relative w-24 shrink-0">
+      <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
+      <input
+        key={String(value)}
+        aria-label={label}
+        defaultValue={value}
+        placeholder={placeholder}
+        inputMode="decimal"
+        onBlur={(e) => onCommit(e.target.value)}
+        className={inputCls + " pl-5 text-right"}
+      />
+    </div>
+  );
+}
+
+/** One job: its Labor cost codes grouped by division. A division sets every code's rate at once; expand it to edit single rows. */
+function JobCard({ job, rates, onSaved }: { job: Job; rates: Rates; onSaved: (codes: string[], rate: number | null) => void }) {
   const [codes, setCodes] = useState<Code[] | null>(null);
   const [err, setErr] = useState("");
+  const [open, setOpen] = useState<Set<string>>(new Set()); // groups start collapsed
 
   useEffect(() => {
     fetch(`/api/labor-rates/map?jobId=${encodeURIComponent(job.id)}`)
@@ -28,19 +52,32 @@ function JobCard({ job, rates, onSaved }: { job: Job; rates: Rates; onSaved: (co
       .catch((e) => setErr(e instanceof Error ? e.message : "Failed to load"));
   }, [job.id]);
 
-  async function save(code: string, text: string) {
-    const clean = text.replace(/[^0-9.]/g, "");
-    const rate = clean === "" ? null : Number(clean);
-    if (rate === (rates[`${job.id}|${code}`] ?? null)) return;
+  const divisions = useMemo(() => {
+    const m = new Map<string, Code[]>();
+    for (const c of codes ?? []) m.set(c.division, [...(m.get(c.division) ?? []), c]);
+    return [...m].sort(([a], [b]) => (a === "No division" ? 1 : b === "No division" ? -1 : a.localeCompare(b, undefined, { numeric: true })));
+  }, [codes]);
+
+  async function save(list: Code[], text: string) {
+    const rate = parseRate(text);
+    const changed = list.filter((c) => (rates[`${job.id}|${c.number}`] ?? null) !== rate);
+    if (changed.length === 0) return;
     const r = await fetch("/api/labor-rates/map", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jobId: job.id, costCode: code, hourlyRate: rate }),
+      body: JSON.stringify({ jobId: job.id, costCodes: changed.map((c) => c.number), hourlyRate: rate }),
     });
     const b = await r.json();
     if (b.error) toast(b.error, { tone: "error" });
-    else onSaved(code, rate);
+    else onSaved(changed.map((c) => c.number), rate);
   }
+
+  const toggle = (d: string) =>
+    setOpen((o) => {
+      const n = new Set(o);
+      if (!n.delete(d)) n.add(d);
+      return n;
+    });
 
   return (
     <div className="overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
@@ -54,31 +91,57 @@ function JobCard({ job, rates, onSaved }: { job: Job; rates: Rates; onSaved: (co
       ) : codes.length === 0 ? (
         <p className="px-3 py-2 text-xs text-neutral-500">No Labor cost codes in the budget.</p>
       ) : (
-        <ul className="divide-y divide-line-soft">
-          {codes.map((c) => (
-            <li key={c.number} className="flex items-center gap-2 px-3 py-1.5 text-sm">
-              <span className="min-w-0 flex-1 truncate">
-                <span className="tabular-nums">{c.number}</span> <span className="text-neutral-500">{c.name}</span>
-              </span>
-              <div className="relative w-24 shrink-0">
-                <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-neutral-400">$</span>
-                <input
-                  aria-label={`${job.name} ${c.number} rate`}
-                  defaultValue={rates[`${job.id}|${c.number}`] ?? ""}
-                  inputMode="decimal"
-                  onBlur={(e) => void save(c.number, e.target.value)}
-                  className={inputCls + " pl-5 text-right"}
-                />
+        <div className="divide-y divide-line-soft">
+          {divisions.map(([division, list]) => {
+            const vals = list.map((c) => rates[`${job.id}|${c.number}`] ?? "");
+            const same = vals.every((v) => v === vals[0]);
+            const isOpen = open.has(division);
+            return (
+              <div key={division}>
+                <div className="flex items-center gap-2 px-3 py-1.5 text-sm">
+                  <button
+                    type="button"
+                    aria-expanded={isOpen}
+                    onClick={() => toggle(division)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium"
+                  >
+                    <span className={"shrink-0 text-neutral-400 transition-transform " + (isOpen ? "rotate-90" : "")}>›</span>
+                    <span className="min-w-0 flex-1 truncate">{division}</span>
+                    <span className="shrink-0 text-xs font-normal text-neutral-500">{list.length}</span>
+                  </button>
+                  <RateInput
+                    label={`${job.name} ${division} rate for all`}
+                    value={same ? vals[0] : ""}
+                    placeholder={same ? "" : "mixed"}
+                    onCommit={(t) => void save(list, t)}
+                  />
+                </div>
+                {isOpen && (
+                  <ul className="divide-y divide-line-soft bg-neutral-50/60 dark:bg-white/[0.03]">
+                    {list.map((c) => (
+                      <li key={c.number} className="flex items-center gap-2 py-1.5 pl-8 pr-3 text-sm">
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className="tabular-nums">{c.number}</span> <span className="text-neutral-500">{c.name}</span>
+                        </span>
+                        <RateInput
+                          label={`${job.name} ${c.number} rate`}
+                          value={rates[`${job.id}|${c.number}`] ?? ""}
+                          onCommit={(t) => void save([c], t)}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
-            </li>
-          ))}
-        </ul>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
 
-/** The Labor Rates Map: a card per job, grouped by Phase. */
+/** The Labor Rates Map: a card per job, grouped by Phase. Inside a job, codes group by division, collapsed. */
 export function LaborRatesMap() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [rates, setRates] = useState<Rates>({});
@@ -123,10 +186,14 @@ export function LaborRatesMap() {
                 key={j.id}
                 job={j}
                 rates={rates}
-                onSaved={(code, rate) =>
+                onSaved={(codes, rate) =>
                   setRates((r) => {
-                    const { [`${j.id}|${code}`]: _, ...rest } = r;
-                    return rate === null ? rest : { ...rest, [`${j.id}|${code}`]: rate };
+                    const next = { ...r };
+                    for (const code of codes) {
+                      if (rate === null) delete next[`${j.id}|${code}`];
+                      else next[`${j.id}|${code}`] = rate;
+                    }
+                    return next;
                   })
                 }
               />
