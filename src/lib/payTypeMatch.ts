@@ -66,3 +66,20 @@ export function defaultPayType(types: string[]): string {
   const want = DEFAULT_PAY_TYPE.toLowerCase();
   return types.find((t) => t.toLowerCase().endsWith(want)) ?? types[0];
 }
+
+/**
+ * An item's display name for the pickers: the line's own name, else the code's
+ * name, with the cost code number removed when the name repeats it
+ * ("01 31 20 - General Labor" → "General Labor").
+ */
+export function itemName(c: { number: string; name: string; detail?: string }): string {
+  const raw = (c.detail || c.name || "").trim();
+  const code = c.number.trim();
+  if (!code) return raw;
+  const esc = code.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const stripped = raw
+    .replace(new RegExp(`^${esc}\\s*[-–—:·]?\\s*`), "")
+    .replace(new RegExp(`\\s*[-–—:·(]?\\s*${esc}\\)?$`), "")
+    .trim();
+  return stripped || raw;
+}

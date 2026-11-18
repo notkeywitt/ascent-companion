@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultCostCode, defaultPayType, matchPayType } from "./payTypeMatch";
+import { defaultCostCode, defaultPayType, itemName, matchPayType } from "./payTypeMatch";
 
 const rules = [
   { jtUserId: "ty", jobId: "bunk", costCode: "", payType: "Berger Bunkhouse - Regular Pay" },
@@ -26,6 +26,14 @@ describe("matchPayType", () => {
     const defaults = [{ jtUserId: "ty", jobId: "bunk", costCode: "01 31 10" }];
     expect(defaultCostCode(defaults, { jtUserId: "ty", jobId: "bunk" })).toBe("01 31 10");
     expect(defaultCostCode(defaults, { jtUserId: "dan", jobId: "bunk" })).toBe("");
+  });
+});
+
+describe("itemName", () => {
+  it("shows the name without the code", () => {
+    expect(itemName({ number: "01 31 20", name: "General Labor" })).toBe("General Labor");
+    expect(itemName({ number: "01 31 20", name: "x", detail: "01 31 20 - General Labor" })).toBe("General Labor");
+    expect(itemName({ number: "01 31 20", name: "General Labor (01 31 20)" })).toBe("General Labor");
   });
 });
 
