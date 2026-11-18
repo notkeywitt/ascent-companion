@@ -34,6 +34,7 @@ import type { Entry as WeekEntry, User } from "@/app/employee-time/WeekCompare";
 import type { CostCodeDefault, PayTypeRule } from "@/lib/payTypeMatch";
 import { AddTimeCard } from "@/app/trackingsheet/AddTimeCard";
 import { laborOptions, type TimeEntryRow } from "@/app/trackingsheet/TimeCodingCard";
+import { TimeFilterStrip, TimeGroupSwitch, useTimeFilters } from "@/components/TimeEntryList";
 import { LaborImport } from "@/app/labor-import/LaborImport";
 import { EntryPanel } from "./EntryPanel";
 import { PayRateCheck } from "./PayRateCheck";
@@ -216,23 +217,28 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
     [entries, jobId],
   );
 
+  // The Tracking Sheet's own filters and Group switch. Job (the page's
+  // original job → employee → code layout) stays the default.
+  const filters = useTimeFilters(shown, { resetKey: `${jobId}|${from}`, defaultGroupBy: "job" });
+  const byJob = filters.groupBy === "job";
+
   const jobs = useMemo(() => {
-    const sorted = [...shown].sort(
-      (a, b) =>
-        a.jobName.localeCompare(b.jobName) ||
-        a.employee.localeCompare(b.employee) ||
-        a.code.localeCompare(b.code, undefined, { numeric: true }) ||
-        String(a.startedAt).localeCompare(String(b.startedAt)),
-    );
-    const out = groupBy(sorted, (e) => e.jobId);
+    const inCard = (a: Entry, b: Entry) =>
+      a.employee.localeCompare(b.employee) ||
+      a.code.localeCompare(b.code, undefined, { numeric: true }) ||
+      String(a.startedAt).localeCompare(String(b.startedAt));
+    const out: [string, Entry[], string][] = filters.groups.map((g) => {
+      const list = [...(g.entries as Entry[])].sort(inCard);
+      return [byJob ? list[0].jobId : "", list, g.label || "All time"];
+    });
     // Internal jobs (Ascent Office, Shop) sink to the bottom of the list.
-    const internal = (l: typeof shown) => /^(ascent office|shop)\b/i.test(l[0]?.jobName ?? "") ? 1 : 0;
+    const internal = (l: Entry[]) => (byJob && /^(ascent office|shop)\b/i.test(l[0]?.jobName ?? "") ? 1 : 0);
     out.sort((a, b) => internal(a[1]) - internal(b[1]));
     // A picked job with nothing in the period still gets its card, so time can
     // be added to it.
-    if (jobId && out.length === 0) out.push([jobId, []]);
+    if (jobId && shown.length === 0) out.push([jobId, [], ""]);
     return out;
-  }, [shown, jobId]);
+  }, [filters.groups, byJob, jobId, shown.length]);
 
   useEffect(() => {
     if (!showBudget) return;
@@ -306,9 +312,9 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
     />
   );
 
-  const totalHours = sum(shown, "hours");
-  const totalCost = sum(shown, "cost");
-  const unapproved = shown.filter((e) => !e.isApproved).length;
+  const totalHours = filters.shownHours;
+  const totalCost = filters.shownCost;
+  const unapproved = filters.visible.filter((e) => !e.isApproved).length;
   const jobName = (id: string, list: Entry[]) =>
     list[0]?.jobName ?? (pickedJob && pickedJob.id === id ? jobLabel(pickedJob) : "This job");
 
@@ -411,21 +417,28 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
           <MetaLine
             className="mb-3"
             items={[
-              `${shown.length} ${shown.length === 1 ? "entry" : "entries"}`,
+              `${filters.visible.length} ${filters.visible.length === 1 ? "entry" : "entries"}`,
               hoursLabel(totalHours),
               money(totalCost),
               unapproved ? <span className="text-warn">{unapproved} not approved</span> : "all approved",
             ]}
           />
+          <div className="mb-3 overflow-hidden rounded-xl border border-line">
+            <div className="flex flex-wrap items-center gap-2 bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+              <span className="text-[10px] uppercase tracking-wide text-neutral-400">Group</span>
+              <TimeGroupSwitch filters={filters} withJob />
+            </div>
+            <TimeFilterStrip filters={filters} hideGroup />
+          </div>
           {jobs.length === 0 && (
             <EmptyState>No time in this period. Pick a job above to add time to it.</EmptyState>
           )}
           <div className="space-y-4">
-            {jobs.map(([jid, list]) => (
+            {jobs.map(([jid, list, label]) => (
               <JobCard
-                key={jid || "none"}
+                key={`${jid}|${label}` || "none"}
                 jobId={jid}
-                name={jobName(jid, list)}
+                name={byJob || !label ? jobName(jid, list) : label}
                 list={list}
                 writes={writes}
                 budget={showBudget ? budgets[jid] ?? new Map() : null}

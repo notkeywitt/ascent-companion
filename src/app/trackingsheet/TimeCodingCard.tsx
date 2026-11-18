@@ -747,7 +747,7 @@ export function TimeCodingCard({
         {entry.notes && (
           <div>
             <Label>Note</Label>
-            <p className="whitespace-pre-line rounded-lg bg-neutral-50 p-2 text-[11px] leading-snug text-neutral-600 dark:bg-ink-raised/60 dark:text-neutral-400">
+            <p className="whitespace-pre-line rounded-lg bg-neutral-50 p-2.5 text-sm leading-snug text-neutral-900 dark:bg-ink-raised/60 dark:text-neutral-100">
               {entry.notes}
             </p>
           </div>
