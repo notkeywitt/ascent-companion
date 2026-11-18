@@ -82,7 +82,8 @@ function unwrap(b: Record<string, unknown>, fallback: string) {
 
 export async function GET(req: NextRequest) {
   const raw = req.nextUrl.searchParams.get("ym");
-  // No ym is not an error: it means "the billing month in force".
+  // No ym is not an error: it means the month BEFORE the billing month in
+  // force. The office invoices last month's work, so the page opens there.
   const period = raw ? parseYm(raw) : null;
   if (raw && !period) {
     return NextResponse.json({ error: "ym must look like 2026-08." }, { status: 400 });
@@ -90,7 +91,10 @@ export async function GET(req: NextRequest) {
   let asked = period;
   if (!asked) {
     const b = await currentBillingPeriod();
-    asked = { month: b.billingMonthNum, year: b.billingYear };
+    asked =
+      b.billingMonthNum === 1
+        ? { month: 12, year: b.billingYear - 1 }
+        : { month: b.billingMonthNum - 1, year: b.billingYear };
   }
 
   const res = await callAppsScript<Record<string, unknown>>(

@@ -140,8 +140,8 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 
   // Passing no `ym` on the first load is deliberate: the route answers for the
-  // billing month in force, so this page opens on the month the office is
-  // closing rather than on whatever the calendar rolled to.
+  // month before the billing month in force, so this page opens on the month
+  // the office is invoicing.
   const { data, setData, loading, error, load: loadSummary } = useInvoicingSummary();
   const load = useCallback(
     async (period: string, refresh = false) => {
@@ -158,7 +158,7 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
     if (started.current) return;
     started.current = true;
     // A link from another close page names its month; with none, the route
-    // answers for the billing month in force.
+    // answers for the month before the billing month in force.
     void load(embedYm ?? urlYm());
   }, [load]);
 
