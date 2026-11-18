@@ -40,7 +40,10 @@ import {
   useInvoicingSummary,
   type JobRow,
 } from "./summary";
-import { checkedAtLabel, tally } from "@/app/trackingsheet/preSendMemory";
+import { checkedAtLabel, openFindings, tally } from "@/app/trackingsheet/preSendMemory";
+import { laborFocusHref } from "@/app/trackingsheet/findingFocus";
+import { checkIdForKind } from "@/lib/invoiceReview/registry";
+import type { Finding } from "@/lib/invoiceReview/types";
 import { useJobChecks, type JobRun } from "@/app/trackingsheet/usePreSendCheck";
 
 /**
@@ -140,8 +143,8 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
   const months = useMemo(() => billingMonths(MONTH_COUNT), []);
 
   // Passing no `ym` on the first load is deliberate: the route answers for the
-  // billing month in force, so this page opens on the month the office is
-  // closing rather than on whatever the calendar rolled to.
+  // month before the billing month in force, so this page opens on the month
+  // the office is invoicing.
   const { data, setData, loading, error, load: loadSummary } = useInvoicingSummary();
   const load = useCallback(
     async (period: string, refresh = false) => {
@@ -158,7 +161,7 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
     if (started.current) return;
     started.current = true;
     // A link from another close page names its month; with none, the route
-    // answers for the billing month in force.
+    // answers for the month before the billing month in force.
     void load(embedYm ?? urlYm());
   }, [load]);
 
@@ -527,13 +530,30 @@ function Figure({ label, value }: { label: string; value: number }) {
  * Every invoice check's result on this job. The summary line is the answer; the
  * list behind it names each check, so a clean job still shows what ran.
  */
-function CheckMarks({ run, onCheck }: { run: JobRun | undefined; onCheck: () => void }) {
+/**
+ * Where to fix a finding: the same place the report sends it (invoiceReview/inbox) —
+ * the bill or labor entries on the job's hub page, else the finding's own page,
+ * else the job and month on the hub.
+ */
+function fixLink(f: Finding, ym: string): { label: string; href: string } {
+  if (f.jobId && f.target?.kind === "bill") {
+    return { label: "Open the bill", href: hubHref(f.jobId, ym, { bill: f.target.billId }) };
+  }
+  if (f.jobId && f.target?.kind === "labor") {
+    return { label: "Open the labor list", href: laborFocusHref(f.jobId, ym, f.target) };
+  }
+  if (f.sourceLink) return { label: f.sourceLabel ?? "Open", href: f.sourceLink };
+  return { label: "Open the job", href: hubHref(f.jobId, ym) };
+}
+
+function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: () => void; ym: string }) {
   const [open, setOpen] = useState(false);
   const busy = run?.state === "queued" || run?.state === "running";
   const mem = run?.mem;
   const checks = mem?.result.checks;
   const t = mem ? tally(mem) : null;
   const incomplete = !!mem?.result.evidenceWarnings.length;
+  const open_ = mem ? openFindings(mem) : [];
 
   return (
     <div className="mt-2 text-xs">
@@ -580,6 +600,24 @@ function CheckMarks({ run, onCheck }: { run: JobRun | undefined; onCheck: () => 
               {c.errors + c.warnings > 0 && (
                 <span className="tabular-nums text-neutral-500">{c.errors + c.warnings}</span>
               )}
+              {open_
+                .filter((f) => checkIdForKind(f.kind) === c.id)
+                .map((f) => {
+                  const l = fixLink(f, ym);
+                  const ext = l.href.startsWith("http");
+                  return (
+                    <a
+                      key={f.key}
+                      href={l.href}
+                      {...(ext ? { target: "_blank", rel: "noreferrer" } : {})}
+                      title={f.title}
+                      className="font-semibold text-accent hover:underline"
+                    >
+                      {l.label}
+                      {ext ? " ↗" : ""}
+                    </a>
+                  );
+                })}
             </li>
           ))}
         </ul>
@@ -758,7 +796,7 @@ function JobItem({
       )}
 
       <SideBySide job={job} run={run} />
-      <CheckMarks run={run} onCheck={onCheck} />
+      <CheckMarks run={run} onCheck={onCheck} ym={ym} />
 
       {/* Every link is a small button. The total above is the client INVOICE on
           an invoiced job, so it is bigger than labor plus bills by the markup
