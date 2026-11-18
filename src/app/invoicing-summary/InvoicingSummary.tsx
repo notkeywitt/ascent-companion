@@ -40,7 +40,7 @@ import {
   useInvoicingSummary,
   type JobRow,
 } from "./summary";
-import { checkedAtLabel, openFindings, tally } from "@/app/trackingsheet/preSendMemory";
+import { checkedAtLabel, clearedCount, openFindings, tally } from "@/app/trackingsheet/preSendMemory";
 import { FixSheet } from "./FixSheet";
 import type { Finding } from "@/lib/invoiceReview/types";
 import { useJobChecks, type JobRun } from "@/app/trackingsheet/usePreSendCheck";
@@ -363,6 +363,8 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
                     job={j}
                     run={jc.runs[j.jtJobId]}
                     onCheck={() => void jc.check(j.jtJobId)}
+                    onClear={(key) => jc.clear(j.jtJobId, key)}
+                    onUnclear={() => jc.unclear(j.jtJobId)}
                     focus={focusJobId === j.jtJobId}
                     ym={embedYm ? "" : ym}
                     saving={savingField.startsWith(j.jtJobId)}
@@ -529,7 +531,19 @@ function Figure({ label, value }: { label: string; value: number }) {
  * Every invoice check's result on this job. The summary line is the answer; the
  * list behind it names each check, so a clean job still shows what ran.
  */
-function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: () => void; ym: string }) {
+function CheckMarks({
+  run,
+  onCheck,
+  onClear,
+  onUnclear,
+  ym,
+}: {
+  run: JobRun | undefined;
+  onCheck: () => void;
+  onClear: (key: string) => void;
+  onUnclear: () => void;
+  ym: string;
+}) {
   const [open, setOpen] = useState(false);
   const [fixing, setFixing] = useState<Finding | null>(null);
   const busy = run?.state === "queued" || run?.state === "running";
@@ -538,6 +552,7 @@ function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: ()
   const t = mem ? tally(mem) : null;
   const incomplete = !!mem?.result.evidenceWarnings.length;
   const open_ = mem ? openFindings(mem) : [];
+  const cleared = mem ? clearedCount(mem) : 0;
   const fixingCheck = fixing ? checks?.find((c) => c.kinds?.includes(fixing.kind)) : undefined;
   // A run saved before checks carried their kinds: list its findings unsorted.
   const unsorted = open_.filter((f) => !checks?.some((c) => c.kinds?.includes(f.kind)));
@@ -598,6 +613,14 @@ function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: ()
           ))}
         </ul>
       )}
+      {open && cleared > 0 && (
+        <p className="mt-1.5 text-neutral-500">
+          {cleared} marked OK on this device.{" "}
+          <button type="button" onClick={onUnclear} className="font-semibold text-accent hover:underline">
+            Show again
+          </button>
+        </p>
+      )}
       {open && unsorted.length > 0 && (
         <div className="mt-1.5">
           {unsorted.map((f) => (
@@ -612,6 +635,10 @@ function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: ()
         ym={ym}
         onClose={() => setFixing(null)}
         onFixed={onCheck}
+        onOk={(key) => {
+          onClear(key);
+          setFixing(null);
+        }}
       />
     </div>
   );
@@ -741,6 +768,8 @@ function JobItem({
   job,
   run,
   onCheck,
+  onClear,
+  onUnclear,
   focus,
   ym,
   saving,
@@ -750,6 +779,8 @@ function JobItem({
   job: JobRow;
   run: JobRun | undefined;
   onCheck: () => void;
+  onClear: (key: string) => void;
+  onUnclear: () => void;
   focus: boolean;
   /** Set on the standalone page only: it adds a link into the Jobs Hub. */
   ym: string;
@@ -805,7 +836,7 @@ function JobItem({
       )}
 
       <SideBySide job={job} run={run} />
-      <CheckMarks run={run} onCheck={onCheck} ym={ym} />
+      <CheckMarks run={run} onCheck={onCheck} onClear={onClear} onUnclear={onUnclear} ym={ym} />
 
       {/* Every link is a small button. The total above is the client INVOICE on
           an invoiced job, so it is bigger than labor plus bills by the markup
