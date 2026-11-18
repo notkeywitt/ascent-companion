@@ -16,6 +16,7 @@ import {
   setBillFields,
   splitSunsetLines,
   sunsetCreditExternalId,
+  sunsetDocName,
   sunsetSwitchBlocker,
   buybackExternalIdFor,
   isVendorInvoiceNumber,
@@ -655,24 +656,29 @@ describe("expenseAccountFor", () => {
 });
 
 describe("sunsetSwitchBlocker", () => {
-  const draft = { status: "draft", cost: 42, name: "Bill", qboDocumentType: "bill", qboId: "" };
-  const credit = { ...draft, cost: -13.99, qboDocumentType: "vendorCredit" };
-  it("lets a draft Sunset Bill and a draft Sunset credit through", () => {
+  const draft = { status: "draft", cost: 42, name: "Expense", qboDocumentType: "purchase", qboId: "" };
+  const credit = { ...draft, cost: -13.99, name: "Bill", qboDocumentType: "vendorCredit" };
+  it("lets a draft Sunset Expense and a draft Sunset credit through", () => {
     expect(sunsetSwitchBlocker(draft)).toBe("");
     expect(sunsetSwitchBlocker(credit)).toBe("");
   });
   it("leaves non-drafts, QuickBooks docs and finished ones alone", () => {
     expect(sunsetSwitchBlocker({ ...draft, status: "pending" })).toBe("not draft");
     expect(sunsetSwitchBlocker({ ...draft, qboId: "bill:123" })).toBe("in QuickBooks");
-    expect(sunsetSwitchBlocker({ ...draft, name: "Expense", qboDocumentType: "purchase" })).toBe(
-      "already an Expense",
-    );
+    expect(sunsetSwitchBlocker({ ...draft, name: "Bill", qboDocumentType: "bill" })).toBe("already a Bill");
+    expect(sunsetSwitchBlocker({ ...draft, name: "Bill", qboDocumentType: null })).toBe("already a Bill");
     expect(sunsetSwitchBlocker({ ...credit, name: "Credit" })).toBe("already a Credit");
   });
-  it("still switches a bill named Expense that pushes as a Bill", () => {
-    expect(sunsetSwitchBlocker({ ...draft, name: "Expense" })).toBe("");
+  it("still switches a bill when either field says Expense", () => {
+    expect(sunsetSwitchBlocker({ ...draft, qboDocumentType: "bill" })).toBe("");
+    expect(sunsetSwitchBlocker({ ...draft, name: "Bill" })).toBe("");
   });
-  it("never switches a statement bill to an Expense", () => {
+  it("names a Sunset invoice a Bill and a negative one a Credit", () => {
+    expect(sunsetDocName(42)).toBe("Bill");
+    expect(sunsetDocName(0)).toBe("Bill");
+    expect(sunsetDocName(-1)).toBe("Credit");
+  });
+  it("never switches a statement bill", () => {
     expect(sunsetSwitchBlocker({ ...draft, externalId: "STMT-1a2b3c4d" })).toBe("a statement bill");
     expect(sunsetSwitchBlocker({ ...draft, externalId: "676708" })).toBe("");
   });
