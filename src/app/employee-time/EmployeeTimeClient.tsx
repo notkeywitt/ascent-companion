@@ -10,8 +10,8 @@ import { WeekCompare } from "./WeekCompare";
 import { TimeCard } from "./TimeCard";
 import { TimeEntriesEmailButton } from "./TimeEntriesEmailButton";
 import {
-  PAY_TYPE_CHANGE_WARNING,
   defaultCostCode,
+  defaultPayType,
   matchPayType,
   type CostCodeDefault,
   type PayTypeRule,
@@ -64,7 +64,7 @@ import {
  * a stack of tap-through field rows, and one big docked action button.
  *
  *  - TIME CLOCK (default): the big "Clocked out / Clocked in" state, the start
- *    time as tappable Today + time chips, then Job → Cost code → Pay type →
+ *    time as tappable Today + time chips, then Job → Item →
  *    Note as rows that each open a bottom sheet picker. The docked pill clocks
  *    in; while running it becomes Clock out and the elapsed time counts up.
  *    Clock-in creates an OPEN JobTread time entry (startedAt only); clock-out
@@ -83,8 +83,9 @@ import {
  *  - BREAK + SWITCH, both only while the clock runs, and both the same move:
  *    close the running entry now, open a new one when work resumes. The yellow
  *    pause button beside the docked pill starts a break (the pill then turns
- *    yellow and reads End Break); the Cost code row switches work mid-shift
- *    onto a new code. A break is therefore the GAP BETWEEN TWO ENTRIES, which
+ *    yellow and reads End Break). The Item row switches to a new item
+ *    mid-shift. The blue Switch button beside the pause (JobTread's Switch)
+ *    takes a note, then a new job and item. A break is therefore the GAP BETWEEN TWO ENTRIES, which
  *    is how JobTread models one — its own "add break" takes a start and a
  *    duration and SPLITS the entry. A first build deducted the minutes instead
  *    (`endNow: { breakDuration }`) and JobTread kept the full span; don't.
@@ -211,7 +212,6 @@ interface HistoryEntry {
 type SheetId =
   | "job"
   | "cost"
-  | "type"
   | "note"
   | "out"
   | "manual"
@@ -224,6 +224,8 @@ type SheetId =
   | "editcost"
   // Change cost code without clocking out — splits the running entry.
   | "switch"
+  // The blue Switch button: note, then the next job and item.
+  | "jobswitch"
   | null;
 
 /** One day of the timesheet: its entries, its total, and its approval state. */
@@ -664,7 +666,6 @@ export function EmployeeTimeClient({
   const [costItems, setCostItems] = useState<CostItem[]>([]);
   const [loadingCosts, setLoadingCosts] = useState(false);
   const [costItemId, setCostItemId] = useState("");
-  const [payType, setPayType] = useState("");
 
   // The clock's own start time. Follows the wall clock until the crew member
   // edits a chip (startTouched) — that's the "I forgot to clock in at 7" case.
@@ -1047,7 +1048,6 @@ export function EmployeeTimeClient({
 
   function pickUser(id: string) {
     setPickedUserId(id);
-    setPayType("");
     closeSheet();
     try {
       if (me?.email) localStorage.setItem(LS_JT_USER + me.email, id);
@@ -1065,7 +1065,6 @@ export function EmployeeTimeClient({
     if (!pick?.jobId) return;
     wantedRef.current = pick;
     setJobId((cur) => cur || pick.jobId);
-    if (pick.payType) setPayType((cur) => cur || pick.payType);
   }, [me, lastUsed]);
 
   // The default-code lookup the cost load below reads. A ref, so the load keys
@@ -1098,26 +1097,16 @@ export function EmployeeTimeClient({
       .finally(() => setLoadingCosts(false));
   }, [jobId]);
 
-  // Pay type: the resolved user's OWN set when the grant can read it, else the
-  // org-wide list as a fallback. Auto-set when there's exactly one option; the
-  // row only offers a choice when there are several.
+  // Pay type: there is no picker. Every entry files Regular Pay (lib/payTypeMatch
+  // defaultPayType), checked against the resolved user's OWN set when the grant
+  // can read it. The org-wide list is not a person's set, so it is not used.
   const perMemberTypes = effectiveUser?.types;
-  const payTypes: PayType[] = useMemo(
-    () => perMemberTypes ?? orgTypes.map((name) => ({ name })),
-    [perMemberTypes, orgTypes],
-  );
-  const typesAreFallback = !perMemberTypes && orgTypes.length > 0;
-  useEffect(() => {
-    if (payType) return;
-    if (payTypes.length === 1) setPayType(payTypes[0].name);
-  }, [payTypes, payType]);
+  const payTypes: PayType[] = useMemo(() => perMemberTypes ?? [], [perMemberTypes]);
 
   /* ── PAY TYPE FROM THE RULES ──────────────────────────────────────────────
      The office's table on /labor-rates says which pay type this person gets on
-     a job and cost code. Whenever the pick lands on a combination the table
-     knows — restored from last time, or chosen now — the pay type follows it.
-     A hand change after that sticks until the job or code changes again: the
-     effect keys on the MATCH, not on the pay type. */
+     a job and cost code. A combination the table knows files that pay type;
+     everything else files Regular Pay. */
   const [payRules, setPayRules] = useState<PayTypeRule[]>(initialPayRules);
   const [codeDefaults, setCodeDefaults] = useState<CostCodeDefault[]>(initialCodeDefaults);
   useEffect(() => {
@@ -1147,14 +1136,15 @@ export function EmployeeTimeClient({
   }, [acting, actingParam]);
   const rulePayType = (jid: string, code: string) => {
     const t = matchPayType(payRules, { jtUserId: effectiveUserId, jobId: jid, costCode: code });
-    // Only a pay type this person actually has; a stale rule is ignored.
-    return t && payTypes.some((p) => p.name === t) ? t : "";
+    // Only a pay type this person actually has; a stale rule is ignored. When
+    // their set cannot be read, the rule stands.
+    return t && (!perMemberTypes || perMemberTypes.some((p) => p.name === t)) ? t : "";
   };
   codeDefaultRef.current = (jid) => defaultCostCode(codeDefaults, { jtUserId: effectiveUserId, jobId: jid });
-  const ruleMatch = rulePayType(jobId, costItems.find((c) => c.id === costItemId)?.number ?? "");
-  useEffect(() => {
-    if (ruleMatch) setPayType(ruleMatch);
-  }, [ruleMatch, jobId, costItemId]);
+  const regularPay = defaultPayType(payTypes.map((p) => p.name));
+  /** The pay type to file for a job and cost code: the office's rule, else Regular Pay. */
+  const payTypeFor = (jid: string, code: string) => rulePayType(jid, code) || regularPay;
+  const payType = payTypeFor(jobId, costItems.find((c) => c.id === costItemId)?.number ?? "");
 
   // The job list: only the jobs this person is added to in JobTread, in a
   // phase that takes time (lib/timeClockJobs). The shell preloads your own;
@@ -1425,7 +1415,7 @@ export function EmployeeTimeClient({
       return;
     }
     if (!costItemId) {
-      setErr("Pick the work.");
+      setErr("Pick the item.");
       return;
     }
     // An edited start time is used as typed (to the minute); an untouched one is
@@ -1627,10 +1617,16 @@ export function EmployeeTimeClient({
   // code and a new one OPENS on the new one (the server does both), so the
   // morning's hours stay costed to the morning's work. Any break taken so far
   // goes out with the entry it was taken on; the new one starts clean.
-  async function switchCostCode(c: CostItem) {
+  //
+  // The blue Switch button does the same onto any job (JobTread's own Switch):
+  // its sheet takes the note for the entry closing now, then the next job and
+  // item. That note goes out with the closed entry, so the new one starts blank.
+  async function switchCostCode(c: CostItem, to?: { jobId: string; jobLabel: string }) {
     if (!activeClock) return;
-    // The new code may carry its own pay type in the office's table.
-    const switchPay = rulePayType(activeClock.jobId, c.number) || activeClock.payType;
+    const target = to ?? { jobId: activeClock.jobId, jobLabel: activeClock.jobLabel };
+    const jobChanged = target.jobId !== activeClock.jobId;
+    // The new job and item may carry their own pay type in the office's table.
+    const switchPay = payTypeFor(target.jobId, c.number);
     const at = nowLocalSeconds();
     const fromCode = activeClock.costCode;
     setErr("");
@@ -1644,7 +1640,7 @@ export function EmployeeTimeClient({
           op: "switch",
           entryId: activeClock.entryId,
           userId: effectiveUserId,
-          jobId: activeClock.jobId,
+          jobId: target.jobId,
           costItemId: c.id,
           payType: switchPay,
           startTime: at,
@@ -1674,6 +1670,8 @@ export function EmployeeTimeClient({
         previewed: !!json.previewed,
         jtStatus: json.jtStatus || "",
         startedAt: json.startedAt || at,
+        jobId: target.jobId,
+        jobLabel: target.jobLabel,
         costItemId: c.id,
         costCode: c.number,
         costItemName: c.name,
@@ -1683,8 +1681,18 @@ export function EmployeeTimeClient({
       setActiveClock(next);
       if (!acting) saveClock(next);
       announceClock({ source: "page" });
+      if (to) {
+        // The note went out with the closed entry; the new one starts blank.
+        clearSavedNote();
+        setNote("");
+      }
+      if (jobChanged) {
+        // The Item row's switch list follows the running job.
+        wantedRef.current = { jobId: target.jobId, costItemId: c.id, costCode: c.number, payType: switchPay };
+        setJobId(target.jobId);
+      }
       setClockNote(
-        `Now on ${c.number}${c.name ? ` — ${c.name}` : ""}. The hours before ${fmt12h(at.slice(11, 16))} stay on ${fromCode || "the old code"}.`,
+        `Now on ${jobChanged ? `${target.jobLabel} · ` : ""}${c.number}${c.name ? ` — ${c.name}` : ""}. The hours before ${fmt12h(at.slice(11, 16))} stay on ${fromCode || "the old code"}.`,
       );
       closeSheet();
     } catch (e) {
@@ -1706,7 +1714,7 @@ export function EmployeeTimeClient({
       return;
     }
     if (!costItemId) {
-      setErr("Pick the work.");
+      setErr("Pick the item.");
       return;
     }
     if (!note.trim()) {
@@ -2056,7 +2064,7 @@ export function EmployeeTimeClient({
       return;
     }
     if (!editCostItemId) {
-      setEditErr("Pick the work.");
+      setEditErr("Pick the item.");
       return;
     }
     if (!editNote.trim()) {
@@ -2404,7 +2412,7 @@ export function EmployeeTimeClient({
                 {/* Tappable while the clock runs: changing work mid-shift splits
                     the entry rather than re-coding the hours already worked. */}
                 <FieldRow
-                  label="Work"
+                  label="Item"
                   value={[activeClock.costCode, activeClock.costItemName].filter(Boolean).join(" — ") || "—"}
                   sub={canSwitchCode ? "Tap to switch — the hours so far stay put" : undefined}
                   onClick={canSwitchCode && !onBreakSince ? () => openSheet("switch") : undefined}
@@ -2460,7 +2468,7 @@ export function EmployeeTimeClient({
                 />
 
                 <FieldRow
-                  label="Work"
+                  label="Item"
                   value={
                     costLabelText ||
                     (!jobId
@@ -2468,22 +2476,12 @@ export function EmployeeTimeClient({
                       : loadingCosts
                         ? "Loading…"
                         : costItems.length
-                          ? "Select work"
+                          ? "Select an item"
                           : "No labor line on this job — ask the office")
                   }
                   placeholder={!costLabelText}
                   onClick={jobId && costItems.length ? () => openSheet("cost") : undefined}
                 />
-
-                {payTypes.length > 1 && (
-                  <FieldRow
-                    label="Pay type"
-                    value={payType || "Select a pay type"}
-                    placeholder={!payType}
-                    sub={typesAreFallback ? "All pay types — pick your rate for this job" : undefined}
-                    onClick={() => openSheet("type")}
-                  />
-                )}
 
                 <FieldRow
                   label="Note"
@@ -2533,11 +2531,41 @@ export function EmployeeTimeClient({
                 disabled={busy || checkingClock || !activeClock?.entryId}
                 aria-label="Start a break"
                 title="Start a break — closes this entry and opens a new one when you come back"
-                className="absolute left-0 flex h-14 w-14 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
+                className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-400 text-black shadow-lg transition hover:bg-amber-500 active:scale-95 disabled:opacity-40"
               >
                 <svg viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor" aria-hidden>
                   <rect x="6.5" y="5" width="4" height="14" rx="1.2" />
                   <rect x="13.5" y="5" width="4" height="14" rx="1.2" />
+                </svg>
+              </button>
+            )}
+            {/* Switch — JobTread's own: close this entry and start the next
+                job and item at the same moment. Not on a break: End Break
+                starts the next entry. */}
+            {running && !onBreakSince && (
+              <button
+                type="button"
+                onClick={() => {
+                  setErr("");
+                  openSheet("jobswitch");
+                }}
+                disabled={busy || checkingClock || !activeClock?.entryId}
+                aria-label="Switch job or item"
+                title="Switch — close this entry and start the next job and item now"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700 active:scale-95 disabled:opacity-40"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M4 8h13l-3.5-3.5" />
+                  <path d="M20 16H7l3.5 3.5" />
                 </svg>
               </button>
             )}
@@ -2561,7 +2589,7 @@ export function EmployeeTimeClient({
                     : clockIn
               }
               disabled={busy || resolving || checkingClock}
-              className={`min-w-[220px] rounded-full px-10 py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`${running ? "min-w-0 flex-1 px-4 sm:max-w-[260px]" : "min-w-[220px] px-10"} rounded-full py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
                 onBreakSince
                   ? "bg-amber-400 text-black hover:bg-amber-500"
                   : running
@@ -2589,7 +2617,7 @@ export function EmployeeTimeClient({
                 setEndTime(nowLocal());
                 openSheet("manual");
               }}
-              className="absolute right-0 flex h-14 w-14 items-center justify-center rounded-full border border-line bg-white text-2xl font-bold text-accent shadow-lg transition active:scale-95 dark:bg-ink-raised dark:text-accent-soft"
+              className={`${running ? "shrink-0" : "absolute right-0"} flex h-14 w-14 items-center justify-center rounded-full border border-line bg-white text-2xl font-bold text-accent shadow-lg transition active:scale-95 dark:bg-ink-raised dark:text-accent-soft`}
             >
               +
             </button>
@@ -2781,28 +2809,27 @@ export function EmployeeTimeClient({
         open={sheet === "switch"}
         items={costItems}
         selectedId={activeClock?.costItemId ?? ""}
-        onPick={switchCostCode}
+        onPick={(c) => switchCostCode(c)}
         onClose={closeSheet}
       />
 
-      {/* Pay type. */}
-      <Sheet open={sheet === "type"} title="Pay type" onClose={closeSheet}>
-        <ul className="pb-2">
-          {payTypes.map((t) => (
-            <OptionRow
-              key={t.name}
-              selected={t.name === payType}
-              label={t.name}
-              sub={typeof t.hourlyRate === "number" ? `$${t.hourlyRate}/hr` : undefined}
-              onClick={() => {
-                if (payType && t.name !== payType && !confirm(PAY_TYPE_CHANGE_WARNING)) return;
-                setPayType(t.name);
-                closeSheet();
-              }}
-            />
-          ))}
-        </ul>
-      </Sheet>
+      {/* The blue Switch button — note, then the next job and item. */}
+      {activeClock && (
+        <SwitchSheet
+          open={sheet === "jobswitch"}
+          jobs={jobs}
+          current={activeClock}
+          note={note}
+          onNote={setNote}
+          onNoteBlur={flushNoteSave}
+          defaultCode={(jid) => codeDefaultRef.current(jid)}
+          busy={busy}
+          err={err}
+          onSwitch={(c, to) => switchCostCode(c, to)}
+          onClose={closeSheet}
+        />
+      )}
+
 
       {/* Note (written before clocking in, or while on the clock). */}
       <Sheet
@@ -2979,7 +3006,7 @@ export function EmployeeTimeClient({
             onClear={jobId ? () => setJobId("") : undefined}
           />
           <FieldRow
-            label="Work"
+            label="Item"
             value={
               costLabelText ||
               (!jobId
@@ -2987,20 +3014,12 @@ export function EmployeeTimeClient({
                 : loadingCosts
                   ? "Loading…"
                   : costItems.length
-                    ? "Select work"
+                    ? "Select an item"
                     : "No labor line on this job — ask the office")
             }
             placeholder={!costLabelText}
             onClick={jobId && costItems.length ? () => openSheet("cost", "manual") : undefined}
           />
-          {payTypes.length > 1 && (
-            <FieldRow
-              label="Pay type"
-              value={payType || "Select a pay type"}
-              placeholder={!payType}
-              onClick={() => openSheet("type", "manual")}
-            />
-          )}
         </Card>
 
         <Card pad={false} className="mt-3 overflow-hidden">
@@ -3109,7 +3128,7 @@ export function EmployeeTimeClient({
             onClick={() => openSheet("editjob", "edit")}
           />
           <FieldRow
-            label="Work"
+            label="Item"
             value={
               editCostLabelText ||
               (!editJobId
@@ -3117,7 +3136,7 @@ export function EmployeeTimeClient({
                 : editLoadingCosts
                   ? "Loading…"
                   : editCostItems.length
-                    ? "Select work"
+                    ? "Select an item"
                     : "No labor line on this job — ask the office")
             }
             placeholder={!editCostLabelText}
@@ -3580,12 +3599,12 @@ function CostSheet({
     ? items.filter((c) => `${c.number} ${c.name} ${c.detail ?? ""}`.toLowerCase().includes(query))
     : items;
   return (
-    <Sheet open={open} title="Work" onClose={onClose} tall>
+    <Sheet open={open} title="Item" onClose={onClose} tall>
       <Input
         autoFocus
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search work…"
+        placeholder="Search items…"
         className="mb-2"
       />
       <ul className="pb-2">
@@ -3608,6 +3627,186 @@ function CostSheet({
 }
 
 /**
+ * The blue Switch button's sheet — JobTread's own Switch. The note is for the
+ * entry closing now; the Job and Item are the picks for the new entry. Start
+ * new entry closes one and opens the other at the same moment.
+ */
+function SwitchSheet({
+  open,
+  jobs,
+  current,
+  note,
+  onNote,
+  onNoteBlur,
+  defaultCode,
+  busy,
+  err,
+  onSwitch,
+  onClose,
+}: {
+  open: boolean;
+  jobs: JobRef[];
+  current: { jobId: string; jobLabel: string; costItemId: string };
+  note: string;
+  onNote: (v: string) => void;
+  onNoteBlur: () => void;
+  /** The office's default cost code NUMBER for this person on a job, or "". */
+  defaultCode: (jobId: string) => string;
+  busy: boolean;
+  err: string;
+  onSwitch: (item: CostItem, to: { jobId: string; jobLabel: string }) => void;
+  onClose: () => void;
+}) {
+  const [pickJob, setPickJob] = useState("");
+  const [pickItem, setPickItem] = useState("");
+  const [items, setItems] = useState<CostItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState("");
+
+  // Each open starts on the running job, with no item picked.
+  useEffect(() => {
+    if (!open) return;
+    setPickJob(current.jobId);
+    setPickItem("");
+    setMsg("");
+    // Only on open: the running clock does not change while the sheet is up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // The picked job's items. A new job starts on the office's default code.
+  useEffect(() => {
+    if (!open || !pickJob) return;
+    let alive = true;
+    setItems([]);
+    setLoading(true);
+    fetch(`/api/employee-time?jobId=${encodeURIComponent(pickJob)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        const list: CostItem[] = j.ok === false ? [] : (j.costItems ?? []);
+        setItems(list);
+        if (pickJob !== current.jobId) {
+          const code = defaultCode(pickJob);
+          const hit = code ? list.find((c) => c.number === code) : undefined;
+          setPickItem(hit?.id ?? "");
+        }
+      })
+      .catch(() => {
+        if (alive) setItems([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+    // defaultCode is rebuilt every render; the load keys on the job.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, pickJob, current.jobId]);
+
+  const jobOptions = jobs.some((j) => j.id === current.jobId)
+    ? jobs.map((j) => ({ id: j.id, label: jobRefLabel(j) }))
+    : [
+        { id: current.jobId, label: current.jobLabel || "Current job" },
+        ...jobs.map((j) => ({ id: j.id, label: jobRefLabel(j) })),
+      ];
+
+  function start() {
+    if (!note.trim()) return setMsg("Record your notes first. They go on the entry closing now.");
+    if (!pickJob) return setMsg("Pick a job.");
+    const item = items.find((c) => c.id === pickItem);
+    if (!item) return setMsg("Pick the item.");
+    if (pickJob === current.jobId && item.id === current.costItemId) {
+      return setMsg("Pick a different job or item, or tap Cancel.");
+    }
+    setMsg("");
+    const label = jobOptions.find((o) => o.id === pickJob)?.label ?? "";
+    onSwitch(item, { jobId: pickJob, jobLabel: label });
+  }
+
+  const shown = msg || err;
+  return (
+    <Sheet
+      open={open}
+      title="Switch"
+      onClose={onClose}
+      footer={
+        <div className="flex gap-2">
+          <Button variant="secondary" className="flex-1" disabled={busy} onClick={onClose}>
+            Cancel
+          </Button>
+          <Button className="flex-1" disabled={busy || loading} onClick={start}>
+            {busy ? "Switching…" : "Start new entry"}
+          </Button>
+        </div>
+      }
+    >
+      {shown && (
+        <Banner tone="error" className="mb-3">
+          {shown}
+        </Banner>
+      )}
+      <div className="space-y-3 pb-2">
+        <div>
+          <Label htmlFor="et-switch-note">Record your notes</Label>
+          <Textarea
+            id="et-switch-note"
+            autoFocus
+            rows={3}
+            value={note}
+            onChange={(e) => onNote(e.target.value)}
+            onBlur={onNoteBlur}
+            placeholder="What did you work on? Required."
+          />
+        </div>
+        <div>
+          <Label htmlFor="et-switch-job">Job</Label>
+          <Select
+            id="et-switch-job"
+            value={pickJob}
+            onChange={(e) => {
+              setPickJob(e.target.value);
+              setPickItem("");
+            }}
+          >
+            {jobOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="et-switch-item">Item</Label>
+          <Select
+            id="et-switch-item"
+            value={pickItem}
+            disabled={loading || items.length === 0}
+            onChange={(e) => setPickItem(e.target.value)}
+          >
+            {loading ? (
+              <option value="">Loading…</option>
+            ) : items.length === 0 ? (
+              <option value="">No labor line on this job — ask the office</option>
+            ) : (
+              <>
+                {!pickItem && <option value="">Pick the item</option>}
+                {items.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.number}
+                    {c.detail || c.name ? ` — ${c.detail || c.name}` : ""}
+                  </option>
+                ))}
+              </>
+            )}
+          </Select>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/**
  * The docked action strip: one big pill centred above the tab bar, with the
  * "log a range" button parked at the right. Offset by --tabbar-h (globals.css)
  * so the two bars can never overlap.
@@ -3618,7 +3817,7 @@ function Dock({ children }: { children: React.ReactNode }) {
       className="fixed inset-x-0 z-20 px-4 pad:px-7 print:hidden"
       style={{ bottom: "calc(var(--tabbar-h, 0px) + 0.75rem)", left: "var(--rail-w, 0px)" }}
     >
-      <div className="relative flex max-w-2xl items-center justify-center">{children}</div>
+      <div className="relative flex max-w-2xl items-center justify-center gap-2">{children}</div>
     </div>
   );
 }

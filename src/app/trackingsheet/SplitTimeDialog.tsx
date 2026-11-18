@@ -117,7 +117,7 @@ function SideForm({
         <p className="mt-1 text-[11px] text-neutral-400">{clocks}</p>
       </div>
       <div>
-        <Label>Work</Label>
+        <Label>Item</Label>
         <Textarea
           rows={3}
           value={side.notes}

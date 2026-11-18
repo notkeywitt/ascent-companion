@@ -50,3 +50,19 @@ export function defaultCostCode(
 
 /** The confirm shown before an employee changes a pay type by hand. */
 export const PAY_TYPE_CHANGE_WARNING = "Are you sure you really want to change your pay type for this time entry?";
+
+/** The pay type every entry starts on. */
+export const DEFAULT_PAY_TYPE = "Regular Pay";
+
+/**
+ * The pay type the time clock files when no rule applies: Regular Pay. A person
+ * whose own list names it differently (a group rate like "Berger Bunkhouse -
+ * Regular Pay") gets that one. A person with no Regular Pay at all gets their
+ * first pay type, so JobTread does not refuse the entry. An unknown list gets
+ * "Regular Pay".
+ */
+export function defaultPayType(types: string[]): string {
+  if (!types.length || types.includes(DEFAULT_PAY_TYPE)) return DEFAULT_PAY_TYPE;
+  const want = DEFAULT_PAY_TYPE.toLowerCase();
+  return types.find((t) => t.toLowerCase().endsWith(want)) ?? types[0];
+}

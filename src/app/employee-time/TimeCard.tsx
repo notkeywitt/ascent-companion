@@ -8,8 +8,8 @@ import { addDays, shortDay, weekStart } from "@/lib/timeEntryDates";
 import { orgDay } from "@/lib/orgTime";
 import { useUnsavedChanges } from "@/lib/useUnsavedChanges";
 import {
-  PAY_TYPE_CHANGE_WARNING,
   defaultCostCode,
+  defaultPayType,
   matchPayType,
   type CostCodeDefault,
   type PayTypeRule,
@@ -125,7 +125,6 @@ export function TimeCard({
   const [added, setAdded] = useState<AddedRow[]>([]);
   const [hours, setHours] = useState<Record<string, string>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
-  const [rowPay, setRowPay] = useState<Record<string, string>>({});
   const [cellErr, setCellErr] = useState<Record<string, string>>({});
   const [sel, setSel] = useState<{ row: string; day: string } | null>(null);
   const [costs, setCosts] = useState<Record<string, CostItem[]>>({});
@@ -258,17 +257,12 @@ export function TimeCard({
   }
 
   // ------------------------------------------------------------- the rows
-  const payHint = useMemo(
-    () => [...allEntries].reverse().find((e) => e.payType && payTypes.includes(e.payType))?.payType ?? "",
-    [allEntries, payTypes],
-  );
+  // No pay type picker: the office's rule for the job and code, else Regular Pay.
   function payFor(row: Row): string {
-    const chosen = rowPay[row.id];
-    if (chosen) return chosen;
     const code = costs[row.jobId]?.find((c) => c.id === row.costItemId)?.number ?? row.work.split(" — ")[0];
     const ruled = matchPayType(payRules, { jtUserId: myId, jobId: row.jobId, costCode: code });
-    if (ruled && payTypes.includes(ruled)) return ruled;
-    return payHint || payTypes[0] || "";
+    if (ruled && (!payTypes.length || payTypes.includes(ruled))) return ruled;
+    return defaultPayType(payTypes);
   }
 
   function ensureCosts(jobId: string): Promise<CostItem[]> {
@@ -548,7 +542,7 @@ export function TimeCard({
             <thead>
               <tr>
                 <th className="w-8 border-b border-line" aria-label="Remove row" />
-                <th className={tableCls.th}>Customer · Work</th>
+                <th className={tableCls.th}>Customer · Item</th>
                 {days.map((d) => (
                   <th
                     key={d}
@@ -693,7 +687,7 @@ export function TimeCard({
               <p className="text-sm font-semibold">{picked.label}</p>
             </div>
             <div>
-              <Label htmlFor="card-work">Work</Label>
+              <Label htmlFor="card-work">Item</Label>
               {picked.added ? (
                 <Select
                   id="card-work"
@@ -715,23 +709,6 @@ export function TimeCard({
                 <p className="text-sm">{picked.work || "—"}</p>
               )}
             </div>
-            {payTypes.length > 1 && (
-              <div>
-                <Label htmlFor="card-pay">Pay type for new hours</Label>
-                <Select
-                  id="card-pay"
-                  value={payFor(picked)}
-                  onChange={(e) => {
-                    if (e.target.value !== payFor(picked) && !confirm(PAY_TYPE_CHANGE_WARNING)) return;
-                    setRowPay((p) => ({ ...p, [picked.id]: e.target.value }));
-                  }}
-                >
-                  {payTypes.map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
-                </Select>
-              </div>
-            )}
           </div>
 
           {/* The selected CELL: its note. */}

@@ -41,7 +41,7 @@ import {
  * clock out without leaving what they are doing.
  *
  *   Job   — the running entry's job
- *   Work  — its cost code
+ *   Item  — its cost code
  *   Start / End — the entry's hours. Start is the clock-in; change it to
  *           correct a late clock-in. End follows the clock until changed; it
  *           is when Clock out or Switch closes the entry.
@@ -566,11 +566,11 @@ export function TimeBug() {
       return;
     }
     if (!pickCostId) {
-      setErr("Pick the work.");
+      setErr("Pick the item.");
       return;
     }
     if (pickJobId === clock.jobId && pickCostId === clock.costItemId) {
-      setErr("Pick a different job or work, or tap Cancel.");
+      setErr("Pick a different job or item, or tap Cancel.");
       return;
     }
     const item = costs?.jobId === pickJobId ? costs.items.find((c) => c.id === pickCostId) : undefined;
@@ -741,7 +741,7 @@ export function TimeBug() {
   const costInBox = switching ? pickCostId : (clock?.costItemId ?? "");
   const costOptions =
     clock && !switching && !costItems.some((c) => c.id === clock.costItemId)
-      ? [{ id: clock.costItemId, label: [clock.costCode, clock.costItemName].filter(Boolean).join(" — ") || "Current work" }, ...costItems.map((c) => ({ id: c.id, label: costLabel(c) }))]
+      ? [{ id: clock.costItemId, label: [clock.costCode, clock.costItemName].filter(Boolean).join(" — ") || "Current item" }, ...costItems.map((c) => ({ id: c.id, label: costLabel(c) }))]
       : costItems.map((c) => ({ id: c.id, label: costLabel(c) }));
 
   const startMs = clock ? new Date(clock.startedAt).getTime() : 0;
@@ -823,7 +823,7 @@ export function TimeBug() {
           {switching && (
             <p className="text-xs text-neutral-500">
               Your entry closes at {fmt12h(endEdit ? `${todayYmd}T${endEdit}` : switchAt)}. Pick the next job and
-              work, then tap Start new entry.
+              item, then tap Start new entry.
             </p>
           )}
           <div>
@@ -842,7 +842,7 @@ export function TimeBug() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="timebug-work">Work</Label>
+            <Label htmlFor="timebug-work">Item</Label>
             <Select
               id="timebug-work"
               value={costInBox}
@@ -853,7 +853,7 @@ export function TimeBug() {
                 <option value={costInBox}>Loading…</option>
               ) : (
                 <>
-                  {!costInBox && <option value="">Pick the work</option>}
+                  {!costInBox && <option value="">Pick the item</option>}
                   {costOptions.map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.label}
