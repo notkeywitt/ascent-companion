@@ -41,7 +41,7 @@ function RateInput({ label, value, placeholder, onCommit }: { label: string; val
   );
 }
 
-/** One job: its Labor cost codes grouped by division. A division sets every code's rate at once; expand it to edit single rows. */
+/** One job: its clock-in cost codes (Labor, Allowance) grouped by division. A division sets every code's rate at once; expand it to edit single rows. */
 function JobCard({
   job,
   rates,
@@ -130,7 +130,7 @@ function JobCard({
       ) : !codes ? (
         <p className="px-3 py-2 text-xs text-neutral-500">Reading the budget…</p>
       ) : codes.length === 0 ? (
-        <p className="px-3 py-2 text-xs text-neutral-500">No Labor cost codes in the budget.</p>
+        <p className="px-3 py-2 text-xs text-neutral-500">No clock-in cost codes in the budget.</p>
       ) : (
         <div className="divide-y divide-line-soft">
           {divisions.map(([division, list]) => {
@@ -216,7 +216,7 @@ export function LaborRatesMap() {
     <section className="mb-8 w-full">
       <h2 className="mb-1 text-base font-bold">Labor Rates Map</h2>
       <p className="mb-3 text-xs text-neutral-500">
-        What each job pays per hour for each Labor cost code. Labor › Check pay rates assigns these to time entries.
+        What each job pays per hour for each cost code an employee can clock in under (Labor, Allowance). Labor › Check pay rates assigns these to time entries.
       </p>
       {jobs && jobs.some((j) => SHEET_RATES[j.id]) && (
         <div className="mb-3 flex flex-wrap items-center gap-3">

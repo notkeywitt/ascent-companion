@@ -10,7 +10,7 @@ import { listCodeRates, saveCodeRate } from "@/lib/laborCodeRates";
  * JobTread write. Office/admin-gated by the `labor-rates` view's prefix.
  *
  *   GET                              → { rates }
- *   GET ?jobId=…                     → { codes: [{ number, name, division }] }  the job's Labor cost codes
+ *   GET ?jobId=…                     → { codes: [{ number, name, division }] }  the job's clock-in cost codes (Labor, Allowance, …)
  *   POST { jobId, costCode, hourlyRate }  → { ok }  (a null / blank rate clears the row)
  *   POST { jobId, costCodes: [...], hourlyRate }  → { ok }  the same rate on every code (a division)
  */
@@ -24,7 +24,9 @@ export async function GET(req: NextRequest) {
     const budget = await getJobBudget(getPaveConfig(), jobId);
     const seen = new Map<string, { name: string; division: string }>();
     for (const b of budget) {
-      if ((b.costType ?? "").trim().toLowerCase() !== "labor" || seen.has(b.number)) continue;
+      // Any code an employee can clock in under: Labor, Allowance, … (its cost type allows time entries).
+      const clockable = b.timeTrackable === true || (b.costType ?? "").trim().toLowerCase() === "labor";
+      if (!clockable || seen.has(b.number)) continue;
       const division = b.division || (isDivisionLevelCode(b.number) ? b.name : "") || "No division";
       seen.set(b.number, { name: b.name, division });
     }
