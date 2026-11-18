@@ -1,6 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { findMismatches, unmappedPairs, type RateEntry } from "./laborRateMatch";
+import { findMismatches, rateChanges, unmappedPairs, type RateEntry } from "./laborRateMatch";
+
+describe("labor rates map", () => {
+  it("assigns the employee's pay type at the map rate, and flags a missing one", () => {
+    const row = (id: string, userId: string, code: string, hourlyRate: number) => ({ id, userId, jobId: "j", code, hourlyRate });
+    const members = [
+      { userId: "a", types: [{ name: "Regular", hourlyRate: 40 }, { name: "Lead", hourlyRate: 60 }] },
+      { userId: "b", types: [{ name: "Regular", hourlyRate: 40 }] },
+    ];
+    const out = rateChanges(
+      [row("1", "a", "06", 40), row("2", "b", "06", 40), row("3", "a", "06", 60), row("4", "a", "99", 40)],
+      [{ jobId: "j", costCode: "06", hourlyRate: 60 }],
+      members,
+    );
+    expect([...out]).toEqual([
+      ["1", { rate: 60, type: "Lead" }],
+      ["2", { rate: 60, type: null }],
+    ]);
+  });
+});
 
 const e = (id: string, jobId: string, code: string, type: string): RateEntry => ({
   id,

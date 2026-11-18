@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Checkbox, Dialog, Loading, PageHeader, Select, inputCls, tableCls } from "@/components/ui";
 
+import { LaborRatesMap } from "./LaborRatesMap";
 import { PayTypeRules } from "./PayTypeRules";
 
 interface Group {
@@ -368,6 +369,7 @@ export default function LaborRatesPage() {
 
       {notice && <Banner tone={notice.tone} className="mb-4">{notice.text}</Banner>}
       {loadErr && <Banner tone="error" className="mb-4">{loadErr}</Banner>}
+      <LaborRatesMap />
       {loading && <Loading label="Loading rates…" />}
 
       {!loading && (

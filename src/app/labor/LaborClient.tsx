@@ -37,7 +37,7 @@ import { laborOptions, type TimeEntryRow } from "@/app/trackingsheet/TimeCodingC
 import { TimeFilterStrip, TimeGroupSwitch, useTimeFilters } from "@/components/TimeEntryList";
 import { LaborImport } from "@/app/labor-import/LaborImport";
 import { EntryPanel } from "./EntryPanel";
-import { PayRateCheck } from "./PayRateCheck";
+import { rateChanges, type RateChange } from "@/lib/laborRateMatch";
 import { hoursLabel } from "@/app/trackingsheet/boardMath";
 
 /**
@@ -261,8 +261,48 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
   const [openId, setOpenId] = useState("");
   const [adding, setAdding] = useState("");
   const [importing, setImporting] = useState(false);
+  // Check pay rates: the first press fills `changes` (rows highlight), the second assigns them.
+  const [changes, setChanges] = useState<Map<string, RateChange> | null>(null);
   const [checking, setChecking] = useState(false);
   const [approving, setApproving] = useState("");
+  useEffect(() => setChanges(null), [entries]);
+  const assignable = [...(changes ?? [])].filter(([, c]) => c.type);
+
+  async function checkRates() {
+    setChecking(true);
+    try {
+      if (!changes) {
+        const [m, p] = await Promise.all([
+          fetch("/api/labor-rates/map", { cache: "no-store" }).then((r) => r.json()),
+          fetch("/api/labor-rates/members", { cache: "no-store" }).then((r) => r.json()),
+        ]);
+        if (m.error || p.error) return toast(m.error || p.error, { tone: "error" });
+        const found = rateChanges(shown, m.rates, p.members ?? []);
+        setChanges(found);
+        if (found.size === 0) toast("Every entry already has its map rate.");
+        return;
+      }
+      if (!writes) return toast("Writes are off, so rates are not sent to JobTread.", { tone: "error" });
+      let done = 0;
+      for (const [id, c] of assignable) {
+        const r = await fetch("/api/time-entry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, type: c.type }),
+        });
+        const b = await r.json();
+        if (b.error) {
+          toast(b.error, { tone: "error" });
+          break;
+        }
+        done++;
+      }
+      if (done) toast(`Assigned ${done} ${done === 1 ? "rate" : "rates"} in JobTread.`);
+      reload();
+    } finally {
+      setChecking(false);
+    }
+  }
 
   async function approve(e: Entry) {
     setApproving(e.id);
@@ -444,6 +484,7 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
                 budget={showBudget ? budgets[jid] ?? new Map() : null}
                 leaves={leaves[jid]}
                 openId={openId}
+                changes={changes}
                 adding={adding === jid}
                 approving={approving}
                 onOpen={(e) => {
@@ -474,8 +515,13 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
           <span className="mr-auto text-xs font-semibold uppercase tracking-wide text-neutral-500">
             Tools
           </span>
-          <Button size="xs" variant="secondary" onClick={() => setChecking(true)} disabled={!entries}>
-            Check pay rates
+          {changes && (
+            <Button size="xs" variant="ghost" onClick={() => setChanges(null)} disabled={checking}>
+              Cancel
+            </Button>
+          )}
+          <Button size="xs" variant="secondary" onClick={() => void checkRates()} disabled={!entries || checking}>
+            {checking ? "Working…" : changes && changes.size ? `Assign ${assignable.length} rates` : "Check pay rates"}
           </Button>
           <Button size="xs" variant="secondary" onClick={() => setImporting(true)}>
             Import labor
@@ -501,15 +547,6 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
         <Dialog label="Import labor" title="Import labor" size="xl" onClose={() => setImporting(false)}>
           <LaborImport embedded />
         </Dialog>
-      )}
-      {checking && (
-        <PayRateCheck
-          entries={shown}
-          periodLabel={periodLabel(kind, from, to)}
-          writes={writes}
-          onChanged={reload}
-          onClose={() => setChecking(false)}
-        />
       )}
     </main>
   );
@@ -603,6 +640,7 @@ function JobCard({
   budget,
   leaves,
   openId,
+  changes,
   adding,
   approving,
   onOpen,
@@ -619,6 +657,7 @@ function JobCard({
   budget: Map<string, CostCode> | "error" | null;
   leaves: BudgetLeaf[] | undefined;
   openId: string;
+  changes: Map<string, RateChange> | null;
   adding: boolean;
   approving: string;
   onOpen: (e: Entry) => void;
@@ -739,6 +778,7 @@ function JobCard({
                     key={e.id}
                     entry={e}
                     open={openId === e.id}
+                    change={changes?.get(e.id)}
                     writes={writes}
                     approving={approving === e.id}
                     onOpen={() => onOpen(e)}
@@ -759,6 +799,7 @@ function JobCard({
 function EntryRow({
   entry: e,
   open,
+  change,
   writes,
   approving,
   onOpen,
@@ -766,6 +807,7 @@ function EntryRow({
 }: {
   entry: Entry;
   open: boolean;
+  change?: RateChange;
   writes: boolean;
   approving: boolean;
   onOpen: () => void;
@@ -784,7 +826,11 @@ function EntryRow({
         }
       }}
       className={`grid cursor-pointer grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 px-3 py-2 text-sm md:grid-cols-[8rem_10rem_minmax(8rem,12rem)_4.5rem_5.5rem_minmax(0,1fr)] md:items-baseline ${
-        open ? "bg-accent/10" : "hover:bg-neutral-50 dark:hover:bg-white/5"
+        open
+          ? "bg-accent/10"
+          : change
+            ? "bg-warn/15"
+            : "hover:bg-neutral-50 dark:hover:bg-white/5"
       }`}
     >
       <span className="font-medium">{dayLabel(e.date)}</span>
@@ -798,6 +844,11 @@ function EntryRow({
         <span className="md:hidden">{spanLabel(e)} · </span>
         {e.type || "No pay type"}
         {e.hourlyRate ? ` @ ${money(e.hourlyRate)}/h` : ""}
+        {change && (
+          <b className="block text-warn">
+            {change.type ? `→ ${change.type} @ ${money(change.rate)}/h` : `→ ${money(change.rate)}/h: no pay type at that rate`}
+          </b>
+        )}
       </span>
       <span className="hidden text-right tabular-nums md:block">{hoursLabel(e.hours)}</span>
       <span className="hidden text-right tabular-nums md:block">{money(e.cost)}</span>
