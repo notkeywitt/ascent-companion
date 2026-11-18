@@ -1218,6 +1218,31 @@ export function EmployeeTimeClient({
     ? fmtElapsed(nowMs - new Date(activeClock.startedAt).getTime())
     : "0:00:00";
 
+  // Today's total hours, shown at the top of the Time Clock tab: today's closed
+  // entries (from the history route) plus the running entry's elapsed time.
+  const [todayClosedMin, setTodayClosedMin] = useState(0);
+  const activeEntryId = activeClock?.entryId ?? "";
+  useEffect(() => {
+    if (tab !== "clock") return;
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, "0");
+    const today = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+    let stale = false;
+    fetch(`/api/employee-time/history?start=${today}&end=${today}${actingParam ? `&${actingParam}` : ""}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!stale && j.ok !== false) setTodayClosedMin(j.totalMinutes ?? 0);
+      })
+      .catch(() => {});
+    return () => {
+      stale = true;
+    };
+    // A clock-in or clock-out changes the entry id, so the total reloads then.
+  }, [tab, actingParam, activeEntryId]);
+  const todayRunningMin =
+    activeClock && nowMs ? Math.max(0, Math.floor((nowMs - new Date(activeClock.startedAt).getTime()) / 60000)) : 0;
+  const todayTotalMin = todayClosedMin + todayRunningMin;
+
   /* ------------------------------------------------------------------ BREAK --
      A break is a GAP BETWEEN TWO ENTRIES, which is how JobTread itself models
      one: its "add break" control takes a start and a duration and SPLITS the
@@ -2347,6 +2372,10 @@ export function EmployeeTimeClient({
       {/* ========================================================= TIME CLOCK */}
       {tab === "clock" && !showCard && (
         <>
+          <div className="mb-3 flex items-baseline justify-between rounded-xl bg-neutral-100 px-3 py-2 dark:bg-neutral-800/60">
+            <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">Today&apos;s hours</span>
+            <span className="text-xl font-bold tabular-nums">{fmtMinutes(todayTotalMin) || "0m"}</span>
+          </div>
           {clockNote && (
             <p className="mb-3 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
               {clockNote}
