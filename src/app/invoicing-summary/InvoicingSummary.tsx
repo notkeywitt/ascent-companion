@@ -621,7 +621,7 @@ function CheckMarks({ run, onCheck, ym }: { run: JobRun | undefined; onCheck: ()
 function FindingRow({ f, onFix }: { f: Finding; onFix: () => void }) {
   return (
     <div className="ml-4 flex items-center gap-2">
-      <span className="min-w-0 flex-1 truncate text-neutral-500" title={f.title}>
+      <span className="min-w-0 truncate text-neutral-500" title={f.title}>
         {f.title}
       </span>
       <button
