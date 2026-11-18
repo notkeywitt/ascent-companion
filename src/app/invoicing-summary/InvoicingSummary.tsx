@@ -255,7 +255,7 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
   const count = (f: Filter) => included.filter(FILTERS.find((x) => x.key === f)!.test).length;
 
   return (
-    <main className={embedYm ? "w-full" : "w-full max-w-2xl px-4 pad:px-7 py-6"}>
+    <main className={embedYm ? "w-full" : "w-full px-4 pad:px-7 py-6"}>
       {!embedYm && <InvoicingTabs ym={ym} />}
       <PageHeader
         title="Invoice Status"
