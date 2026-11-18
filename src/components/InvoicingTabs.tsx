@@ -11,7 +11,6 @@ import { Tabs } from "@/components/ui";
  * default month still hands that month on.
  */
 const TABS = [
-  { view: "recode", href: "/trackingsheet", label: "Tracking Sheets" },
   { view: "invoice-review", href: "/invoice-review", label: "Checks" },
   { view: "invoicing-summary", href: "/invoicing-summary", label: "Status" },
 ];
