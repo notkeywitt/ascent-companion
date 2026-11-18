@@ -99,6 +99,20 @@ export const approvalTaxOn = (tax: number) => tax > 0;
 export const toBeInvoiced = (recon: { remaining: number; draftBillsCost: number }) =>
   recon.remaining + recon.draftBillsCost;
 
+/**
+ * The month is invoiced: an invoice holds every bill and hour, and no draft bill
+ * is still waiting. The headline then shows what the month's invoices bill.
+ */
+export const monthIsInvoiced = (recon: {
+  reconciled: boolean;
+  draftBillCount: number;
+  draftBillsCost: number;
+}) => recon.reconciled && !(recon.draftBillCount > 0 && Math.abs(recon.draftBillsCost) >= 0.01);
+
+/** The month's invoiced total — each live invoice's billed amount, with tax. */
+export const monthInvoicedTotal = (recon: { invoices: { total: number }[] }) =>
+  recon.invoices.reduce((s, i) => s + (Number(i.total) || 0), 0);
+
 /** The face total of a list of bills — each bill's `cost`, summed, not rounded. */
 export const billsCostTotal = (bills: { cost: number }[]) => bills.reduce((s, b) => s + b.cost, 0);
 

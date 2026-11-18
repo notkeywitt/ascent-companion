@@ -319,6 +319,12 @@ export const COPY: Record<string, CopyEntry> = {
     group: "Tracking Sheets — header",
     short: true,
   },
+  "recode.statement.invoiced": {
+    text: "Invoiced",
+    label: "Headline figure caption — month already invoiced",
+    group: "Tracking Sheets — header",
+    short: true,
+  },
 
   // ── /trackingsheet — toggles and controls ───────────────────────────────────────
   "recode.toggle.includeDrafts": {

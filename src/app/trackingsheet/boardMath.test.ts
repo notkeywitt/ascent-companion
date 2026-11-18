@@ -18,6 +18,8 @@ import {
   tightestCodesOf,
   timeHeadroomOf,
   toBeInvoiced,
+  monthIsInvoiced,
+  monthInvoicedTotal,
 } from "./boardMath";
 import type { Headroom } from "./headroom";
 import type { BillRef, JobBillLine } from "./Board";
@@ -507,5 +509,17 @@ describe("hoursLabel — the labor block's hours", () => {
   it("sums of quarter hours read cleanly", () => {
     const week = [8, 7.75, 8.25, 6.5, 9.5].reduce((s, h) => s + h, 0);
     expect(hoursLabel(week)).toBe("40 hrs");
+  });
+});
+
+describe("monthIsInvoiced / monthInvoicedTotal", () => {
+  it("reads invoiced only when reconciled with no draft bill waiting", () => {
+    expect(monthIsInvoiced({ reconciled: true, draftBillCount: 0, draftBillsCost: 0 })).toBe(true);
+    expect(monthIsInvoiced({ reconciled: true, draftBillCount: 1, draftBillsCost: 50 })).toBe(false);
+    expect(monthIsInvoiced({ reconciled: false, draftBillCount: 0, draftBillsCost: 0 })).toBe(false);
+  });
+  it("sums the month's invoice totals", () => {
+    expect(monthInvoicedTotal({ invoices: [{ total: 1200.5 }, { total: 300 }] })).toBe(1500.5);
+    expect(monthInvoicedTotal({ invoices: [] })).toBe(0);
   });
 });

@@ -62,6 +62,8 @@ import {
   tightestCodesOf,
   timeHeadroomOf,
   toBeInvoiced,
+  monthIsInvoiced,
+  monthInvoicedTotal,
 } from "./boardMath";
 import { TimeCodingCard } from "./TimeCodingCard";
 import { AllTimeLists } from "./AllTimeLists";
@@ -2024,6 +2026,29 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     </>
   );
 
+  // The month's headline. Once an invoice holds the whole month it reads
+  // "Invoiced" and shows what the month's invoices bill, not a zero.
+  const invoicedMonth = !!recon && monthIsInvoiced(recon);
+  const headLabel = invoicedMonth
+    ? c("recode.statement.invoiced")
+    : c("recode.statement.toBeInvoiced");
+  const headValue = !recon
+    ? "—"
+    : invoicedMonth
+    ? money(monthInvoicedTotal(recon))
+    : money(toBeInvoiced(recon));
+  const headSub = !recon
+    ? "checking JobTread…"
+    : invoicedMonth
+    ? `${recon.invoices.length} invoice${recon.invoices.length === 1 ? "" : "s"} in JobTread`
+    : `${money(recon.remaining)} approved${
+        recon.draftBillCount > 0
+          ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
+              recon.draftBillCount === 1 ? "" : "s"
+            }`
+          : ""
+      }`;
+
   // The month's bills column (the CENTRE of the board).
   // The month's to-be-invoiced figure and its rings — the head of the bills
   // column, or the Jobs page's job card when it hands the board a slot.
@@ -2036,7 +2061,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         className={embed?.summarySlot ? "" : "mb-4 hidden lg:block"}
         // All Time on the Jobs page: the job's cost to date, bills and labor,
         // from the same read as its All Time rings (owner, 2026-11-02).
-        label={allTime ? "Job to date" : c("recode.statement.toBeInvoiced")}
+        label={allTime ? "Job to date" : headLabel}
         value={
           allTime ? (
             <>
@@ -2049,10 +2074,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                 </span>
               )}
             </>
-          ) : recon ? (
-            money(toBeInvoiced(recon))
           ) : (
-            "—"
+            headValue
           )
         }
         // The Jobs page shows the deposit left, in both scopes, instead of the
@@ -2062,15 +2085,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             ? depositLeft
               ? `Deposit: ${money(depositLeft.left)} left of ${money(depositLeft.deposit)}`
               : undefined
-            : recon
-            ? `${money(recon.remaining)} approved${
-                recon.draftBillCount > 0
-                  ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
-                      recon.draftBillCount === 1 ? "" : "s"
-                    }`
-                  : ""
-              }`
-            : "checking JobTread…"
+            : headSub
         }
       />
     </>
@@ -2912,18 +2927,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {!embed?.summarySlot && <StatementBlock
         rule={false}
         className="mb-4 lg:hidden"
-        label={c("recode.statement.toBeInvoiced")}
-        value={recon ? money(toBeInvoiced(recon)) : "—"}
+        label={headLabel}
+        value={headValue}
         sub={
-          recon
-            ? `${money(recon.remaining)} approved${
-                recon.draftBillCount > 0
-                  ? ` · ${money(recon.draftBillsCost)} in ${recon.draftBillCount} draft${
-                      recon.draftBillCount === 1 ? "" : "s"
-                    }`
-                  : ""
-              }`
-            : "checking JobTread…"
+          headSub
         }
       />}
 
