@@ -438,13 +438,13 @@ html[data-rail="hidden"] {
   html[data-rail="hidden"] {
     --rail-w: 56px;
   }
-  /* One icon x in every state (owner request 38): in the hidden rail, strip and
-     peek both lay each item out as a row with the icon 24px from the edge, as
-     the wide sidebar does. Labels fade and clip beside it; the width eases. */
+  /* One icon x in the hidden rail (owner request 38): strip and peek lay each
+     item out as a row with the icon 16px from the edge. That centres the icon
+     and its highlight in the 56px strip. Labels fade and clip beside it; the width eases. */
   html[data-rail="hidden"] .rail-nav {
     overflow-x: hidden;
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
     transition: width 200ms ease-out, box-shadow 200ms ease-out;
   }
   html[data-rail="hidden"] .rail-nav:not([data-peek]) {
@@ -458,7 +458,7 @@ html[data-rail="hidden"] {
     flex-direction: row;
     justify-content: flex-start;
     gap: 0.75rem;
-    padding-left: 0.75rem;
+    padding-left: 0.5rem;
     text-align: left;
     font-size: 13px;
     white-space: nowrap;
