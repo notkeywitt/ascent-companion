@@ -12,6 +12,7 @@ import { TimeEntriesEmailButton } from "./TimeEntriesEmailButton";
 import {
   defaultCostCode,
   defaultPayType,
+  itemName,
   matchPayType,
   type CostCodeDefault,
   type PayTypeRule,
@@ -1186,7 +1187,9 @@ export function EmployeeTimeClient({
   const jobLabelText = selectedJob ? jobRefLabel(selectedJob) : "";
   const selectedCost = costItems.find((c) => c.id === costItemId) ?? null;
   const costLabelText = selectedCost
-    ? `${selectedCost.number}${selectedCost.detail || selectedCost.name ? ` — ${selectedCost.detail || selectedCost.name}` : ""}`
+    ? itemName(selectedCost)
+      ? `${itemName(selectedCost)} · ${selectedCost.number}`
+      : selectedCost.number
     : "";
   const duration = fmtDuration(startTime, endTime);
 
@@ -2049,7 +2052,9 @@ export function EmployeeTimeClient({
       : "";
   const editSelectedCost = editCostItems.find((c) => c.id === editCostItemId) ?? null;
   const editCostLabelText = editSelectedCost
-    ? `${editSelectedCost.number}${editSelectedCost.name ? ` — ${editSelectedCost.name}` : ""}`
+    ? itemName(editSelectedCost)
+      ? `${itemName(editSelectedCost)} · ${editSelectedCost.number}`
+      : editSelectedCost.number
     : "";
   const editDuration = fmtDuration(editStart, editEnd);
 
@@ -3612,11 +3617,10 @@ function CostSheet({
           <OptionRow
             key={c.id}
             selected={c.id === selectedId}
-            label={c.number}
-            // One code can carry several budget lines, so the LINE's own name
-            // is what makes the choice a choice. Fall back to the code's name
-            // when a line has none of its own.
-            sub={c.detail || c.name || undefined}
+            // The NAME on top, big; the code below, small. One code can carry
+            // several budget lines, so the LINE's own name makes the choice.
+            label={itemName(c) || c.number}
+            sub={itemName(c) ? c.number : undefined}
             onClick={() => onPick(c)}
           />
         ))}
@@ -3793,8 +3797,7 @@ function SwitchSheet({
                 {!pickItem && <option value="">Pick the item</option>}
                 {items.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.number}
-                    {c.detail || c.name ? ` — ${c.detail || c.name}` : ""}
+                    {itemName(c) ? `${itemName(c)} · ${c.number}` : c.number}
                   </option>
                 ))}
               </>

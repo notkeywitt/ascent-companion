@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { useAccess } from "@/components/AccessProvider";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
 import { Button, Input, Label, Select, Spinner, Textarea } from "@/components/ui";
-import { defaultCostCode, matchPayType, type CostCodeDefault, type PayTypeRule } from "@/lib/payTypeMatch";
+import { defaultCostCode, itemName, matchPayType, type CostCodeDefault, type PayTypeRule } from "@/lib/payTypeMatch";
 import {
   LS_CLOCK,
   announceClock,
@@ -138,8 +138,7 @@ function fmtElapsed(ms: number): string {
   return `${Math.floor(s / 3600)}:${p(Math.floor((s % 3600) / 60))}:${p(s % 60)}`;
 }
 
-const costLabel = (c: CostItem) =>
-  [c.number, c.name].filter(Boolean).join(" — ") + (c.detail && c.detail !== c.name ? ` · ${c.detail}` : "");
+const costLabel = (c: CostItem) => (itemName(c) ? `${itemName(c)} · ${c.number}` : c.number);
 
 /** This device's record of the clock, as the Time page keeps it. */
 function readLocalClock(): (OpenEntry & { logKey?: string; previewed?: boolean; breakStartedAt?: string | null }) | null {
