@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultCostCode, matchPayType } from "./payTypeMatch";
+import { defaultCostCode, defaultPayType, matchPayType } from "./payTypeMatch";
 
 const rules = [
   { jtUserId: "ty", jobId: "bunk", costCode: "", payType: "Berger Bunkhouse - Regular Pay" },
@@ -26,5 +26,17 @@ describe("matchPayType", () => {
     const defaults = [{ jtUserId: "ty", jobId: "bunk", costCode: "01 31 10" }];
     expect(defaultCostCode(defaults, { jtUserId: "ty", jobId: "bunk" })).toBe("01 31 10");
     expect(defaultCostCode(defaults, { jtUserId: "dan", jobId: "bunk" })).toBe("");
+  });
+});
+
+describe("defaultPayType", () => {
+  it("files Regular Pay when the person has it or the list is unknown", () => {
+    expect(defaultPayType([])).toBe("Regular Pay");
+    expect(defaultPayType(["Project Management", "Regular Pay"])).toBe("Regular Pay");
+  });
+
+  it("takes a group's Regular Pay, else the person's first pay type", () => {
+    expect(defaultPayType(["PM", "Berger Bunkhouse - Regular Pay"])).toBe("Berger Bunkhouse - Regular Pay");
+    expect(defaultPayType(["Tile", "PM"])).toBe("Tile");
   });
 });
