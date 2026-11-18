@@ -64,6 +64,7 @@ export function FixSheet({
   ym,
   onClose,
   onFixed,
+  onOk,
 }: {
   finding: Finding | null;
   checkTitle: string;
@@ -72,6 +73,8 @@ export function FixSheet({
   onClose: () => void;
   /** Re-check the job after a fix. */
   onFixed: () => void;
+  /** "It's OK": hide this one finding. See the button's note. */
+  onOk: (key: string) => void;
 }) {
   const f = finding;
   return (
@@ -97,6 +100,16 @@ export function FixSheet({
           </div>
           {f.fix?.action === "void-bills" && <VoidCopies key={f.key} fix={f.fix} jobId={f.jobId} ym={ym} onFixed={onFixed} />}
           {f.fix?.action === "backup-file" && <MoveBackup key={f.key} fileId={f.fix.fileId} onFixed={onFixed} />}
+          <div className="border-t border-line-soft pt-3">
+            <SectionLabel>Or leave it</SectionLabel>
+            <Button className="mt-1" variant="secondary" onClick={() => onOk(f.key)}>
+              It&apos;s OK
+            </Button>
+            <p className="mt-1 text-xs text-neutral-500">
+              Hides this one finding on this device, for this job and month. It sets no rule: a different
+              finding of the same kind still shows, and Show again brings this one back.
+            </p>
+          </div>
         </div>
       )}
     </Sheet>
