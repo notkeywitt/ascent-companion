@@ -28,6 +28,7 @@
  */
 import { defineJobCheck } from "../checkTypes";
 import { cents, findingKey, money, type Finding } from "../types";
+import { isAtCostInvoice } from "./shared";
 
 export interface TaxableFlagConfig {
   /**
@@ -64,7 +65,10 @@ export const taxableFlagCheck = defineJobCheck<TaxableFlagConfig>({
     // the markup is per job and JobTread already applied it. Ferron, August
     // 2026 — 156,464.90 / 132,597.87 = 1.18, and 4,156.25 x 1.18 x 0.0835 is
     // the $409.52 that separated the invoice from the tracking sheet.
-    const priced = job.invoices.find((inv) => inv.cost > 0 && inv.price > 0);
+    // A materials invoice billed at cost (markup 1.00) beside the monthly one
+    // is not the job's markup, so the marked-up invoice wins when there is one.
+    const pricedAll = job.invoices.filter((inv) => inv.status !== "denied" && inv.cost > 0 && inv.price > 0);
+    const priced = pricedAll.find((inv) => !isAtCostInvoice(inv)) ?? pricedAll[0];
     const markup = priced ? priced.price / priced.cost : 1;
 
     for (const bill of job.bills) {

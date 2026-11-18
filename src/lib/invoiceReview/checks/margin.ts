@@ -38,7 +38,7 @@
  */
 import { defineInvoiceCheck } from "../checkTypes";
 import { cents, centsGap, findingKey, money, type Finding } from "../types";
-import { isDepositLine } from "./shared";
+import { isAtCostInvoice, isDepositLine } from "./shared";
 
 export interface MarginConfig {
   /** A line must have cost and price above this to be judged. Keeps rounding
@@ -71,7 +71,7 @@ export const marginCheck = defineInvoiceCheck<MarginConfig>({
   title: "Markup reached the invoice",
   description:
     "No line was billed at cost or below it — for a cost-plus job the markup is the revenue.",
-  kinds: ["markup-missing", "billed-below-cost"],
+  kinds: ["markup-missing", "billed-below-cost", "invoice-at-cost"],
   scope: "invoice",
   run({ config, global, job, invoice: inv }) {
     const out: Finding[] = [];
@@ -84,6 +84,38 @@ export const marginCheck = defineInvoiceCheck<MarginConfig>({
       invoiceNumber: inv.number,
     };
     const label = `Invoice #${inv.number || inv.id}`;
+
+    // A MATERIALS INVOICE AT COST beside the month's marked-up invoice. Berger
+    // Bunkhouse, October 2026: #416 passes the plumbing fixtures through at
+    // cost, #473 bills the month with P&O. That is a decision, not ten dropped
+    // markups, so it is ONE note about the invoice. Alone on the job, an
+    // invoice at cost is still judged line by line: then the markup may simply
+    // have been left off.
+    if (config.reportMissingMarkup && isAtCostInvoice(inv)) {
+      const marked = job.invoices.find(
+        (o) =>
+          o.id !== inv.id && o.status !== "denied" && !isAtCostInvoice(o) && o.price > o.cost + TOL,
+      );
+      if (marked) {
+        const cost = cents(inv.cost);
+        out.push({
+          ...base,
+          key: findingKey("invoice-at-cost", job.jobId, inv.id),
+          kind: "invoice-at-cost",
+          severity: "info",
+          title: `${label} — billed at cost, no P&O (${money(cost)})`,
+          detail:
+            `Every line on ${label} is billed at what it cost, ${money(cost)} in all. ` +
+            `Invoice #${marked.number || marked.id} carries this month's P&O, so this reads as a ` +
+            `materials invoice passed through at cost on purpose. If it was meant to carry P&O, ` +
+            `add the markup in JobTread.`,
+          amount: cost,
+          sourceLink: inv.jtUrl,
+          sourceLabel: "Open in JobTread",
+        });
+        return out;
+      }
+    }
 
     for (const line of inv.lines) {
       // A deposit line is not work: Thomas's deposit invoice carries $16,079.69

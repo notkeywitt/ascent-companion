@@ -50,7 +50,7 @@ import { db, ensureDb } from "@/db";
 import { invoiceReviewRuns } from "@/db/schema";
 
 import type { CustomerNorm, MonthEvidence, ReviewNorms, VendorNorm } from "./types";
-import { depositPart } from "./checks/shared";
+import { depositPart, isAtCostInvoice } from "./checks/shared";
 import { warrantyPart } from "@/lib/warranty";
 
 /** Below this many months on record, there is no baseline — say nothing. */
@@ -203,6 +203,8 @@ export async function learnNorms(ym: string): Promise<ReviewNorms | null> {
         if (!key) continue;
         const t = totals.get(key) ?? { name: job.customerName, cost: 0, price: 0 };
         for (const inv of job.invoices) {
+          // A materials invoice billed at cost is not the customer's rate.
+          if (isAtCostInvoice(inv)) continue;
           // Deposit lines move cost and price by the same draw, which skews
           // the ratio; they are no part of the markup (DEPOSITS_PLAN.md).
           const dep = depositPart(inv);

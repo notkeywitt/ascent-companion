@@ -75,6 +75,12 @@ export type FindingKind =
   | "markup-missing"
   /** A line is billed for less than it cost. */
   | "billed-below-cost"
+  /** A whole invoice billed at cost (a materials invoice, no P&O) beside the
+   *  job's marked-up invoice for the month. Info: a decision, not an error. */
+  | "invoice-at-cost"
+  /** The month's bills and labor do not add up to the cost on all of the
+   *  job's invoices for the month plus what is still on no invoice. */
+  | "month-invoices-gap"
   // ── Learned from history (norms.ts), not from this month's evidence ───────
   /** A vendor who bills nearly every month has no bill this month at all. */
   | "vendor-silent"

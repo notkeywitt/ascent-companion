@@ -43,6 +43,7 @@ import { laborRateCheck } from "./checks/laborRate";
 import { mailCaptureCheck } from "./checks/mailCapture";
 import { marginCheck } from "./checks/margin";
 import { markupDriftCheck } from "./checks/markupDrift";
+import { monthInvoicesCheck } from "./checks/monthInvoices";
 import { qboPushCheck } from "./checks/qboPush";
 import { salesTaxLineCheck } from "./checks/salesTaxLine";
 import { taxableFlagCheck } from "./checks/taxableFlag";
@@ -55,6 +56,7 @@ const JOB_CHECKS: JobCheck<never>[] = [
   duplicateBillCheck,
   duplicateDraftCheck,
   uninvoicedCheck,
+  monthInvoicesCheck,
   draftBillsCheck,
   laborRateCheck,
   qboPushCheck,

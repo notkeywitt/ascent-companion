@@ -53,6 +53,7 @@ import type { LaborRateConfig } from "./checks/laborRate";
 import type { MailCaptureConfig } from "./checks/mailCapture";
 import type { MarginConfig } from "./checks/margin";
 import type { MarkupDriftConfig } from "./checks/markupDrift";
+import type { MonthInvoicesConfig } from "./checks/monthInvoices";
 import type { QboPushConfig } from "./checks/qboPush";
 import type { TaxableFlagConfig } from "./checks/taxableFlag";
 import type { SalesTaxLineConfig } from "./checks/salesTaxLine";
@@ -78,6 +79,7 @@ export interface InvoiceReviewSettings {
     "duplicate-bill": SettingsBlock<DuplicateBillConfig>;
     "duplicate-draft": SettingsBlock<DuplicateDraftConfig>;
     uninvoiced: SettingsBlock<UninvoicedConfig>;
+    "month-invoices": SettingsBlock<MonthInvoicesConfig>;
     "draft-bills": SettingsBlock<DraftBillsConfig>;
     "labor-rate": SettingsBlock<LaborRateConfig>;
     "mail-capture": SettingsBlock<MailCaptureConfig>;
@@ -156,6 +158,10 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
         remainderFloor: 0.5,
       },
     },
+    // A month billed on two or more invoices (a monthly one with P&O and a
+    // materials one at cost): their cost together against the month's bills
+    // and labor on them. A dollar covers rounding across several invoices.
+    "month-invoices": { enabled: true, config: { minGap: 1 } },
     "draft-bills": { enabled: true, config: {} },
     // ── The books ─────────────────────────────────────────────────────────
     // QuickBooks is the general ledger. Approving a bill is what pushes it

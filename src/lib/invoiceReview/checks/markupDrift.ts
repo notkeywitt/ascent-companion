@@ -43,7 +43,7 @@
 import { defineMonthCheck } from "../checkTypes";
 import { customerKey } from "../norms";
 import { cents, findingKey, money, type Finding } from "../types";
-import { depositPart } from "./shared";
+import { depositPart, isAtCostInvoice } from "./shared";
 import { warrantyPart } from "@/lib/warranty";
 
 export interface MarkupDriftConfig {
@@ -91,6 +91,9 @@ export const markupDriftCheck = defineMonthCheck<MarkupDriftConfig>({
       if (!key) continue;
       const t = thisMonth.get(key) ?? { name: job.customerName, cost: 0, price: 0 };
       for (const inv of job.invoices) {
+        // A materials invoice billed at cost on purpose is not this customer's
+        // rate; left in, it drags the blend toward 0%.
+        if (isAtCostInvoice(inv)) continue;
         // Deposit lines move cost and price by the same draw, which skews the
         // ratio; they are no part of the markup (DEPOSITS_PLAN.md).
         const dep = depositPart(inv);

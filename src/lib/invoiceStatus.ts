@@ -28,6 +28,13 @@ export interface InvoiceRaw {
   balance: number;
   qboId: string | null;
   recipients: InvoiceRecipientRaw[];
+  /** The invoice's title ("Monthly Invoice") and description, its cost basis
+   *  and its pre-tax price. Read so a job billed on two invoices in a month can
+   *  show each one, P&O or at cost. Optional: older callers leave them out. */
+  name?: string;
+  description?: string;
+  cost?: number;
+  price?: number;
 }
 
 export type PaymentState = "draft" | "open" | "partPaid" | "paid" | "void";

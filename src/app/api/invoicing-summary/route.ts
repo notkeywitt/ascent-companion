@@ -112,9 +112,10 @@ export async function GET(req: NextRequest) {
  * payment or an opened email moves hourly, and the figures do not. A failed
  * read costs the marks, not the page — it becomes a warning.
  *
- * A month can hold two invoices on a job (a $0 warranty record beside the
- * normal one), so each job also gets `invoices`: every one, primary first,
- * each with its own status. `status` stays the primary's.
+ * A month can hold two or more invoices on a job (a materials invoice at cost
+ * beside the monthly one with P&O, or a $0 warranty record), so each job also
+ * gets `invoices`: every one, primary first, each with its own status, name,
+ * cost and price. `status` stays the primary's.
  */
 async function withInvoiceStatus(data: Record<string, unknown>) {
   const jobs = Array.isArray(data.jobs)
@@ -136,7 +137,16 @@ async function withInvoiceStatus(data: Record<string, unknown>) {
       jobs: jobs.map((j, k) => {
         const invoices = lists[k].map((i) => {
           const r = i.number ? raw[`${j.jtJobId}:${i.number}`] : undefined;
-          return { ...i, status: r ? invoiceStatus(r) : null };
+          if (!r) return { ...i, status: null };
+          return {
+            ...i,
+            status: invoiceStatus(r),
+            name: r.name ?? "",
+            description: r.description ?? "",
+            cost: r.cost ?? 0,
+            price: r.price ?? 0,
+            priceWithTax: r.priceWithTax || i.priceWithTax,
+          };
         });
         return { ...j, invoices, status: invoices[0]?.status ?? null };
       }),
