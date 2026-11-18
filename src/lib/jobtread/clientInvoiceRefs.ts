@@ -88,6 +88,10 @@ export async function getInvoiceStatuses(
     id: string;
     number: number | string | null;
     status: string;
+    name: string | null;
+    description: string | null;
+    cost: number | null;
+    price: number | null;
     priceWithTax: number | null;
     amountPaid: number | null;
     balance: number | null;
@@ -113,6 +117,10 @@ export async function getInvoiceStatuses(
             id: {},
             number: {},
             status: {},
+            name: {},
+            description: {},
+            cost: {},
+            price: {},
             priceWithTax: {},
             amountPaid: {},
             balance: {},
@@ -167,6 +175,10 @@ export async function getInvoiceStatuses(
   for (const n of hits) {
     out[`${n.job!.id}:${n.number}`] = {
       status: n.status,
+      name: n.name ?? "",
+      description: n.description ?? "",
+      cost: Number(n.cost ?? 0),
+      price: Number(n.price ?? 0),
       priceWithTax: Number(n.priceWithTax ?? 0),
       amountPaid: Number(n.amountPaid ?? 0),
       balance: Number(n.balance ?? 0),

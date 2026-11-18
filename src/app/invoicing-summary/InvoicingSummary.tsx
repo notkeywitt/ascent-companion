@@ -28,10 +28,18 @@ import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import { money } from "@/lib/money";
 import {
   DELIVERY_LABEL,
+  PAYMENT_LABEL,
   type InvoiceStatus,
 } from "@/lib/invoiceStatus";
-import { jtDocumentUrl } from "@/lib/packageInvoices";
-import { PaymentMark, liveTotals, useInvoicingSummary, type JobRow } from "./summary";
+import { invoiceMarkup, jtDocumentUrl } from "@/lib/packageInvoices";
+import {
+  PAYMENT_TONE,
+  PaymentMark,
+  jobStatuses,
+  liveTotals,
+  useInvoicingSummary,
+  type JobRow,
+} from "./summary";
 import { checkedAtLabel, tally } from "@/app/trackingsheet/preSendMemory";
 import { useJobChecks, type JobRun } from "@/app/trackingsheet/usePreSendCheck";
 
@@ -78,26 +86,37 @@ function day(iso: string): string {
 /** The list filters. Each is a question the office asks while closing a month. */
 type Filter = "all" | "notInvoiced" | "draft" | "unpaid" | "paid" | "notEmailed";
 
+// Each filter reads EVERY invoice on the job: a job billed on two invoices is
+// "Unpaid" while either is open, and "Paid" only when both are.
 const FILTERS: { key: Filter; label: string; test: (j: JobRow) => boolean }[] = [
   { key: "all", label: "All", test: () => true },
   { key: "notInvoiced", label: "Not invoiced", test: (j) => !j.invoiced },
-  { key: "draft", label: "Draft", test: (j) => j.status?.payment === "draft" },
+  { key: "draft", label: "Draft", test: (j) => jobStatuses(j).some((s) => s.payment === "draft") },
   {
     key: "unpaid",
     label: "Unpaid",
-    test: (j) => j.status?.payment === "open" || j.status?.payment === "partPaid",
+    test: (j) => jobStatuses(j).some((s) => s.payment === "open" || s.payment === "partPaid"),
   },
-  { key: "paid", label: "Paid", test: (j) => j.status?.payment === "paid" },
+  {
+    key: "paid",
+    label: "Paid",
+    test: (j) => {
+      const live = jobStatuses(j).filter((s) => s.payment !== "void");
+      return live.length > 0 && live.every((s) => s.payment === "paid");
+    },
+  },
   {
     // Open or paid, and JobTread has no email that reached anyone. Sent from
     // QuickBooks is possible, so this is a list to check, not a list of misses.
     key: "notEmailed",
     label: "Not emailed",
     test: (j) =>
-      !!j.status &&
-      j.status.payment !== "draft" &&
-      j.status.payment !== "void" &&
-      (j.status.delivery === "notSent" || j.status.delivery === "bounced"),
+      jobStatuses(j).some(
+        (s) =>
+          s.payment !== "draft" &&
+          s.payment !== "void" &&
+          (s.delivery === "notSent" || s.delivery === "bounced"),
+      ),
   },
 ];
 
@@ -291,7 +310,8 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
             value={money(live.total)}
             sub={
               <>
-                {plural(live.invoiced, "invoice")} of {plural(included.length, "job")} · {money(live.paid)} paid ·{" "}
+                {plural(live.invoiceCount, "invoice")} on {live.invoiced} of {plural(included.length, "job")} ·{" "}
+                {money(live.paid)} paid ·{" "}
                 {money(live.due)} due · {plural(live.customers, "client")}
               </>
             }
@@ -441,11 +461,35 @@ const AGREE = 1;
  */
 function SideBySide({ job, run }: { job: JobRow; run: JobRun | undefined }) {
   const f = run?.mem?.result.figures;
+  const n = job.invoices?.length ?? (job.invoiced ? 1 : 0);
+  const onLabel = n > 1 ? `On ${n} JT invoices` : "On JT invoice";
   if (!f) {
+    // No job check yet: the month's cost against the cost on ALL of its
+    // invoices, from the live status read. Without the check there is no
+    // "still to invoice", so a gap is shown, not judged.
+    const known = (job.invoices ?? []).filter((i) => i.status && typeof i.cost === "number");
+    if (!known.length) {
+      return (
+        <p className="mt-2 text-xs text-neutral-500">
+          App cost {money(job.cost)} · not compared with JobTread yet
+        </p>
+      );
+    }
+    const onInvoices = known.reduce((s, i) => s + (i.cost ?? 0), 0);
+    const gap = job.cost - onInvoices;
     return (
-      <p className="mt-2 text-xs text-neutral-500">
-        App cost {money(job.cost)} · not compared with JobTread yet
-      </p>
+      <div className="mt-2">
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <Figure label="App cost" value={job.cost} />
+          <Figure label={onLabel} value={onInvoices} />
+          <Figure label="Not on an invoice" value={gap} />
+        </div>
+        <p className="mt-1 text-xs text-neutral-500">
+          {Math.abs(gap) <= AGREE
+            ? "✓ The month's labor and bills are all on its invoices"
+            : `${money(Math.abs(gap))} ${gap > 0 ? "of labor and bills is on no invoice" : "more on the invoices than the month's labor and bills"} — run the check to explain it`}
+        </p>
+      </div>
     );
   }
   const gap = job.cost - f.invoiceCost - f.toBeInvoiced;
@@ -454,12 +498,12 @@ function SideBySide({ job, run }: { job: JobRow; run: JobRun | undefined }) {
     <div className="mt-2">
       <div className="grid grid-cols-3 gap-2 text-xs">
         <Figure label="App cost" value={job.cost} />
-        <Figure label="On JT invoice" value={f.invoiceCost} />
+        <Figure label={onLabel} value={f.invoiceCost} />
         <Figure label="Still to invoice" value={f.toBeInvoiced} />
       </div>
       <p
         className={`mt-1 text-xs ${agrees ? "text-ok" : "text-warn"}`}
-        title="App cost, minus the cost on the JobTread invoices, minus what the app says is still to invoice."
+        title="App cost, minus the cost on all of the month's JobTread invoices, minus what the app says is still to invoice."
       >
         {agrees
           ? "✓ App and JobTread agree"
@@ -579,6 +623,69 @@ function DeliveryMark({ status }: { status: InvoiceStatus }) {
   }
 }
 
+type JobInvoice = NonNullable<JobRow["invoices"]>[number];
+
+/**
+ * One client invoice of the job's month: its number and title, where the money
+ * and the email are, what it bills and on what cost. A job billed on two
+ * invoices (Berger Bunkhouse, October 2026: #473 with P&O, #416 the plumbing
+ * fixtures at cost) shows two of these.
+ */
+function InvoiceCard({ jobId, fallbackHref, inv }: { jobId: string; fallbackHref: string; inv: JobInvoice }) {
+  const s = inv.status;
+  const markup = invoiceMarkup(inv);
+  const total = inv.priceWithTax || 0;
+  const title = inv.warranty ? "Warranty record" : inv.name || "Invoice";
+  return (
+    <a
+      href={inv.id ? jtDocumentUrl(jobId, inv.id) : fallbackHref}
+      target="_blank"
+      rel="noreferrer"
+      title={inv.description || (inv.warranty ? "Every line 88 90 00, billed at $0" : undefined)}
+      className="block rounded-md border border-line-soft px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold">
+            #{inv.number || "—"} · {title} ↗
+          </p>
+          <MetaLine
+            className="mt-0.5 text-xs"
+            items={[
+              s ? (
+                <span key="pay" className={`font-semibold ${PAYMENT_TONE[s.payment]}`}>
+                  {PAYMENT_LABEL[s.payment]}
+                </span>
+              ) : (
+                <span key="pay">Status unknown</span>
+              ),
+              s && s.payment !== "draft" && s.payment !== "void" ? <DeliveryMark key="mail" status={s} /> : null,
+              markup.label ? (
+                markup.atCost ? (
+                  <Chip key="mk" tone="neutral" title="Every line billed at its cost: a materials invoice with no P&O">
+                    {markup.label}
+                  </Chip>
+                ) : (
+                  <span key="mk">{markup.label}</span>
+                )
+              ) : null,
+            ]}
+          />
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="text-sm font-semibold tabular-nums">{money(total)}</p>
+          {typeof inv.cost === "number" && inv.cost > 0 ? (
+            <p className="text-[11px] tabular-nums text-neutral-500">cost {money(inv.cost)}</p>
+          ) : null}
+          {s && (s.payment === "open" || s.payment === "partPaid") && s.balance > 0.005 && s.balance < total - 0.005 ? (
+            <p className="text-[11px] tabular-nums text-neutral-500">{money(s.balance)} due</p>
+          ) : null}
+        </div>
+      </div>
+    </a>
+  );
+}
+
 /**
  * One job: its status, its figures, its links, and — folded away — the three
  * things the office can change for the invoicing email.
@@ -609,6 +716,9 @@ function JobItem({
   useEffect(() => {
     if (focus) row.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [focus]);
+  // Every invoice gets its own card. An old payload with no list keeps the
+  // single status line under the job name.
+  const cards = job.invoiced ? job.invoices ?? [] : [];
 
   return (
     <div ref={row} className={`px-4 py-3 ${job.include ? "" : "opacity-60"} ${focus ? "bg-accent/10" : ""}`}>
@@ -617,19 +727,35 @@ function JobItem({
           <p className="truncate text-sm font-semibold">{job.jobLabel}</p>
           <MetaLine
             className="mt-1"
-            items={[
-              <PaymentMark key="pay" job={job} />,
-              s && s.payment !== "draft" && s.payment !== "void" ? <DeliveryMark key="mail" status={s} /> : null,
-            ]}
+            items={
+              cards.length
+                ? [cards.length > 1 ? <span key="n">{plural(cards.length, "invoice")} this month</span> : null]
+                : [
+                    <PaymentMark key="pay" job={job} />,
+                    s && s.payment !== "draft" && s.payment !== "void" ? (
+                      <DeliveryMark key="mail" status={s} />
+                    ) : null,
+                  ]
+            }
           />
         </div>
         <div className="shrink-0 text-right">
           <p className="text-base font-bold tabular-nums">{money(job.total)}</p>
-          {s && s.payment === "open" && s.balance > 0 && s.balance < job.total - 0.005 ? (
+          {cards.length > 1 ? (
+            <p className="text-[11px] text-neutral-500">all invoices</p>
+          ) : s && s.payment === "open" && s.balance > 0 && s.balance < job.total - 0.005 ? (
             <p className="text-[11px] tabular-nums text-neutral-500">{money(s.balance)} due</p>
           ) : null}
         </div>
       </div>
+
+      {cards.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {cards.map((iv) => (
+            <InvoiceCard key={`inv-${iv.id || iv.number}`} jobId={job.jtJobId} fallbackHref={job.links.jtInvoice} inv={iv} />
+          ))}
+        </div>
+      )}
 
       <SideBySide job={job} run={run} />
       <CheckMarks run={run} onCheck={onCheck} />
@@ -638,24 +764,11 @@ function JobItem({
           an invoiced job, so it is bigger than labor plus bills by the markup
           and the tax; the side-by-side prints cost against cost for that reason. */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {job.invoiced &&
-          (job.invoices?.length ? (
-            job.invoices.map((iv) => (
-              <LinkButton
-                key={`inv-${iv.id || iv.number}`}
-                href={iv.id ? jtDocumentUrl(job.jtJobId, iv.id) : job.links.jtInvoice}
-                external
-                title={iv.warranty ? "Warranty record: every line 88 90 00, billed at $0" : undefined}
-              >
-                {iv.warranty ? "Warranty" : "Invoice"}
-                {iv.number ? ` #${iv.number}` : ""} ↗
-              </LinkButton>
-            ))
-          ) : (
-            <LinkButton href={job.links.jtInvoice} external>
-              Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
-            </LinkButton>
-          ))}
+        {job.invoiced && !cards.length && (
+          <LinkButton href={job.links.jtInvoice} external>
+            Invoice{job.invoiceNumber ? ` #${job.invoiceNumber}` : ""} ↗
+          </LinkButton>
+        )}
         <LinkButton href={job.links.jtLabor} external>
           Labor {money(job.labor)}
           {job.laborHours ? ` · ${job.laborHours} hrs` : ""} ↗

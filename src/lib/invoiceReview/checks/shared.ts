@@ -9,7 +9,8 @@
  * Pure. Nothing here fetches, writes, or reads a clock.
  */
 import { DEPOSIT_CSI } from "@/lib/deposits";
-import { cents, withinTolerance, type BackupFile, type BillRef, type InvoiceLine } from "../types";
+import { WARRANTY_CSI } from "@/lib/warranty";
+import { cents, centsGap, withinTolerance, type BackupFile, type BillRef, type InvoiceLine } from "../types";
 
 /**
  * A CD ("Contract Deposit") line: a deposit billed (positive) or drawn
@@ -28,6 +29,30 @@ export function depositPart(inv: { lines?: InvoiceLine[] }): { cost: number; pri
     price += l.price;
   }
   return { cost: cents(cost), price: cents(price) };
+}
+
+/**
+ * Is this client invoice billed WHOLLY AT COST — a materials invoice with no P&O?
+ *
+ * A month can hold more than one invoice on a job. Berger Bunkhouse, October
+ * 2026: #473 is the monthly invoice with P&O, and #416 passes the Preferred
+ * Plumbing fixtures through at cost ($21,795 cost, $21,795 price). The owner
+ * bills such materials on their own invoice on purpose.
+ *
+ * True when the invoice has at least one work line and every work line carries
+ * a real cost and a price within a cent of it. Deposit and warranty lines are
+ * not work, so they do not count either way. A flat-priced line (no cost) makes
+ * it false: that line is not "at cost", it has no cost basis at all.
+ */
+export function isAtCostInvoice(inv: { lines?: InvoiceLine[] }): boolean {
+  const work = (inv.lines ?? []).filter(
+    (l) =>
+      !isDepositLine(l) &&
+      String(l.code ?? "").trim() !== WARRANTY_CSI &&
+      (Math.abs(l.cost) >= 0.005 || Math.abs(l.price) >= 0.005),
+  );
+  if (!work.length) return false;
+  return work.every((l) => l.cost > 0 && Math.abs(centsGap(l.price, l.cost)) <= 1);
 }
 
 /** Words that carry no identity in a vendor name, so they must not create a match. */

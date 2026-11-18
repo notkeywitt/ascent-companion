@@ -53,7 +53,8 @@ export interface JobRow {
    *  invoice's, when the job has two. */
   status?: InvoiceStatus | null;
   /** Every invoice for the month, primary first, each with its own state. A
-   *  month can hold two: the normal one and a $0 warranty record. */
+   *  month can hold two or more: the monthly one with P&O, a materials one at
+   *  cost, a $0 warranty record. */
   invoices?: (PackageJobInvoice & { status: InvoiceStatus | null })[];
 }
 
@@ -109,6 +110,11 @@ export function liveTotals(jobs: JobRow[]) {
     labor: included.reduce((s, j) => s + j.labor, 0),
     bills: included.reduce((s, j) => s + j.bills, 0),
     invoiced: included.filter((j) => j.invoiced).length,
+    // Invoices, not jobs: a job can be billed on two or more in a month.
+    invoiceCount: included.reduce(
+      (s, j) => s + (j.invoices?.length ? j.invoices.length : j.invoiced ? 1 : 0),
+      0,
+    ),
     customers: new Set(included.map((j) => j.customerLabel)).size,
     // Over EVERY invoice of a job, not just its primary.
     due: included.reduce(

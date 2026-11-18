@@ -19,6 +19,27 @@ export interface PackageJobInvoice {
   priceWithTax: number;
   /** A $0 warranty record rather than a bill to the client. */
   warranty: boolean;
+  /** From the live JobTread read (`/api/invoicing-summary`), when it answered:
+   *  the title, the description, the cost basis and the pre-tax price. */
+  name?: string;
+  description?: string;
+  cost?: number;
+  price?: number;
+}
+
+/** What one invoice adds to its cost: "P&O 20.7%", "At cost, no P&O", or ""
+ *  when the cost is not known or the invoice is a warranty record. */
+export function invoiceMarkup(i: Pick<PackageJobInvoice, "cost" | "price" | "warranty">): {
+  atCost: boolean;
+  label: string;
+} {
+  const cost = Number(i.cost) || 0;
+  const price = Number(i.price) || 0;
+  if (i.warranty || cost <= 0 || price <= 0) return { atCost: false, label: "" };
+  if (Math.abs(Math.round(price * 100) - Math.round(cost * 100)) <= 1) {
+    return { atCost: true, label: "At cost, no P&O" };
+  }
+  return { atCost: false, label: `P&O ${((price / cost - 1) * 100).toFixed(1)}%` };
 }
 
 /** The payload fields this reads. Every one is optional: the payload is JSON. */
