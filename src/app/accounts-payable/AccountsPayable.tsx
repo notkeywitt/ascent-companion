@@ -176,7 +176,7 @@ export function AccountsPayable() {
                 <div key={g.key} className="space-y-2">
                   {g.title && (
                     <SectionHeading>
-                      {`${g.title} · ${g.bills.length} · ${money(g.bills.reduce((t, x) => t + x.owed, 0))} owed`}
+                      {`${g.title} · ${g.bills.length} · ${money(g.bills.reduce((t, x) => t + x.cost, 0))} total · ${money(g.bills.reduce((t, x) => t + x.owed, 0))} owed`}
                     </SectionHeading>
                   )}
                   <ListCard>
