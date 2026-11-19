@@ -30,8 +30,12 @@ fi
 
 stuck=$(git for-each-ref --format='  %(refname:strip=3) — %(contents:subject)' refs/remotes/origin/stuck/)
 if [ -n "$stuck" ]; then
-  echo "STUCK — the lander could not land these. Fix each one (CLAUDE.md, \"A stuck branch\"):"
+  echo "STUCK — the lander could not land these. The reason is each branch's last commit subject:"
   echo "$stuck"
+  echo "Fix each one. ~1 drops the lander's reason commit; ship re-queues the branch and deletes stuck/<name>:"
+  echo "  git worktree add -b <name> .claude/worktrees/<name> origin/stuck/<name>~1"
+  echo "  cd .claude/worktrees/<name> && git merge origin/main   # resolve the conflict, or fix the failed check"
+  echo "  npm run ship"
 fi
 
 queued=$(git for-each-ref --format='  %(refname:strip=3)' refs/remotes/origin/ready/)

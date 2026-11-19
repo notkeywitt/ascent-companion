@@ -15,6 +15,11 @@ The values live in two files and nowhere else:
 
 Moved here from `CLAUDE.md` so they load only for UI work.
 
+- **Dock to the bar, not to a number.** The bottom bar's height is
+  `--tabbar-h` (`globals.css`). Anything docked to the bottom of the screen
+  offsets by that variable. From `pad` up the bar is a left rail of width
+  `--rail-w`: a `fixed inset-x-0` element also sets `left: var(--rail-w)`, or
+  it runs under the rail.
 - **No page subtitle.** A new page's `PageHeader` has a title and no
   `description`. Put help in the page body only when a task needs it.
 - **UI design system:** `src/components/ui.tsx` — **build every UI on these

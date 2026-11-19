@@ -35,6 +35,15 @@ if [ "$(git config core.hooksPath 2>/dev/null)" != ".githooks" ]; then
   git config core.hooksPath .githooks
 fi
 
+# A stray control or NUL byte makes git treat a source file as binary, and it
+# still compiles. numstat shows a binary file as "-<TAB>-".
+binary=$(git diff --cached --numstat | awk -F'\t' '$1=="-" && $3 ~ /\.(ts|tsx|js|mjs|cjs|json|md|css|sh|sql|ya?ml)$/ {print $3}')
+if [ -n "$binary" ]; then
+  echo "ship: git reads these staged text files as binary — remove the stray control or NUL byte:" >&2
+  echo "$binary" >&2
+  exit 1
+fi
+
 if [ -n "$msg" ] && ! git diff --cached --quiet; then
   git commit -q -m "$msg" || { echo "ship: commit failed" >&2; exit 1; }
 fi

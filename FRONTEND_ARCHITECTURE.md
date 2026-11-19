@@ -40,6 +40,17 @@ two callers moved to purpose-built routes. Every view reads and writes JobTread
 through its own route in `src/app/api/**`, which calls `src/lib/jobtread.ts`.
 The route is what a view's `paths` gate in `src/lib/views.ts`.
 
+Two parts outlived the gateway. `src/lib/paveGateway.ts` still defines what
+counts as a write (`findMutations`), and `pave()` never retries one; its per-role
+mutation allowlist gates no route now. `COMPANION_GATEWAY_WRITES_ENABLED` gated
+only `/api/pave`, so it gates nothing. `COMPANION_WRITES_ENABLED` is the master
+switch for every write.
+
+The `jobs` page is the worked example of a purpose-built read:
+`src/app/jobs/` reads `/api/jobs/browser` and `/api/jobs/cost-detail`. Those two
+routes are not on the `jobs` view's `paths`, because a lead's job panel also
+reads cost-detail.
+
 ## View roadmap (each maps to a JT_API_REFERENCE.md domain)
 
 Build on `ui.tsx` + role gating, in priority order:
