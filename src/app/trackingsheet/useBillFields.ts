@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
-import type { BillMoveRequest } from "@/components/BillMove";
+import { BILL_CHANGED_EVENT, type BillMoveRequest } from "@/components/BillMove";
+import type { VendorRef } from "@/components/ChangeVendor";
 import { jobLabel, type JobRef } from "@/components/JobPicker";
 import { issueDateFor, monthLabel } from "@/lib/billingMonths";
 import { toast } from "@/components/Toast";
@@ -210,9 +211,40 @@ export function useBillFields({
     setData((d) => (d ? { ...d, bills: d.bills.filter((b) => b.id !== openBill.id) } : d));
   };
 
+  // Change the bill's vendor. JobTread can't do that either, so it is the same
+  // void+recreate as a job move, on this job. The recreate mints a NEW docId, so
+  // the old row is dropped at once and the month reloads when the change lands.
+  const changeVendor = (vendor: VendorRef) => {
+    if (!openBill || !vendor.id) return;
+    if (
+      !window.confirm(
+        `Change this bill's vendor to ${vendor.name}?\n\nJobTread can't change a bill's vendor, so it will be ` +
+          `voided and recreated under that vendor. It stays a draft on this job, keeps its PDF, and re-files ` +
+          `in Drive.` +
+          (openBillDirty
+            ? "\n\nIts staged coding changes haven't been synced and will be lost."
+            : "") +
+          `\n\nThe change runs in the background — you can keep working while it finishes.`,
+      )
+    )
+      return;
+    setFilingMsg("");
+    startBillMove({ docId: openBill.id, jobId, jobLabel: vendor.name, vendorAccountId: vendor.id });
+    setOpenDocId(null);
+    setData((d) => (d ? { ...d, bills: d.bills.filter((b) => b.id !== openBill.id) } : d));
+  };
+
+  // The recreated bill is a new document: reload the month when the change lands.
+  useEffect(() => {
+    const onChanged = () => void load({ preserveStaged: true });
+    window.addEventListener(BILL_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(BILL_CHANGED_EVENT, onChanged);
+  }, [load]);
+
   return {
     billNumberDraft,
     billNumberSaving,
+    changeVendor,
     dueDateSaving,
     filingMsg,
     monthSaving,
