@@ -383,6 +383,10 @@ export function TabBar() {
   if (items.length < 2) return null;
   const active = activeBarKey(items, pathname);
   const railActive = activeBarKey(rail, pathname);
+  // The drawer's icon rows: every rail icon the home row does not show.
+  const drawerIcons = rail.filter(
+    (r) => !items.some((b) => b.key === r.key || b.href === r.href),
+  );
 
   // Carry the selected job across, so hopping to a page from a job keeps it.
   const jobId = (search.get("jobId") ?? "").trim();
@@ -454,11 +458,41 @@ export function TabBar() {
 
       {/* The drawer: the ☰ menu, opened by a swipe up on the bar. Phone only. */}
       <div className="pad:hidden">
-        {access.role === "office" ? (
-          <AppMenu account pages qs={qs} open={open} onOpenChange={setOpen} />
-        ) : (
-          <AppMenu qs={qs} open={open} onOpenChange={setOpen} />
-        )}
+        {(() => {
+          // Icon rows styled like the home row. They live in the sheet, so they
+          // are hidden while the drawer is closed.
+          const top =
+            drawerIcons.length > 0 ? (
+              <div className="grid grid-cols-5">
+                {drawerIcons.map((t) => {
+                  const on = t.key === railActive;
+                  const Icon = ICONS[t.key] ?? PinIcon;
+                  return (
+                    <Link
+                      key={t.key}
+                      href={t.href + qs}
+                      aria-current={on ? "page" : undefined}
+                      onClick={guard}
+                      className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 ${
+                        on
+                          ? "text-neutral-900 dark:text-white"
+                          : "text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white"
+                      }`}
+                    >
+                      <Icon />
+                      {labelOf(t)}
+                      <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null;
+          return access.role === "office" ? (
+            <AppMenu account pages qs={qs} top={top} open={open} onOpenChange={setOpen} />
+          ) : (
+            <AppMenu qs={qs} top={top} open={open} onOpenChange={setOpen} />
+          );
+        })()}
       </div>
 
       {/* iPAD AND UP: a rail down the left edge with every workspace; from 2xl
