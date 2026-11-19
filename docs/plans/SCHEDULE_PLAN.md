@@ -13,7 +13,7 @@ Gantt functions, then links bills and estimates to tasks.
 | 1 | Schedule page, read-only: a Gantt by job, 4 or 12 weeks, a details dialog | built |
 | 2 | Edit: the existing task dialog on a bar; drag to move (a JobTread write) | not started |
 | 3 | One Gantt component for the Home card, the Tracking Sheet and the Jobs Hub Schedule tab | not started |
-| 4 | Bills and estimates on a task | research below |
+| 4 | Bills and estimates on a task | built (owner chose JobTread's own link, 2026-11-19) |
 
 ## Stage 1
 
@@ -21,6 +21,21 @@ Gantt functions, then links bills and estimates to tasks.
 - Reads `getUpcomingScheduleTasks`. That read leaves out finished tasks and
   tasks with no dates. Stage 2 should add finished tasks.
 - Math is `src/lib/scheduleGantt.ts`.
+
+## Stage 4 (built)
+
+- Read: `GET /api/schedule/links` (every counted document on a task) and
+  `?jobId=` (the job's documents on no task). `src/lib/jobtread/taskDocuments.ts`.
+- Write: `POST /api/schedule/links { documentId, taskId | null }`. It sends
+  `updateDocument { taskId }` and nothing else. It checks the document and task
+  first (same org and job, a schedule task on an open job, not voided). It reads
+  the document back. If status, cost, price or externalId moved, it puts the old
+  task back and says so. Each change goes in the financial journal as
+  `document.task.set`. View `schedule-links`.
+- UI: a count and total beside each task with documents; the task dialog lists
+  them (bills and estimates totalled apart), with Attach and Remove.
+- The first live Attach is the probe for the open checks below. The
+  ascent-appscript repo does not read `document.task` (grepped 2026-11-19).
 
 ## Stage 4 research
 
