@@ -503,7 +503,7 @@ export function TabBar() {
         data-peek={peek || undefined}
         onPointerEnter={(e) => peekLater(true, e)}
         onPointerLeave={(e) => peekLater(false, e)}
-        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-[width] duration-200 ease-out data-[peek]:shadow-xl dark:bg-ink/95 print:hidden pad:flex wide:w-[232px] wide:px-3`}
+        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-[width] duration-200 ease-out data-[peek]:shadow-xl dark:bg-ink/95 print:hidden pad:flex wide:w-[232px] wide:px-2`}
       >
         {rail.map((t) => {
           const on = t.key === railActive;
@@ -514,7 +514,7 @@ export function TabBar() {
                 href={t.href + qs}
                 aria-current={on ? "page" : undefined}
                 onClick={guard}
-                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
+                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
                   on
                     ? `bg-accent/10 text-accent dark:text-accent-soft`
                     : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -537,7 +537,7 @@ export function TabBar() {
             type="button"
             onClick={openNotesBug}
             title="Jot a note, bug or feature request"
-            className="relative mb-1 hidden w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 lg:flex wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px]"
+            className="relative mb-1 hidden w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 lg:flex wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px]"
           >
             <ClipboardIcon />
             <span className="rail-label min-w-0">Notes</span>
@@ -551,7 +551,7 @@ export function TabBar() {
                 ? "The stream did not start. Try again."
                 : "Lopez Island's radio station, live"
             }
-            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
+            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
               kloi.playing
                 ? "bg-accent/10 text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -567,7 +567,7 @@ export function TabBar() {
               href="/lopezrocks"
               aria-current={isHereRoot("/lopezrocks") ? "page" : undefined}
               onClick={guard}
-              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
+              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
                 isHereRoot("/lopezrocks")
                   ? "bg-accent/10 text-accent dark:text-accent-soft"
                   : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -588,7 +588,7 @@ export function TabBar() {
               onClick={toggleRail}
               aria-label={railHidden ? "Show the labels" : "Hide the labels"}
               title={railHidden ? "Show the labels" : "Hide the labels"}
-              className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 wide:justify-start wide:px-3"
+              className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 wide:justify-start wide:px-2"
             >
               {railHidden ? "›" : "‹"}
             </button>
