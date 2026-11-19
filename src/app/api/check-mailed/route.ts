@@ -8,7 +8,7 @@ import { checkMailed } from "@/db/schema";
  * Accounts Payable "check mailed" marks. Companion database only — NOT a
  * JobTread write, so it ignores COMPANION_WRITES_ENABLED.
  *   GET  ?ids=a,b,c           -> { mailed: { [docId]: ISO timestamp } }
- *   POST { docId, mailed }    -> { ok, mailed }
+ *   POST { docId, mailed }    -> { ok, mailed, mailedAt }
  */
 export async function GET(req: NextRequest) {
   const ids = new Set(
@@ -47,7 +47,12 @@ export async function POST(req: NextRequest) {
     } else {
       await db.delete(checkMailed).where(eq(checkMailed.docId, docId));
     }
-    return NextResponse.json({ ok: true, mailed });
+    let mailedAt = "";
+    if (mailed) {
+      const row = await db.select().from(checkMailed).where(eq(checkMailed.docId, docId));
+      mailedAt = row[0]?.mailedAt ?? "";
+    }
+    return NextResponse.json({ ok: true, mailed, mailedAt });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });
   }
