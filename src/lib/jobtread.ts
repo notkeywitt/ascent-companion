@@ -282,10 +282,12 @@ export {
   getJobDocumentsToLink,
   getDocumentForLink,
   getTaskName,
+  getDocumentDetail,
+  canAttach,
   onlyTaskChanged,
   setDocumentTask,
 } from "./jobtread/taskDocuments";
-export type { TaskDocType, TaskDocument, DocForLink } from "./jobtread/taskDocuments";
+export type { TaskDocType, TaskDocument, DocForLink, DocDetail, DocLine } from "./jobtread/taskDocuments";
 export {
   getJobAccessFor,
   grantJobAccess,

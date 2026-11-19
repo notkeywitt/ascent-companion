@@ -5,6 +5,8 @@ import { openJournal } from "@/lib/financialJournal";
 import {
   TASK_DOC_TYPES,
   bustTaskCaches,
+  canAttach,
+  getDocumentDetail,
   getDocumentForLink,
   getJobDocumentsToLink,
   getTaskForEdit,
@@ -21,6 +23,7 @@ import {
  *   GET  /api/schedule/links                → { links: { [taskId]: TaskDocument[] } }
  *   GET  /api/schedule/links?jobId=<id>     → { documents: TaskDocument[] } on that job with no task
  *   GET  /api/schedule/links?documentId=<id> → { task: { id, name } | null } the document's task
+ *   GET  /api/schedule/links?detailId=<id>   → { detail: DocDetail } the document with its lines
  *   POST /api/schedule/links { documentId, taskId | null }
  *        → { ok, wrote, previewed? }   puts the document on the task, or off it (null)
  *
@@ -28,7 +31,7 @@ import {
  * reads the document and the task and refuses unless: same org, the task is a
  * schedule task (not a to-do or a phase row) on an open job, the document is a
  * bill, estimate, vendor order or bid request on THAT job, and it is not
- * voided. After it, the route reads the document back; if its status, cost,
+ * voided, and a bill or expense is still a draft. After it, the route reads the document back; if its status, cost,
  * price or externalId moved, it puts the old task back and answers with an
  * error. Every change goes in the financial journal.
  *
@@ -43,6 +46,11 @@ export async function GET(req: NextRequest) {
   if (!hasGrant()) return fail("JT_GRANT_KEY is not set.", 400);
   try {
     const cfg = getPaveConfig();
+    const detailId = (req.nextUrl.searchParams.get("detailId") ?? "").trim();
+    if (detailId) {
+      const detail = await getDocumentDetail(cfg, detailId);
+      return detail ? NextResponse.json({ detail }) : fail("That document is not in this organization.", 404);
+    }
     const documentId = (req.nextUrl.searchParams.get("documentId") ?? "").trim();
     if (documentId) {
       const doc = await getDocumentForLink(cfg, documentId);
@@ -89,6 +97,10 @@ export async function POST(req: NextRequest) {
     }
     if (doc.status === "denied") return fail("That document is voided.", 400);
     if (doc.taskId === (taskId ?? "")) return NextResponse.json({ ok: true, previewed: false, wrote: false });
+    // JobTread takes only a draft bill or expense on a task. Taking one off is always allowed.
+    if (taskId && !canAttach(doc.type, doc.status)) {
+      return fail("JobTread only puts a draft bill or expense on a task. Move this one back to draft first.", 400);
+    }
 
     if (taskId) {
       const t = await getTaskForEdit(cfg, taskId);

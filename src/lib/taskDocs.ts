@@ -35,8 +35,12 @@ export function docTotals(docs: TaskDocument[]): DocTotals {
 export function docMatches(d: TaskDocument, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (!needle) return true;
-  return [d.name, d.accountName, d.number === null ? "" : String(d.number), DOC_TYPE_LABEL[d.type], d.status]
+  return [d.name, d.accountName, d.number === null ? "" : String(d.number), DOC_TYPE_LABEL[d.type], d.status, ...d.costCodes]
     .join(" ")
     .toLowerCase()
     .includes(needle);
 }
+
+/** "Wood Siding" lines of a row: the cost codes, or a plain "no cost code". */
+export const codesLine = (d: Pick<TaskDocument, "costCodes">) =>
+  d.costCodes.length ? d.costCodes.join(", ") : "No cost code";
