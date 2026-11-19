@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 
-import { Button, EmptyState, Loading, PageHeader } from "@/components/ui";
+import { Button, EmptyState, FilterChip, Loading, PageHeader } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
 import { FeatureRequestForm } from "@/components/FeatureRequestForm";
 
@@ -44,6 +44,8 @@ function Requests() {
   const canTriage = role === "admin" || role === "office";
   const [requests, setRequests] = useState<FeatureRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  // "all" or one status; the list below shows only that status.
+  const [filter, setFilter] = useState<string>("all");
   // ?new=1 opens the form at once (a link straight to "ask for something").
   const [showNew, setShowNew] = useState(useSearchParams().get("new") === "1");
 
@@ -79,11 +81,12 @@ function Requests() {
     if (res.ok) setRequests((rs) => rs.filter((x) => x.id !== r.id));
   }
 
+  const shown = filter === "all" ? requests : requests.filter((r) => r.status === filter);
+
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader
         title="Feature Requests"
-        description="Ask for app fixes and new features."
         actions={
           <Button
             variant={showNew ? "secondary" : "primary"}
@@ -113,10 +116,23 @@ function Requests() {
         <EmptyState>No requests yet — be the first.</EmptyState>
       )}
 
-      {/* One hairline list, not a box per request (CONSOLIDATION_PLAN look rule 1). */}
       {requests.length > 0 && (
-      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white lg:grid lg:grid-cols-2 lg:gap-px lg:divide-y-0 lg:bg-line-soft dark:bg-ink-raised dark:lg:bg-line-soft">
-        {requests.map((r) => (
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {["all", ...STATUS].map((s) => (
+            <FilterChip key={s} on={filter === s} onClick={() => setFilter(s)}>
+              {s} ({s === "all" ? requests.length : requests.filter((r) => r.status === s).length})
+            </FilterChip>
+          ))}
+        </div>
+      )}
+      {requests.length > 0 && shown.length === 0 && (
+        <EmptyState>No {filter} requests.</EmptyState>
+      )}
+
+      {/* One hairline list, one column, not a box per request (CONSOLIDATION_PLAN look rule 1). */}
+      {shown.length > 0 && (
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+        {shown.map((r) => (
           <li key={r.id} className="bg-white p-3 dark:bg-ink-raised">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">

@@ -62,11 +62,14 @@ export function AddEmployee({
   statuses,
   onAdded,
   onClose,
+  onNewHire,
 }: {
   employees: Employee[];
   statuses: string[];
   onAdded: (e: Employee) => void;
   onClose: () => void;
+  /** Given: a New Hire button sits in the title row, top right. */
+  onNewHire?: () => void;
 }) {
   const [draft, setDraft] = useState<Draft>({
     firstName: "",
@@ -197,7 +200,17 @@ export function AddEmployee({
     <Dialog
       onClose={onClose}
       busy={saving}
-      title="New employee"
+      label="New employee"
+      title={
+        <span className="flex items-center justify-between gap-3">
+          <span>New employee</span>
+          {onNewHire && (
+            <Button variant="secondary" size="sm" onClick={onNewHire} disabled={saving}>
+              New Hire
+            </Button>
+          )}
+        </span>
+      }
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={saving}>

@@ -379,6 +379,7 @@ export function MileageClient({
   // hand, or see (and edit) the logged trips. `phase` is the Record tab's own
   // state, so a trip under way keeps tracking while another tab is open.
   const [tab, setTab] = useState<MileageTab>("record");
+  const [mapFull, setMapFull] = useState(false);
   // "saving": End was tapped and the save sits in the outbox until confirmed.
   const [phase, setPhase] = useState<"idle" | "active" | "saving" | "done">("idle");
   // Why the save has not landed yet ("" while it is simply in flight).
@@ -1310,7 +1311,7 @@ export function MileageClient({
       <div className="lg:grid lg:grid-cols-[minmax(0,32rem)_minmax(0,1fr)] lg:items-start lg:gap-8 xl:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
 
       {/* The island, first: saved places in grey, start and end ringed, you in blue. */}
-      <div className={`${tab === "history" ? "max-lg:hidden " : ""}-mx-4 mb-1 h-[26vh] min-h-[160px] pad:mx-0 pad:mb-4 pad:h-[34vh] lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:h-[calc(100dvh-8rem)] [&_svg]:min-h-0 [&_svg]:flex-1`}>
+      <div className={`relative ${tab === "history" ? "max-lg:hidden " : ""}-mx-4 mb-1 h-[26vh] min-h-[160px] pad:mx-0 pad:mb-4 pad:h-[34vh] lg:sticky lg:top-4 lg:col-start-2 lg:row-start-1 lg:mb-0 lg:h-[calc(100dvh-8rem)] [&_svg]:min-h-0 [&_svg]:flex-1`}>
           <LopezMap
             jobs={savedPlaces}
             marks={marks}
@@ -1319,7 +1320,58 @@ export function MileageClient({
             className="h-full"
             label="Map of Lopez Island with jobs, saved places and the trip's start and end"
           />
+          <button
+            type="button"
+            onClick={() => setMapFull(true)}
+            aria-label="Open the map full screen"
+            className="absolute right-4 top-2 min-h-9 rounded-full border border-line bg-white/90 px-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:border-accent dark:bg-ink-raised/90 dark:text-neutral-200 pad:right-2"
+          >
+            Full screen
+          </button>
       </div>
+
+      {mapFull && (
+        <Dialog
+          onClose={() => setMapFull(false)}
+          size="xl"
+          title="Map"
+          className="sm:!max-w-none sm:h-[94dvh] sm:w-[96vw] h-[94dvh]"
+          footer={
+            <>
+              <div className="mr-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-300">
+                {([
+                  ["var(--viz-4)", "Trip start"],
+                  ["var(--viz-8)", "Trip end"],
+                  ["var(--viz-1)", "You are here"],
+                ] as const).map(([c, t]) => (
+                  <span key={t} className="inline-flex items-center gap-1.5">
+                    <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
+                    {t}
+                  </span>
+                ))}
+                <span className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-neutral-400" />
+                  Saved places and jobs
+                </span>
+              </div>
+              <Button variant="secondary" onClick={() => setMapFull(false)}>
+                Close
+              </Button>
+            </>
+          }
+        >
+          <div className="h-full min-h-[50dvh] [&_svg]:min-h-0 [&_svg]:flex-1">
+            <LopezMap
+              jobs={savedPlaces}
+              marks={marks}
+              legend
+              pad={0}
+              className="h-full"
+              label="Full screen map of Lopez Island with jobs, saved places and the trip's start and end"
+            />
+          </div>
+        </Dialog>
+      )}
 
       <div className="lg:col-start-1 lg:row-start-1">
       {/* Record | By hand | Logged miles — one tap apart, as on the time page. */}

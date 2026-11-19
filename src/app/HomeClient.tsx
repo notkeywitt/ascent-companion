@@ -36,7 +36,7 @@ function Home({ month, layout }: { month: MastheadMonth; layout: HomeLayout }) {
   /* ADMIN and OFFICE: their own Home. */
   if (access.role === "admin" || access.role === "office") {
     return (
-      <main className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5">
+      <main className="w-full px-4 pb-[calc(var(--tabbar-h)+2.5rem)] pt-3 pad:px-7 pad:pt-5">
         {/* The year ribbon runs faded behind the masthead's line, under the billing month. */}
         <HomeMasthead month={month} backdrop={<YearRibbon />} />
         <OfficeHome layout={layout} />
