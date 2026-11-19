@@ -34,6 +34,10 @@ Gantt functions, then links bills and estimates to tasks.
   `document.task.set`. View `schedule-links`.
 - UI: a count and total beside each task with documents; the task dialog lists
   them (bills and estimates totalled apart), with Attach and Remove.
+- Link from the bill: a "Link to Task" button on the bill card (`BillTaskLink.tsx`)
+  opens the job's schedule at full size; a tap on a task links the bill. It names
+  the task once linked, and the popup outlines it. `ScheduleView.tsx` is the
+  shared Gantt, a step toward stage 3.
 - The first live Attach is the probe for the open checks below. The
   ascent-appscript repo does not read `document.task` (grepped 2026-11-19).
 

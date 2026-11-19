@@ -4,8 +4,8 @@ import { getJobs, getUpcomingScheduleTasks } from "@/lib/jobtread";
 import { addDays, daysBetween, isDay, MAX_WINDOW_DAYS } from "@/lib/scheduleGantt";
 
 /**
- * GET /api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD → the open schedule tasks on
- * any job that overlap that span, plus each job's customer. The Schedule page
+ * GET /api/schedule?from=YYYY-MM-DD&to=YYYY-MM-DD[&jobId=<id>] → the open schedule
+ * tasks on any job (or on that one job) that overlap that span, plus each job's customer. The Schedule page
  * (src/app/schedule) draws them as a Gantt. Read-only.
  *
  * Same read as the Tool Schedule and Home's This week card
@@ -39,9 +39,11 @@ export async function GET(req: Request) {
       getUpcomingScheduleTasks(cfg, from, addDays(from, span)),
       getJobs(cfg).catch(() => []),
     ]);
+    const jobId = (url.searchParams.get("jobId") ?? "").trim();
+    const shown = jobId ? tasks.filter((t) => t.jobId === jobId) : tasks;
     const customers: Record<string, string> = {};
     for (const j of jobs) if (j.customer) customers[j.id] = j.customer;
-    return NextResponse.json({ from, to, tasks, customers });
+    return NextResponse.json({ from, to, tasks: shown, customers });
   } catch (e: unknown) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Unknown error" },

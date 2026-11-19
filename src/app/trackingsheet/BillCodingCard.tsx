@@ -8,6 +8,7 @@ import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { ChangeVendor, type VendorRef } from "@/components/ChangeVendor";
 import { useAccess } from "@/components/AccessProvider";
+import { BillTaskLink } from "@/app/schedule/BillTaskLink";
 import {
   Banner,
   Button,
@@ -1083,7 +1084,9 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               whole content; the JT link still belongs to the bill, so the row
               stays and just loses its label. */}
                 {standalone ? (
-                  <span className="flex-1" />
+                  <span className="flex min-w-0 flex-1 items-center">
+                    <BillTaskLink docId={bill.id} jobId={jobId} voided={bill.status === "denied"} />
+                  </span>
                 ) : (
                   <p className="min-w-0 truncate text-[15px] font-semibold tracking-tight">
                     {bill.vendor && bill.label.startsWith(bill.vendor) ? (
@@ -1138,6 +1141,8 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                 filled this in" and "30 days from the bill date". */}
                   {!bill.dueDate && bill.dueDays ? <span>net-{bill.dueDays}</span> : null}
                   {dueDateSaving && <Spinner />}
+                  {/* The schedule task this bill sits on (JobTread's own link). */}
+                  {!standalone && <BillTaskLink docId={bill.id} jobId={jobId} voided={bill.status === "denied"} />}
                   {/* Type: the name AND QuickBooks' Push as Bill/Expense. The host's
                 Save writes it, and makes it this vendor's default. */}
                   {setBillType && (

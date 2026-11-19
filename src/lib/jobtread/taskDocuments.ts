@@ -194,3 +194,9 @@ export async function setDocumentTask(cfg: PaveConfig, docId: string, taskId: st
     updateDocument: { $: { id: docId, taskId }, document: { $: { id: docId }, id: {} } },
   });
 }
+
+/** A task's id and name, for the label on a bill that sits on it. */
+export async function getTaskName(cfg: PaveConfig, id: string): Promise<{ id: string; name: string } | null> {
+  const r = await pave(cfg, { task: { $: { id }, id: {}, name: {} } });
+  return r?.task?.id ? { id: r.task.id, name: r.task.name ?? "" } : null;
+}
