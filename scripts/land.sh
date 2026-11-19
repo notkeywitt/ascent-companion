@@ -55,8 +55,22 @@ verify() {
   git reset -q --hard HEAD
 }
 
+leases=""
 retire() { # name sha — delete ready/<name>, but only if it still points at sha
   refspecs="$refspecs --force-with-lease=refs/heads/ready/$1:$2 :refs/heads/ready/$1"
+  leases="$leases $1:$2"
+}
+
+# A refused push is no failure when a session pushed to a ready/ branch during
+# this run. That push queued the next run, which lands the branch's newer
+# commits. Exit quietly so GitHub does not mail a false failure.
+newer_push_waiting() {
+  git fetch -q --prune origin '+refs/heads/ready/*:refs/remotes/origin/ready/*' || return 1
+  for l in $leases; do
+    now=$(git rev-parse -q --verify "refs/remotes/origin/ready/${l%%:*}") || continue
+    [ "$now" = "${l#*:}" ] || return 0
+  done
+  return 1
 }
 
 stuck() { # name sha reason
@@ -106,8 +120,17 @@ land_batch() { # names…
 push() {
   [ -n "$refspecs" ] || return 0
   # shellcheck disable=SC2086 # refspecs is a word list on purpose
-  git push --atomic origin HEAD:refs/heads/main $refspecs || { echo "land: push failed" >&2; exit 1; }
+  if ! git push --atomic origin HEAD:refs/heads/main $refspecs; then
+    if newer_push_waiting; then
+      echo "land: a newer push is queued; the next run lands it"
+      [ -n "${GITHUB_STEP_SUMMARY:-}" ] && printf '### Lander\n- a newer push is queued; the next run lands it\n' >>"$GITHUB_STEP_SUMMARY"
+      exit 0
+    fi
+    echo "land: push failed" >&2
+    exit 1
+  fi
   refspecs=""
+  leases=""
 }
 
 queue() { # names under ready/, oldest first
