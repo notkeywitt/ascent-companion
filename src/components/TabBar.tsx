@@ -164,6 +164,12 @@ const RocksIcon = () => (
     <path d="M3 20 9 10l4 6 3-4 5 8z" />
   </IconBase>
 );
+/** Boids — a small flock of arrowheads. */
+const BoidsIcon = () => (
+  <IconBase>
+    <path d="M4 8l5 2-5 2zM12 4l5 2-5 2zM13 14l6 2.5-6 2.5z" />
+  </IconBase>
+);
 const PinIcon = () => (
   <IconBase>
     <path d="M12 17v5M8 3h8l-1 6 3 3v2H6v-2l3-3z" />
@@ -575,6 +581,22 @@ export function TabBar() {
             >
               <RocksIcon />
               <span className="rail-label min-w-0">LopezRocks</span>
+              <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+            </Link>
+          )}
+          {access.can("art") && (
+            <Link
+              href="/art/flock"
+              aria-current={isHereRoot("/art/flock") ? "page" : undefined}
+              onClick={guard}
+              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
+                isHereRoot("/art/flock")
+                  ? "bg-accent/10 text-accent dark:text-accent-soft"
+                  : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+              }`}
+            >
+              <BoidsIcon />
+              <span className="rail-label min-w-0">Boids</span>
               <LinkPendingOverlay spinnerClassName="h-5 w-5" />
             </Link>
           )}

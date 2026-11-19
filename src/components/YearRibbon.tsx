@@ -45,6 +45,8 @@ interface Payload {
 }
 
 const DRAW_MS = 2400;
+/** Label key of the summation line (a job id is never this). */
+const TOTAL_ID = "__total";
 /** The labels' letter height (px). The job lines are 1px; this is as small as
  *  letters stay letters. */
 const LABEL_PX = 6.5;
@@ -227,7 +229,9 @@ export function YearRibbon({
       const placed: Box[] = [];
       const xMin = w * 0.12;
       const xMax = Math.min(w * 0.88, todayX);
-      for (const { j, p } of order) {
+      // The summation line is named "Ascent" and is labelled first.
+      const nameable = [{ j: { id: TOTAL_ID, name: "Ascent" }, p: outer }, ...order];
+      for (const { j, p } of nameable) {
         const s = arcLengths(p);
         const chars = [...j.name];
         const widths = chars.map((ch) => x.measureText(ch).width);
@@ -310,11 +314,33 @@ export function YearRibbon({
       }
     }
 
-    // The summation line: it dominates.
+    // The summation line: it dominates. Broken where "Ascent" is written.
     x.globalAlpha = focusId ? 0.35 : 1;
-    trace(outer);
+    const totalLab = labels.get(TOTAL_ID);
+    const so = totalLab ? arcLengths(outer) : [];
+    x.beginPath();
+    let outerPen = false;
+    outer.forEach((q, i) => {
+      const gap = totalLab && so[i] > totalLab.from && so[i] < totalLab.to;
+      if (gap) outerPen = false;
+      else if (outerPen) x.lineTo(q[0], q[1]);
+      else {
+        x.moveTo(q[0], q[1]);
+        outerPen = true;
+      }
+    });
     x.lineWidth = 2;
     x.stroke();
+    if (totalLab) {
+      x.textBaseline = "middle";
+      for (const g of totalLab.glyphs) {
+        x.save();
+        x.translate(g.x, g.y);
+        x.rotate(g.a);
+        x.fillText(g.ch, -x.measureText(g.ch).width / 2, 0);
+        x.restore();
+      }
+    }
     x.restore();
 
     // The ground, and the name of the series showing.

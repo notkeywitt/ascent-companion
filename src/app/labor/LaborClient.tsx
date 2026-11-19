@@ -372,11 +372,12 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
   );
   if (calendar && view === "calendar") {
     return (
-      <main className="w-full max-w-7xl px-4 pad:px-7 pb-24 pt-6">
+      <main className="w-full px-4 pad:px-7 pb-24 pt-6">
         <PageHeader title="Labor" />
         {viewToggle}
         <WeekCalendar
           {...calendar}
+          weekdaysOnly
           renderPanel={({ entry: e, who, name, close, reload: reloadWeek }) => (
             <CalendarEntryPanel
               key={e.id}

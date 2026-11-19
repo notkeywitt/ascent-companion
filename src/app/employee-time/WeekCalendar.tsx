@@ -96,6 +96,7 @@ export function WeekCalendar({
   codeDefaults,
   onExit,
   renderPanel,
+  weekdaysOnly = false,
 }: {
   users: User[];
   appUserIds: string[];
@@ -110,6 +111,8 @@ export function WeekCalendar({
   /** Back to the grid Split View. */
   /** Time page only: shows the Beta tag and a way back to Split View. */
   onExit?: () => void;
+  /** True → Saturday and Sunday are not drawn (the Labor page). */
+  weekdaysOnly?: boolean;
   /** Given → a tapped entry opens this panel to the right of the calendar (below it on a narrow screen) instead of the details card. */
   renderPanel?: (a: {
     entry: Entry;
@@ -131,6 +134,17 @@ export function WeekCalendar({
 
   const [week, setWeek] = useState(() => weekStart(orgToday()));
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(week, i)), [week]);
+  // The columns drawn. The week is still fetched whole (days[0]..days[6]).
+  const cols = useMemo(
+    () =>
+      weekdaysOnly
+        ? days.filter((d) => {
+            const w = new Date(d + "T00:00:00Z").getUTCDay();
+            return w !== 0 && w !== 6;
+          })
+        : days,
+    [days, weekdaysOnly],
+  );
   // You, then the default comparison — the same start Split View makes.
   const [others, setOthers] = useState<string[]>(() => {
     const ty = people.find((u) => u.id !== myId && DEFAULT_OTHER.test(u.name));
@@ -313,7 +327,7 @@ export function WeekCalendar({
           ‹
         </IconButton>
         <span className="min-w-40 text-center text-sm font-bold tabular-nums">
-          {shortDay(days[0])} – {shortDay(days[6])}, {days[6].slice(0, 4)}
+          {shortDay(cols[0])} – {shortDay(cols[cols.length - 1])}, {days[6].slice(0, 4)}
         </span>
         <IconButton label="Next week" onClick={() => setWeek((w) => addDays(w, 7))}>
           ›
@@ -380,12 +394,12 @@ export function WeekCalendar({
           <div
             className="grid"
             style={{
-              gridTemplateColumns: `3.25rem repeat(7, minmax(${Math.max(6, shown.length * 3)}rem, 1fr))`,
+              gridTemplateColumns: `3.25rem repeat(${cols.length}, minmax(${Math.max(6, shown.length * 3)}rem, 1fr))`,
             }}
           >
             {/* Day headings. */}
             <div className="sticky left-0 z-10 border-b border-line-soft bg-white dark:bg-ink-raised" />
-            {days.map((d) => (
+            {cols.map((d) => (
               <div
                 key={d}
                 className={`border-b border-l border-line-soft px-2 py-1.5 text-center text-xs font-semibold ${
@@ -415,7 +429,7 @@ export function WeekCalendar({
               ))}
             </div>
 
-            {days.map((d) => (
+            {cols.map((d) => (
               <div
                 key={d}
                 className="relative cursor-cell border-l border-line-soft"
@@ -540,7 +554,7 @@ export function WeekCalendar({
               onChange={(ev) => setDraft({ ...draft, day: ev.target.value, start: "" })}
               className="w-auto"
             >
-              {days.map((d) => (
+              {cols.map((d) => (
                 <option key={d} value={d}>
                   {shortDay(d)}
                 </option>

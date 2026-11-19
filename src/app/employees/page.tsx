@@ -393,16 +393,6 @@ export default function EmployeesPage() {
         className="!mb-3"
       />
 
-      {access.can("new-hires") && (
-        <button
-          type="button"
-          onClick={() => setHiring(true)}
-          className="mb-3 inline-flex min-h-10 items-center rounded-full border border-line bg-white px-3.5 text-[13px] font-semibold text-neutral-500 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
-        >
-          New Hire
-        </button>
-      )}
-
       {/* Controls */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <input
@@ -710,6 +700,14 @@ export default function EmployeesPage() {
           statuses={statuses}
           onAdded={(e) => setEmployees((list) => [...list, e])}
           onClose={() => setAdding(false)}
+          onNewHire={
+            access.can("new-hires")
+              ? () => {
+                  setAdding(false);
+                  setHiring(true);
+                }
+              : undefined
+          }
         />
       )}
 

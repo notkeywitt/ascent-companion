@@ -144,6 +144,8 @@ export function AppMenu({
     .filter((w) => w.tabs.length > 0)
     .sort((a, b) => Number(b.id === here) - Number(a.id === here));
   const extras = EXTRA_LINKS.filter((t) => access.can(t.view));
+  // The boids sim sits under the admin-only `art` view (it reads every bill line).
+  const showBoids = !pinning && access.can("art");
   const row = (t: WorkspaceTab) =>
     pinning && t.view ? (
       <ListRow
@@ -271,7 +273,7 @@ export function AppMenu({
             </div>
           )}
 
-          {(!pinning || extras.length > 0) && (
+          {(!pinning || extras.length > 0 || showBoids) && (
             <div className="space-y-1.5">
               <SectionLabel>More</SectionLabel>
               <ListCard>
@@ -296,6 +298,14 @@ export function AppMenu({
                   />
                 )}
                 {extras.map(row)}
+                {showBoids && (
+                  <ListRow
+                    href="/art/flock"
+                    label="Boids"
+                    desc="The job flock, a live simulation of the company's rows"
+                    className={pathname.startsWith("/art/flock") ? "bg-accent/5" : ""}
+                  />
+                )}
               </ListCard>
             </div>
           )}

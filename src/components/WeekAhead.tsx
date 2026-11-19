@@ -116,6 +116,28 @@ interface Run {
   last: number;
 }
 
+/**
+ * Drop Saturday and Sunday (owner, 2026-11-19). The route sends the next seven
+ * days, today first; the card keeps the weekdays among them. When today is a
+ * weekend day, the first column is the next Monday and the card has no "now".
+ */
+function weekdaysOnly(d: WeekActivity): WeekActivity {
+  const keep = d.dates
+    .map((_, i) => i)
+    .filter((i) => {
+      const w = new Date(d.dates[i] + "T00:00:00Z").getUTCDay();
+      return w !== 0 && w !== 6;
+    });
+  return {
+    ...d,
+    dates: keep.map((i) => d.dates[i]),
+    jobs: d.jobs.map((j) => {
+      const days = keep.map((i) => j.days[i]);
+      return { ...j, days, total: days.reduce((s, x) => s + x.length, 0) };
+    }),
+  };
+}
+
 export function WeekAhead() {
   const { can } = useAccess();
   const wide = useWide();
@@ -136,7 +158,7 @@ export function WeekAhead() {
       .then((r) => r.json())
       .then((d: WeekActivity & { error?: string }) => {
         if (d.error) return setFailed(true);
-        setData(d);
+        setData(weekdaysOnly(d));
         setNow(nowMinutes());
       })
       .catch(() => {});
@@ -156,7 +178,9 @@ export function WeekAhead() {
   if (failed) return <p className="text-[12px] text-neutral-500">The week did not load.</p>;
   if (!data) return <div className="h-48" aria-hidden />;
 
-  const n = wide ? 7 : 3;
+  const n = Math.min(wide ? 7 : 3, data.dates.length);
+  // The first column is today unless today is a weekend day.
+  const todayIn = data.dates[0] === data.today;
   const shown = data.dates.slice(0, n);
   const hue = (job: WeekJob) => HUES[Math.max(0, data.jobs.indexOf(job)) % HUES.length];
 
@@ -165,7 +189,7 @@ export function WeekAhead() {
   const seg = (100 - GAP * (n - 1)) / n;
   const x = (d: number, m: number) =>
     d * (seg + GAP) + ((Math.min(CLOSE, Math.max(OPEN, m)) - OPEN) / (CLOSE - OPEN)) * seg;
-  const nowX = x(0, now);
+  const nowX = todayIn ? x(0, now) : 0;
 
   // Calendar: timed events by clock, all-day ones as a full day.
   const timed = events
@@ -227,7 +251,7 @@ export function WeekAhead() {
       }),
     ),
   ]
-    .filter((a) => a.at > now)
+    .filter((a) => !todayIn || a.at > now)
     .sort((a, b) => a.at - b.at);
   const next = ahead[0];
 
@@ -261,7 +285,7 @@ export function WeekAhead() {
         </span>
       </span>
       <span className="block text-[12px] text-neutral-500">
-        {next.at < 1440 ? until(next.at - now) : dayName(data.dates[Math.floor(next.at / 1440)])}
+        {todayIn && next.at < 1440 ? until(next.at - now) : dayName(data.dates[Math.floor(next.at / 1440)])}
       </span>
     </button>
   ) : (
@@ -280,8 +304,8 @@ export function WeekAhead() {
             className="absolute top-0"
             style={{ left: `${x(i, OPEN)}%`, width: `${seg}%` }}
           >
-            <div className={`truncate text-[12px] font-semibold ${i === 0 ? "text-accent" : ""}`}>
-              {i === 0 ? "Today" : dayName(d, true)}
+            <div className={`truncate text-[12px] font-semibold ${todayIn && i === 0 ? "text-accent" : ""}`}>
+              {todayIn && i === 0 ? "Today" : dayName(d, true)}
             </div>
             {[9, 12, 15].map((h) => (
               <span
@@ -311,7 +335,7 @@ export function WeekAhead() {
         {evRows > 0 && (
           <div className="relative mb-2" style={{ height: evRows * 40 }}>
             {timed.map((t, k) => {
-              const past = t.d === 0 && t.f <= now;
+              const past = todayIn && t.d === 0 && t.f <= now;
               return (
                 <button
                   key={k}
@@ -401,6 +425,8 @@ export function WeekAhead() {
         ))}
 
         {/* What is past, shaded; then the now rule. */}
+        {todayIn && (
+        <>
         <div
           className="pointer-events-none absolute inset-y-0 left-0 rounded-l-md bg-white/50 dark:bg-ink/50"
           style={{ width: `${nowX}%` }}
@@ -413,6 +439,8 @@ export function WeekAhead() {
             now
           </span>
         </div>
+        </>
+        )}
       </div>
 
       {bands.length === 0 && evRows === 0 && (
