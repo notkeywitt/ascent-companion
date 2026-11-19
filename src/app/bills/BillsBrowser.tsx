@@ -91,6 +91,15 @@ export function BillsBrowser() {
   const [ym, setYm] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [marking, setMarking] = useState(false);
+  // Groups the office folded shut (by group key). Every group starts open.
+  const [folded, setFolded] = useState<Set<string>>(new Set());
+  const toggleFold = (key: string) =>
+    setFolded((f) => {
+      const n = new Set(f);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
   const canApprove = useAccess().can("bill-approve");
   const [approveOpen, setApproveOpen] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -208,6 +217,13 @@ export function BillsBrowser() {
     await loadList();
   };
 
+  // A bill opened from far down the page: bring the page up so the bill's title
+  // sits just under the header.
+  useEffect(() => {
+    if (!openId) return;
+    document.getElementById("bill-panel-top")?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [openId]);
+
   // Going down the list: warm the next few bills (and the one above) in the
   // order shown, one at a time so they never crowd the open bill's own read.
   // A click on one of them then renders from cache.
@@ -253,7 +269,13 @@ export function BillsBrowser() {
         backLabel="Back to bills"
         empty="Pick a bill to see it here."
         cols="lg:grid-cols-[22rem_minmax(0,1fr)]"
-        detail={openId ? <BillView key={openId} docId={openId} embedded /> : null}
+        detail={
+          openId ? (
+            <div id="bill-panel-top" className="scroll-mt-20">
+              <BillView key={openId} docId={openId} embedded />
+            </div>
+          ) : null
+        }
         list={
           // No page header: the open bill's title is the page's title.
           <div className="space-y-2">
@@ -395,7 +417,10 @@ export function BillsBrowser() {
                   // Sunset bills are always one group, at the foot (billGroups.ts).
                   groups.map((g) => (
                     <div key={g.key} className="space-y-2">
-                      <SectionHeading>{`${g.title} · ${g.bills.length}`}</SectionHeading>
+                      <SectionHeading onToggle={() => toggleFold(g.key)} open={!folded.has(g.key)}>
+                        {`${g.title} · ${g.bills.length}`}
+                      </SectionHeading>
+                      {!folded.has(g.key) && (
                       <ListCard>
                         {g.bills.map((b) => (
                           <div key={b.id} className="flex items-center border-b border-line-soft last:border-b-0">
@@ -438,6 +463,7 @@ export function BillsBrowser() {
                           </div>
                         ))}
                       </ListCard>
+                      )}
                     </div>
                   ))
                 )}
