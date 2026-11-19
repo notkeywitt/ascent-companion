@@ -79,6 +79,7 @@ export const WORKSPACES: Workspace[] = [
     tabs: [
       tab("jobs-hub", "/jobs-hub", "Jobs", "Every job on one screen — money this month, schedule, leads and the island map"),
       tab("job-board", "/job-board", "Job Board", "Active jobs, PreCon jobs and leads — the schedule now and the newest to-dos"),
+      tab("schedule", "/schedule", "Schedule", "Every open task on every job as a Gantt chart"),
       // Customers = Leads + Directory's list, as sections (stage 4).
       tab("leads", "/leads", "Customers", "Leads to follow up, and every customer and job"),
       tab("ar-aging", "/ar-aging", "Receivables", "Unpaid client invoices, oldest first"),
