@@ -346,7 +346,13 @@ export function TodosWidget() {
 /** The next seven days from now, time left to right (WeekAhead.tsx). */
 function WeekWidget() {
   return (
-    <WidgetCard title="This week">
+    <WidgetCard
+      title={
+        <Link href="/schedule" className="hover:text-accent hover:underline">
+          Schedule
+        </Link>
+      }
+    >
       <WeekAhead />
     </WidgetCard>
   );

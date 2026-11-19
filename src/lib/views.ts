@@ -440,6 +440,9 @@ export const VIEWS: ViewDef[] = [
   // can't read every job's to-dos by calling the route. Office, admin and lead
   // (lead since 2026-11-03: the Jobs Hub's job card reads /api/job-board).
   { id: "job-board", label: "Jobs", group: "Office", paths: ["/job-board", "/api/job-board"] },
+  // The Schedule page: a Gantt of every open JobTread schedule task
+  // (docs/plans/SCHEDULE_PLAN.md). Read-only in stage 1. Office + admin by default.
+  { id: "schedule", label: "Schedule", group: "Office", paths: ["/schedule", "/api/schedule"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
   // The vendor-mail completeness check. The API prefix is listed alongside the
   // page so a role without the view can't read vendor contact details or sweep

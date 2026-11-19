@@ -253,6 +253,10 @@
    "file": "src/app/safety-meeting/page.tsx"
   },
   {
+   "route": "/schedule",
+   "file": "src/app/schedule/page.tsx"
+  },
+  {
    "route": "/specs",
    "file": "src/app/specs/page.tsx"
   },
@@ -375,6 +379,11 @@
   },
   {
    "from": "/",
+   "to": "/art/flock",
+   "kind": "link"
+  },
+  {
+   "from": "/",
    "to": "/bill-search",
    "kind": "link"
   },
@@ -464,6 +473,11 @@
   {
    "from": "/",
    "to": "/requests",
+   "kind": "link"
+  },
+  {
+   "from": "/",
+   "to": "/schedule",
    "kind": "link"
   },
   {
@@ -717,6 +731,11 @@
    "kind": "link"
   },
   {
+   "from": "/bills",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
    "from": "/budget-import",
    "to": "/clients",
    "kind": "strip"
@@ -882,18 +901,8 @@
    "kind": "strip"
   },
   {
-   "from": "/invoice-review",
-   "to": "/trackingsheet",
-   "kind": "strip"
-  },
-  {
    "from": "/invoicing-summary",
    "to": "/invoice-review",
-   "kind": "strip"
-  },
-  {
-   "from": "/invoicing-summary",
-   "to": "/trackingsheet",
    "kind": "strip"
   },
   {
@@ -989,6 +998,11 @@
   {
    "from": "/labor",
    "to": "/jobs-hub",
+   "kind": "link"
+  },
+  {
+   "from": "/labor",
+   "to": "/labor-review",
    "kind": "link"
   },
   {
@@ -1189,16 +1203,6 @@
   },
   {
    "from": "/trackingsheet",
-   "to": "/invoice-review",
-   "kind": "strip"
-  },
-  {
-   "from": "/trackingsheet",
-   "to": "/invoicing-summary",
-   "kind": "strip"
-  },
-  {
-   "from": "/trackingsheet",
    "to": "/jobs-hub",
    "kind": "link"
   },
@@ -1326,6 +1330,11 @@
   {
    "from": "/widget",
    "to": "/requests",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/schedule",
    "kind": "link"
   },
   {
