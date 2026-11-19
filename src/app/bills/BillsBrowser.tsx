@@ -96,6 +96,8 @@ export function BillsBrowser() {
   const [kind, setKind] = useState<"all" | "bill" | "expense">("all");
   // Billing month filter ("" = every month) and the bills ticked for a bulk change.
   const [ym, setYm] = useState("");
+  // One issue date ("" = any), picked from a drop-down of the dates on the list.
+  const [day, setDay] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [marking, setMarking] = useState(false);
   // Groups the office folded shut (by group key). Every group starts open.
@@ -139,6 +141,7 @@ export function BillsBrowser() {
           (showElectrical || !isAscentElectrical(b)) &&
           (!b.issueDate || b.issueDate >= FIRST_DAY) &&
           (!ym || (b.issueDate ?? "").slice(0, 7) === ym) &&
+          (!day || b.issueDate === day) &&
           (!jobId || b.jobId === jobId) &&
           (kind === "all" || (b.name === "Expense") === (kind === "expense")) &&
           (!q ||
@@ -146,7 +149,19 @@ export function BillsBrowser() {
               (s ?? "").toLowerCase().includes(q),
             )),
       ),
-    [bills, q, showReviewed, showElectrical, jobId, kind, ym],
+    [bills, q, showReviewed, showElectrical, jobId, kind, ym, day],
+  );
+  // The dates a bill can be picked by: every issue date on the list inside the month filter.
+  const dayOptions = useMemo(
+    () =>
+      [
+        ...new Set(
+          (bills ?? [])
+            .map((b) => b.issueDate ?? "")
+            .filter((d) => d >= FIRST_DAY && (!ym || d.slice(0, 7) === ym)),
+        ),
+      ].sort((a, b) => b.localeCompare(a)),
+    [bills, ym],
   );
   const groups = useMemo(() => groupBills(shown, sort, groupBy, reverse), [shown, sort, groupBy, reverse]);
 
@@ -296,13 +311,24 @@ export function BillsBrowser() {
             />
             <Select
               value={ym}
-              onChange={(e) => setYm(e.target.value)}
+              onChange={(e) => {
+                setYm(e.target.value);
+                setDay("");
+              }}
               aria-label="Billing month"
             >
               <option value="">All months (September 2026 on)</option>
               {MONTH_OPTIONS.map((m) => (
                 <option key={m.value} value={m.value}>
                   {m.label}
+                </option>
+              ))}
+            </Select>
+            <Select value={day} onChange={(e) => setDay(e.target.value)} aria-label="Date">
+              <option value="">Any date</option>
+              {dayOptions.map((d) => (
+                <option key={d} value={d}>
+                  {dateLabel(d)}
                 </option>
               ))}
             </Select>
@@ -343,7 +369,6 @@ export function BillsBrowser() {
                   { value: "job", label: "Job" },
                   { value: "vendor", label: "Vendor" },
                   { value: "month", label: "Month" },
-                  { value: "date", label: "Date" },
                   { value: "code", label: "To code" },
                 ]}
               />
