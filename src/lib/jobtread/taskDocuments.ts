@@ -20,6 +20,12 @@ import { pageAll, pave, type PaveConfig } from "./core";
 export const TASK_DOC_TYPES = ["vendorBill", "customerOrder", "vendorOrder", "bidRequest"] as const;
 export type TaskDocType = (typeof TASK_DOC_TYPES)[number];
 
+/**
+ * JobTread lets only a DRAFT bill or expense (both are `vendorBill`) sit on a
+ * task (owner, 2026-11-19). The other types have no such limit that we know of.
+ */
+export const canAttach = (type: string, status: string) => type !== "vendorBill" || status === "draft";
+
 export interface TaskDocument {
   id: string;
   type: TaskDocType;
@@ -34,6 +40,8 @@ export interface TaskDocument {
   jobId: string;
   /** The task it sits on, or "" when none. */
   taskId: string;
+  /** The cost codes on its lines, "07 46 23 Wood Siding", each once. */
+  costCodes: string[];
 }
 
 const DOC_FIELDS = {
@@ -69,7 +77,48 @@ function toTaskDocument(n: any): TaskDocument | null {
     accountName: n.account?.name ?? "",
     jobId: n.job?.id ?? "",
     taskId: n.task?.id ?? "",
+    costCodes: [],
   };
+}
+
+/**
+ * The cost codes on each document's lines, by document id. One flat read of
+ * the org's cost items for those documents (never nested in a paged
+ * documents read: PAVE_GOTCHAS two-phase rule), in chunks to keep the filter small.
+ */
+export async function getCostCodesByDocument(cfg: PaveConfig, ids: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, Set<string>>();
+  for (let i = 0; i < ids.length; i += 40) {
+    const chunk = ids.slice(i, i + 40);
+    const rows = await pageAll<any>(cfg, {
+      label: "organization.costItems (cost codes of documents)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          id: {},
+          costItems: {
+            $: { where: [["document", "id"], "in", chunk], ...args },
+            nextPage: {},
+            nodes: { document: { id: {} }, costCode: { number: {}, name: {} } },
+          },
+        },
+      }),
+      pick: (r) => r?.organization?.costItems,
+    });
+    for (const n of rows) {
+      const doc = n?.document?.id;
+      const num = n?.costCode?.number;
+      if (!doc || !num) continue;
+      (out.get(doc) ?? out.set(doc, new Set()).get(doc)!).add(`${num} ${n.costCode.name ?? ""}`.trim());
+    }
+  }
+  return new Map([...out].map(([k, v]) => [k, [...v].sort()]));
+}
+
+async function withCostCodes(cfg: PaveConfig, docs: TaskDocument[]): Promise<TaskDocument[]> {
+  if (docs.length === 0) return docs;
+  const codes = await getCostCodesByDocument(cfg, docs.map((d) => d.id)).catch(() => new Map<string, string[]>());
+  return docs.map((d) => ({ ...d, costCodes: codes.get(d.id) ?? [] }));
 }
 
 /** Every counted document in the org that sits on a schedule task. */
@@ -97,10 +146,10 @@ export async function getTaskLinkedDocuments(cfg: PaveConfig): Promise<TaskDocum
     }),
     pick: (r) => r?.organization?.documents,
   });
-  return rows.map(toTaskDocument).filter((d): d is TaskDocument => !!d && !!d.taskId);
+  return withCostCodes(cfg, rows.map(toTaskDocument).filter((d): d is TaskDocument => !!d && !!d.taskId));
 }
 
-/** One job's counted documents that sit on NO task: what a person can attach. */
+/** One job's counted documents that sit on NO task and can take one: what a person can attach. */
 export async function getJobDocumentsToLink(cfg: PaveConfig, jobId: string): Promise<TaskDocument[]> {
   const rows = await pageAll<any>(cfg, {
     label: "job.documents (to link)",
@@ -113,7 +162,12 @@ export async function getJobDocumentsToLink(cfg: PaveConfig, jobId: string): Pro
             where: {
               and: [
                 { "=": [{ field: ["task", "id"] }, { value: null }] },
-                ["type", "in", [...TASK_DOC_TYPES]],
+                {
+                  or: [
+                    { and: [["type", "vendorBill"], ["status", "draft"]] },
+                    { and: [["type", "in", TASK_DOC_TYPES.filter((t) => t !== "vendorBill")]] },
+                  ],
+                },
               ],
             },
             sortBy: [{ field: "createdAt", order: "desc" }],
@@ -126,7 +180,7 @@ export async function getJobDocumentsToLink(cfg: PaveConfig, jobId: string): Pro
     }),
     pick: (r) => r?.job?.documents,
   });
-  return rows.map(toTaskDocument).filter((d): d is TaskDocument => !!d);
+  return withCostCodes(cfg, rows.map(toTaskDocument).filter((d): d is TaskDocument => !!d));
 }
 
 /** What the link write checks and compares: the document's identity and money. */
@@ -199,4 +253,108 @@ export async function setDocumentTask(cfg: PaveConfig, docId: string, taskId: st
 export async function getTaskName(cfg: PaveConfig, id: string): Promise<{ id: string; name: string } | null> {
   const r = await pave(cfg, { task: { $: { id }, id: {}, name: {} } });
   return r?.task?.id ? { id: r.task.id, name: r.task.name ?? "" } : null;
+}
+
+/** One line of a document, for the details window. */
+export interface DocLine {
+  name: string;
+  description: string;
+  quantity: number | null;
+  unitCost: number | null;
+  /** Dollars: a customer line's price, a vendor line's cost. */
+  amount: number;
+  costCode: string;
+}
+
+export interface DocDetail {
+  id: string;
+  type: TaskDocType;
+  status: string;
+  name: string;
+  number: number | null;
+  subject: string;
+  description: string;
+  accountName: string;
+  issueDate: string | null;
+  dueDate: string | null;
+  jobId: string;
+  jobName: string;
+  amount: number;
+  tax: number;
+  lines: DocLine[];
+}
+
+/** One document with its lines, for the details window. Undefined when it is not in this org. */
+export async function getDocumentDetail(cfg: PaveConfig, id: string): Promise<DocDetail | undefined> {
+  const r = await pave(cfg, {
+    document: {
+      $: { id },
+      id: {},
+      type: {},
+      status: {},
+      name: {},
+      number: {},
+      subject: {},
+      description: {},
+      issueDate: {},
+      dueDate: {},
+      cost: {},
+      tax: {},
+      priceWithTax: {},
+      organization: { id: {} },
+      account: { name: {} },
+      job: { id: {}, name: {} },
+    },
+  });
+  const d = r?.document;
+  if (!d?.id || d.organization?.id !== cfg.orgId || !(TASK_DOC_TYPES as readonly string[]).includes(d.type)) return undefined;
+  const customer = String(d.type).startsWith("customer");
+  const rows = await pageAll<any>(cfg, {
+    label: "document.costItems (details)",
+    query: (args) => ({
+      document: {
+        $: { id },
+        id: {},
+        costItems: {
+          $: { sortBy: [{ field: "position", order: "asc" }], ...args },
+          nextPage: {},
+          nodes: {
+            name: {},
+            description: {},
+            quantity: {},
+            unitCost: {},
+            cost: {},
+            price: {},
+            costCode: { number: {}, name: {} },
+          },
+        },
+      },
+    }),
+    pick: (x) => x?.document?.costItems,
+  });
+  const money2 = (n: unknown) => Math.round(Number(n ?? 0) * 100) / 100;
+  return {
+    id: d.id,
+    type: d.type,
+    status: d.status ?? "",
+    name: d.name ?? "",
+    number: typeof d.number === "number" ? d.number : null,
+    subject: d.subject ?? "",
+    description: d.description ?? "",
+    accountName: d.account?.name ?? "",
+    issueDate: d.issueDate ?? null,
+    dueDate: d.dueDate ?? null,
+    jobId: d.job?.id ?? "",
+    jobName: d.job?.name ?? "",
+    amount: customer ? money2(d.priceWithTax) : money2(Number(d.cost ?? 0) + Number(d.tax ?? 0)),
+    tax: money2(d.tax),
+    lines: rows.map((n) => ({
+      name: n.name ?? "",
+      description: n.description ?? "",
+      quantity: typeof n.quantity === "number" ? n.quantity : null,
+      unitCost: typeof n.unitCost === "number" ? n.unitCost : null,
+      amount: money2(customer ? n.price : n.cost),
+      costCode: n.costCode?.number ? `${n.costCode.number} ${n.costCode.name ?? ""}`.trim() : "",
+    })),
+  };
 }

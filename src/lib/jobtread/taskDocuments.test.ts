@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { onlyTaskChanged, type DocForLink } from "./taskDocuments";
+import { canAttach, onlyTaskChanged, type DocForLink } from "./taskDocuments";
 
 const doc: DocForLink = {
   id: "d",
@@ -28,5 +28,15 @@ describe("onlyTaskChanged", () => {
   });
   it("ignores rounding below half a cent", () => {
     expect(onlyTaskChanged(doc, { ...doc, taskId: "t", cost: 90.944 })).toBe(true);
+  });
+});
+
+describe("canAttach", () => {
+  it("takes only a draft bill or expense, and any other type", () => {
+    expect(canAttach("vendorBill", "draft")).toBe(true);
+    expect(canAttach("vendorBill", "approved")).toBe(false);
+    expect(canAttach("vendorBill", "pending")).toBe(false);
+    expect(canAttach("customerOrder", "approved")).toBe(true);
+    expect(canAttach("vendorOrder", "pending")).toBe(true);
   });
 });
