@@ -82,10 +82,13 @@ export function AppMenu({
   qs = "",
   account = false,
   pages = false,
+  top,
   open: openProp,
   onOpenChange,
 }: {
   qs?: string;
+  /** Phone drawer: icon rows (the rail's items) shown first, above the lists. */
+  top?: React.ReactNode;
   /** Controlled by the phone bar's drawer: no trigger button is drawn. */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -225,6 +228,7 @@ export function AppMenu({
               Tap a page to put it on the bottom bar, in the last slot. This device only.
             </p>
           )}
+          {!pinning && (!account || pages) && top}
           {!pinning && !account && <ListCard>{row(TODAY)}</ListCard>}
 
           {!account &&
