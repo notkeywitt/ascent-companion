@@ -332,12 +332,13 @@ export const VIEWS: ViewDef[] = [
   // draft bill per job. The API prefix rides the same gate as the page — it
   // pushes bills to JobTread, so a role without the view must not reach it.
   // Accounts Payable — a tab of the Bills dashboard: the month's bills, Sunset
-  // and Expenses left out, each marked paid or not. Read-only.
+  // and Expenses left out, each marked paid or not. Reads JobTread only; the
+  // check-mailed box writes the companion database, not JobTread.
   {
     id: "accounts-payable",
     label: "Accounts Payable",
     group: "Financials",
-    paths: ["/accounts-payable", "/api/accounts-payable"],
+    paths: ["/accounts-payable", "/api/accounts-payable", "/api/check-mailed"],
   },
   { id: "lswdd", label: "LSWDD Statement", group: "Financials", paths: ["/lswdd", "/api/lswdd"] },
   // Bill Clones — re-file a vendor's month of Expenses as Bills: clone, switch,

@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1fz3-16m0twq";
+export const SCHEMA_FINGERPRINT = "1g94-1xe3of7";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -264,6 +264,15 @@ async function applySchema() {
       enabled INTEGER,
       config TEXT,
       updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  // Accounts Payable: a check printed from QuickBooks is not yet mailed. One row
+  // per bill whose check the office has marked mailed; no row = not mailed.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS check_mailed (
+      doc_id TEXT PRIMARY KEY,
+      mailed_at TEXT NOT NULL DEFAULT '',
+      mailed_by TEXT NOT NULL DEFAULT ''
     )
   `);
   await getClient().execute(`
