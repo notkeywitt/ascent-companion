@@ -43,6 +43,7 @@ const LEAD_WRITE_ROUTES = [
   "/api/bill-tax",
   "/api/buyback",
   "/api/reassign-job",
+  "/api/change-vendor",
   "/api/bill-void",
   "/api/uncaptured",
   "/api/trackingsheet",

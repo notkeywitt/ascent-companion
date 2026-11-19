@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { CostCodeSelect, type Option } from "@/components/CostCodeSelect";
 import { DocumentAccess } from "@/components/DocumentAccess";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
+import { ChangeVendor, type VendorRef } from "@/components/ChangeVendor";
 import { useAccess } from "@/components/AccessProvider";
 import {
   Banner,
@@ -391,6 +392,8 @@ export interface CodingCardCtl {
   setBillingMonth: (ym: string) => void;
   monthSaving: boolean;
   reassignJob: (j: JobRef) => void;
+  /** Change the bill's vendor (void + recreate). A host that omits it shows no picker. */
+  changeVendor?: (v: VendorRef) => void;
   reassigning: boolean;
   filingMsg: string;
 }
@@ -471,6 +474,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
     setBillingMonth,
     monthSaving,
     reassignJob,
+    changeVendor,
     reassigning,
     filingMsg,
   } = ctl;
@@ -906,6 +910,14 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   if (j) reassignJob(j);
                 }}
               />
+            </div>
+          )}
+          {/* Draft-only, same reason: JobTread can't change a bill's vendor, so
+              the bill is voided and recreated under the new one. */}
+          {math.isDraft && changeVendor && (
+            <div>
+              <Label htmlFor="filing-change-vendor">Change vendor</Label>
+              <ChangeVendor disabled={reassigning} onPick={changeVendor} />
             </div>
           )}
           {(monthSaving || reassigning) && (

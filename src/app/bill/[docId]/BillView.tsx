@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { type Option } from "@/components/CostCodeSelect";
 import { jobLabel as jobRefLabel, type JobRef } from "@/components/JobPicker";
+import type { VendorRef } from "@/components/ChangeVendor";
 import { useBillMove } from "@/components/BillMove";
 import { PageTitle } from "@/components/PageTitle";
 import { BillStatusBadge } from "@/components/BillStatusBadge";
@@ -773,6 +774,32 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
     router.push(hubHref(target.id));
   }
 
+  // Change this bill's vendor. JT can't do that either: Apps Script voids the
+  // bill and recreates it under the new vendor on the same job (draft only). The
+  // docId dies with the void, so we leave for the job's page at once and the
+  // provider's banner reports the result.
+  function changeVendor(vendor: VendorRef) {
+    if (!vendor.id) return;
+    if ((header?.status ?? "draft") !== "draft") {
+      setReassignMsg("Only draft bills can change vendor. Set it back to Draft in JobTread first.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Change this bill's vendor to ${vendor.name}?\n\nJobTread can't change a bill's vendor, so it will be voided and recreated under that vendor. It stays a draft on this job, keeps its PDF, and re-files in Drive.` +
+          (changeCount > 0
+            ? `\n\nIts ${changeCount} unsaved change${changeCount === 1 ? "" : "s"} will be lost — the recreated bill is a new document, so they can't be applied to it.`
+            : "") +
+          `\n\nThe change runs in the background — you can keep working while it finishes.`,
+      )
+    )
+      return;
+    setReassigning(true);
+    discardDraft(billDraftKey(docId));
+    startBillMove({ docId, jobId, jobLabel: vendor.name, vendorAccountId: vendor.id });
+    router.push(hubHref(jobId));
+  }
+
   /**
    * File this bill in a different billing month. Lifted verbatim out of the
    * Select this page used to draw; the card calls it with a `ym`, and
@@ -1411,6 +1438,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
     setBillingMonth,
     monthSaving,
     reassignJob,
+    changeVendor,
     reassigning,
     filingMsg: reassignMsg || billNumberMsg,
   };

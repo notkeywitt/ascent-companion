@@ -1164,6 +1164,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   const {
     billNumberDraft,
     billNumberSaving,
+    changeVendor,
     dueDateSaving,
     filingMsg,
     monthSaving,
@@ -1369,6 +1370,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     setBillingMonth,
     monthSaving,
     reassignJob,
+    changeVendor,
     reassigning: billMove.isMoving(openDocId ?? ""),
     filingMsg,
   };

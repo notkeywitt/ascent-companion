@@ -39,7 +39,16 @@ export interface BillMoveRequest {
   jobId: string;
   /** Human label for the target job, for the banner and the result line. */
   jobLabel: string;
+  /**
+   * Set for a VENDOR change instead of a job move: the new vendor's JobTread
+   * account id. The bill stays on `jobId` (its own job) and `jobLabel` then
+   * names the new vendor. Same void+recreate, so same background run.
+   */
+  vendorAccountId?: string;
 }
+
+/** Fired on `window` when a vendor change lands, so the open board can reload. */
+export const BILL_CHANGED_EVENT = "bill-vendor-changed";
 
 type MoveState = "running" | "done" | "error";
 
@@ -85,17 +94,24 @@ export function BillMoveProvider({ children }: { children: ReactNode }) {
 
     void (async () => {
       let state: MoveState = "done";
-      let msg = `Moved to ${req.jobLabel}.`;
+      const vendorChange = !!req.vendorAccountId;
+      let msg = vendorChange ? `Vendor changed to ${req.jobLabel}.` : `Moved to ${req.jobLabel}.`;
       try {
-        const res = await fetch("/api/reassign-job", {
+        const res = await fetch(vendorChange ? "/api/change-vendor" : "/api/reassign-job", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docId: req.docId, jobId: req.jobId }),
+          body: JSON.stringify(
+            vendorChange
+              ? { docId: req.docId, accountId: req.vendorAccountId }
+              : { docId: req.docId, jobId: req.jobId },
+          ),
         });
         const json = await res.json();
         if (!res.ok || !json.ok) {
           state = "error";
-          msg = json.error ?? "Reassign failed";
+          msg = json.error ?? (vendorChange ? "Vendor change failed" : "Reassign failed");
+        } else if (vendorChange) {
+          window.dispatchEvent(new Event(BILL_CHANGED_EVENT));
         }
       } catch (e) {
         state = "error";
@@ -163,7 +179,12 @@ function BillMoveBanner({
           <span className="min-w-0 flex-1">
             {m.state === "running" ? (
               <>
-                <b>Moving this bill to {m.jobLabel}…</b> JobTread has to void and
+                <b>
+                  {m.vendorAccountId
+                    ? `Changing this bill's vendor to ${m.jobLabel}…`
+                    : `Moving this bill to ${m.jobLabel}…`}
+                </b>{" "}
+                JobTread has to void and
                 recreate it, so this takes a minute. Keep working — it finishes on
                 its own.
               </>

@@ -106,6 +106,8 @@ export const VIEWS: ViewDef[] = [
       // "Split bill" (POST) and its pieces-still-add-up check (GET).
       "/api/split-bill",
       "/api/reassign-job",
+      // "Change vendor": void + recreate under another vendor, like a job move.
+      "/api/change-vendor",
       "/api/bill-void",
       // "Create draft invoice" — creates a customer invoice in JobTread.
       "/api/invoice-draft",
