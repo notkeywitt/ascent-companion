@@ -281,6 +281,7 @@ export {
   getTaskLinkedDocuments,
   getJobDocumentsToLink,
   getDocumentForLink,
+  getTaskName,
   onlyTaskChanged,
   setDocumentTask,
 } from "./jobtread/taskDocuments";

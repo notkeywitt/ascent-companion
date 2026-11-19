@@ -8,6 +8,7 @@ import {
   getDocumentForLink,
   getJobDocumentsToLink,
   getTaskForEdit,
+  getTaskName,
   getTaskLinkedDocuments,
   onlyTaskChanged,
   setDocumentTask,
@@ -19,6 +20,7 @@ import {
  *
  *   GET  /api/schedule/links                → { links: { [taskId]: TaskDocument[] } }
  *   GET  /api/schedule/links?jobId=<id>     → { documents: TaskDocument[] } on that job with no task
+ *   GET  /api/schedule/links?documentId=<id> → { task: { id, name } | null } the document's task
  *   POST /api/schedule/links { documentId, taskId | null }
  *        → { ok, wrote, previewed? }   puts the document on the task, or off it (null)
  *
@@ -41,6 +43,12 @@ export async function GET(req: NextRequest) {
   if (!hasGrant()) return fail("JT_GRANT_KEY is not set.", 400);
   try {
     const cfg = getPaveConfig();
+    const documentId = (req.nextUrl.searchParams.get("documentId") ?? "").trim();
+    if (documentId) {
+      const doc = await getDocumentForLink(cfg, documentId);
+      if (!doc || doc.orgId !== cfg.orgId) return fail("That document is not in this organization.", 404);
+      return NextResponse.json({ task: doc.taskId ? await getTaskName(cfg, doc.taskId) : null });
+    }
     const jobId = (req.nextUrl.searchParams.get("jobId") ?? "").trim();
     if (jobId) {
       return NextResponse.json({ documents: await getJobDocumentsToLink(cfg, jobId) });

@@ -1545,6 +1545,10 @@
    "to": "/historical-cost"
   },
   {
+   "from": "/trackingsheet",
+   "to": "/schedule"
+  },
+  {
    "from": "/widget",
    "to": "/invoicing-summary"
   },
