@@ -443,6 +443,11 @@ export const VIEWS: ViewDef[] = [
   // The Schedule page: a Gantt of every open JobTread schedule task
   // (docs/plans/SCHEDULE_PLAN.md). Read-only in stage 1. Office + admin by default.
   { id: "schedule", label: "Schedule", group: "Office", paths: ["/schedule", "/api/schedule"] },
+  // The bills and estimates on a schedule task (stage 4). The route READS their
+  // amounts and WRITES one thing: a document's task (`updateDocument taskId`).
+  // Its own view, so the Schedule can open to a role that sees no money.
+  // Office + admin by default. The longer prefix wins over "/api/schedule".
+  { id: "schedule-links", label: "Schedule (bills and estimates on tasks)", group: "Office", paths: ["/api/schedule/links"] },
   { id: "labor-import", label: "Labor Import", group: "Office", paths: ["/labor-import"] },
   // The vendor-mail completeness check. The API prefix is listed alongside the
   // page so a role without the view can't read vendor contact details or sweep

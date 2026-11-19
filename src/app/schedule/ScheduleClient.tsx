@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 
 import { Banner, Button, Dialog, EmptyState, Loading, PageHeader, Segmented } from "@/components/ui";
 import { orgDay } from "@/lib/orgTime";
+import type { TaskDocument } from "@/lib/jobtread/taskDocuments";
+import { docTotals, money } from "@/lib/taskDocs";
+import { TaskDocuments } from "./TaskDocuments";
 import {
   WINDOWS,
   addDays,
@@ -43,6 +46,19 @@ export function ScheduleClient() {
   const [data, setData] = useState<Loaded | null>(null);
   const [error, setError] = useState("");
   const [pick, setPick] = useState<{ bar: GanttBar; hue: string; label: string } | null>(null);
+  // The bills and estimates on each task, by task id. null = this person may not
+  // see them (or the read failed): the page then shows no money at all.
+  const [links, setLinks] = useState<Record<string, TaskDocument[]> | null>(null);
+  const [linksTick, setLinksTick] = useState(0);
+
+  useEffect(() => {
+    const stop = new AbortController();
+    fetch("/api/schedule/links", { signal: stop.signal })
+      .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      .then(({ ok, j }) => setLinks(ok && j.links ? (j.links as Record<string, TaskDocument[]>) : null))
+      .catch(() => {});
+    return () => stop.abort();
+  }, [linksTick]);
 
   const count = WINDOWS.find((w) => w.key === mode)!.days;
   const days = useMemo(() => windowDays(start, count), [start, count]);
@@ -168,6 +184,11 @@ export function ScheduleClient() {
                         title={bar.task.phase ? `${bar.task.phase}: ${bar.task.name}` : bar.task.name}
                       >
                         {bar.task.name}
+                        {(links?.[bar.task.id]?.length ?? 0) > 0 && (
+                          <span className="ml-1.5 tabular-nums text-neutral-500">
+                            {money(docTotals(links![bar.task.id]).bills + docTotals(links![bar.task.id]).estimates)}
+                          </span>
+                        )}
                       </div>
                       <div className="relative h-7" style={{ width: `${gridW}rem` }}>
                         {/* Weekend shading and the today rule sit behind the bar. */}
@@ -209,6 +230,14 @@ export function ScheduleClient() {
                             />
                           ) : null}
                           <span className="relative truncate px-1.5">{bar.task.name}</span>
+                          {(links?.[bar.task.id]?.length ?? 0) > 0 && (
+                            <span
+                              aria-label={`${links![bar.task.id].length} bills or estimates attached`}
+                              className="absolute right-0.5 top-0.5 h-4 min-w-4 rounded-full bg-white/80 px-1 text-center text-[10px] font-semibold leading-4 tabular-nums text-neutral-900"
+                            >
+                              {links![bar.task.id].length}
+                            </span>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -221,7 +250,7 @@ export function ScheduleClient() {
       )}
 
       {pick && (
-        <Dialog onClose={() => setPick(null)} title={pick.bar.task.name} description={pick.label}>
+        <Dialog onClose={() => setPick(null)} title={pick.bar.task.name} description={pick.label} size="lg">
           <dl className="space-y-2 text-sm">
             {pick.bar.task.phase && <Row k="Phase" v={pick.bar.task.phase} />}
             <Row k="Dates" v={`${dayLabel(pick.bar.task.startDate)} – ${dayLabel(pick.bar.task.endDate)}`} />
@@ -235,6 +264,15 @@ export function ScheduleClient() {
             />
             {pick.bar.task.description && <Row k="Notes" v={pick.bar.task.description} />}
           </dl>
+          {links && (
+            <TaskDocuments
+              key={pick.bar.task.id}
+              taskId={pick.bar.task.id}
+              jobId={pick.bar.task.jobId}
+              docs={links[pick.bar.task.id] ?? []}
+              onChanged={() => setLinksTick((n) => n + 1)}
+            />
+          )}
         </Dialog>
       )}
     </main>

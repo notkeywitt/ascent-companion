@@ -277,6 +277,15 @@ export type {
   ScheduleTask,
 } from "./jobtread/tasks";
 export {
+  TASK_DOC_TYPES,
+  getTaskLinkedDocuments,
+  getJobDocumentsToLink,
+  getDocumentForLink,
+  onlyTaskChanged,
+  setDocumentTask,
+} from "./jobtread/taskDocuments";
+export type { TaskDocType, TaskDocument, DocForLink } from "./jobtread/taskDocuments";
+export {
   getJobAccessFor,
   grantJobAccess,
 } from "./jobtread/jobAccess";
