@@ -1550,12 +1550,46 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             here — it sits in the totals block under the line items, where a
             paper invoice puts it. */}
         {lines && (
-          <StatementBlock
-            className="mt-4"
-            label="Bill total"
-            value={money(total)}
-            sub={`${lines.length} ${lines.length === 1 ? "line" : "lines"}`}
-          />
+          <div className="mt-4 flex flex-wrap items-end gap-x-8 gap-y-3">
+            <StatementBlock
+              label="Bill total"
+              value={money(total)}
+              sub={`${lines.length} ${lines.length === 1 ? "line" : "lines"}`}
+            />
+            {/* Type: one tap sets the name AND QuickBooks' Push as Bill/Expense, and makes
+               it this vendor's default (/api/bill-fields). */}
+            <div className="pb-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
+                <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
+                  {(["Bill", "Expense"] as const).map((t) => {
+                    const on = (isExpense ? "Expense" : "Bill") === t;
+                    const qbo = t === "Expense" ? "purchase" : "bill";
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          // "On" trusts either field, so a tap on it still writes when the two disagree.
+                          if (!on || header?.name !== t || (header?.qboDocumentType ?? "bill") !== qbo) {
+                            patchBill({ name: t, qboDocumentType: qbo });
+                          }
+                        }}
+                        className={
+                          "px-3 py-1 text-sm " +
+                          (on
+                            ? "bg-accent font-semibold text-accent-fg"
+                            : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200")
+                        }
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {split && (
@@ -1597,40 +1631,6 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             </div>
           </Banner>
         )}
-
-        {/* Type: one tap sets the name AND QuickBooks' Push as Bill/Expense, and makes
-            it this vendor's default (/api/bill-fields). */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
-              {(["Bill", "Expense"] as const).map((t) => {
-                const on = (isExpense ? "Expense" : "Bill") === t;
-                const qbo = t === "Expense" ? "purchase" : "bill";
-                return (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => {
-                      // "On" trusts either field, so a tap on it still writes when the two disagree.
-                      if (!on || header?.name !== t || (header?.qboDocumentType ?? "bill") !== qbo) {
-                        patchBill({ name: t, qboDocumentType: qbo });
-                      }
-                    }}
-                    className={
-                      "px-3 py-1 text-sm " +
-                      (on
-                        ? "bg-accent font-semibold text-accent-fg"
-                        : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200")
-                    }
-                  >
-                    {t}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
 
         {/* Push-to-QB toggle hidden 2026-07-18 per request. Kept commented (with its
             patchBill/pushToQb handlers) for easy restore. */}

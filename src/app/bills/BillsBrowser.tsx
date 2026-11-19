@@ -6,6 +6,7 @@ import { BillView, prefetchBill } from "@/app/bill/[docId]/BillView";
 import {
   Banner,
   Button,
+  Checkbox,
   Dialog,
   EmptyState,
   FilterChip,
@@ -16,11 +17,13 @@ import {
   SectionHeading,
   SectionLabel,
   Segmented,
+  Select,
   SplitView,
   Toggle,
 } from "@/components/ui";
 import { groupBills, type BillGroupBy, type BillSort } from "./billGroups";
 import { money } from "@/lib/money";
+import { billingMonths } from "@/lib/billingMonths";
 import { clearTouchedBills, touchedBillCount } from "@/lib/billTouch";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import { CoiDot } from "@/components/CoiDot";
@@ -45,6 +48,7 @@ interface Draft {
   id: string;
   jobId?: string;
   jobName?: string;
+  customerName?: string;
   /** "Bill" or "Expense" — the document's own name in JobTread. */
   name?: string;
   fromName?: string;
@@ -55,6 +59,14 @@ interface Draft {
   /** Marked reviewed in the coding card (companion-local, /api/coding-queue). */
   reviewed?: boolean;
 }
+
+/** Bills dated before this day never show in the list (the owner's call, 2026-11-19). */
+const FIRST_DAY = "2026-09-01";
+const MONTH_OPTIONS = billingMonths().filter((m) => m.value >= FIRST_DAY.slice(0, 7));
+
+/** The Ascent - Electrical job: the customer is Ascent, the job is Electrical. */
+const isAscentElectrical = (b: Draft) =>
+  /\bascent\b/i.test(b.customerName ?? "") && /electrical/i.test(b.jobName ?? "");
 
 /** "2026-10-19" → "Oct 19, 2026". */
 const dateLabel = (d?: string) => {
@@ -75,11 +87,26 @@ export function BillsBrowser() {
   const [sort, setSort] = useState<BillSort>("date");
   const [groupBy, setGroupBy] = useState<BillGroupBy>("none");
   const [showReviewed, setShowReviewed] = useState(true);
+  // Bills and Expenses on the Ascent - Electrical job, Sunset and every other vendor.
+  const [showElectrical, setShowElectrical] = useState(true);
   // Flips the sort's natural direction (and the order of the groups).
   const [reverse, setReverse] = useState(false);
   // The Tracking Sheet's filters: one job, and Bills vs Expenses.
   const [jobId, setJobId] = useState("");
   const [kind, setKind] = useState<"all" | "bill" | "expense">("all");
+  // Billing month filter ("" = every month) and the bills ticked for a bulk change.
+  const [ym, setYm] = useState("");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [marking, setMarking] = useState(false);
+  // Groups the office folded shut (by group key). Every group starts open.
+  const [folded, setFolded] = useState<Set<string>>(new Set());
+  const toggleFold = (key: string) =>
+    setFolded((f) => {
+      const n = new Set(f);
+      if (n.has(key)) n.delete(key);
+      else n.add(key);
+      return n;
+    });
   const canApprove = useAccess().can("bill-approve");
   const [approveOpen, setApproveOpen] = useState(false);
   const [approving, setApproving] = useState(false);
@@ -109,6 +136,9 @@ export function BillsBrowser() {
       (bills ?? []).filter(
         (b) =>
           (showReviewed || !b.reviewed) &&
+          (showElectrical || !isAscentElectrical(b)) &&
+          (!b.issueDate || b.issueDate >= FIRST_DAY) &&
+          (!ym || (b.issueDate ?? "").slice(0, 7) === ym) &&
           (!jobId || b.jobId === jobId) &&
           (kind === "all" || (b.name === "Expense") === (kind === "expense")) &&
           (!q ||
@@ -116,9 +146,48 @@ export function BillsBrowser() {
               (s ?? "").toLowerCase().includes(q),
             )),
       ),
-    [bills, q, showReviewed, jobId, kind],
+    [bills, q, showReviewed, showElectrical, jobId, kind, ym],
   );
   const groups = useMemo(() => groupBills(shown, sort, groupBy, reverse), [shown, sort, groupBy, reverse]);
+
+  // Ticked bills that are still on screen. With none ticked, a bulk change
+  // applies to everything shown.
+  const targets = useMemo(
+    () => (picked.size ? shown.filter((b) => picked.has(b.id)) : shown),
+    [shown, picked],
+  );
+  const togglePick = (id: string, on: boolean) =>
+    setPicked((p) => {
+      const n = new Set(p);
+      if (on) n.add(id);
+      else n.delete(id);
+      return n;
+    });
+  const allPicked = shown.length > 0 && shown.every((b) => picked.has(b.id));
+
+  // Companion-only flag (/api/bill-reviewed) — no JobTread write.
+  const markReviewed = async () => {
+    setMarking(true);
+    setApproveMsg("");
+    let ok = 0;
+    for (const b of targets) {
+      try {
+        const r = await fetch("/api/bill-reviewed", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ docId: b.id, reviewed: true }),
+        });
+        if (r.ok) ok++;
+      } catch {
+        /* counted below */
+      }
+    }
+    setMarking(false);
+    if (ok === targets.length) toast(`Marked ${ok} bill${ok === 1 ? "" : "s"} reviewed.`);
+    else setApproveMsg(`Marked ${ok} of ${targets.length} reviewed. Try the rest again.`);
+    setPicked(new Set());
+    await loadList();
+  };
 
   // Same write as the Tracking Sheet's batch Approve: a Bill goes draft →
   // pending, an Expense draft → approved, one /api/bill-status POST each.
@@ -127,7 +196,7 @@ export function BillsBrowser() {
     let ok = 0;
     let previewed = false;
     const failures: string[] = [];
-    for (const b of shown) {
+    for (const b of targets) {
       try {
         const r = await fetch("/api/bill-status", {
           method: "POST",
@@ -152,8 +221,16 @@ export function BillsBrowser() {
       setApproveMsg(
         `${verb} ${ok} bill(s), ${failures.length} failed: ${[...new Set(failures)].slice(0, 2).join("; ")}`,
       );
+    setPicked(new Set());
     await loadList();
   };
+
+  // A bill opened from far down the page: bring the page up so the bill's title
+  // sits just under the header.
+  useEffect(() => {
+    if (!openId) return;
+    document.getElementById("bill-panel-top")?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [openId]);
 
   // Going down the list: warm the next few bills (and the one above) in the
   // order shown, one at a time so they never crowd the open bill's own read.
@@ -200,7 +277,13 @@ export function BillsBrowser() {
         backLabel="Back to bills"
         empty="Pick a bill to see it here."
         cols="lg:grid-cols-[22rem_minmax(0,1fr)]"
-        detail={openId ? <BillView key={openId} docId={openId} embedded /> : null}
+        detail={
+          openId ? (
+            <div id="bill-panel-top" className="scroll-mt-20">
+              <BillView key={openId} docId={openId} embedded />
+            </div>
+          ) : null
+        }
         list={
           // No page header: the open bill's title is the page's title.
           <div className="space-y-2">
@@ -211,6 +294,18 @@ export function BillsBrowser() {
               allDescription="Draft bills across every job"
               showPhaseFilter
             />
+            <Select
+              value={ym}
+              onChange={(e) => setYm(e.target.value)}
+              aria-label="Billing month"
+            >
+              <option value="">All months (September 2026 on)</option>
+              {MONTH_OPTIONS.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </Select>
             <Input
               type="search"
               value={query}
@@ -253,6 +348,7 @@ export function BillsBrowser() {
                 ]}
               />
               <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
+              <Toggle checked={showElectrical} onChange={setShowElectrical} label="Show Ascent - Electrical" />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <SectionLabel className="shrink-0">Show</SectionLabel>
@@ -274,6 +370,32 @@ export function BillsBrowser() {
                 Expenses
               </FilterChip>
             </div>
+            {shown.length > 0 && (
+              <div className="flex min-h-11 items-center justify-between gap-2">
+                <Checkbox
+                  label={picked.size ? `${targets.length} selected` : "Select all"}
+                  checked={allPicked}
+                  onChange={(e) =>
+                    setPicked(e.target.checked ? new Set(shown.map((b) => b.id)) : new Set())
+                  }
+                />
+                {picked.size > 0 && (
+                  <Button variant="secondary" className="min-h-11" onClick={() => setPicked(new Set())}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+            )}
+            {picked.size > 0 && (
+              <Button
+                variant="secondary"
+                className="min-h-11 w-full"
+                onClick={markReviewed}
+                disabled={marking || approving}
+              >
+                {marking ? "Marking…" : `Mark ${targets.length} reviewed`}
+              </Button>
+            )}
             {canApprove && (
               <Button
                 className="min-h-11 w-full"
@@ -281,9 +403,10 @@ export function BillsBrowser() {
                   setApproveMsg("");
                   setApproveOpen(true);
                 }}
-                disabled={shown.length === 0 || approving}
+                disabled={targets.length === 0 || approving || marking}
               >
-                Approve Draft Bills{shown.length > 0 ? ` (${shown.length})` : ""}
+                {picked.size ? "Approve selected" : "Approve Draft Bills"}
+                {targets.length > 0 ? ` (${targets.length})` : ""}
               </Button>
             )}
             {approveMsg && <Banner tone="error">{approveMsg}</Banner>}
@@ -303,39 +426,53 @@ export function BillsBrowser() {
                   // Sunset bills are always one group, at the foot (billGroups.ts).
                   groups.map((g) => (
                     <div key={g.key} className="space-y-2">
-                      <SectionHeading>{`${g.title} · ${g.bills.length}`}</SectionHeading>
+                      <SectionHeading onToggle={() => toggleFold(g.key)} open={!folded.has(g.key)}>
+                        {`${g.title} · ${g.bills.length}`}
+                      </SectionHeading>
+                      {!folded.has(g.key) && (
                       <ListCard>
                         {g.bills.map((b) => (
-                          <ListRow
-                            key={b.id}
-                            onClick={() => select(b.id)}
-                            selected={b.id === openId}
-                            label={<>{b.fromName || "Unknown vendor"}<CoiDot vendor={b.fromName} /></>}
-                            desc={[
-                              groupBy === "job" && g.title !== "Sunset"
-                                ? ""
-                                : b.jobName || "No job",
-                              dateLabel(b.issueDate),
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")}
-                            trailing={
-                              <span className="text-right">
-                                {typeof b.cost === "number" && (
-                                  <span className="block text-sm font-semibold tabular-nums">
-                                    {money(b.cost)}
+                          <div key={b.id} className="flex items-center border-b border-line-soft last:border-b-0">
+                            <Checkbox
+                              aria-label={`Select ${b.fromName || "bill"}`}
+                              className="shrink-0 py-4 pl-3"
+                              checked={picked.has(b.id)}
+                              onChange={(e) => togglePick(b.id, e.target.checked)}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <ListRow
+                                className="!border-b-0"
+                                onClick={() => select(b.id)}
+                                selected={b.id === openId}
+                                label={<>{b.fromName || "Unknown vendor"}<CoiDot vendor={b.fromName} /></>}
+                                desc={[
+                                  groupBy === "job" && g.title !== "Sunset"
+                                    ? ""
+                                    : b.jobName || "No job",
+                                  dateLabel(b.issueDate),
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                                trailing={
+                                  <span className="text-right">
+                                    {typeof b.cost === "number" && (
+                                      <span className="block text-sm font-semibold tabular-nums">
+                                        {money(b.cost)}
+                                      </span>
+                                    )}
+                                    {b.reviewed && (
+                                      <span className="block text-[11px] font-semibold text-ok">
+                                        ✓ Reviewed
+                                      </span>
+                                    )}
                                   </span>
-                                )}
-                                {b.reviewed && (
-                                  <span className="block text-[11px] font-semibold text-ok">
-                                    ✓ Reviewed
-                                  </span>
-                                )}
-                              </span>
-                            }
-                          />
+                                }
+                              />
+                            </div>
+                          </div>
                         ))}
                       </ListCard>
+                      )}
                     </div>
                   ))
                 )}
@@ -348,7 +485,7 @@ export function BillsBrowser() {
         <Dialog
           busy={approving}
           onClose={() => setApproveOpen(false)}
-          title={`Approve ${shown.length} draft bill${shown.length === 1 ? "" : "s"}?`}
+          title={`Approve ${targets.length} draft bill${targets.length === 1 ? "" : "s"}?`}
           description="Bills move to Pending (approved for payment); Expenses move straight to Approved (paid)."
           footer={
             <div className="grid w-full grid-cols-2 gap-2">
@@ -360,14 +497,14 @@ export function BillsBrowser() {
               >
                 Cancel
               </Button>
-              <Button className="min-h-11 w-full" onClick={approveShown} disabled={approving || shown.length === 0}>
-                {approving ? "Approving…" : `Approve ${shown.length} bill${shown.length === 1 ? "" : "s"}`}
+              <Button className="min-h-11 w-full" onClick={approveShown} disabled={approving || targets.length === 0}>
+                {approving ? "Approving…" : `Approve ${targets.length} bill${targets.length === 1 ? "" : "s"}`}
               </Button>
             </div>
           }
         >
           <ul className="space-y-2">
-            {shown.map((b) => (
+            {targets.map((b) => (
               <li key={b.id} className="flex items-baseline justify-between gap-3 rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700">
                 <span className="min-w-0 truncate font-medium">{b.fromName || "Unknown vendor"}</span>
                 <span className="shrink-0 tabular-nums">{typeof b.cost === "number" ? money(b.cost) : ""}</span>
