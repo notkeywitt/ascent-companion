@@ -10,6 +10,7 @@ import type { Payable, PayablesSummary } from "@/lib/accountsPayable";
 import type { PaidState } from "@/lib/billPaid";
 import {
   Banner,
+  Button,
   Checkbox,
   Chip,
   ChipScroller,
@@ -38,6 +39,14 @@ const PAID_CHIP: Record<PaidState, { tone: "danger" | "warning" | "success"; lab
   paid: { tone: "success", label: "Paid" },
 };
 
+/** ISO timestamp → "Nov 19, 2026". */
+const mailedLabel = (iso: string) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? ""
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+};
+
 export function AccountsPayable() {
   const months = useMemo(() => billingMonths(), []);
   const [ym, setYm] = useState("");
@@ -51,6 +60,8 @@ export function AccountsPayable() {
   const [reload, setReload] = useState(0);
   // Bills whose check the office marked mailed: docId -> ISO time.
   const [mailed, setMailed] = useState<Record<string, string>>({});
+  // A bill whose Mailed mark is about to come off: it waits for a confirmation.
+  const [unmailId, setUnmailId] = useState("");
 
   // Open on the billing month in force (Home's masthead month).
   useEffect(() => {
@@ -114,6 +125,9 @@ export function AccountsPayable() {
         body: JSON.stringify({ docId: id, mailed: on }),
       });
       if (!r.ok) throw new Error();
+      // Keep the date the server recorded.
+      const j = await r.json().catch(() => null);
+      if (on && j?.mailedAt) setMailed((m) => ({ ...m, [id]: j.mailedAt }));
     } catch {
       setMailed(before);
       setError("Could not save the check mailed mark. Try again.");
@@ -225,7 +239,11 @@ export function AccountsPayable() {
                             title="Check mailed"
                             className="shrink-0 py-4 pl-3"
                             checked={b.id in mailed}
-                            onChange={(e) => toggleMailed(b.id, e.target.checked)}
+                            onChange={(e) => {
+                              // Once mailed, taking the mark off asks first.
+                              if (!e.target.checked && b.id in mailed) setUnmailId(b.id);
+                              else toggleMailed(b.id, e.target.checked);
+                            }}
                           />
                           <div className="min-w-0 flex-1">
                             <ListRow
@@ -239,7 +257,16 @@ export function AccountsPayable() {
                                 <span className="flex shrink-0 flex-col items-end gap-1">
                                   <span className="text-sm font-semibold tabular-nums">{money(b.cost)}</span>
                                   <Chip tone={chip.tone}>{chip.label}</Chip>
-                                  {b.id in mailed && <Chip tone="success">Mailed</Chip>}
+                                  {b.id in mailed && (
+                                    <>
+                                      <Chip tone="success">Mailed</Chip>
+                                      {mailed[b.id] && (
+                                        <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                                          {mailedLabel(mailed[b.id])}
+                                        </span>
+                                      )}
+                                    </>
+                                  )}
                                   {b.paid === "partial" && (
                                     <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
                                       {money(b.owed)} owed
@@ -258,6 +285,35 @@ export function AccountsPayable() {
             </div>
           )}
         </>
+      )}
+
+      {unmailId && (
+        <Dialog
+          onClose={() => setUnmailId("")}
+          title="Remove the mailed mark?"
+          description={`${data?.bills.find((x) => x.id === unmailId)?.vendor ?? "This bill"}'s check is marked mailed${
+            mailed[unmailId] ? ` on ${mailedLabel(mailed[unmailId])}` : ""
+          }. The date is lost.`}
+          footer={
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button variant="secondary" className="min-h-11 w-full" onClick={() => setUnmailId("")}>
+                Keep it
+              </Button>
+              <Button
+                className="min-h-11 w-full"
+                onClick={() => {
+                  const id = unmailId;
+                  setUnmailId("");
+                  toggleMailed(id, false);
+                }}
+              >
+                Remove mark
+              </Button>
+            </div>
+          }
+        >
+          {null}
+        </Dialog>
       )}
 
       {openId && (
