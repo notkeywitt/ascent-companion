@@ -174,6 +174,13 @@ export const savedBills = sqliteTable("saved_bills", {
 
 export type SavedBill = typeof savedBills.$inferSelect;
 
+/** Accounts Payable: bills whose check the office marked mailed. No row = not mailed. */
+export const checkMailed = sqliteTable("check_mailed", {
+  docId: text("doc_id").primaryKey(), // JobTread vendorBill document id
+  mailedAt: text("mailed_at").notNull().default(""), // ISO ts
+  mailedBy: text("mailed_by").notNull().default(""), // signed-in email
+});
+
 /**
  * Sunset monthly statement payment cache, keyed by the sheet ExpID ("STMT-…").
  * The /payments view lists Sunset statements and shows what to type at the TSYS

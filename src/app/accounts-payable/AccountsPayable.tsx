@@ -10,6 +10,7 @@ import type { Payable, PayablesSummary } from "@/lib/accountsPayable";
 import type { PaidState } from "@/lib/billPaid";
 import {
   Banner,
+  Checkbox,
   Chip,
   ChipScroller,
   EmptyState,
@@ -24,7 +25,7 @@ import {
 
 /**
  * ACCOUNTS PAYABLE — the Bills dashboard's tab. Every bill in a billing month,
- * Sunset and Expenses left out, each marked paid or not. Read-only. The rules
+ * Sunset and Expenses left out, each marked paid or not. Paid or not is read-only; the check-mailed box saves to the companion database. The rules
  * live in `src/lib/accountsPayable.ts`.
  */
 
@@ -48,6 +49,8 @@ export function AccountsPayable() {
   // The bill open in the pop-up. The list stays put behind it.
   const [openId, setOpenId] = useState("");
   const [reload, setReload] = useState(0);
+  // Bills whose check the office marked mailed: docId -> ISO time.
+  const [mailed, setMailed] = useState<Record<string, string>>({});
 
   // Open on the billing month in force (Home's masthead month).
   useEffect(() => {
@@ -73,7 +76,18 @@ export function AccountsPayable() {
         if (!r.ok) throw new Error(d?.error || `Could not read the month's bills (${r.status}).`);
         return d as PayablesSummary;
       })
-      .then((d) => live && setData(d))
+      .then(async (d) => {
+        if (!live) return;
+        setData(d);
+        // The mailed marks live in the companion database. A failed read leaves the boxes empty.
+        const ids = d.bills.map((b) => b.id).join(",");
+        const m = ids
+          ? await fetch(`/api/check-mailed?ids=${encodeURIComponent(ids)}`)
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null)
+          : null;
+        if (live) setMailed(m?.mailed ?? {});
+      })
       .catch((e) => {
         if (!live) return;
         setData(null);
@@ -84,6 +98,27 @@ export function AccountsPayable() {
       live = false;
     };
   }, [ym, reload]);
+
+  async function toggleMailed(id: string, on: boolean) {
+    const before = mailed;
+    setMailed((m) => {
+      const n = { ...m };
+      if (on) n[id] = new Date().toISOString();
+      else delete n[id];
+      return n;
+    });
+    try {
+      const r = await fetch("/api/check-mailed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ docId: id, mailed: on }),
+      });
+      if (!r.ok) throw new Error();
+    } catch {
+      setMailed(before);
+      setError("Could not save the check mailed mark. Try again.");
+    }
+  }
 
   const shown = useMemo(() => {
     if (!data) return [];
@@ -176,7 +211,7 @@ export function AccountsPayable() {
                 <div key={g.key} className="space-y-2">
                   {g.title && (
                     <SectionHeading>
-                      {`${g.title} · ${g.bills.length} · ${money(g.bills.reduce((t, x) => t + x.owed, 0))} owed`}
+                      {`${g.title} · ${g.bills.length} · ${money(g.bills.reduce((t, x) => t + x.cost, 0))} total · ${money(g.bills.reduce((t, x) => t + x.owed, 0))} owed`}
                     </SectionHeading>
                   )}
                   <ListCard>
@@ -184,25 +219,37 @@ export function AccountsPayable() {
                       const chip = PAID_CHIP[b.paid];
                       const job = [b.customerName, b.jobName].filter(Boolean).join(" - ");
                       return (
-                        <ListRow
-                          key={b.id}
-                          onClick={() => setOpenId(b.id)}
-                          label={b.vendor}
-                          desc={[groupBy === "job" ? "" : job, b.status === "draft" ? "draft" : ""]
-                            .filter(Boolean)
-                            .join(" · ")}
-                          trailing={
-                            <span className="flex shrink-0 flex-col items-end gap-1">
-                              <span className="text-sm font-semibold tabular-nums">{money(b.cost)}</span>
-                              <Chip tone={chip.tone}>{chip.label}</Chip>
-                              {b.paid === "partial" && (
-                                <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
-                                  {money(b.owed)} owed
+                        <div key={b.id} className="flex items-center border-b border-line-soft last:border-b-0">
+                          <Checkbox
+                            aria-label={`Check mailed for ${b.vendor}`}
+                            title="Check mailed"
+                            className="shrink-0 py-4 pl-3"
+                            checked={b.id in mailed}
+                            onChange={(e) => toggleMailed(b.id, e.target.checked)}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <ListRow
+                              className="!border-b-0"
+                              onClick={() => setOpenId(b.id)}
+                              label={b.vendor}
+                              desc={[groupBy === "job" ? "" : job, b.status === "draft" ? "draft" : ""]
+                                .filter(Boolean)
+                                .join(" · ")}
+                              trailing={
+                                <span className="flex shrink-0 flex-col items-end gap-1">
+                                  <span className="text-sm font-semibold tabular-nums">{money(b.cost)}</span>
+                                  <Chip tone={chip.tone}>{chip.label}</Chip>
+                                  {b.id in mailed && <Chip tone="success">Mailed</Chip>}
+                                  {b.paid === "partial" && (
+                                    <span className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
+                                      {money(b.owed)} owed
+                                    </span>
+                                  )}
                                 </span>
-                              )}
-                            </span>
-                          }
-                        />
+                              }
+                            />
+                          </div>
+                        </div>
                       );
                     })}
                   </ListCard>
