@@ -11,7 +11,7 @@ import { DOC_TYPE_LABEL, codesLine, docMatches, docTotals, money } from "@/lib/t
  * The bills and estimates on one schedule task, inside the Schedule dialog
  * (docs/plans/SCHEDULE_PLAN.md stage 4). Lists what sits on the task, with a
  * total for bills and for estimates. "Attach" lists the job's documents that
- * sit on no task (a bill or expense only while it is a draft: JobTread's rule);
+ * sit on no task (drafts only: JobTread's rule);
  * a tap on Attach puts one on this task. "Remove" takes one off. Both go
  * through POST /api/schedule/links (JobTread's own `document.task`). A tap on a
  * document's title opens its details.
@@ -184,7 +184,7 @@ function Attach({
       {!all && !failed && <Loading label="Loading this job's documents…" />}
       {all && shown.length === 0 && (
         <p className="px-1 py-2 text-[13px] text-neutral-500">
-          {all.length === 0 ? "This job has no draft bill, draft expense or estimate left to attach." : "No match."}
+          {all.length === 0 ? "This job has no draft bill, expense, estimate or bid request left to attach." : "No match."}
         </p>
       )}
       {shown.length > 0 && (
