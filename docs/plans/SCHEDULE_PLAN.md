@@ -34,11 +34,12 @@ Gantt functions, then links bills and estimates to tasks.
   `document.task.set`. View `schedule-links`.
 - UI: a count and total beside each task with documents; the task dialog lists
   them (bills and estimates totalled apart), with Attach and Remove.
-- JobTread takes only a DRAFT bill or expense on a task (owner, 2026-11-19). The
-  attach list shows draft bills and expenses (and estimates, vendor orders, bid
-  requests); the write refuses a non-draft bill. Each row shows its cost codes
-  (a flat `organization.costItems` read, not nested). A tap on a title opens the
-  document with its lines (`?detailId=`).
+- JobTread takes only a DRAFT document on a task: bill, expense, estimate or bid
+  request (owner, 2026-11-19; applied to vendor orders too). The attach list
+  shows drafts only, and the write refuses a non-draft. Each row shows its cost
+  codes (a flat `organization.costItems` read, not nested). A tap on a title
+  opens the document with its lines (`?detailId=`). Open: whether JobTread also
+  limits by something besides draft (an approved estimate, say).
 - Link from the bill: a "Link to Task" button on the bill card (`BillTaskLink.tsx`)
   opens the job's schedule at full size; a tap on a task links the bill. It names
   the task once linked, and the popup outlines it. `ScheduleView.tsx` is the

@@ -21,10 +21,13 @@ export const TASK_DOC_TYPES = ["vendorBill", "customerOrder", "vendorOrder", "bi
 export type TaskDocType = (typeof TASK_DOC_TYPES)[number];
 
 /**
- * JobTread lets only a DRAFT bill or expense (both are `vendorBill`) sit on a
- * task (owner, 2026-11-19). The other types have no such limit that we know of.
+ * JobTread lets only a DRAFT document sit on a task: a bill or expense (both
+ * are `vendorBill`), an estimate (`customerOrder`) or a bid request (owner,
+ * 2026-11-19). Applied to a vendor order too, the one type the owner did not
+ * name: a draft-only list hides, it never harms. `type` stays a parameter so a
+ * type with its own rule can be told apart later.
  */
-export const canAttach = (type: string, status: string) => type !== "vendorBill" || status === "draft";
+export const canAttach = (_type: string, status: string) => status === "draft";
 
 export interface TaskDocument {
   id: string;
@@ -149,7 +152,7 @@ export async function getTaskLinkedDocuments(cfg: PaveConfig): Promise<TaskDocum
   return withCostCodes(cfg, rows.map(toTaskDocument).filter((d): d is TaskDocument => !!d && !!d.taskId));
 }
 
-/** One job's counted documents that sit on NO task and can take one: what a person can attach. */
+/** One job's DRAFT documents that sit on no task: what a person can attach. */
 export async function getJobDocumentsToLink(cfg: PaveConfig, jobId: string): Promise<TaskDocument[]> {
   const rows = await pageAll<any>(cfg, {
     label: "job.documents (to link)",
@@ -162,12 +165,7 @@ export async function getJobDocumentsToLink(cfg: PaveConfig, jobId: string): Pro
             where: {
               and: [
                 { "=": [{ field: ["task", "id"] }, { value: null }] },
-                {
-                  or: [
-                    { and: [["type", "vendorBill"], ["status", "draft"]] },
-                    { and: [["type", "in", TASK_DOC_TYPES.filter((t) => t !== "vendorBill")]] },
-                  ],
-                },
+                ["status", "draft"],
               ],
             },
             sortBy: [{ field: "createdAt", order: "desc" }],

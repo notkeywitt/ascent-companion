@@ -32,11 +32,11 @@ describe("onlyTaskChanged", () => {
 });
 
 describe("canAttach", () => {
-  it("takes only a draft bill or expense, and any other type", () => {
-    expect(canAttach("vendorBill", "draft")).toBe(true);
-    expect(canAttach("vendorBill", "approved")).toBe(false);
-    expect(canAttach("vendorBill", "pending")).toBe(false);
-    expect(canAttach("customerOrder", "approved")).toBe(true);
-    expect(canAttach("vendorOrder", "pending")).toBe(true);
+  it("takes only a draft, whatever the type", () => {
+    for (const type of ["vendorBill", "customerOrder", "vendorOrder", "bidRequest"]) {
+      expect(canAttach(type, "draft")).toBe(true);
+      expect(canAttach(type, "approved")).toBe(false);
+      expect(canAttach(type, "pending")).toBe(false);
+    }
   });
 });

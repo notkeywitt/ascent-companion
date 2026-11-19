@@ -31,7 +31,7 @@ import {
  * reads the document and the task and refuses unless: same org, the task is a
  * schedule task (not a to-do or a phase row) on an open job, the document is a
  * bill, estimate, vendor order or bid request on THAT job, and it is not
- * voided, and a bill or expense is still a draft. After it, the route reads the document back; if its status, cost,
+ * voided, and it is still a draft. After it, the route reads the document back; if its status, cost,
  * price or externalId moved, it puts the old task back and answers with an
  * error. Every change goes in the financial journal.
  *
@@ -97,9 +97,9 @@ export async function POST(req: NextRequest) {
     }
     if (doc.status === "denied") return fail("That document is voided.", 400);
     if (doc.taskId === (taskId ?? "")) return NextResponse.json({ ok: true, previewed: false, wrote: false });
-    // JobTread takes only a draft bill or expense on a task. Taking one off is always allowed.
+    // JobTread takes only a draft document on a task. Taking one off is always allowed.
     if (taskId && !canAttach(doc.type, doc.status)) {
-      return fail("JobTread only puts a draft bill or expense on a task. Move this one back to draft first.", 400);
+      return fail("JobTread only puts a draft on a task. Move this document back to draft first.", 400);
     }
 
     if (taskId) {
