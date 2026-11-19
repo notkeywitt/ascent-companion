@@ -48,6 +48,7 @@ interface Draft {
   id: string;
   jobId?: string;
   jobName?: string;
+  customerName?: string;
   /** "Bill" or "Expense" — the document's own name in JobTread. */
   name?: string;
   fromName?: string;
@@ -62,6 +63,10 @@ interface Draft {
 /** Bills dated before this day never show in the list (the owner's call, 2026-11-19). */
 const FIRST_DAY = "2026-09-01";
 const MONTH_OPTIONS = billingMonths().filter((m) => m.value >= FIRST_DAY.slice(0, 7));
+
+/** The Ascent - Electrical job: the customer is Ascent, the job is Electrical. */
+const isAscentElectrical = (b: Draft) =>
+  /\bascent\b/i.test(b.customerName ?? "") && /electrical/i.test(b.jobName ?? "");
 
 /** "2026-10-19" → "Oct 19, 2026". */
 const dateLabel = (d?: string) => {
@@ -82,6 +87,8 @@ export function BillsBrowser() {
   const [sort, setSort] = useState<BillSort>("date");
   const [groupBy, setGroupBy] = useState<BillGroupBy>("none");
   const [showReviewed, setShowReviewed] = useState(true);
+  // Bills and Expenses on the Ascent - Electrical job, Sunset and every other vendor.
+  const [showElectrical, setShowElectrical] = useState(true);
   // Flips the sort's natural direction (and the order of the groups).
   const [reverse, setReverse] = useState(false);
   // The Tracking Sheet's filters: one job, and Bills vs Expenses.
@@ -129,6 +136,7 @@ export function BillsBrowser() {
       (bills ?? []).filter(
         (b) =>
           (showReviewed || !b.reviewed) &&
+          (showElectrical || !isAscentElectrical(b)) &&
           (!b.issueDate || b.issueDate >= FIRST_DAY) &&
           (!ym || (b.issueDate ?? "").slice(0, 7) === ym) &&
           (!jobId || b.jobId === jobId) &&
@@ -138,7 +146,7 @@ export function BillsBrowser() {
               (s ?? "").toLowerCase().includes(q),
             )),
       ),
-    [bills, q, showReviewed, jobId, kind, ym],
+    [bills, q, showReviewed, showElectrical, jobId, kind, ym],
   );
   const groups = useMemo(() => groupBills(shown, sort, groupBy, reverse), [shown, sort, groupBy, reverse]);
 
@@ -340,6 +348,7 @@ export function BillsBrowser() {
                 ]}
               />
               <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
+              <Toggle checked={showElectrical} onChange={setShowElectrical} label="Show Ascent - Electrical" />
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <SectionLabel className="shrink-0">Show</SectionLabel>

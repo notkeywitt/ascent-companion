@@ -25,6 +25,7 @@ export interface DraftBill {
   issueDate?: string;
   jobId?: string; // the bill's job (populated only by the org-wide query)
   jobName?: string;
+  customerName?: string; // the job's customer (org-wide query only)
   saved?: boolean; // Assistant-side flag: Save has been clicked on this bill
   reviewed?: boolean; // Assistant-side flag: bill explicitly marked reviewed
 }
@@ -110,7 +111,7 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
     cost: {},
     nonRecoverableTax: {},
     issueDate: {},
-    job: { id: {}, name: {} },
+    job: { id: {}, name: {}, location: { account: { name: {} } } },
   };
   const min = {
     id: {},
@@ -119,10 +120,15 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
     cost: {},
     nonRecoverableTax: {},
     issueDate: {},
-    job: { id: {}, name: {} },
+    job: { id: {}, name: {}, location: { account: { name: {} } } },
   };
   const flatten = (nodes: any[]): DraftBill[] =>
-    nodes.map((n) => ({ ...n, jobId: n?.job?.id, jobName: n?.job?.name }));
+    nodes.map((n) => ({
+      ...n,
+      jobId: n?.job?.id,
+      jobName: n?.job?.name,
+      customerName: n?.job?.location?.account?.name,
+    }));
 
   const walkWith = (nodes: Record<string, unknown>) =>
     pageAll<any>(cfg, {
