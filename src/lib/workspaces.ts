@@ -83,6 +83,7 @@ export const WORKSPACES: Workspace[] = [
       tab("schedule", "/schedule", "Schedule", "Every open task on every job as a Gantt chart"),
       // Customers = Leads + Directory's list, as sections (stage 4).
       tab("leads", "/leads", "Customers", "Leads to follow up, and every customer and job"),
+      tab("punch-list", "/punch-list", "Punch List", "The final inspection checklist for a job"),
       tab("ar-aging", "/ar-aging", "Receivables", "Unpaid client invoices, oldest first"),
       tab("deposit-tracker", "/deposit-tracker", "Deposit Checks", "Photograph the checks, mark their invoices paid, email Sara and Casey"),
     ],

@@ -359,6 +359,9 @@ export const VIEWS: ViewDef[] = [
   { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
   { id: "mileage", label: "Miles", group: "Field", paths: ["/mileage-tracker"] },
   { id: "employee-time", label: "Time", group: "Field", paths: ["/employee-time"] },
+  // Final Inspection Punch List for every role (owner, 2026-11-20). Same
+  // /api/punch-list as the Jobs hub tab; writes only the companion DB.
+  { id: "punch-list", label: "Punch List", group: "Field", paths: ["/punch-list", "/api/punch-list"] },
   // Batch add (lib/toolBatch.ts): every role captures through /api/tools/batch;
   // only "tools-batch-analyze" (office + admin) asks the office Mac to analyze.
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer", "/api/tools/batch"] },
@@ -645,7 +648,7 @@ export const VIEWS: ViewDef[] = [
     id: "jobs-hub",
     label: "Jobs",
     group: "Office",
-    paths: ["/jobs-hub", "/api/jobs-hub", "/api/jobs/files", "/api/punch-list", "/api/notes"],
+    paths: ["/jobs-hub", "/api/jobs-hub", "/api/jobs/files", "/api/notes"],
   },
 ];
 
@@ -670,6 +673,7 @@ const FIELD_VIEWS: string[] = [
   "tools",
   "tool-schedule",
   "requisitions",
+  "punch-list",
   "time-off",
   "help",
   "lopezrocks",
