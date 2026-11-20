@@ -1,5 +1,17 @@
 [
  {
+  "sha": "ec18d5ad",
+  "date": "2026-11-20T07:02:03-08:00",
+  "title": "punch list page for every role, in the Jobs menu",
+  "plain": "punch list page for every role, in the Jobs menu"
+ },
+ {
+  "sha": "c542890e",
+  "date": "2026-11-20T07:01:58-08:00",
+  "title": "punch list page for every role, in the Jobs menu",
+  "plain": "punch list page for every role, in the Jobs menu"
+ },
+ {
   "sha": "d4176e6b",
   "date": "2026-11-20T06:58:24-08:00",
   "title": "trim jobs hub month view: drop sync lines, tabs row, not-in-jobtread card, before-you-send card",
