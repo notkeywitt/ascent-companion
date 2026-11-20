@@ -277,7 +277,7 @@ function StuckVendorRow({ v, onCreated }: { v: StuckVendor; onCreated: () => voi
   }
 
   return (
-    <li className="rounded-xl border border-line px-3 py-2.5">
+    <li className="rounded-card border border-line px-3 py-2.5">
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 break-words font-semibold">{v.vendor}</span>
         <span className="shrink-0 text-xs text-neutral-500">
@@ -443,7 +443,7 @@ export function StuckVendorPopup() {
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-warn dark:bg-amber-950/50"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-amber-100 text-warn dark:bg-amber-950/50"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
               <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
@@ -497,7 +497,7 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
   if (compact) {
     if (error)
       return (
-        <div className="rounded-lg bg-neutral-100 px-3 py-1.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+        <div className="rounded-control bg-neutral-100 px-3 py-1.5 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
           Couldn’t check for unmatched vendors.{" "}
           <button type="button" onClick={refresh} className="font-semibold underline">
             Retry
@@ -530,7 +530,7 @@ export function StuckVendorBanner({ compact = false }: { compact?: boolean } = {
   }
   if (error) {
     return (
-      <div className="mb-4 rounded-xl bg-neutral-100 px-4 py-3 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
+      <div className="mb-4 rounded-card bg-neutral-100 px-4 py-3 text-xs text-neutral-500 dark:bg-neutral-800 dark:text-neutral-400">
         Couldn’t check for unmatched vendors ({error}).{" "}
         <button type="button" onClick={refresh} className="font-semibold underline">
           Retry

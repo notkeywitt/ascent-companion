@@ -166,7 +166,7 @@ function Big({
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-[104px] flex-col items-start justify-between rounded-xl border border-line bg-white p-3 text-left transition hover:border-line-strong active:scale-[0.98] dark:bg-ink-raised"
+      className="flex min-h-[104px] flex-col items-start justify-between rounded-card border border-line bg-white p-3 text-left transition hover:border-line-strong active:scale-[0.98] dark:bg-ink-raised"
     >
       {mark}
       <span>

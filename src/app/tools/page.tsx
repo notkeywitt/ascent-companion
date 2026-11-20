@@ -1180,7 +1180,7 @@ export default function ToolsPage() {
             )}
           </div>
           {picking && (
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm">
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-control border border-line px-3 py-2 text-sm">
               <span className="flex-1">
                 Pick tools whose details need filling in. Claude reads their photos and fills the blanks.
               </span>
@@ -1196,7 +1196,7 @@ export default function ToolsPage() {
           )}
 
           {groups.length === 0 && (
-            <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center text-sm text-neutral-500 dark:border-neutral-700">
+            <div className="rounded-card border border-dashed border-neutral-300 px-6 py-8 text-center text-sm text-neutral-500 dark:border-neutral-700">
               No matching tools.
             </div>
           )}
@@ -1208,7 +1208,7 @@ export default function ToolsPage() {
                   {g.type}
                   <span className="text-xs font-normal text-neutral-400">{g.list.length}</span>
                 </h2>
-                <div className="overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+                <div className="overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
                   {g.list.map((t, i) => (
                     <div
                       key={t.id}
@@ -1240,7 +1240,7 @@ export default function ToolsPage() {
                       <ToolPhoto
                         url={t.photoUrl}
                         width={128}
-                        className="h-11 w-11 shrink-0 rounded-lg"
+                        className="h-11 w-11 shrink-0 rounded-control"
                       />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{t.name || t.id}</div>
@@ -1252,7 +1252,7 @@ export default function ToolsPage() {
                       {/* "Good" is the ordinary state, so it gets no pill (look rule 2). */}
                       {t.condition && !/^good$/i.test(t.condition) && (
                         <span
-                          className={`hidden rounded-full px-2 py-0.5 text-[11px] font-semibold sm:inline ${conditionClass(
+                          className={`hidden rounded-pill px-2 py-0.5 text-[11px] font-semibold sm:inline ${conditionClass(
                             t.condition,
                           )}`}
                         >
@@ -1262,7 +1262,7 @@ export default function ToolsPage() {
                       {!picking && (
                         <button
                           onClick={() => openEdit(t)}
-                          className="rounded-lg border border-line-strong px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent"
+                          className="rounded-control border border-line-strong px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent"
                         >
                           Edit
                         </button>
@@ -1345,7 +1345,7 @@ export default function ToolsPage() {
                   <ToolPhoto
                     url={scanTool.photoUrl}
                     width={160}
-                    className="h-14 w-14 shrink-0 rounded-lg"
+                    className="h-14 w-14 shrink-0 rounded-control"
                   />
                   <div className="min-w-0">
                     <div className="truncate text-base font-semibold">
@@ -1482,7 +1482,7 @@ export default function ToolsPage() {
                   <ToolPhoto
                     url={createPhoto}
                     width={240}
-                    className="h-20 w-20 shrink-0 rounded-lg border border-line"
+                    className="h-20 w-20 shrink-0 rounded-control border border-line"
                   />
                   <div>
                     <PhotoPicker hasPhoto={!!createPhoto} onPick={onPickCreatePhoto} />
@@ -1677,7 +1677,7 @@ export default function ToolsPage() {
               <ToolPhoto
                 url={newPhoto || form.photoUrl}
                 width={240}
-                className="h-20 w-20 shrink-0 rounded-lg border border-line"
+                className="h-20 w-20 shrink-0 rounded-control border border-line"
               />
               <div>
                 <PhotoPicker hasPhoto={!!newPhoto} onPick={onPickPhoto} />

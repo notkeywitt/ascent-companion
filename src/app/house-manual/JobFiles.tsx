@@ -209,7 +209,7 @@ function FolderBrowser({
           ))}
         </div>
       )}
-      <div className="divide-y divide-line-soft rounded-lg bg-neutral-100/60 dark:bg-white/5">
+      <div className="divide-y divide-line-soft rounded-control bg-neutral-100/60 dark:bg-white/5">
         {children.length === 0 && <p className="px-2.5 py-2 text-[12px] text-neutral-500">This folder is empty.</p>}
         {children.map((c) => (
           <div key={c.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2.5 py-2">

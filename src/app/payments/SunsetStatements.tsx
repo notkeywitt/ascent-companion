@@ -84,7 +84,7 @@ const billHref = (inv: { docId?: string; jobId?: string }, canOpen: boolean) =>
     ? `/bill/${encodeURIComponent(inv.docId)}?jobId=${encodeURIComponent(inv.jobId)}&from=payments`
     : "";
 const jtChip =
-  "shrink-0 rounded bg-current/10 px-1 text-[10px] font-semibold uppercase tracking-wide opacity-70 transition hover:opacity-100";
+  "shrink-0 rounded-chip bg-current/10 px-1 text-[10px] font-semibold uppercase tracking-wide opacity-70 transition hover:opacity-100";
 interface MatchInvoice {
   number: string;
   statementAmount?: number;
@@ -262,7 +262,7 @@ function BankRow() {
 
   if (!bank) return null;
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-xl border border-line bg-neutral-50 px-3 py-2 dark:bg-ink-raised">
+    <div className="mb-4 flex flex-wrap items-center gap-1.5 rounded-card border border-line bg-neutral-50 px-3 py-2 dark:bg-ink-raised">
       <span className="mr-1 text-xs font-semibold text-neutral-500">
         {bank.label || "Ascent bank"}
       </span>
@@ -271,7 +271,7 @@ function BankRow() {
       <button
         type="button"
         onClick={() => setShown((v) => !v)}
-        className="rounded-md px-2 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 dark:hover:bg-white/10"
+        className="rounded-inner px-2 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 dark:hover:bg-white/10"
       >
         {shown ? "Hide" : "Reveal"}
       </button>
@@ -690,7 +690,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
               setFilter(f);
             }}
             className={
-              "rounded-full px-3 py-1 text-xs font-semibold capitalize transition " +
+              "rounded-pill px-3 py-1 text-xs font-semibold capitalize transition " +
               (filter === f
                 ? "bg-accent/10 text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
@@ -709,7 +709,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
             onClick={refreshNow}
             disabled={refreshing > 0}
             title="Re-read the statements and re-run the reconcile"
-            className="rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-white/10"
+            className="rounded-pill px-2.5 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-100 disabled:opacity-40 dark:hover:bg-white/10"
           >
             Refresh
           </button>
@@ -724,7 +724,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
               key={m}
               onClick={() => pickMonth(m)}
               className={
-                "rounded-full px-3 py-1 text-xs font-semibold transition " +
+                "rounded-pill px-3 py-1 text-xs font-semibold transition " +
                 (activeMonth === m
                   ? "bg-accent/10 text-accent dark:text-accent-soft"
                   : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
@@ -736,7 +736,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
           <button
             onClick={() => pickMonth("")}
             className={
-              "rounded-full px-3 py-1 text-xs font-semibold transition " +
+              "rounded-pill px-3 py-1 text-xs font-semibold transition " +
               (activeMonth === ""
                 ? "bg-accent/10 text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
@@ -843,7 +843,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
             <li
               key={s.expId}
               className={
-                "rounded-xl border bg-white p-3 dark:bg-ink-raised " +
+                "rounded-card border bg-white p-3 dark:bg-ink-raised " +
                 (pdfStatement?.expId === s.expId ? "border-accent" : "border-line")
               }
             >
@@ -1099,7 +1099,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
                                 </JtLink>
                               )}
                               {inv.isCredit && (
-                                <span className="rounded bg-rose-500/15 px-1 text-[10px] font-semibold uppercase tracking-wide text-danger">
+                                <span className="rounded-chip bg-rose-500/15 px-1 text-[10px] font-semibold uppercase tracking-wide text-danger">
                                   credit
                                 </span>
                               )}
@@ -1134,7 +1134,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
                 {s.statementNumber && <CopyButton value={s.statementNumber} label="Reference ID" />}
                 <JtLink
                   href={TSYS_URL}
-                  className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg transition hover:bg-accent-hover"
+                  className="inline-flex items-center gap-1 rounded-inner bg-accent px-2.5 py-1 text-xs font-semibold text-accent-fg transition hover:bg-accent-hover"
                 >
                   Pay at TSYS ↗
                 </JtLink>
@@ -1143,7 +1143,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
                     type="button"
                     onClick={() => setPdfFor(s.expId)}
                     disabled={pdfStatement?.expId === s.expId}
-                    className="inline-flex items-center rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 transition hover:border-accent hover:text-accent disabled:border-accent disabled:text-accent dark:border-neutral-600 dark:text-neutral-300"
+                    className="inline-flex items-center rounded-inner border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 transition hover:border-accent hover:text-accent disabled:border-accent disabled:text-accent dark:border-neutral-600 dark:text-neutral-300"
                   >
                     {pdfStatement?.expId === s.expId ? "PDF shown →" : "View PDF"}
                   </button>
@@ -1152,7 +1152,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
                     href={s.pdfUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center rounded-md border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 transition hover:border-accent hover:text-accent dark:border-neutral-600 dark:text-neutral-300"
+                    className="inline-flex items-center rounded-inner border border-neutral-300 px-2.5 py-1 text-xs font-semibold text-neutral-600 transition hover:border-accent hover:text-accent dark:border-neutral-600 dark:text-neutral-300"
                   >
                     View PDF
                   </a>
@@ -1207,7 +1207,7 @@ export function SunsetStatements({ embedded = false }: { embedded?: boolean } = 
           over the cards scrolls the page. Nothing is inline to trap. */}
       {pdfStatement && (
         <aside
-          className="sticky-below-header hidden min-w-0 flex-col overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised xl:sticky xl:flex"
+          className="sticky-below-header hidden min-w-0 flex-col overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised xl:sticky xl:flex"
           style={{ height: "calc(100dvh - var(--appheader-h) - var(--tabbar-h) - 1.5rem)" }}
         >
           <div className="flex shrink-0 items-center gap-3 border-b border-line-soft px-3 py-2 text-xs">
@@ -1306,7 +1306,7 @@ function MonthCheck({
     });
   if (rows.length === 0 && stale.length === 0) return null;
   return (
-    <div className="mb-4 rounded-xl border border-line bg-white px-3 py-2 text-xs dark:bg-ink-raised">
+    <div className="mb-4 rounded-card border border-line bg-white px-3 py-2 text-xs dark:bg-ink-raised">
       {stale.length > 0 && (
         <div className="mb-1.5 text-warn">
           <div className="font-semibold">⚠ Links that no longer apply ({stale.length})</div>

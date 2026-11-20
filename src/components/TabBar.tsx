@@ -418,7 +418,7 @@ export function TabBar() {
           light and white in dark. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 rounded-t-2xl border-t border-line bg-white pb-[env(safe-area-inset-bottom)] text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-white print:hidden pad:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 rounded-t-sheet border-t border-line bg-white pb-[env(safe-area-inset-bottom)] text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-white print:hidden pad:hidden"
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
           const start = touchY.current;
@@ -451,7 +451,7 @@ export function TabBar() {
                 {/* The active mark is a short rule above the icon, in the text colour. */}
                 <span
                   aria-hidden
-                  className={`h-0.5 w-4 shrink-0 rounded-full ${on ? "bg-current" : "bg-transparent"}`}
+                  className={`h-0.5 w-4 shrink-0 rounded-pill ${on ? "bg-current" : "bg-transparent"}`}
                 />
                 <Icon />
                 {labelOf(t)}
@@ -520,7 +520,7 @@ export function TabBar() {
                 href={t.href + qs}
                 aria-current={on ? "page" : undefined}
                 onClick={guard}
-                className={`relative flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
+                className={`relative flex flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
                   on
                     ? `bg-accent/10 text-accent dark:text-accent-soft`
                     : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -543,7 +543,7 @@ export function TabBar() {
             type="button"
             onClick={openNotesBug}
             title="Jot a note, bug or feature request"
-            className="relative mb-1 hidden w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 lg:flex wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px]"
+            className="relative mb-1 hidden w-full flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 lg:flex wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px]"
           >
             <ClipboardIcon />
             <span className="rail-label min-w-0">Notes</span>
@@ -557,7 +557,7 @@ export function TabBar() {
                 ? "The stream did not start. Try again."
                 : "Lopez Island's radio station, live"
             }
-            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
+            className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
               kloi.playing
                 ? "bg-accent/10 text-accent dark:text-accent-soft"
                 : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -573,7 +573,7 @@ export function TabBar() {
               href="/lopezrocks"
               aria-current={isHereRoot("/lopezrocks") ? "page" : undefined}
               onClick={guard}
-              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
+              className={`relative mb-1 flex flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
                 isHereRoot("/lopezrocks")
                   ? "bg-accent/10 text-accent dark:text-accent-soft"
                   : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -589,7 +589,7 @@ export function TabBar() {
               href="/art/flock"
               aria-current={isHereRoot("/art/flock") ? "page" : undefined}
               onClick={guard}
-              className={`relative mb-1 flex flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
+              className={`relative mb-1 flex flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-3 wide:text-left wide:text-[13px] ${
                 isHereRoot("/art/flock")
                   ? "bg-accent/10 text-accent dark:text-accent-soft"
                   : "text-neutral-500 hover:text-accent dark:text-neutral-400"
@@ -610,7 +610,7 @@ export function TabBar() {
               onClick={toggleRail}
               aria-label={railHidden ? "Show the labels" : "Hide the labels"}
               title={railHidden ? "Show the labels" : "Hide the labels"}
-              className="flex flex-1 items-center justify-center rounded-xl py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 wide:justify-start wide:px-2"
+              className="flex flex-1 items-center justify-center rounded-card py-2 text-[15px] text-neutral-500 hover:text-accent dark:text-neutral-400 wide:justify-start wide:px-2"
             >
               {railHidden ? "›" : "‹"}
             </button>

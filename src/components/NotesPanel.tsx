@@ -395,7 +395,7 @@ function NoteRow({
                 if (onOpenBill?.(note, b)) e.preventDefault();
               }}
               title="Open the bill"
-              className="max-w-full truncate rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-accent hover:text-accent"
+              className="max-w-full truncate rounded-pill border border-line px-2.5 py-0.5 text-[12px] hover:border-accent hover:text-accent"
             >
               {b.label || "Bill"}
             </a>
@@ -575,7 +575,7 @@ function NoteForm({
 
   const listId = `note-names-${initial.jobId || "all"}`;
   return (
-    <div className="space-y-2 rounded-lg border border-line bg-white p-3 dark:bg-ink-raised">
+    <div className="space-y-2 rounded-control border border-line bg-white p-3 dark:bg-ink-raised">
       <div
         role="separator"
         aria-label="Drag to resize the note box"
@@ -597,7 +597,7 @@ function NoteForm({
           window.addEventListener("pointerup", up);
         }}
       >
-        <span className="h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+        <span className="h-1 w-10 rounded-pill bg-neutral-300 dark:bg-neutral-600" />
       </div>
       <Textarea
         autoFocus
@@ -660,7 +660,7 @@ function NoteForm({
                 type="button"
                 onClick={() => setInvolves((cur) => cur.filter((c) => c !== n))}
                 title="Remove"
-                className="rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-danger hover:text-danger"
+                className="rounded-pill border border-line px-2.5 py-0.5 text-[12px] hover:border-danger hover:text-danger"
               >
                 {n} ×
               </button>
@@ -741,7 +741,7 @@ function BillPicker({
               type="button"
               onClick={() => onChange(bills.filter((x) => x.docId !== b.docId))}
               title="Remove"
-              className="rounded-full border border-line px-2.5 py-0.5 text-[12px] hover:border-danger hover:text-danger"
+              className="rounded-pill border border-line px-2.5 py-0.5 text-[12px] hover:border-danger hover:text-danger"
             >
               {b.label || "Bill"} ×
             </button>
@@ -824,7 +824,7 @@ function FloatingBelow({
   const left = Math.max(8, Math.min(box.left, window.innerWidth - box.width - 8));
   return createPortal(
     <div
-      className="fixed z-40 rounded-lg shadow-xl"
+      className="fixed z-40 rounded-control shadow-xl"
       style={{ top: box.top, left, width: box.width }}
     >
       {children}

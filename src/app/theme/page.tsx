@@ -219,7 +219,7 @@ export default function ThemeEditorPage() {
                   type="button"
                   onClick={() => switchPalette(p)}
                   aria-pressed={palette === p}
-                  className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold transition ${
+                  className={`min-h-11 rounded-pill border px-4 text-[13px] font-semibold transition ${
                     palette === p
                       ? "border-accent bg-accent text-accent-fg"
                       : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"
@@ -239,7 +239,7 @@ export default function ThemeEditorPage() {
                   type="button"
                   onClick={() => switchTheme(t)}
                   aria-pressed={theme === t}
-                  className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold capitalize transition ${
+                  className={`min-h-11 rounded-pill border px-4 text-[13px] font-semibold capitalize transition ${
                     theme === t
                       ? "border-accent bg-accent text-accent-fg"
                       : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"
@@ -372,7 +372,7 @@ export default function ThemeEditorPage() {
           Paste this into the matching token block in <code>src/app/globals.css</code>, then
           record the values in <code>THEME.md</code> in the same commit.
         </p>
-        <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-line-soft bg-neutral-50 p-3 text-xs leading-relaxed dark:bg-white/5">
+        <pre className="mt-3 max-h-72 overflow-auto rounded-control border border-line-soft bg-neutral-50 p-3 text-xs leading-relaxed dark:bg-white/5">
           <code>{css}</code>
         </pre>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -423,7 +423,7 @@ function TokenRow({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           aria-label={`${label} colour`}
-          className="h-11 w-11 shrink-0 cursor-pointer rounded-lg border border-line-strong bg-transparent p-0.5"
+          className="h-11 w-11 shrink-0 cursor-pointer rounded-control border border-line-strong bg-transparent p-0.5"
         />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -446,14 +446,14 @@ function TokenRow({
           }}
           spellCheck={false}
           aria-label={`${label} hex`}
-          className="w-[104px] shrink-0 rounded-lg border border-line-strong bg-transparent px-2.5 py-2 font-mono text-sm uppercase"
+          className="w-[104px] shrink-0 rounded-control border border-line-strong bg-transparent px-2.5 py-2 font-mono text-sm uppercase"
         />
         {changed && (
           <button
             type="button"
             onClick={() => onChange(baseValue)}
             title={`Back to ${baseValue}`}
-            className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-neutral-500 transition hover:text-accent"
+            className="shrink-0 rounded-inner px-2 py-1 text-xs font-semibold text-neutral-500 transition hover:text-accent"
           >
             Revert
           </button>

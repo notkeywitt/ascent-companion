@@ -116,7 +116,7 @@ function Group({
         {title} ({items.length})
       </div>
       {hint && <p className="mt-0.5 text-xs text-neutral-500">{hint}</p>}
-      <ul className="mt-1.5 divide-y divide-neutral-200 rounded-xl border border-line dark:divide-neutral-700/60 ">
+      <ul className="mt-1.5 divide-y divide-neutral-200 rounded-card border border-line dark:divide-neutral-700/60 ">
         {items.map((it, i) => (
           <Row key={(it.expId || it.subject || "row") + i} item={it} />
         ))}
@@ -162,7 +162,7 @@ export function InvoiceSweepResultModal({
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-card ${
               anyProblem
                 ? "bg-amber-100 text-warn dark:bg-amber-950/50"
                 : "bg-emerald-100 text-ok dark:bg-emerald-950/50"

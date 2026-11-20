@@ -307,7 +307,7 @@ export function SectionHeading({
       {/* The heading rule is a GRAPHIC mark, so it reads `brand`, not `accent`.
           Identical under the Guidelines palette (both are ochre) and the reason
           the Website palette keeps its ochre mark while the accent goes black. */}
-      <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-brand" />
+      <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-pill bg-brand" />
       {onToggle ? (
         // `-my-2` keeps a thumb-sized 44px tap area without making the heading
         // row taller than every other SectionHeading on the page — the same
@@ -854,7 +854,7 @@ export function Notice({
           onClick={onDismiss}
           aria-label="Dismiss"
           title="Dismiss"
-          className="-my-2.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg opacity-70 hover:opacity-100"
+          className="-my-2.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-control opacity-70 hover:opacity-100"
         >
           ✕
         </button>
@@ -896,7 +896,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={`animate-pulse rounded bg-neutral-200/70 dark:bg-white/10 ${className}`}
+      className={`animate-pulse rounded-chip bg-neutral-200/70 dark:bg-white/10 ${className}`}
     />
   );
 }
@@ -1067,7 +1067,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`ui-seg inline-flex items-center justify-center whitespace-nowrap rounded-[calc(var(--radius-control)*0.75)] transition ${seg} ${fill ? "flex-1" : ""} ${
+            className={`ui-seg inline-flex items-center justify-center whitespace-nowrap rounded-inner transition ${seg} ${fill ? "flex-1" : ""} ${
               on
                 ? "bg-white font-semibold text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
                 : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"

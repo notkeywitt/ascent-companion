@@ -582,7 +582,7 @@ export function PageFlow({
         <span>Dashed box = moved or added in your sketch</span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg bg-neutral-100 p-2 text-xs dark:bg-white/[0.07]">
+      <div className="flex flex-wrap items-center gap-2 rounded-control bg-neutral-100 p-2 text-xs dark:bg-white/[0.07]">
         {selNode && selNode.kind === "page" && selNode !== root ? (
           <>
             <b className="text-sm">{selNode.label}</b>
@@ -666,7 +666,7 @@ export function PageFlow({
       </div>
 
       {adding && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line p-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 rounded-control border border-line p-2 text-xs">
           <Input
             aria-label="New page name"
             placeholder="New page name"
@@ -704,7 +704,7 @@ export function PageFlow({
 
       <div
         ref={scrollRef}
-        className="min-h-0 overflow-auto rounded-lg border border-line"
+        className="min-h-0 overflow-auto rounded-control border border-line"
         style={framed ? { flex: "1 1 0" } : { maxHeight: "75vh" }}
       >
         <svg width={width * scale} height={height * scale} viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Page hierarchy" className="block">

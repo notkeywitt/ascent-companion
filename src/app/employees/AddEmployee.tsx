@@ -274,7 +274,7 @@ export function AddEmployee({
         </div>
 
         {/* App sign-in */}
-        <div className="mt-4 rounded-lg border border-line p-3">
+        <div className="mt-4 rounded-control border border-line p-3">
           <Label>App sign-in</Label>
           {appUsers && (
             <div className="mb-3 flex flex-wrap gap-2">

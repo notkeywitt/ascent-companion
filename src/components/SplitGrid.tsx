@@ -76,7 +76,7 @@ function ColHandle({
     >
       {/* A hairline at rest, the accent under the pointer — the strip is 20px
           wide so it can be grabbed, but only 1px of it is ever drawn. */}
-      <div className="w-px bg-line transition-all group-hover:w-1 group-hover:rounded-full group-hover:bg-accent group-focus:w-1 group-focus:rounded-full group-focus:bg-accent" />
+      <div className="w-px bg-line transition-all group-hover:w-1 group-hover:rounded-pill group-hover:bg-accent group-focus:w-1 group-focus:rounded-pill group-focus:bg-accent" />
     </div>
   );
 }

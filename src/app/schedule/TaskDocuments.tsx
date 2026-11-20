@@ -71,7 +71,7 @@ export function TaskDocuments({
       )}
 
       {docs.length > 0 && (
-        <ul className="mb-2 divide-y divide-line-soft rounded-lg border border-line">
+        <ul className="mb-2 divide-y divide-line-soft rounded-control border border-line">
           {docs.map((d) => (
             <li key={d.id} className="flex items-center gap-2 px-2.5 py-2 text-[13px]">
               <DocText d={d} onOpen={() => setDetailId(d.id)} />
@@ -167,14 +167,14 @@ function Attach({
   const shown = useMemo(() => (all ?? []).filter((d) => docMatches(d, q)).slice(0, 60), [all, q]);
 
   return (
-    <div className="rounded-lg border border-line p-2">
+    <div className="rounded-control border border-line p-2">
       <div className="mb-2 flex items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search draft bills, expenses and estimates"
           aria-label="Search this job's draft bills, expenses and estimates"
-          className="min-h-10 w-full rounded-lg border border-line bg-white px-3 text-sm dark:bg-ink-raised"
+          className="min-h-10 w-full rounded-control border border-line bg-white px-3 text-sm dark:bg-ink-raised"
         />
         <Button variant="secondary" size="sm" onClick={onCancel}>
           Cancel
@@ -296,7 +296,7 @@ export function DocDetailDialog({ id, onClose }: { id: string; onClose: () => vo
             {d.lines.length === 0 ? (
               <p className="text-[13px] text-neutral-500">This document has no lines.</p>
             ) : (
-              <ul className="divide-y divide-line-soft rounded-lg border border-line">
+              <ul className="divide-y divide-line-soft rounded-control border border-line">
                 {d.lines.map((l, i) => (
                   <li key={i} className="flex items-start gap-2 px-2.5 py-2 text-[13px]">
                     <div className="min-w-0 flex-1">

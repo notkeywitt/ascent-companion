@@ -28,7 +28,7 @@ function Login() {
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
       {/* Brand lockup, over the brand hairline the app chrome carries. */}
-      <AscentIcon className="mb-6 h-14 w-14 rounded-md" />
+      <AscentIcon className="mb-6 h-14 w-14 rounded-inner" />
       <p className="text-[13px] font-medium uppercase tracking-[0.14em] text-offblack dark:text-cream">
         Ascent
         <br />

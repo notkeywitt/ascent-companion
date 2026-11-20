@@ -111,7 +111,7 @@ export function CopyInPlace() {
 
       {/* The mode's own bar, so it is never left on by accident. */}
       <div
-        className="fixed right-3 z-50 flex items-center gap-3 rounded-full border border-line bg-white py-1.5 pl-4 pr-1.5 text-xs shadow-lg dark:bg-ink-raised print:hidden"
+        className="fixed right-3 z-50 flex items-center gap-3 rounded-pill border border-line bg-white py-1.5 pl-4 pr-1.5 text-xs shadow-lg dark:bg-ink-raised print:hidden"
         style={{ bottom: "calc(var(--tabbar-h, 0px) + 12px)" }}
       >
         <span className="text-neutral-600 dark:text-neutral-300">
@@ -183,7 +183,7 @@ function Editor({ open, onClose }: { open: Open; onClose: () => void }) {
       <div
         role="dialog"
         aria-label="Edit text"
-        className="fixed z-50 w-[min(340px,calc(100vw-16px))] space-y-3 rounded-xl border border-line bg-white p-3 shadow-xl dark:bg-ink-raised"
+        className="fixed z-50 w-[min(340px,calc(100vw-16px))] space-y-3 rounded-card border border-line bg-white p-3 shadow-xl dark:bg-ink-raised"
         style={pos}
       >
         {keys.map((k) => {

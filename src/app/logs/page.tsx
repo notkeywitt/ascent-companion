@@ -108,7 +108,7 @@ export default function LogsPage() {
 
       {/* One hairline list, not a box per entry (CONSOLIDATION_PLAN look rule 1). */}
       {items.length > 0 && (
-      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
         {items.map((it, i) => (
           <li key={i} className="p-3 lg:flex lg:items-start lg:gap-6">
             <div className="flex flex-wrap items-center gap-2 lg:w-[30rem] lg:shrink-0">
@@ -116,7 +116,7 @@ export default function LogsPage() {
               {it.level && (
                 <span
                   className={
-                    "rounded-full px-2 py-0.5 text-[11px] font-semibold " + toneClass(it.level)
+                    "rounded-pill px-2 py-0.5 text-[11px] font-semibold " + toneClass(it.level)
                   }
                 >
                   {it.level}
@@ -135,7 +135,7 @@ export default function LogsPage() {
             {it.status && (
               <span
                 className={
-                  "mt-1 inline-block rounded-full lg:mt-0 lg:shrink-0  px-2 py-0.5 text-[11px] font-semibold " +
+                  "mt-1 inline-block rounded-pill lg:mt-0 lg:shrink-0  px-2 py-0.5 text-[11px] font-semibold " +
                   toneClass(it.status)
                 }
               >

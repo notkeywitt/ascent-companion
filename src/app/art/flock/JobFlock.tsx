@@ -211,7 +211,7 @@ export function JobFlock() {
         className={`overflow-hidden bg-white dark:bg-ink-raised [&:fullscreen]:aspect-auto [&:fullscreen]:rounded-none [&:fullscreen]:border-0 ${
           immersive
             ? "fixed z-40"
-            : "relative aspect-[3/2] w-full rounded-xl border border-line transition-[max-width] duration-300"
+            : "relative aspect-[3/2] w-full rounded-card border border-line transition-[max-width] duration-300"
         }`}
         style={
           immersive
@@ -374,7 +374,7 @@ export function JobFlock() {
                       type="button"
                       onClick={() => setFocus((f) => (f === g ? null : g))}
                       aria-pressed={focus === g}
-                      className={`flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm transition ${
+                      className={`flex min-h-9 w-full items-center gap-2 rounded-inner px-1.5 text-left text-sm transition ${
                         focus === g ? "bg-neutral-100 dark:bg-white/[0.07]" : ""
                       } ${focus !== null && focus !== g ? "opacity-50" : ""}`}
                     >

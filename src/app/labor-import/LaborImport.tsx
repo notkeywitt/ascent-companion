@@ -902,7 +902,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
             if (f) loadFile(f);
           }}
           className={
-            "flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed px-6 py-16 text-center transition " +
+            "flex cursor-pointer flex-col items-center justify-center rounded-sheet border-2 border-dashed px-6 py-16 text-center transition " +
             (dragOver
               ? "border-accent bg-accent/5"
               : "border-neutral-300 hover:border-accent dark:border-neutral-700")
@@ -927,7 +927,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
       {entries && (
         <>
           {/* Summary + download */}
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
             <div className="text-sm">
               <div className="font-medium">{fileName}</div>
               <div className="text-xs text-neutral-500">
@@ -980,7 +980,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
           </div>
 
           {/* Worker → JobTread user */}
-          <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+          <div className="mb-5 rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
             <div className="mb-2 text-sm font-semibold">
               JobTread users
               {workersNeedingId.length > 0 && (
@@ -1010,7 +1010,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                   <select
                     value={workerIdMap[w] ?? ""}
                     onChange={(e) => setWorkerId(w, e.target.value)}
-                    className="flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                    className="flex-1 rounded-inner border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                   >
                     <option value="">— pick JobTread user —</option>
                     {(jtUsers ?? []).map((u) => (
@@ -1034,7 +1034,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
 
           {/* Job ID mapping — only for jobs currently selected */}
           {[...selJobs].length > 0 && (
-            <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+            <div className="mb-5 rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <div className="text-sm font-semibold">
                   JobTread Job IDs
@@ -1137,7 +1137,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
 
           {/* Pay type — per worker × job × cost code, each with its time entries */}
           {typeCombos.length > 0 && (
-            <div className="mb-5 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+            <div className="mb-5 rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
               <div className="mb-2 text-sm font-semibold">
                 Pay type
                 {typesNeeded.length > 0 && (
@@ -1193,7 +1193,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
                         <select
                           value={typeMap[c.key] ?? cur ?? ""}
                           onChange={(e) => setType(c.key, e.target.value)}
-                          className="min-w-0 flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
+                          className="min-w-0 flex-1 rounded-inner border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink"
                         >
                           <option value="">
                             {mapped ? "— pick a pay type —" : "— map this worker first —"}
@@ -1268,7 +1268,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
 
           {/* CSI codes that aren't a cost item in that job's JobTread budget */}
           {noCostItem.length > 0 && (
-            <details className="mb-5 rounded-xl border border-line bg-white p-3 text-sm dark:bg-ink-raised">
+            <details className="mb-5 rounded-card border border-line bg-white p-3 text-sm dark:bg-ink-raised">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
                 {noCostItem.length} row{noCostItem.length === 1 ? "" : "s"} held back — cost code not
                 in that job&apos;s JobTread budget
@@ -1297,7 +1297,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
 
           {/* Dropped rows */}
           {dropped.length > 0 && (
-            <details className="mb-5 rounded-xl border border-line bg-white p-3 text-sm dark:bg-ink-raised">
+            <details className="mb-5 rounded-card border border-line bg-white p-3 text-sm dark:bg-ink-raised">
               <summary className="cursor-pointer font-medium text-neutral-600 dark:text-neutral-300">
                 {dropped.length} row{dropped.length === 1 ? "" : "s"} dropped (can&apos;t be imported)
               </summary>
@@ -1314,7 +1314,7 @@ export function LaborImport({ embedded = false }: { embedded?: boolean } = {}) {
           )}
 
           {/* Preview */}
-          <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
+          <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr>
@@ -1404,7 +1404,7 @@ function JobIdControl({
   onManual: (on: boolean) => void;
 }) {
   const cls =
-    "flex-1 rounded-md border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink";
+    "flex-1 rounded-inner border border-neutral-300 bg-white px-2 py-1 text-sm transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 dark:border-neutral-600 dark:bg-ink";
 
   if (jtJobs && jtJobs.length > 0 && !manual) {
     const known = jtJobs.some((j) => j.id === value);
@@ -1467,7 +1467,7 @@ function JobIdControl({
 
 function FilterCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+    <div className="rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
       <div className="mb-2 text-sm font-semibold">{title}</div>
       <div className="max-h-56 space-y-1 overflow-y-auto">{children}</div>
     </div>

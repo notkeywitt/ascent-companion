@@ -2204,7 +2204,7 @@ export function EmployeeTimeClient({
           <button
             type="button"
             onClick={logAnother}
-            className="w-full rounded-full bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
+            className="w-full rounded-pill bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
           >
             Done
           </button>
@@ -2372,12 +2372,12 @@ export function EmployeeTimeClient({
       {/* ========================================================= TIME CLOCK */}
       {tab === "clock" && !showCard && (
         <>
-          <div className="mb-3 flex items-baseline justify-between rounded-xl bg-neutral-100 px-3 py-2 dark:bg-neutral-800/60">
+          <div className="mb-3 flex items-baseline justify-between rounded-card bg-neutral-100 px-3 py-2 dark:bg-neutral-800/60">
             <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">Today&apos;s hours</span>
             <span className="text-xl font-bold tabular-nums">{fmtMinutes(todayTotalMin) || "0m"}</span>
           </div>
           {clockNote && (
-            <p className="mb-3 rounded-xl bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
+            <p className="mb-3 rounded-card bg-neutral-100 px-3 py-2 text-xs text-neutral-600 dark:bg-neutral-800/60 dark:text-neutral-300">
               {clockNote}
             </p>
           )}
@@ -2623,7 +2623,7 @@ export function EmployeeTimeClient({
                     : clockIn
               }
               disabled={busy || resolving || checkingClock}
-              className={`${running ? "min-w-0 flex-1 px-4 sm:max-w-[260px]" : "min-w-[220px] px-10"} rounded-full py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`${running ? "min-w-0 flex-1 px-4 sm:max-w-[260px]" : "min-w-[220px] px-10"} rounded-pill py-4 text-lg font-bold shadow-lg transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 ${
                 onBreakSince
                   ? "bg-amber-400 text-black hover:bg-amber-500"
                   : running
@@ -2874,7 +2874,7 @@ export function EmployeeTimeClient({
           <button
             type="button"
             onClick={closeSheet}
-            className="w-full rounded-full bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover"
+            className="w-full rounded-pill bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover"
           >
             Save note
           </button>
@@ -2901,7 +2901,7 @@ export function EmployeeTimeClient({
             type="button"
             onClick={confirmClockOut}
             disabled={busy}
-            className="w-full rounded-full bg-red-600 px-4 py-3.5 text-base font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-pill bg-red-600 px-4 py-3.5 text-base font-bold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Saving…" : `Clock out — ${clockOutDuration || elapsed}`}
           </button>
@@ -3019,7 +3019,7 @@ export function EmployeeTimeClient({
             type="button"
             onClick={submit}
             disabled={busy}
-            className="w-full rounded-full bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-pill bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Saving…" : "Log time"}
           </button>
@@ -3131,7 +3131,7 @@ export function EmployeeTimeClient({
             type="button"
             onClick={saveEdit}
             disabled={editBusy}
-            className="w-full rounded-full bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-pill bg-accent px-4 py-3.5 text-base font-bold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {editBusy ? "Saving…" : "Save changes"}
           </button>
@@ -3272,7 +3272,7 @@ function PillTab({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold transition ${
+      className={`min-h-11 rounded-pill border px-4 text-[13px] font-semibold transition ${
         active
           ? "border-accent bg-accent text-accent-fg"
           : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
@@ -3377,7 +3377,7 @@ function ChipInput({
   // wheel and the desktop a dropdown, so nobody types "7:0" into a shift.
   const options = type === "time" ? quarterHours(value) : null;
   return (
-    <span className="relative inline-flex min-h-11 items-center rounded-xl bg-neutral-200/80 px-3.5 text-sm font-semibold dark:bg-white/10">
+    <span className="relative inline-flex min-h-11 items-center rounded-card bg-neutral-200/80 px-3.5 text-sm font-semibold dark:bg-white/10">
       {display}
       {options ? (
         /* Raw select: invisible overlay on a styled label. */
@@ -3870,7 +3870,7 @@ function PhotoPicker({
         {photos.map((p, i) => (
           <div
             key={i}
-            className="relative h-20 w-20 overflow-hidden rounded-lg border border-line"
+            className="relative h-20 w-20 overflow-hidden rounded-control border border-line"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={p.base64} alt={`Photo ${i + 1}`} className="h-full w-full object-cover" />
@@ -3885,7 +3885,7 @@ function PhotoPicker({
           </div>
         ))}
         {photos.length < MAX_PHOTOS && (
-          <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-neutral-300 text-2xl text-neutral-400 transition hover:border-accent hover:text-accent dark:border-neutral-600">
+          <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center rounded-control border-2 border-dashed border-neutral-300 text-2xl text-neutral-400 transition hover:border-accent hover:text-accent dark:border-neutral-600">
             +
             <input
               type="file"

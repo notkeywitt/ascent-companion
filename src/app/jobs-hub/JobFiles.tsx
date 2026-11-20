@@ -74,7 +74,7 @@ function TileGrid({ tiles, square }: { tiles: Tile[]; square?: boolean }) {
               src={t.thumb || pageSrc(t.file, t.page)}
               alt={t.label}
               loading="lazy"
-              className={`w-full cursor-zoom-in rounded-lg border border-line bg-white ${square ? "aspect-square object-cover" : "aspect-[4/3] object-contain"}`}
+              className={`w-full cursor-zoom-in rounded-control border border-line bg-white ${square ? "aspect-square object-cover" : "aspect-[4/3] object-contain"}`}
             />
             <span className="mt-1 block truncate text-[12px] text-neutral-500 dark:text-neutral-400">
               {t.label}

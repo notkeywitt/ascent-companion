@@ -716,13 +716,13 @@ export function InvoiceReview({ embedYm, focusJobId }: { embedYm?: string; focus
               short reading were three more summaries of the same list, and
               the owner asked for them gone (2026-11-10). */}
           {report ? (
-            <section className="mt-6 rounded-xl border border-line px-4 py-4">
+            <section className="mt-6 rounded-card border border-line px-4 py-4">
               <ReportText markdown={report} />
             </section>
           ) : null}
 
           {runs.length ? (
-            <details className="mt-3 rounded-lg border border-line px-4 py-3">
+            <details className="mt-3 rounded-control border border-line px-4 py-3">
               <summary className="cursor-pointer text-sm font-medium">Scheduled runs</summary>
               <ul className="mt-2 divide-y divide-line-soft text-xs">
                 {runs.map((r) => (
@@ -788,7 +788,7 @@ export function InvoiceReview({ embedYm, focusJobId }: { embedYm?: string; focus
                 {customer}
               </SectionHeading>
               {isFolded(customer) ? null : (
-              <div className="mt-2 overflow-hidden rounded-xl border border-line">
+              <div className="mt-2 overflow-hidden rounded-card border border-line">
                 {findings.map((f, i) => {
                   const isOpen = open.has(f.key);
                   return (
@@ -919,7 +919,7 @@ export function InvoiceReview({ embedYm, focusJobId }: { embedYm?: string; focus
                           </div>
 
                           {ruling?.finding.key === f.key ? (
-                            <div className="mt-3 rounded-lg border border-line-strong p-3">
+                            <div className="mt-3 rounded-control border border-line-strong p-3">
                               <p className="text-xs opacity-70">
                                 Say why this is fine. It is recorded, and this finding won&apos;t
                                 be raised again.

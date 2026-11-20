@@ -83,7 +83,7 @@ export function PlaceInput({
         <ul
           id={listId}
           role="listbox"
-          className="absolute left-0 right-0 top-full z-40 mt-1 max-h-72 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-lg border border-line bg-white shadow-lg dark:bg-ink-overlay"
+          className="absolute left-0 right-0 top-full z-40 mt-1 max-h-72 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-control border border-line bg-white shadow-lg dark:bg-ink-overlay"
         >
           {suggestions.map((s, i) => (
             <li

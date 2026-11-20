@@ -173,7 +173,7 @@ function Chat() {
           <div key={i} className={m.role === "user" ? "flex justify-end" : "flex justify-start"}>
             <div
               className={
-                "max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 text-sm " +
+                "max-w-[85%] whitespace-pre-wrap rounded-sheet px-4 py-2.5 text-sm " +
                 (m.role === "user"
                   ? "bg-accent text-accent-fg"
                   : "border border-line bg-white  dark:bg-ink-raised")

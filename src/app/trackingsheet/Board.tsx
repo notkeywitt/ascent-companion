@@ -1745,7 +1745,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                       );
                     }}
                     title={embed.noteDocs?.has(b.id) ? "Go to this bill's note" : "Add a note about this bill"}
-                    className="shrink-0 rounded px-1 text-xs font-semibold text-accent hover:underline"
+                    className="shrink-0 rounded-chip px-1 text-xs font-semibold text-accent hover:underline"
                   >
                     {embed.noteDocs?.has(b.id) ? "Note" : "Add Note"}
                   </button>
@@ -2198,7 +2198,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             title="Show the budget column"
             className="hidden shrink-0 items-center gap-2.5 transition hover:text-accent lg:flex"
           >
-            <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-brand" />
+            <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-pill bg-brand" />
             <SectionLabel>Budget</SectionLabel>
             <span aria-hidden className="text-[9px] text-neutral-500 dark:text-neutral-400">
               →
@@ -2210,7 +2210,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             type="button"
             onClick={() => setBillCodeFilter(null)}
             title="Clear this cost-code filter"
-            className="flex min-w-0 max-w-full items-center gap-2 rounded-lg border border-accent bg-accent/10 py-1.5 pl-2.5 pr-2 text-left transition hover:bg-accent/20"
+            className="flex min-w-0 max-w-full items-center gap-2 rounded-control border border-accent bg-accent/10 py-1.5 pl-2.5 pr-2 text-left transition hover:bg-accent/20"
           >
             {/* The arc's own colour, so the banner and the slice that set
                 it are visibly the same thing. Falls back to the accent
@@ -2516,7 +2516,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                 type="button"
                 onClick={() => stepBill(-1)}
                 disabled={openIndex === 0}
-                className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
+                className="rounded-control px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
               >
                 ← Previous
               </button>
@@ -2527,7 +2527,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                 type="button"
                 onClick={() => stepBill(1)}
                 disabled={openIndex >= orderedBills.length - 1}
-                className="rounded-lg px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
+                className="rounded-control px-2 py-1 font-semibold text-accent transition hover:bg-accent/10 disabled:opacity-40 dark:text-accent-soft"
               >
                 Next →
               </button>
@@ -2615,7 +2615,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         <div
           className={`absolute bottom-full right-0 hidden w-[26rem] max-w-[calc(100vw-2rem)] pb-2 ${barHover && !noHover ? "lg:block" : ""}`}
         >
-          <div className="flex flex-col gap-3 rounded-xl border border-line bg-white p-4 shadow-lg dark:bg-ink-raised">
+          <div className="flex flex-col gap-3 rounded-card border border-line bg-white p-4 shadow-lg dark:bg-ink-raised">
             {closingActions(true)}
           </div>
         </div>
@@ -2732,7 +2732,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                     moveLinesToLeaf(leafPicker.lineIds, leaf.id);
                     setLeafPicker(null);
                   }}
-                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
+                  className="flex min-h-11 w-full items-center justify-between gap-3 rounded-control border border-line px-3 py-2 text-left text-sm transition hover:border-accent hover:bg-accent/5 dark:border-neutral-700"
                 >
                   <span className="min-w-0 truncate">
                     {leaf.detail || leaf.name}
@@ -2796,7 +2796,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               return (
                 <li
                   key={b.id}
-                  className="rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
+                  className="rounded-control border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
                 >
                   <div className="flex items-baseline justify-between gap-3">
                     <span className="min-w-0 truncate font-medium">{b.label}</span>

@@ -136,6 +136,7 @@
   --caption-tracking: 0.025em; /* SectionLabel, Label, Chip, table heads */
 
   --radius-chip: 0.25rem;
+  --radius-inner: 0.375rem; /* a control inside a control */
   --radius-control: 0.5rem;
   --radius-card: 0.75rem;
   --radius-sheet: 1rem;

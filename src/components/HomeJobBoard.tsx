@@ -427,7 +427,7 @@ function BoardCard({
     >
       <Link
         href={hubHref(c.id)}
-        className="flex flex-1 flex-col gap-2 rounded-lg transition hover:opacity-80"
+        className="flex flex-1 flex-col gap-2 rounded-control transition hover:opacity-80"
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
@@ -476,7 +476,7 @@ function DrilldownToggle({ open, onToggle }: { open: boolean; onToggle: () => vo
       type="button"
       onClick={onToggle}
       aria-expanded={open}
-      className="-mx-1 flex min-h-9 items-center justify-between gap-2 rounded-lg border-t border-line-soft px-1 pt-2 text-left text-[12px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+      className="-mx-1 flex min-h-9 items-center justify-between gap-2 rounded-control border-t border-line-soft px-1 pt-2 text-left text-[12px] font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
     >
       Schedule & cost by division
       {/* Same mark and rotation SectionHeading uses, so a fold reads the same
@@ -670,7 +670,7 @@ export function HomeJobBoard() {
   if (cards === null) {
     return (
       <div className="mb-6">
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-card" />
       </div>
     );
   }

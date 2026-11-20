@@ -108,7 +108,7 @@ export function AppHeader() {
             box's text baseline. The line-height strut adds its descender space
             BELOW the mark, which pushed the lockup 3.5px above centre. A flex
             container makes no line box, so the mark centres on its own height. */}
-        <ThemeToggle className="inline-flex shrink-0 items-center rounded-lg p-1 transition active:bg-accent/10">
+        <ThemeToggle className="inline-flex shrink-0 items-center rounded-control p-1 transition active:bg-accent/10">
           {/* Wordmark hidden on narrow / side-panel widths; icon always shows. */}
           <AscentLogo className="hidden sm:inline-flex" />
           <AscentLogo wordmark={false} className="sm:hidden" />

@@ -183,6 +183,7 @@ The non-colour tokens live in the "Skin tokens" block of `globals.css`. The
 | `--display-case` | `none` | `.ui-display` (`uppercase` for caps titles) |
 | `--caption-tracking` | `0.025em` (Website: `0.1em`) | `SectionLabel`, `Label`, `Chip`, `tableCls` heads |
 | `--radius-chip` | `0.25rem` | `rounded-chip`: `Chip`, `Checkbox` |
+| `--radius-inner` | `0.375rem` | `rounded-inner`: a control inside a control (`Segmented` option, joined field halves) |
 | `--radius-control` | `0.5rem` | `rounded-control`: `Button`, fields, `Banner`, `Segmented` |
 | `--radius-card` | `0.75rem` | `rounded-card`: `Card`, `EmptyState`, `Menu`, `Popover`, `Toast`, `StickyActionBar` |
 | `--radius-sheet` | `1rem` | `rounded-sheet`: `Dialog`, `Sheet` |
@@ -191,9 +192,13 @@ The non-colour tokens live in the "Skin tokens" block of `globals.css`. The
 
 Rules when you write UI:
 
-- A primitive in `ui.tsx` uses `rounded-chip|control|card|sheet|pill`, never
-  `rounded-lg` or `rounded-xl`. Pages still carry hard-coded `rounded-*`; the
-  radius sweep (stage 2) moves them onto the tokens.
+- Every corner uses a token: `rounded-chip|inner|control|card|sheet|pill`.
+  Never write `rounded`, `rounded-md`, `-lg`, `-xl` or `-2xl` (swept
+  2026-11-20; old `md→inner`, `lg→control`, `xl→card`, `2xl→sheet`,
+  bare `rounded→chip`).
+- `rounded-full` is for a true circle only (a dot, an avatar, a ring of equal
+  width and height). Anything longer than tall is a pill: `rounded-pill`, so a
+  square-cornered skin squares it too.
 - A title uses `ui-display`, never `font-bold tracking-tight`.
 - A caption uses `tracking-[var(--caption-tracking)]`, never `tracking-wide`.
 

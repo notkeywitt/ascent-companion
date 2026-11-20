@@ -44,7 +44,7 @@ export function schemeStyle(choice: SchemeChoice | null): React.CSSProperties | 
 
 function Stripes({ colors, className = "" }: { colors: string[]; className?: string }) {
   return (
-    <span aria-hidden className={`flex overflow-hidden rounded ${className}`}>
+    <span aria-hidden className={`flex overflow-hidden rounded-chip ${className}`}>
       {colors.map((c, i) => (
         <span key={i} className="h-full flex-1" style={{ background: c }} />
       ))}
@@ -75,7 +75,7 @@ export function SchemeChoices({
               type="color"
               value={c}
               onChange={(e) => onChange({ two: i === 0 ? [e.target.value, b] : [a, e.target.value] })}
-              className="h-9 w-11 cursor-pointer rounded-md border border-line-strong bg-transparent p-0.5"
+              className="h-9 w-11 cursor-pointer rounded-inner border border-line-strong bg-transparent p-0.5"
             />
             {i === 0 ? "First" : "Second"}
           </label>
@@ -93,7 +93,7 @@ export function SchemeChoices({
                 type="button"
                 aria-pressed={on}
                 onClick={() => onChange({ preset: p.id })}
-                className={`flex min-h-11 w-full flex-col justify-center gap-1 rounded-lg border px-2 py-1.5 text-left text-xs transition ${
+                className={`flex min-h-11 w-full flex-col justify-center gap-1 rounded-control border px-2 py-1.5 text-left text-xs transition ${
                   on ? "border-accent font-semibold" : "border-line hover:border-line-strong"
                 }`}
               >
@@ -124,7 +124,7 @@ export function SchemePicker({
       trigger={
         <button
           type="button"
-          className="ui-btn inline-flex min-h-11 items-center gap-2 rounded-lg px-3 text-sm font-semibold text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
+          className="ui-btn inline-flex min-h-11 items-center gap-2 rounded-control px-3 text-sm font-semibold text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-neutral-100"
         >
           <Stripes colors={current} className="h-3.5 w-12" />
           Colours

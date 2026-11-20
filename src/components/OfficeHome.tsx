@@ -215,7 +215,7 @@ function NeedsAttention() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-xl border border-line bg-white px-4 py-3 text-left transition hover:border-line-strong active:scale-[0.99] dark:bg-ink-raised"
+        className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-card border border-line bg-white px-4 py-3 text-left transition hover:border-line-strong active:scale-[0.99] dark:bg-ink-raised"
       >
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-semibold">Needs attention</span>
@@ -282,7 +282,7 @@ export function TodosWidget() {
       {failed ? (
         <p className="text-[12px] text-neutral-500">Could not read the to-dos from JobTread.</p>
       ) : !d ? (
-        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-24 w-full rounded-control" />
       ) : todos.length === 0 ? (
         <p className="text-[12px] text-neutral-500">
           Nothing open.
@@ -297,7 +297,7 @@ export function TodosWidget() {
                 href={jtToDoUrl(t.id)}
                 target="_blank"
                 rel="noreferrer"
-                className="block min-h-11 rounded-md px-1 py-1.5 hover:bg-line-soft"
+                className="block min-h-11 rounded-inner px-1 py-1.5 hover:bg-line-soft"
               >
                 <span className="block truncate text-[13px] font-medium">{t.name}</span>
                 <MetaLine
@@ -387,7 +387,7 @@ function InvoicingWidget() {
       {error ? (
         <p className="text-[12px] text-neutral-500">{error}</p>
       ) : loading || !data ? (
-        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-32 w-full rounded-control" />
       ) : (
         <>
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">

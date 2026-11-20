@@ -331,7 +331,7 @@ export function JobBoardPage() {
       {!board && !error && (
         <div className="mb-6 space-y-3">
           <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-56 w-full rounded-xl" />
+          <Skeleton className="h-56 w-full rounded-card" />
         </div>
       )}
 

@@ -730,7 +730,7 @@ export function TimeBug() {
         ...(side === "left" ? { left: "calc(var(--rail-w) + 2.75rem)" } : { right: "1rem" }),
       };
   const iconBtn =
-    "inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400";
+    "inline-flex h-8 w-8 items-center justify-center rounded-control text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400";
 
   // The Job box always offers the running job, even one the list leaves out.
   const jobOptions = clock && !jobs.some((j) => j.id === clock.jobId)
@@ -758,7 +758,7 @@ export function TimeBug() {
       className={
         pipWin
           ? "min-h-screen w-full bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
-          : "fixed z-40 w-80 rounded-xl border border-line bg-white shadow-lg dark:bg-ink-raised"
+          : "fixed z-40 w-80 rounded-card border border-line bg-white shadow-lg dark:bg-ink-raised"
       }
     >
       <div className="flex items-center gap-2 border-b border-line-soft py-1 pl-3 pr-1">
@@ -795,7 +795,7 @@ export function TimeBug() {
           onClick={flip}
           aria-label={side === "right" ? "Move to the left corner" : "Move to the right corner"}
           title={side === "right" ? "Move to the left corner" : "Move to the right corner"}
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-control text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400"
         >
           <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
             <path d="M2 5h11M10 2l3 3-3 3M14 11H3M6 8l-3 3 3 3" strokeLinecap="round" strokeLinejoin="round" />
@@ -807,7 +807,7 @@ export function TimeBug() {
           onClick={close}
           aria-label="Close the time bug"
           title="Close — reopen it from the Time page"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-control text-neutral-500 transition hover:bg-accent/10 hover:text-accent dark:text-neutral-400"
         >
           <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden>
             <path d="M4 4l8 8M12 4l-8 8" strokeLinecap="round" />

@@ -19,7 +19,7 @@ export function PreviewBanner({ role }: { role: Role }) {
       <button
         type="button"
         onClick={() => stopPreview()}
-        className="shrink-0 rounded-md bg-white/20 px-3 py-1 text-xs font-semibold text-accent-fg transition hover:bg-white/30"
+        className="shrink-0 rounded-inner bg-white/20 px-3 py-1 text-xs font-semibold text-accent-fg transition hover:bg-white/30"
       >
         Return to my view
       </button>

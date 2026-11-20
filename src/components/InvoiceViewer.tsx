@@ -251,7 +251,7 @@ export function InvoiceLightbox({
   }, [onClose, pages, docked]);
 
   const stepBtn =
-    "shrink-0 rounded-lg px-2 py-1 text-sm leading-none text-white/80 hover:text-white disabled:opacity-30 disabled:hover:text-white/80";
+    "shrink-0 rounded-control px-2 py-1 text-sm leading-none text-white/80 hover:text-white disabled:opacity-30 disabled:hover:text-white/80";
 
   return (
     <div
@@ -301,7 +301,7 @@ export function InvoiceLightbox({
             href={file.url}
             target="_blank"
             rel="noreferrer"
-            className="shrink-0 rounded-lg px-2 py-1 text-xs font-semibold text-white/90 underline underline-offset-2 hover:text-white"
+            className="shrink-0 rounded-control px-2 py-1 text-xs font-semibold text-white/90 underline underline-offset-2 hover:text-white"
           >
             {isPdf ? "Open the full PDF ↗" : "Open the original ↗"}
           </a>
@@ -312,7 +312,7 @@ export function InvoiceLightbox({
             onClick={() => printInvoice(file, pages)}
             aria-label="Print"
             title={pages > 1 ? `Print all ${pages} pages` : "Print"}
-            className="shrink-0 rounded-lg p-1.5 text-white/80 hover:text-white"
+            className="shrink-0 rounded-control p-1.5 text-white/80 hover:text-white"
           >
             <svg
               viewBox="0 0 24 24"
@@ -334,7 +334,7 @@ export function InvoiceLightbox({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="shrink-0 rounded-lg px-2 py-1 text-lg leading-none text-white/80 hover:text-white"
+          className="shrink-0 rounded-control px-2 py-1 text-lg leading-none text-white/80 hover:text-white"
         >
           ✕
         </button>
@@ -383,7 +383,7 @@ export function InvoiceLightbox({
 export function InvoiceAttachment({
   file,
   maxHClass = "max-h-[32rem]",
-  radiusClass = "rounded-lg",
+  radiusClass = "rounded-control",
   dockLeftOf,
   hideLink = false,
 }: {

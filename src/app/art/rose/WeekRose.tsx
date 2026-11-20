@@ -302,7 +302,7 @@ export function WeekRose() {
                     disabled={!pickable}
                     onClick={() => choose(on ? null : s.name)}
                     aria-pressed={pickable ? on : undefined}
-                    className={`flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm transition ${
+                    className={`flex min-h-9 w-full items-center gap-2 rounded-inner px-1.5 text-left text-sm transition ${
                       on ? "bg-neutral-100 dark:bg-white/[0.07]" : ""
                     } ${dim ? "opacity-50" : ""}`}
                   >

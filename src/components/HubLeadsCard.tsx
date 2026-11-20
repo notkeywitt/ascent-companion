@@ -58,7 +58,7 @@ export function HubLeadsCard({ className = "" }: { className?: string }) {
       </div>
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">
         {!leads ? (
-          <Skeleton className="h-24 w-full rounded-lg" />
+          <Skeleton className="h-24 w-full rounded-control" />
         ) : newest.length === 0 ? (
           <p className="text-[12px] text-neutral-500">No open leads.</p>
         ) : (
@@ -67,7 +67,7 @@ export function HubLeadsCard({ className = "" }: { className?: string }) {
               <li key={l.id}>
                 <Link
                   href={`/leads#${encodeURIComponent(l.id)}`}
-                  className="block rounded-md px-1 py-1.5 hover:bg-line-soft"
+                  className="block rounded-inner px-1 py-1.5 hover:bg-line-soft"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0 truncate text-[13px] font-medium">{l.name}</span>

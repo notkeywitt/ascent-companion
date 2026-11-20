@@ -125,7 +125,7 @@ export function JobGantt({
     el.scrollLeft = Math.max(0, at - (el.clientWidth - label) / 2);
   }, [zoom, data, today]);
 
-  if (data === undefined) return <Skeleton className="h-32 w-full rounded-xl" />;
+  if (data === undefined) return <Skeleton className="h-32 w-full rounded-card" />;
   if (!data) return null; // nothing dated in JobTread
 
   const ticks = zoomTicks(data.start, data.end, zoom);
@@ -209,11 +209,11 @@ export function JobGantt({
                       />
                     )}
                     <div
-                      className="absolute inset-y-0 overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10"
+                      className="absolute inset-y-0 overflow-hidden rounded-pill bg-neutral-200 dark:bg-white/10"
                       style={{ left: `${left}%`, width: `${width}%`, minWidth: 3 }}
                     >
                       <div
-                        className="h-full rounded-full bg-brand"
+                        className="h-full rounded-pill bg-brand"
                         style={{ width: `${fill * 100}%` }}
                       />
                     </div>

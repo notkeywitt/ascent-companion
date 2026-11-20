@@ -113,7 +113,7 @@ export function AppearanceCard() {
                   type="button"
                   onClick={() => pickPalette(p)}
                   aria-pressed={palette === p}
-                  className={`rounded-xl border p-3 text-left transition ${
+                  className={`rounded-card border p-3 text-left transition ${
                     palette === p
                       ? "border-accent ring-2 ring-accent/25"
                       : "border-line hover:border-line-strong"
@@ -127,11 +127,11 @@ export function AppearanceCard() {
                     fills with whichever of its two values the ground is not. */}
                   <span aria-hidden className="flex gap-1">
                     <span
-                      className="h-5 w-5 rounded border border-black/10 dark:border-white/15"
+                      className="h-5 w-5 rounded-chip border border-black/10 dark:border-white/15"
                       style={{ background: SWATCH[p][dark ? "dark" : "light"].ground }}
                     />
                     <span
-                      className="h-5 w-5 rounded border border-black/10 dark:border-white/15"
+                      className="h-5 w-5 rounded-chip border border-black/10 dark:border-white/15"
                       style={{ background: SWATCH[p][dark ? "dark" : "light"].fill }}
                     />
                   </span>
@@ -169,7 +169,7 @@ export function AppearanceCard() {
                   type="button"
                   onClick={() => pickTheme(o.on)}
                   aria-pressed={dark === o.on}
-                  className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold transition ${
+                  className={`min-h-11 rounded-pill border px-4 text-[13px] font-semibold transition ${
                     dark === o.on
                       ? "border-accent bg-accent text-accent-fg"
                       : "border-line text-neutral-500 hover:border-accent dark:text-neutral-400"

@@ -256,7 +256,7 @@ export function TimeSyncEditor({
               </p>
             )}
             {offerAdd && (
-              <div className="mt-2 rounded-lg bg-neutral-100 p-3 dark:bg-white/10">
+              <div className="mt-2 rounded-control bg-neutral-100 p-3 dark:bg-white/10">
                 <p className="text-xs">
                   {row.employee || "This employee"} does not hold <span className="font-semibold">{payType}</span> in
                   JobTread. Add it to their pay types?

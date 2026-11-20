@@ -219,7 +219,7 @@ export function SunsetExpenseSwitch() {
                   ]}
                 />
               </div>
-              <ul className="mt-2 max-h-80 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
+              <ul className="mt-2 max-h-80 divide-y divide-line-soft overflow-y-auto rounded-control border border-line">
                 {bills.map((b) => {
                   const url = jtDocUrl(b);
                   return (

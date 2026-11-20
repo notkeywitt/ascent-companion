@@ -33,7 +33,7 @@ export function MonthPicker({
   const current = options.find((o) => o.value === value)?.label ?? monthLabel(value);
   return (
     <label
-      className={`relative flex items-center gap-1.5 rounded focus-within:ring-2 focus-within:ring-accent/25 ${className}`}
+      className={`relative flex items-center gap-1.5 rounded-chip focus-within:ring-2 focus-within:ring-accent/25 ${className}`}
     >
       <span aria-hidden className="whitespace-nowrap text-[21px] font-bold leading-tight tracking-tight">
         {value ? current : ""}

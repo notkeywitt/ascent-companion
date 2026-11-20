@@ -52,7 +52,7 @@ export default function SafetyTopicPicker({
   }, [query, seasonOnly, category, season]);
 
   return (
-    <div className="mt-2 rounded-xl border border-line bg-neutral-50 p-3 dark:bg-ink">
+    <div className="mt-2 rounded-card border border-line bg-neutral-50 p-3 dark:bg-ink">
       <input
         autoFocus
         value={query}
@@ -131,7 +131,7 @@ function TopicRow({
   onPick: () => void;
 }) {
   return (
-    <li className="rounded-lg border border-line bg-white dark:bg-ink-raised">
+    <li className="rounded-control border border-line bg-white dark:bg-ink-raised">
       <div className="flex items-stretch">
         <button
           type="button"

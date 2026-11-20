@@ -790,20 +790,20 @@ export function AmazonImport() {
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                           <span className="text-sm font-semibold">{money(o.netTotal)}</span>
                           {o.poNumber && (
-                            <span className="rounded bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent dark:text-accent-soft">
+                            <span className="rounded-chip bg-accent/10 px-1.5 py-0.5 text-xs font-medium text-accent dark:text-accent-soft">
                               PO: {o.poNumber}
                             </span>
                           )}
                           {res ? (
                             <span
-                              className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[res.status].cls}`}
+                              className={`rounded-chip px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[res.status].cls}`}
                             >
                               {STATUS_STYLE[res.status].label}
                             </span>
                           ) : (
                             existing[o.orderId] && (
                               <span
-                                className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE.exists.cls}`}
+                                className={`rounded-chip px-1.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE.exists.cls}`}
                               >
                                 Already in JobTread
                               </span>
@@ -889,11 +889,11 @@ export function AmazonImport() {
                       <div>
                         <Label>Cost code</Label>
                         {!s.jobId ? (
-                          <div className="rounded-lg border border-dashed border-neutral-300 px-2 py-2 text-xs text-neutral-400 dark:border-neutral-700">
+                          <div className="rounded-control border border-dashed border-neutral-300 px-2 py-2 text-xs text-neutral-400 dark:border-neutral-700">
                             Pick a job first
                           </div>
                         ) : budgetLoading[s.jobId] ? (
-                          <div className="flex items-center gap-2 rounded-lg border border-neutral-300 px-2 py-2 text-xs text-neutral-500 dark:border-neutral-600">
+                          <div className="flex items-center gap-2 rounded-control border border-neutral-300 px-2 py-2 text-xs text-neutral-500 dark:border-neutral-600">
                             <Spinner /> Loading codes…
                           </div>
                         ) : (

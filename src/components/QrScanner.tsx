@@ -106,7 +106,7 @@ export function QrScanner({
   }, []);
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-neutral-300 bg-black dark:border-neutral-700">
+    <div className="relative overflow-hidden rounded-card border border-neutral-300 bg-black dark:border-neutral-700">
       <video
         ref={videoRef}
         playsInline
@@ -120,7 +120,7 @@ export function QrScanner({
         aria-hidden
         className="pointer-events-none absolute inset-0 flex items-center justify-center"
       >
-        <div className="h-48 w-48 rounded-xl border-2 border-white/80 shadow-[0_0_0_100vmax_rgba(0,0,0,0.25)]" />
+        <div className="h-48 w-48 rounded-card border-2 border-white/80 shadow-[0_0_0_100vmax_rgba(0,0,0,0.25)]" />
       </div>
       {starting && (
         <div className="absolute inset-0 flex items-center justify-center text-sm text-white/90">

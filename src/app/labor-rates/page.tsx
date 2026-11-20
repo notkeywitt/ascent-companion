@@ -64,7 +64,7 @@ function GroupSection({
   const [rt, setRt] = useState("");
   const isGlobal = group.id === 0;
   return (
-    <div className="mb-3 overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+    <div className="mb-3 overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
       <div className="flex items-center gap-2 border-b border-line-soft bg-neutral-50 px-3 py-2 dark:border-neutral-800/70 dark:bg-white/5">
         {isGlobal ? (
           <span className="text-sm font-bold">Global <span className="font-normal text-neutral-500">— pushes with no prefix</span></span>
@@ -76,7 +76,7 @@ function GroupSection({
               className={inputCls + " max-w-[16rem] flex-1 font-semibold"}
             />
             <span className="text-[11px] text-neutral-400">pushes as “{group.name} - …”</span>
-            <button onClick={() => onDeleteGroup(group.id)} title="Delete group" className="ml-auto rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40">
+            <button onClick={() => onDeleteGroup(group.id)} title="Delete group" className="ml-auto rounded-control px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40">
               Delete group
             </button>
           </>
@@ -99,7 +99,7 @@ function GroupSection({
               className={inputCls + " pl-5"}
             />
           </div>
-          <button onClick={() => onDeleteRate(r.id)} title="Delete rate" className="rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40">✕</button>
+          <button onClick={() => onDeleteRate(r.id)} title="Delete rate" className="rounded-control px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40">✕</button>
         </div>
       ))}
       {rates.length === 0 && <p className="px-3 py-2 text-sm text-neutral-400">No rates in this group yet.</p>}
@@ -413,7 +413,7 @@ export default function LaborRatesPage() {
             <section>
               <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-neutral-500">Employees &amp; their rates</h2>
 
-              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
                 <span className="text-sm font-semibold">Bulk apply:</span>
                 <Select value={bulkRateId} onChange={(e) => setBulkRateId(e.target.value)} className="!w-auto max-w-[18rem]">
                   <option value="">Pick a rate…</option>
@@ -428,7 +428,7 @@ export default function LaborRatesPage() {
                 )}
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
+              <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
                 <table className={`${tableCls.root} min-w-[40rem]`}>
                   <thead>
                     <tr>
@@ -451,7 +451,7 @@ export default function LaborRatesPage() {
                           ) : (
                             <div className="flex flex-wrap gap-1">
                               {m.types.map((t, i) => (
-                                <span key={`${t.name}-${i}`} className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] dark:bg-white/10">
+                                <span key={`${t.name}-${i}`} className="inline-flex items-center gap-1 rounded-pill bg-neutral-100 px-2 py-0.5 text-[11px] dark:bg-white/10">
                                   <span className="font-medium">{t.name}</span>
                                   <span className="tabular-nums text-neutral-500">{money(t.hourlyRate)}</span>
                                 </span>
@@ -460,7 +460,7 @@ export default function LaborRatesPage() {
                           )}
                         </td>
                         <td className={`${tableCls.td} text-right`}>
-                          <button onClick={() => openEditor(m)} className="rounded-lg border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600">
+                          <button onClick={() => openEditor(m)} className="rounded-control border border-neutral-300 px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent dark:border-neutral-600">
                             Edit rates
                           </button>
                         </td>
@@ -521,7 +521,7 @@ export default function LaborRatesPage() {
                       setDraft((d) => d.filter((_, j) => j !== i));
                     }}
                     title="Remove"
-                    className="rounded-lg px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
+                    className="rounded-control px-2 py-1 text-xs font-semibold text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
                   >
                     ✕
                   </button>

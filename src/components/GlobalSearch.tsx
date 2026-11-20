@@ -335,7 +335,7 @@ export function GlobalSearch() {
           type="button"
           aria-label="Search"
           onClick={() => setExpanded(true)}
-          className="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition active:bg-accent/10 dark:text-neutral-300 pad:hidden"
+          className="ml-auto inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-neutral-600 transition active:bg-accent/10 dark:text-neutral-300 pad:hidden"
         >
           <SearchIcon className="h-5 w-5" />
         </button>
@@ -381,7 +381,7 @@ export function GlobalSearch() {
             type="button"
             aria-label="Close search"
             onClick={collapse}
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-lg text-neutral-500 transition active:bg-accent/10 pad:hidden"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-lg text-neutral-500 transition active:bg-accent/10 pad:hidden"
           >
             ✕
           </button>
@@ -423,7 +423,7 @@ export function GlobalSearch() {
               ["--gs-left" as string]: `${pos.left}px`,
               ["--gs-room" as string]: `${pos.room}px`,
             }}
-            className="fixed left-2 right-2 z-40 overflow-y-auto overscroll-contain rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay sm:right-auto sm:left-[var(--gs-left)] sm:w-[min(30rem,var(--gs-room))]">
+            className="fixed left-2 right-2 z-40 overflow-y-auto overscroll-contain rounded-control border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay sm:right-auto sm:left-[var(--gs-left)] sm:w-[min(30rem,var(--gs-room))]">
             {!hasAnything && !billsLoading && (
               <p className="px-3 py-4 text-center text-[13px] text-neutral-500">
                 Nothing matches “{query.trim()}”.

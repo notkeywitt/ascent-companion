@@ -146,7 +146,7 @@ export default function SafetyMeetingPage() {
   }
 
   const cardCls =
-    "rounded-xl border border-line bg-white p-3  dark:bg-ink-raised";
+    "rounded-card border border-line bg-white p-3  dark:bg-ink-raised";
 
   // ---- Success screen -----------------------------------------------------
   if (result?.ok) {
@@ -233,7 +233,7 @@ export default function SafetyMeetingPage() {
         )}
 
         {pickedTopic && !browsing && (
-          <div className="rounded-lg border border-line bg-neutral-50 p-2.5 dark:bg-ink">
+          <div className="rounded-control border border-line bg-neutral-50 p-2.5 dark:bg-ink">
             <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
               Talking points
             </div>

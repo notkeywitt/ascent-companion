@@ -121,7 +121,7 @@ function JobCard({
     });
 
   return (
-    <div className="overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+    <div className="overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
       <div className="border-b border-line-soft bg-neutral-50 px-3 py-2 text-sm font-semibold dark:border-neutral-800/70 dark:bg-white/5">
         {job.name}
       </div>

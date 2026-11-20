@@ -41,7 +41,7 @@ const PROMPT: Record<Step, string> = {
 
 // The camera screen is always dark, whatever the app theme, so its buttons are
 // white on black here rather than the theme's Button variants.
-const CAM_BTN = "rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-40";
+const CAM_BTN = "rounded-control px-4 py-2.5 text-sm font-semibold disabled:opacity-40";
 
 const MAX_EDGE = 1600; // long edge of a saved photo, px
 const QR_EDGE = 640; // long edge of the frame the QR reader looks at, px
@@ -310,9 +310,9 @@ export function BatchAdd({
       {/* Middle: the prompt, and the QR frame */}
       <div className="relative flex flex-1 flex-col items-center justify-center px-6">
         {step === "qr" && (
-          <div aria-hidden className="pointer-events-none h-56 w-56 rounded-2xl border-2 border-white/80" />
+          <div aria-hidden className="pointer-events-none h-56 w-56 rounded-sheet border-2 border-white/80" />
         )}
-        {camErr && <p className="mt-4 rounded-lg bg-black/70 px-4 py-3 text-center text-sm">{camErr}</p>}
+        {camErr && <p className="mt-4 rounded-control bg-black/70 px-4 py-3 text-center text-sm">{camErr}</p>}
         {!ready && !camErr && <p className="text-sm text-white/80">Starting camera…</p>}
       </div>
 

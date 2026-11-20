@@ -75,7 +75,7 @@ export function BillTaskLink({
           setOpen(true);
         }}
         title={task ? "This bill is on a schedule task. Change it." : "Put this bill on a task in the job's schedule"}
-        className={`inline-flex min-h-9 max-w-full items-center rounded-full border border-line bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-200 ${className}`}
+        className={`inline-flex min-h-9 max-w-full items-center rounded-pill border border-line bg-white px-3 text-xs font-semibold text-neutral-700 transition hover:border-accent dark:bg-ink-raised dark:text-neutral-200 ${className}`}
       >
         <span className="truncate">{task ? `Task: ${task.name}` : "Link to Task"}</span>
       </button>

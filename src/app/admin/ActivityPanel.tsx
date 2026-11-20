@@ -155,7 +155,7 @@ export function ActivityPanel() {
           <div className="lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start lg:gap-x-8">
           <div>
           <SectionLabel className="mb-1">Pages</SectionLabel>
-          <ul className="mb-5 divide-y divide-line-soft rounded-lg border border-line bg-white text-sm dark:divide-white/10 dark:bg-ink-raised">
+          <ul className="mb-5 divide-y divide-line-soft rounded-control border border-line bg-white text-sm dark:divide-white/10 dark:bg-ink-raised">
             {data.routes.map((r) => (
               <li key={r.key} className="flex items-baseline justify-between gap-2 px-3 py-1.5">
                 <span className="min-w-0 truncate">{r.label}</span>
@@ -177,7 +177,7 @@ export function ActivityPanel() {
             {data.users.map((u) => (
               <li
                 key={u.email}
-                className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised"
+                className="rounded-control border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised"
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="min-w-0 truncate font-medium">{u.email}</span>
@@ -212,7 +212,7 @@ export function ActivityPanel() {
                     {u.topViews.map((t) => (
                       <span
                         key={t.viewId}
-                        className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600 dark:bg-white/5 dark:text-neutral-400"
+                        className="rounded-pill bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-600 dark:bg-white/5 dark:text-neutral-400"
                       >
                         {t.label} · {t.count}
                       </span>
@@ -222,7 +222,7 @@ export function ActivityPanel() {
               </li>
             ))}
             {data.users.length === 0 && (
-              <li className="rounded-lg border border-dashed border-neutral-300 px-3 py-4 text-center text-sm text-neutral-500 dark:border-neutral-700">
+              <li className="rounded-control border border-dashed border-neutral-300 px-3 py-4 text-center text-sm text-neutral-500 dark:border-neutral-700">
                 No activity in this window yet.
               </li>
             )}
@@ -241,7 +241,7 @@ export function ActivityPanel() {
                   {data.recent.map((r, i) => (
                     <li
                       key={i}
-                      className="rounded-md border border-line-soft px-2.5 py-1.5 text-xs dark:border-white/10"
+                      className="rounded-inner border border-line-soft px-2.5 py-1.5 text-xs dark:border-white/10"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="min-w-0 flex-1 truncate">
@@ -288,7 +288,7 @@ export function ActivityPanel() {
           {(data.findingKinds ?? []).length === 0 ? (
             <p className="text-sm text-neutral-500">No findings yet.</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-line bg-white dark:bg-ink-raised">
+            <div className="overflow-x-auto rounded-control border border-line bg-white dark:bg-ink-raised">
               <table className="w-full text-sm">
                 <thead className="text-left text-[11px] text-neutral-500">
                   <tr>
@@ -339,7 +339,7 @@ export function ActivityPanel() {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-line bg-white px-3 py-2 text-center dark:bg-ink-raised">
+    <div className="rounded-control border border-line bg-white px-3 py-2 text-center dark:bg-ink-raised">
       <div className="text-lg font-semibold tabular-nums">{value}</div>
       <div className="text-[11px] text-neutral-500">{label}</div>
     </div>

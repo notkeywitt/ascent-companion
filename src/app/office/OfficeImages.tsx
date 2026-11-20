@@ -28,7 +28,7 @@ export function OfficeImages({ files }: { files: JobFile[] }) {
               src={f.thumbUrl || f.imageUrl || f.url || ""}
               alt={f.name}
               loading="lazy"
-              className="aspect-square w-full cursor-zoom-in rounded-lg border border-line object-cover"
+              className="aspect-square w-full cursor-zoom-in rounded-control border border-line object-cover"
             />
             <span className="mt-1 block truncate text-[12px] text-neutral-500 dark:text-neutral-400">
               {f.name}

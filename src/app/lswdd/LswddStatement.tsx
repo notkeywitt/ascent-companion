@@ -410,7 +410,7 @@ export function LswddStatement() {
                 return (
                   <li
                     key={l.ref}
-                    className="rounded-xl border border-line bg-white p-4 dark:bg-ink-raised"
+                    className="rounded-card border border-line bg-white p-4 dark:bg-ink-raised"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -473,7 +473,7 @@ export function LswddStatement() {
                       {codes && codes.length > 0 ? (
                         /* Raw select: compact mono table-row cell (h-10, text-xs). */
                         <select
-                          className="h-10 rounded-lg border border-line bg-white px-2 font-mono text-xs dark:bg-ink-raised"
+                          className="h-10 rounded-control border border-line bg-white px-2 font-mono text-xs dark:bg-ink-raised"
                           value={e.csi}
                           onChange={(ev) => setEdit(l.ref, { csi: ev.target.value })}
                           title="Cost code from this job's JobTread budget"

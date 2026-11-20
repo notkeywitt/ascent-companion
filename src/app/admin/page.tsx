@@ -84,7 +84,7 @@ export default function AdminPage() {
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
       <PageHeader title="Admin" className="!mb-4" />
-      <div className="mb-5 inline-flex max-w-full flex-wrap rounded-lg border border-line p-0.5 ">
+      <div className="mb-5 inline-flex max-w-full flex-wrap rounded-control border border-line p-0.5 ">
         {tabs.map((t) => (
           <TabButton key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
             {t.label}
@@ -125,7 +125,7 @@ function TabButton({
   return (
     <button
       onClick={onClick}
-      className={`rounded-md px-3 py-1 text-sm font-medium transition ${
+      className={`rounded-inner px-3 py-1 text-sm font-medium transition ${
         active
           ? "bg-accent text-accent-fg shadow-sm"
           : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
@@ -330,7 +330,7 @@ function AccessPanel() {
             {envAdmins.map((e) => (
               <li
                 key={e}
-                className="flex items-center justify-between rounded-lg border border-line px-3 py-2 text-sm "
+                className="flex items-center justify-between rounded-control border border-line px-3 py-2 text-sm "
               >
                 <span>{e}</span>
                 <span className="text-xs text-neutral-400">Admin · always allowed</span>
@@ -352,7 +352,7 @@ function AccessPanel() {
           />
         ))}
         {!loading && members.length === 0 && (
-          <li className="rounded-lg border border-dashed border-neutral-300 px-3 py-4 text-center text-sm text-neutral-500 dark:border-neutral-700">
+          <li className="rounded-control border border-dashed border-neutral-300 px-3 py-4 text-center text-sm text-neutral-500 dark:border-neutral-700">
             No added members yet — just the founders above.
           </li>
         )}
@@ -399,7 +399,7 @@ function MemberRow({
   }
 
   return (
-    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
+    <li className="rounded-control border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <span className="min-w-0 truncate">{member.email}</span>
         <div className="flex shrink-0 items-center gap-2">
@@ -504,7 +504,7 @@ function RoleRow({
   }
 
   return (
-    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
+    <li className="rounded-control border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium">{ROLE_LABEL[role]}</span>
         <div className="flex shrink-0 items-center gap-3">
@@ -613,7 +613,7 @@ function MenuRow({
   }
 
   return (
-    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
+    <li className="rounded-control border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium">{ROLE_LABEL[role]}</span>
         <button
@@ -659,7 +659,7 @@ function MenuRow({
                       onClick={() => move(index, -1)}
                       disabled={index === 0}
                       aria-label={`Move ${i.label} up`}
-                      className="h-7 w-7 rounded text-neutral-500 hover:text-accent disabled:opacity-30"
+                      className="h-7 w-7 rounded-chip text-neutral-500 hover:text-accent disabled:opacity-30"
                     >
                       ↑
                     </button>
@@ -667,7 +667,7 @@ function MenuRow({
                       onClick={() => move(index, 1)}
                       disabled={index === items.length - 1}
                       aria-label={`Move ${i.label} down`}
-                      className="h-7 w-7 rounded text-neutral-500 hover:text-accent disabled:opacity-30"
+                      className="h-7 w-7 rounded-chip text-neutral-500 hover:text-accent disabled:opacity-30"
                     >
                       ↓
                     </button>

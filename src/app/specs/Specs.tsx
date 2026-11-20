@@ -117,7 +117,7 @@ function SendPanel({
     return [...m];
   }, [lines]);
   return (
-    <div className="mt-2 space-y-2 rounded-lg bg-accent/5 p-2.5">
+    <div className="mt-2 space-y-2 rounded-control bg-accent/5 p-2.5">
       <Select aria-label="Budget line" value={choice} onChange={(e) => setChoice(e.target.value)}>
         <option value="">Choose the budget line…</option>
         {groups.map(([group, ls]) => (
@@ -135,7 +135,7 @@ function SendPanel({
         Added to the line&apos;s description, below its estimate note. The line becomes a Specification the client must
         approve.
       </p>
-      <pre className="whitespace-pre-wrap break-words rounded bg-white p-2 font-sans text-[12px] dark:bg-ink-raised">
+      <pre className="whitespace-pre-wrap break-words rounded-chip bg-white p-2 font-sans text-[12px] dark:bg-ink-raised">
         {specEntry(row)}
       </pre>
       <div className="flex gap-2">
@@ -526,7 +526,7 @@ export function Specs({ embedJobId }: { embedJobId?: string } = {}) {
               <iframe
                 src={`/api/specs/pdf?id=${current.id}`}
                 title="The architect's spec list PDF"
-                className="h-[calc(100dvh-16rem)] min-h-[560px] w-full rounded-xl border border-line bg-white"
+                className="h-[calc(100dvh-16rem)] min-h-[560px] w-full rounded-card border border-line bg-white"
               />
             ) : (
               <EmptyState>

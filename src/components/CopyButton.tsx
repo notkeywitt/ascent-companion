@@ -46,7 +46,7 @@ export function CopyButton({
       onClick={copy}
       aria-label={label ? `Copy ${label}` : "Copy"}
       className={
-        "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold transition " +
+        "inline-flex items-center gap-1 rounded-inner border px-2 py-1 text-xs font-semibold transition " +
         (copied
           ? "border-emerald-300 text-ok dark:border-emerald-800"
           : "border-neutral-300 text-neutral-600 hover:border-accent hover:text-accent dark:border-neutral-600 dark:text-neutral-300 dark:hover:text-accent-soft") +

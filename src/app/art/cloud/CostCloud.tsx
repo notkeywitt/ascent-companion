@@ -441,7 +441,7 @@ export function CostCloud() {
             setTour((t) => !t);
           }}
           aria-pressed={tour}
-          className={`ui-btn min-h-11 rounded-lg px-3 text-sm font-semibold transition ${
+          className={`ui-btn min-h-11 rounded-control px-3 text-sm font-semibold transition ${
             tour ? "bg-accent text-accent-fg" : "text-neutral-500 hover:text-neutral-900 dark:hover:text-neutral-100"
           }`}
         >
@@ -478,7 +478,7 @@ export function CostCloud() {
 
       <div
         ref={wrapRef}
-        className="relative overflow-hidden rounded-xl border border-line bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
+        className="relative overflow-hidden rounded-card border border-line bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
       >
         <canvas
           ref={canvasRef}
@@ -504,7 +504,7 @@ export function CostCloud() {
         )}
         {hovered && hover && (
           <div
-            className="pointer-events-none absolute z-10 max-w-[16rem] rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs shadow-md dark:bg-ink"
+            className="pointer-events-none absolute z-10 max-w-[16rem] rounded-control border border-line bg-white px-2.5 py-1.5 text-xs shadow-md dark:bg-ink"
             style={{
               left: Math.min(hover.x + 12, sizeRef.current.w - 260),
               top: Math.max(hover.y - 60, 4),
@@ -546,7 +546,7 @@ export function CostCloud() {
                     type="button"
                     onClick={() => setFocus((f) => (f === c.id ? null : c.id))}
                     aria-pressed={focus === c.id}
-                    className={`flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm transition ${
+                    className={`flex min-h-9 w-full items-center gap-2 rounded-inner px-1.5 text-left text-sm transition ${
                       focus === c.id ? "bg-neutral-100 dark:bg-white/[0.07]" : ""
                     } ${focus !== null && focus !== c.id ? "opacity-50" : ""}`}
                   >

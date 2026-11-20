@@ -350,7 +350,7 @@ function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: strin
       trigger={
         <button
           type="button"
-          className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold lg:min-h-7 ${hiddenCount ? "bg-accent/15 text-accent dark:text-accent-soft" : "bg-neutral-100 text-neutral-700 dark:bg-white/[0.07] dark:text-neutral-200"}`}
+          className={`inline-flex min-h-9 items-center gap-1.5 rounded-control px-3 text-xs font-semibold lg:min-h-7 ${hiddenCount ? "bg-accent/15 text-accent dark:text-accent-soft" : "bg-neutral-100 text-neutral-700 dark:bg-white/[0.07] dark:text-neutral-200"}`}
         >
           {label}
           <span aria-hidden className="text-[10px]">
@@ -366,7 +366,7 @@ function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: strin
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search jobs…"
           aria-label="Search jobs"
-          className="mb-1 w-full rounded-lg border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
+          className="mb-1 w-full rounded-control border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
         />
       )}
       <div className="mb-1 flex gap-1">
@@ -662,7 +662,7 @@ function Gantt({
                       onClick={() => onOpen(it.id)}
                       title={`${title} · ${span(a, z)} · ${tools}${short ? " · short" : ""}`}
                       aria-label={`${title}, ${span(a, z)}: ${tools}${short ? ", short" : ""}. Open to assign tools`}
-                      className={`absolute top-1 flex h-[22px] items-center overflow-hidden whitespace-nowrap rounded px-1.5 text-[11px] font-medium ${
+                      className={`absolute top-1 flex h-[22px] items-center overflow-hidden whitespace-nowrap rounded-chip px-1.5 text-[11px] font-medium ${
                         empty ? "border border-dashed text-neutral-600 dark:text-neutral-300" : "text-white"
                       } ${it.kind === "hold" ? "bg-[repeating-linear-gradient(135deg,rgb(255_255_255/0.28)_0_4px,transparent_4px_8px)]" : ""} ${
                         short ? "ring-2 ring-danger ring-offset-1 ring-offset-white dark:ring-offset-ink-raised" : ""
@@ -710,7 +710,7 @@ function Calendar({ data, onOpen }: { data: ToolSchedulePayload; onOpen: (id: st
   };
   const today = data.from;
   const sel = needsOnDay(data.rows, day);
-  const navCls = "inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-line-strong text-lg disabled:opacity-30";
+  const navCls = "inline-flex min-h-9 min-w-9 items-center justify-center rounded-control border border-line-strong text-lg disabled:opacity-30";
 
   return (
     <Card pad={false}>
@@ -743,7 +743,7 @@ function Calendar({ data, onOpen }: { data: ToolSchedulePayload; onOpen: (id: st
               aria-label={`${fmt(iso)}: ${needs.length} tools needed`}
               className={`flex min-h-[3.25rem] min-w-0 flex-col gap-0.5 border-b border-r border-line-soft p-1 text-left sm:min-h-24 ${inMonth ? "" : "opacity-35"} ${iso === day ? "outline outline-2 -outline-offset-2 outline-accent" : ""}`}
             >
-              <span className={`self-start text-[12px] font-semibold tabular-nums ${iso === today ? "rounded-full bg-accent px-1.5 text-accent-fg" : ""}`}>
+              <span className={`self-start text-[12px] font-semibold tabular-nums ${iso === today ? "rounded-pill bg-accent px-1.5 text-accent-fg" : ""}`}>
                 {Number(iso.slice(8))}
               </span>
               <span className="hidden flex-col gap-0.5 sm:flex">

@@ -78,7 +78,7 @@ export interface BillFile {
  * the only surface that wants an 11px field.)
  */
 const quietSm =
-  "rounded-md border border-transparent bg-transparent px-1.5 py-1 text-xs transition hover:bg-neutral-100 focus:border-line-strong focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/15 dark:hover:bg-white/[0.06] dark:focus:bg-ink-raised";
+  "rounded-inner border border-transparent bg-transparent px-1.5 py-1 text-xs transition hover:bg-neutral-100 focus:border-line-strong focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/15 dark:hover:bg-white/[0.06] dark:focus:bg-ink-raised";
 
 /** quietSm without its size, for the line rows, which read 25% larger. */
 const quietLine = quietSm.replace(" text-xs", "");
@@ -1148,7 +1148,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   {setBillType && (
                     <>
                       <span aria-hidden>·</span>
-                      <span className="inline-flex gap-0.5 rounded-md bg-neutral-100 p-0.5 dark:bg-white/[0.07]">
+                      <span className="inline-flex gap-0.5 rounded-inner bg-neutral-100 p-0.5 dark:bg-white/[0.07]">
                         {(["Bill", "Expense"] as const).map((t) => {
                           const on = (isExpense ? "Expense" : "Bill") === t;
                           const qbo = t === "Expense" ? "purchase" : "bill";
@@ -1167,7 +1167,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                                   : "Paid later, on terms — QuickBooks records it as a Bill"
                               }
                               className={
-                                "rounded px-2 py-0.5 transition disabled:opacity-60 " +
+                                "rounded-chip px-2 py-0.5 transition disabled:opacity-60 " +
                                 (on
                                   ? "bg-white font-medium text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
                                   : "hover:text-neutral-800 dark:hover:text-neutral-200")
@@ -1527,7 +1527,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             type="button"
                             onClick={() => setSplitLineId(l.id)}
                             title="Split this line into two"
-                            className="shrink-0 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:bg-accent/10 hover:text-accent"
+                            className="shrink-0 rounded-chip px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:bg-accent/10 hover:text-accent"
                           >
                             Split
                           </button>
@@ -1544,7 +1544,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                             disabled={deletingLineId === l.id}
                             aria-label={gone ? "Undo delete" : "Delete line"}
                             title={gone ? "Keep this line" : lineOps ? "Delete this line when you save" : "Delete this line"}
-                            className="shrink-0 rounded p-1 text-neutral-400 transition hover:bg-red-50 hover:text-danger disabled:opacity-40 dark:hover:bg-red-950/40"
+                            className="shrink-0 rounded-chip p-1 text-neutral-400 transition hover:bg-red-50 hover:text-danger disabled:opacity-40 dark:hover:bg-red-950/40"
                           >
                             {gone ? (
                               <span className="block text-[11px] font-semibold leading-[14px] no-underline">Undo</span>
@@ -1570,7 +1570,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         )}
                       </div>
                       {bill.invoiced || mergeLocked ? (
-                        <p className="rounded-lg border border-line-soft px-2.5 py-2 text-sm text-neutral-500">
+                        <p className="rounded-control border border-line-soft px-2.5 py-2 text-sm text-neutral-500">
                           {code || "uncoded"}
                         </p>
                       ) : (
@@ -1620,7 +1620,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                     .map((a) => (
                       <li
                         key={a.key}
-                        className="flex items-center justify-between gap-2 rounded-lg border border-dashed border-warn/60 px-2.5 py-1.5 text-sm"
+                        className="flex items-center justify-between gap-2 rounded-control border border-dashed border-warn/60 px-2.5 py-1.5 text-sm"
                       >
                         <span className="min-w-0 flex-1 truncate">
                           {a.name}
@@ -1693,12 +1693,12 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                         setAddLineMsg("");
                         setAddingLine(true);
                       }}
-                      className="w-full rounded-lg border border-dashed border-line-strong px-3 py-2 text-xs font-medium text-neutral-500 transition hover:border-accent hover:text-ink dark:text-neutral-400 dark:hover:text-neutral-100"
+                      className="w-full rounded-control border border-dashed border-line-strong px-3 py-2 text-xs font-medium text-neutral-500 transition hover:border-accent hover:text-ink dark:text-neutral-400 dark:hover:text-neutral-100"
                     >
                       + Add line
                     </button>
                   ) : (
-                    <div className="rounded-lg border border-line-soft p-2.5">
+                    <div className="rounded-control border border-line-soft p-2.5">
                       <input
                         type="text"
                         value={newLine.name}
@@ -1869,7 +1869,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                   setBuybackOpen(false);
                   reassignJob({ id: shopJobId, name: "Shop", customer: "Ascent" });
                 }}
-                className="mb-2 w-full rounded-lg border border-line-strong px-2.5 py-2 text-left transition hover:bg-accent/5 disabled:opacity-50 dark:hover:bg-accent/10"
+                className="mb-2 w-full rounded-control border border-line-strong px-2.5 py-2 text-left transition hover:bg-accent/5 disabled:opacity-50 dark:hover:bg-accent/10"
               >
                 <span className="block text-xs font-semibold">Buy back the entire bill</span>
                 <span className="mt-0.5 block text-[11px] text-neutral-500">

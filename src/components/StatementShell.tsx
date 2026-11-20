@@ -33,7 +33,7 @@ export function StatementShell({
       {summary && summary.length > 0 && (
         <dl className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {summary.map((s) => (
-            <div key={s.label} className="rounded-xl border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div key={s.label} className="rounded-card border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
               <dt className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{s.label}</dt>
               <dd className={`text-base font-semibold tabular-nums ${s.warn ? "text-warn" : ""}`}>{s.value}</dd>
             </div>

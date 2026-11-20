@@ -163,7 +163,7 @@ function BillMoveBanner({
       {moves.map((m) => (
         <div
           key={m.docId}
-          className={`pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-xl border px-3 py-2 text-xs shadow-lg backdrop-blur ${
+          className={`pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-card border px-3 py-2 text-xs shadow-lg backdrop-blur ${
             m.state === "error"
               ? "border-red-300 bg-red-50/95 text-red-800 dark:border-red-900 dark:bg-red-950/90 dark:text-red-200"
               : "border-line bg-white/95 dark:bg-ink-raised/95"
@@ -197,7 +197,7 @@ function BillMoveBanner({
               type="button"
               onClick={() => onDismiss(m.docId)}
               aria-label="Dismiss"
-              className="shrink-0 rounded px-1 text-sm leading-none opacity-60 transition hover:opacity-100"
+              className="shrink-0 rounded-chip px-1 text-sm leading-none opacity-60 transition hover:opacity-100"
             >
               ✕
             </button>

@@ -250,7 +250,7 @@ export function JobAccess({ membershipId }: { membershipId: string }) {
     });
 
   return (
-    <div className="mb-4 rounded-lg border border-line p-3">
+    <div className="mb-4 rounded-control border border-line p-3">
       <Label>JobTread jobs</Label>
       {loadErr ? (
         <p className="text-sm text-neutral-500">Unavailable ({loadErr}).</p>
@@ -273,7 +273,7 @@ export function JobAccess({ membershipId }: { membershipId: string }) {
           )}
           {choosing && (
             <>
-              <div className="mt-2 max-h-56 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
+              <div className="mt-2 max-h-56 divide-y divide-line-soft overflow-y-auto rounded-control border border-line">
                 {jobs.map((j) => (
                   <label
                     key={j.id}
