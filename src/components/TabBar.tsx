@@ -304,6 +304,10 @@ const ICONS: Record<string, () => React.ReactNode> = {
   lopezrocks: MapPinIcon,
 };
 
+/** Where the drawer's second icon row is kept (per device), and its first picks. */
+const DRAWER_ROW_KEY = "bar.drawerRow";
+const DRAWER_DEFAULT = ["leads", "vendors", "labor", "time-off", "roadmap"];
+
 export function TabBar() {
   const kloi = useKloi();
   const pathname = usePathname();
@@ -328,6 +332,25 @@ export function TabBar() {
     return () => window.removeEventListener(BAR_PIN_EVENT, read);
   }, []);
 
+  // The drawer's second icon row: five page ids this device chose (owner, request 42).
+  const [mine, setMine] = useState<string[]>([]);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem(DRAWER_ROW_KEY) ?? "[]");
+      if (Array.isArray(v)) setMine(v.filter((x) => typeof x === "string"));
+    } catch {
+      /* storage blocked or bad JSON — the default row */
+    }
+  }, []);
+  const pick = (i: number, view: string) => {
+    const next = drawerRow.slice();
+    next[i] = view;
+    setMine(next);
+    try {
+      localStorage.setItem(DRAWER_ROW_KEY, JSON.stringify(next));
+    } catch {}
+  };
   // The drawer. It closes on any navigation, a back swipe included.
   const [open, setOpen] = useState(false);
   // The rail can slide away for a full-width page (owner, 2026-11-01). The
@@ -389,10 +412,20 @@ export function TabBar() {
   if (items.length < 2) return null;
   const active = activeBarKey(items, pathname);
   const railActive = activeBarKey(rail, pathname);
-  // The drawer's icon rows: every rail icon the home row does not show.
-  const drawerIcons = rail.filter(
-    (r) => !items.some((b) => b.key === r.key || b.href === r.href),
+  // The drawer's icon row: five pages the role may open. Saved picks win; a
+  // page the role cannot open is dropped; Customers and sensible pages fill the rest.
+  const options = WORKSPACES.flatMap((w) => reachableTabs(w, access.can)).filter(
+    (t, i, a) => a.findIndex((x) => x.view === t.view) === i,
   );
+  const chosen = mine.filter((v, i) => options.some((o) => o.view === v) && mine.indexOf(v) === i);
+  const fill = [...DRAWER_DEFAULT, ...options.map((o) => o.view)].filter(
+    (v) => options.some((o) => o.view === v) && !items.some((b) => b.view === v && !b.workspace),
+  );
+  const drawerRow = [...chosen, ...fill.filter((v) => !chosen.includes(v))].slice(0, 5);
+  const drawerIcons: BarItem[] = drawerRow.map((v) => {
+    const t = options.find((o) => o.view === v)!;
+    return { key: t.view, label: t.label, href: t.href, view: t.view, covers: [t.href] };
+  });
 
   // Carry the selected job across, so hopping to a page from a job keeps it.
   const jobId = (search.get("jobId") ?? "").trim();
@@ -427,6 +460,9 @@ export function TabBar() {
             setOpen(true);
         }}
       >
+        <div className="flex justify-center pt-1.5" aria-hidden>
+          <div className="h-1 w-10 rounded-pill bg-neutral-300 dark:bg-neutral-600" />
+        </div>
         <div
           className="relative grid"
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
@@ -469,8 +505,25 @@ export function TabBar() {
           // are hidden while the drawer is closed.
           const top =
             drawerIcons.length > 0 ? (
+              <div>
               <div className="grid grid-cols-5">
-                {drawerIcons.map((t) => {
+                {drawerIcons.map((t, i) => {
+                  if (editing)
+                    return (
+                      <select
+                        key={i}
+                        aria-label={`Slot ${i + 1}`}
+                        value={t.view}
+                        onChange={(e) => pick(i, e.target.value)}
+                        className="h-14 min-w-0 rounded-card bg-transparent px-0.5 text-center text-[11px] font-semibold"
+                      >
+                        {options.map((o) => (
+                          <option key={o.view} value={o.view}>
+                            {o.label}
+                          </option>
+                        ))}
+                      </select>
+                    );
                   const on = t.key === railActive;
                   const Icon = ICONS[t.key] ?? PinIcon;
                   return (
@@ -491,6 +544,14 @@ export function TabBar() {
                     </Link>
                   );
                 })}
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditing((e) => !e)}
+                className="mx-auto block px-2 py-1 text-[11px] font-semibold text-neutral-500 dark:text-white/60"
+              >
+                {editing ? "Done" : "Edit icons"}
+              </button>
               </div>
             ) : null;
           return access.role === "office" ? (
