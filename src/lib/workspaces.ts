@@ -127,6 +127,7 @@ export const WORKSPACES: Workspace[] = [
     desc: "The Office job, its warnings and notices, and the script jobs.",
     tabs: [
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
+      tab("renewals", "/renewals", "Renewals", "Bond, insurance, permits and licences — due dates with a warning"),
       tab("roadmap", "/roadmap", "Roadmap", "Features the old Drive and sheets did that the app does not yet — rank them"),
     ],
   },
