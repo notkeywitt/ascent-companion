@@ -291,6 +291,7 @@ export type { TaskDocType, TaskDocument, DocForLink, DocDetail, DocLine } from "
 export {
   getJobAccessFor,
   grantJobAccess,
+  revokeJobAccess,
 } from "./jobtread/jobAccess";
 export type {
   JobAccessRow,

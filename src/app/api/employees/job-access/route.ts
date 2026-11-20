@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getJobAccessFor, getOrgUsers, grantJobAccess } from "@/lib/jobtread";
+import { getJobAccessFor, getOrgUsers, grantJobAccess, revokeJobAccess } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 
 /**
@@ -9,8 +9,9 @@ import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
  *
  *   GET  ?membershipId=                → { jobs: JobAccessRow[] }
  *   POST { membershipId, jobIds[] }    → { granted, failed[], jobs }
+ *   DELETE { membershipId, jobIds[] }  → { removed, failed[], jobs }
  *
- * Add only. Taking someone off a job stays in JobTread.
+ * DELETE takes the employee off those jobs' access lists (one `deleteAce` each).
  *
  * The POST re-reads the list itself and grants only open jobs the employee is
  * not already on, so a stale page cannot double-add or reach a closed job. The
@@ -77,5 +78,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ granted: todo.length - failed.length, failed, jobs });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Could not add job access." }, { status: 502 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const membershipId = String(body?.membershipId ?? "").trim();
+  const wanted = new Set(
+    (Array.isArray(body?.jobIds) ? body.jobIds : []).map((x: unknown) => String(x ?? "").trim()).filter(Boolean),
+  );
+  if (!membershipId || !wanted.size) {
+    return NextResponse.json({ error: "membershipId and jobIds are required." }, { status: 400 });
+  }
+  if (!writesEnabled()) {
+    return NextResponse.json(
+      { error: "Writes are OFF (COMPANION_WRITES_ENABLED not set). Nothing was written to JobTread." },
+      { status: 409 },
+    );
+  }
+
+  const cfg = getPaveConfig();
+  try {
+    if (!(await internalMembership(membershipId))) {
+      return NextResponse.json({ error: "That is not an internal JobTread member." }, { status: 400 });
+    }
+    // Re-read: remove only open jobs the employee is on now, by the ace just read.
+    const before = await getJobAccessFor(cfg, membershipId);
+    const todo = before.filter((j) => wanted.has(j.id) && j.aceId);
+    const failed: { jobId: string; name: string; error: string }[] = [];
+    for (let i = 0; i < todo.length; i += 5) {
+      await Promise.all(
+        todo.slice(i, i + 5).map((j) =>
+          revokeJobAccess(cfg, j.aceId as string).catch((e) =>
+            failed.push({ jobId: j.id, name: j.name, error: e instanceof Error ? e.message : "failed" }),
+          ),
+        ),
+      );
+    }
+    const jobs = await getJobAccessFor(cfg, membershipId);
+    return NextResponse.json({ removed: todo.length - failed.length, failed, jobs });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "Could not remove job access." }, { status: 502 });
   }
 }

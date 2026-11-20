@@ -23,7 +23,8 @@ Run `list`.
 
 - **No argument:** show the owner the open requests (id, title, push-through
   mark). Ask which to do. Stop until they answer.
-- **Ids given** (`/queue 12 15`): do only those.
+- **Ids given** (`/queue 12 15`): do only those. A slot works too (`/queue #1 #3`):
+  `list` numbers the open requests 1, 2, 3… and `result #3` finds the real id.
 
 The owner picks. Never do a request the owner did not name.
 

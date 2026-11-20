@@ -18,6 +18,8 @@ export interface JobAccessRow {
   number: string;
   customer: string;
   hasAccess: boolean;
+  /** The ace that puts the membership on the job; null when not on it. */
+  aceId: string | null;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function getJobAccessFor(cfg: PaveConfig, membershipId: string): Pr
       number: j.number ?? "",
       customer: j?.location?.account?.name ?? "",
       hasAccess: (j?.aces?.nodes ?? []).length > 0,
+      aceId: j?.aces?.nodes?.[0]?.id ? String(j.aces.nodes[0].id) : null,
     }))
     .sort((a, b) => a.customer.localeCompare(b.customer) || a.name.localeCompare(b.name));
 }
@@ -69,4 +72,13 @@ export async function grantJobAccess(cfg: PaveConfig, jobId: string, membershipI
       $: { assignee: { membershipId }, targetId: jobId, targetType: "job", notify: false },
     },
   });
+}
+
+/**
+ * WRITE — take one membership off one job's access list: `deleteAce` on the
+ * job ace `getJobAccessFor` returned. Removes the list entry only, never a job
+ * or document.
+ */
+export async function revokeJobAccess(cfg: PaveConfig, aceId: string): Promise<void> {
+  await pave(cfg, { deleteAce: { $: { id: aceId } } });
 }

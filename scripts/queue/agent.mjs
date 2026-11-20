@@ -3,17 +3,20 @@
  * The /queue skill's only door to App Feedback (.claude/skills/queue/SKILL.md).
  *
  *   node scripts/queue/agent.mjs list
- *   node scripts/queue/agent.mjs result <id> "<what was done>" [open|planned|done|declined]
+ *   node scripts/queue/agent.mjs result <id|#slot> "<what was done>" [open|planned|done|declined]
  *
  * The token: env REVIEW_AGENT_TOKEN, else the monthly check's
  * ~/.ascent-monthly-check/token (same value). It never appears on a command
  * line or in a transcript. QUEUE_URL overrides the address (a local dev server).
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 const URL_ = (process.env.QUEUE_URL || "https://ascent-companion.vercel.app").replace(/\/$/, "") + "/api/invoice-review/agent/requests";
+// `list` numbers the open requests 1, 2, 3… and saves slot → id here. `#3` in
+// `result` (and in /queue) means slot 3. A plain number is still a real id.
+const SLOT_FILE = path.join(os.homedir(), ".ascent-queue-slots.json");
 const TOKEN_FILE = path.join(os.homedir(), ".ascent-monthly-check", "token");
 
 function token() {
@@ -42,13 +45,25 @@ try {
   if (cmd === "list") {
     const { requests } = await call();
     console.log(`${requests.length} open request(s).`);
-    for (const r of requests) {
-      console.log(`\n## ${r.id}${r.pushThrough ? " — PUSH THROUGH" : ""} — ${r.title}`);
+    const slots = {};
+    requests.forEach((r, i) => (slots[i + 1] = r.id));
+    try {
+      writeFileSync(SLOT_FILE, JSON.stringify(slots));
+    } catch {}
+    for (const [i, r] of requests.entries()) {
+      console.log(`\n## #${i + 1} (id ${r.id})${r.pushThrough ? " — PUSH THROUGH" : ""} — ${r.title}`);
       console.log(`  ${r.status}, ${r.createdAt.slice(0, 10)}${r.requester ? `, from ${r.requester}` : ""}`);
       if (r.detail) console.log(`  ${r.detail.replace(/\n/g, "\n  ")}`);
     }
   } else if (cmd === "result" && id && result) {
-    const { request } = await call({ id: Number(id), result, ...(status ? { status } : {}) });
+    let realId = Number(id);
+    if (id.startsWith("#")) {
+      try {
+        realId = Number(JSON.parse(readFileSync(SLOT_FILE, "utf8"))[id.slice(1)]);
+      } catch {}
+      if (!realId) throw new Error(`No slot ${id}. Run list first.`);
+    }
+    const { request } = await call({ id: realId, result, ...(status ? { status } : {}) });
     console.log(`Request ${request.id} is now ${request.status}.`);
   } else {
     console.error('Usage: agent.mjs list | result <id> "<what was done>" [status]');
