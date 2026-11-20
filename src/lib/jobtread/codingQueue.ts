@@ -80,7 +80,10 @@ export async function getDraftBills(cfg: PaveConfig, jobId: string): Promise<Dra
  * tagged with its own jobId/jobName so the queue can link straight into that
  * job's bill view.
  */
-export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
+export async function getAllDraftBills(
+  cfg: PaveConfig,
+  status: "draft" | "pending" | "approved" = "draft",
+): Promise<DraftBill[]> {
   const q = (nodes: Record<string, unknown>, args: Record<string, unknown>) => ({
     organization: {
       $: { id: cfg.orgId },
@@ -90,7 +93,7 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
           where: {
             and: [
               ["type", "vendorBill"],
-              ["status", "draft"],
+              ["status", status],
             ],
           },
           ...args,
@@ -132,7 +135,7 @@ export async function getAllDraftBills(cfg: PaveConfig): Promise<DraftBill[]> {
 
   const walkWith = (nodes: Record<string, unknown>) =>
     pageAll<any>(cfg, {
-      label: "organization.documents (draft vendor bills)",
+      label: "organization.documents (vendor bills by status)",
       query: (args) => q(nodes, args),
       pick: (r) => r?.organization?.documents,
     });

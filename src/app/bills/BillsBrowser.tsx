@@ -56,6 +56,8 @@ interface Draft {
   externalId?: string;
   cost?: number;
   issueDate?: string;
+  /** JobTread status: draft, pending or approved. */
+  status?: string;
   /** Marked reviewed in the coding card (companion-local, /api/coding-queue). */
   reviewed?: boolean;
 }
@@ -86,6 +88,9 @@ export function BillsBrowser() {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<BillSort>("date");
   const [groupBy, setGroupBy] = useState<BillGroupBy>("none");
+  // Which bills to list. Drafts (the coding queue) is the default; the others
+  // are read-only views of bills that were already approved.
+  const [status, setStatus] = useState<"draft" | "pending" | "approved" | "all">("draft");
   const [showReviewed, setShowReviewed] = useState(true);
   // Bills and Expenses on the Ascent - Electrical job, Sunset and every other vendor.
   const [showElectrical, setShowElectrical] = useState(true);
@@ -117,15 +122,17 @@ export function BillsBrowser() {
   // Re-read the list when a bill was written in the panel (saved, approved,
   // voided) — an approved bill is no longer a draft and leaves the list.
   const loadList = () =>
-    fetch("/api/coding-queue", { cache: "no-store" })
+    fetch(`/api/coding-queue${status === "draft" ? "" : `?status=${status}`}`, { cache: "no-store" })
       .then((r) => r.json())
       .then((j) =>
         j.error ? setError(String(j.error)) : setBills(Array.isArray(j.bills) ? j.bills : []),
       )
       .catch((e) => setError(e instanceof Error ? e.message : "Network error"));
   useEffect(() => {
+    setBills(null);
+    setPicked(new Set());
     loadList();
-  }, []);
+  }, [status]);
   useEffect(() => {
     if (touchedBillCount() === 0) return;
     clearTouchedBills();
@@ -376,6 +383,21 @@ export function BillsBrowser() {
               <Toggle checked={showElectrical} onChange={setShowElectrical} label="Show Ascent - Electrical" />
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <SectionLabel className="shrink-0">Status</SectionLabel>
+              {(
+                [
+                  ["draft", "Draft"],
+                  ["pending", "Pending"],
+                  ["approved", "Approved"],
+                  ["all", "All"],
+                ] as const
+              ).map(([v, label]) => (
+                <FilterChip key={v} on={status === v} onClick={() => setStatus(v)}>
+                  {label}
+                </FilterChip>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <SectionLabel className="shrink-0">Show</SectionLabel>
               <FilterChip on={kind === "all"} onClick={() => setKind("all")}>
                 All
@@ -411,7 +433,7 @@ export function BillsBrowser() {
                 )}
               </div>
             )}
-            {picked.size > 0 && (
+            {status === "draft" && picked.size > 0 && (
               <Button
                 variant="secondary"
                 className="min-h-11 w-full"
@@ -421,7 +443,7 @@ export function BillsBrowser() {
                 {marking ? "Marking…" : `Mark ${targets.length} reviewed`}
               </Button>
             )}
-            {canApprove && (
+            {canApprove && status === "draft" && (
               <Button
                 className="min-h-11 w-full"
                 onClick={() => {
@@ -445,7 +467,9 @@ export function BillsBrowser() {
                       ? `Nothing matches “${query.trim()}”.`
                       : bills.length > 0
                         ? "Every bill here is reviewed. Turn on Show reviewed to see them."
-                        : "No bills waiting to be coded."}
+                        : status === "draft"
+                          ? "No bills waiting to be coded."
+                          : "No bills with this status."}
                   </EmptyState>
                 ) : (
                   // Sunset bills are always one group, at the foot (billGroups.ts).
@@ -483,6 +507,11 @@ export function BillsBrowser() {
                                     {typeof b.cost === "number" && (
                                       <span className="block text-sm font-semibold tabular-nums">
                                         {money(b.cost)}
+                                      </span>
+                                    )}
+                                    {status === "all" && b.status && b.status !== "draft" && (
+                                      <span className="block text-[11px] font-semibold capitalize text-neutral-500">
+                                        {b.status}
                                       </span>
                                     )}
                                     {b.reviewed && (
