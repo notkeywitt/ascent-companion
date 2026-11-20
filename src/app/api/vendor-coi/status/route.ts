@@ -95,6 +95,8 @@ export async function GET(req: NextRequest) {
         override,
         lastBillOn: last,
         emails: v.addresses,
+        w9: f?.w9 ?? false,
+        holdHarmless: f?.holdHarmless ?? "",
         lastRequestedOn: r?.lastRequestedOn ?? "",
         needed: coiNeeded(v.name, vendorType, override),
         state: coiState(coiExpires, today),

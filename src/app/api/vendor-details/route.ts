@@ -32,7 +32,7 @@ import { diffFields, openJournal } from "@/lib/financialJournal";
 export const dynamic = "force-dynamic";
 
 /** The only fields this route will write. Anything else in the body is ignored. */
-const FIELDS = ["email", "phone", "address", "billType", "coiExpires"] as const;
+const FIELDS = ["email", "phone", "address", "billType", "coiExpires", "w9", "holdHarmless"] as const;
 type Field = (typeof FIELDS)[number];
 
 export async function POST(req: NextRequest) {
@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "billType must be Bill or Expense." }, { status: 400 });
   }
 
+  if (patch.w9 !== undefined && !["true", "false", ""].includes(patch.w9)) {
+    return NextResponse.json({ error: "w9 must be true, false or empty." }, { status: 400 });
+  }
   if (patch.coiExpires && !/^\d{4}-\d{2}-\d{2}$/.test(patch.coiExpires)) {
     return NextResponse.json({ error: "coiExpires must be a date, YYYY-MM-DD." }, { status: 400 });
   }
@@ -83,7 +86,7 @@ export async function POST(req: NextRequest) {
     const idOf = (name: string) => fields.vendor.find((f) => f.name === name)?.id ?? "";
 
     // 1. Email + phone — the account's own custom fields. null clears one.
-    const cfv: Record<string, string | null> = {};
+    const cfv: Record<string, string | boolean | null> = {};
     if (patch.email !== undefined && idOf("Email")) cfv[idOf("Email")] = patch.email || null;
     if (patch.phone !== undefined && idOf("Phone")) cfv[idOf("Phone")] = patch.phone || null;
     if (patch.billType !== undefined) {
@@ -106,6 +109,15 @@ export async function POST(req: NextRequest) {
         );
       }
       cfv[idOf("COI Expires")] = patch.coiExpires || null;
+    }
+    // W-9 (boolean) and Hold Harmless (text): owner approved 2026-11-20. Both
+    // exist in JobTread; say so if one is missing rather than dropping the save.
+    for (const [key, name] of [["w9", "W-9"], ["holdHarmless", "Hold Harmless"]] as const) {
+      if (patch[key] === undefined) continue;
+      if (!idOf(name)) {
+        return NextResponse.json({ error: `JobTread has no vendor custom field "${name}". Add it in JobTread settings first.` }, { status: 409 });
+      }
+      cfv[idOf(name)] = key === "w9" ? (patch.w9 === "" ? null : patch.w9 === "true") : patch.holdHarmless || null;
     }
     if (Object.keys(cfv).length > 0) {
       // `notify` defaults to TRUE on updateAccount — filing a vendor's phone
@@ -175,6 +187,8 @@ function flat(d: {
   phone: string;
   billType: string;
   coiExpires: string;
+  w9: boolean;
+  holdHarmless: string;
   addresses: string[];
 }) {
   return {
@@ -182,6 +196,8 @@ function flat(d: {
     Phone: d.phone,
     "Bill Type": d.billType,
     "COI Expires": d.coiExpires,
+    "W-9": d.w9 ? "yes" : "no",
+    "Hold Harmless": d.holdHarmless,
     Address: d.addresses.join(" | "),
   };
 }
