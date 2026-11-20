@@ -1,5 +1,11 @@
 [
  {
+  "sha": "fda0b0bb",
+  "date": "2026-11-20T17:32:42Z",
+  "title": "due date under the bill date on the unpaid bills widget",
+  "plain": "Each bill on the Unpaid bills card now shows its due date under the bill date."
+ },
+ {
   "sha": "443f0644",
   "date": "2026-11-20T17:08:35Z",
   "title": "home note button floats, needs attention moves to bottom",
