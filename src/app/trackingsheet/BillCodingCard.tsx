@@ -1133,7 +1133,7 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
                       disabled={!setDueDate || !writes || Boolean(dueDateSaving)}
                       onChange={(e) => setDueDate?.(e.target.value)}
                       title="Payment due — the date this vendor invoice has to be paid. JobTread calls it Payment Due."
-                      className={`${quietSm} tabular-nums disabled:opacity-60`}
+                      className={`${quietSm} min-w-[7.5rem] !border-line-strong !bg-white tabular-nums disabled:opacity-60 dark:!bg-ink-raised`}
                     />
                   </label>
                   {/* A bill with no due date is not undated — it is on net

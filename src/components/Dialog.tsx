@@ -112,6 +112,14 @@ export function Dialog({
         aria-modal="true"
         aria-label={name}
         tabIndex={-1}
+        // The scrim covers the tab bar, so a bar docked "above the tab bar"
+        // inside here belongs at the panel's own foot, above the home indicator.
+        style={
+          {
+            "--tabbar-h": "0px",
+            "--bar-pad": "env(safe-area-inset-bottom)",
+          } as React.CSSProperties
+        }
         onClick={(e) => e.stopPropagation()}
         className={`flex max-h-[90dvh] w-full flex-col outline-none ${SIZES[size]} ${
           bare
