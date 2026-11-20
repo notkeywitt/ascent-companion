@@ -721,8 +721,11 @@ function UnpaidBillsWidget() {
                     onClick={() => setOpenId(b.id)}
                     className="flex min-h-11 w-full items-center gap-3 rounded-inner px-1 py-1.5 text-left text-[13px] hover:bg-line-soft"
                   >
-                    <span className="w-14 shrink-0 tabular-nums text-neutral-500">
-                      {shortDate(b.issueDate)}
+                    <span className="w-16 shrink-0 tabular-nums text-neutral-500">
+                      <span className="block">{shortDate(b.issueDate)}</span>
+                      <span className="block text-[11px]">
+                        Due {b.dueDate ? shortDate(b.dueDate) : "—"}
+                      </span>
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate font-medium">{b.vendor}</span>
