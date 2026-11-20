@@ -1,5 +1,11 @@
 [
  {
+  "sha": "d79b5be3",
+  "date": "2026-11-20T06:36:33-08:00",
+  "title": "show finding detail on needs-attention cards; one sheet card for not synced and labor hours",
+  "plain": "show finding detail on needs-attention cards; one sheet card for not synced and labor hours"
+ },
+ {
   "sha": "74ce39b3",
   "date": "2026-11-20T06:27:49-08:00",
   "title": "add Admin Change Log tab, lander writes it",
