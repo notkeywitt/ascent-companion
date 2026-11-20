@@ -161,6 +161,10 @@ export interface CoiVendorInput {
 export interface VendorCoiRow extends CoiVendorInput {
   /** "YYYY-MM-DD" of the last COI request, or "". */
   lastRequestedOn: string;
+  /** A W-9 is on file (JobTread "W-9" field). */
+  w9: boolean;
+  /** JobTread "Hold Harmless" text (a date or "on file"), or "". */
+  holdHarmless: string;
   needed: boolean;
   state: CoiState;
 }
@@ -188,6 +192,9 @@ export function coiRequestList(vendors: CoiVendorInput[], todayIso: string): Coi
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 }
+
+/** A register row that needs a COI and has no W-9 on file. */
+export const missingW9 = (v: Pick<VendorCoiRow, "needed" | "w9">): boolean => v.needed && !v.w9;
 
 const REGISTER_ORDER: Record<CoiState, number> = { expired: 0, unknown: 1, expiring: 2, current: 3 };
 

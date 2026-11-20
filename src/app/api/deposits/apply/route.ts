@@ -9,9 +9,12 @@ import {
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
 import { buildDepositLedger, planDepositDraw } from "@/lib/deposits";
 import { readEnteredDeposit } from "@/lib/depositLinks";
-import { readDeposits } from "@/lib/depositRead";
+import { readDeposits, writeDepositSheet } from "@/lib/depositRead";
 import { openJournal } from "@/lib/financialJournal";
 import { qboLock } from "@/lib/qboLock";
+
+// The draw, its verify, then the tracking sheet's Deposits tab (up to 30s).
+export const maxDuration = 60;
 
 /**
  * APPLY PART OF A DEPOSIT TO A DRAFT INVOICE — the one JobTread write behind the
@@ -24,7 +27,9 @@ import { qboLock } from "@/lib/qboLock";
  *   - no more than the deposit has left, less other drafts' draws;
  *   - no more than the invoice's own total.
  * The write is verified (price moved by the draw, tax did not move) and undone
- * on a mismatch, then journalled. Answers with the card's fresh payload.
+ * on a mismatch, then journalled. Answers with the card's fresh payload, plus
+ * `depositSheet`: the rewrite of the tracking sheet's Deposits tab for the
+ * invoice's month (`writeDepositSheet`), which never fails the draw.
  *
  * Gated by the `recode` view (its `/api/deposits` path covers this route) and by
  * `writesEnabled()`.
@@ -51,10 +56,12 @@ export async function POST(req: NextRequest) {
 
   let inv;
   let plan;
+  let before;
   try {
     inv = await getInvoiceForDraw(cfg, invoiceId);
     const [stored, read] = await Promise.all([readEnteredDeposit(inv.jobId), getJobDepositInputs(cfg, inv.jobId)]);
-    plan = planDepositDraw(buildDepositLedger({ lines: read.lines, entered: stored.entered }), inv, amount);
+    before = buildDepositLedger({ lines: read.lines, entered: stored.entered });
+    plan = planDepositDraw(before, inv, amount);
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
   }
@@ -83,7 +90,6 @@ export async function POST(req: NextRequest) {
         meta: { invoiceNumber: inv.number, mode: plan.mode, leafId, totalsBefore: res.before, totalsAfter: res.after, snapshot },
       },
     ]);
-    return NextResponse.json(await readDeposits(inv.jobId));
   } catch (e) {
     const error = e instanceof Error ? e.message : String(e);
     await j.record([
@@ -91,4 +97,20 @@ export async function POST(req: NextRequest) {
     ]);
     return NextResponse.json({ error }, { status: 502 });
   }
+
+  // The draw landed. Rewrite the sheet's Deposits tab for the invoice's billing
+  // month (its issue month). A removed draw is gone from the fresh ledger, so
+  // the month comes from the ledger read before the write. Never fails the draw.
+  let fresh;
+  try {
+    fresh = await readDeposits(inv.jobId);
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: `The draw is saved, but the re-read failed: ${error}` }, { status: 502 });
+  }
+  const date = [...fresh.ledger.entries, ...before.entries].find((e) => e.invoiceId === inv.id)?.date;
+  const depositSheet = date
+    ? await writeDepositSheet({ jtJobId: inv.jobId, ym: date.slice(0, 7), ledger: fresh.ledger })
+    : { ok: false, error: "The invoice has no date, so the sheet's month is unknown." };
+  return NextResponse.json({ ...fresh, depositSheet });
 }
