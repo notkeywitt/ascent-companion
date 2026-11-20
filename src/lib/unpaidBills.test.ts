@@ -6,6 +6,7 @@ const bill = (o: Partial<UnpaidBillInput>): UnpaidBillInput => ({
   vendor: "Island Lumber",
   cost: 100,
   issueDate: "2026-11-05",
+  dueDate: "2026-12-05",
   createdAt: "2026-11-05T10:00:00Z",
   status: "approved",
   amountPaid: 0,

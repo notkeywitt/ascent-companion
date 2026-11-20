@@ -28,6 +28,8 @@ export interface UnpaidBillInput {
   vendor: string;
   cost: number;
   issueDate: string;
+  /** yyyy-MM-dd, or "" when the bill has none. */
+  dueDate: string;
   createdAt: string;
   status: string;
   amountPaid: number;
