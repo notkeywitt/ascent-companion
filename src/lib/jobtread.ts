@@ -347,6 +347,7 @@ export type {
 export { getLswddStatementBills } from "./jobtread/lswddBills";
 export type { LswddBill, LswddStatementBills } from "./jobtread/lswddBills";
 export { getYearRibbonRows } from "./jobtread/yearRibbon";
+export { getUnpaidBillsSince } from "./jobtread/unpaidBills";
 export { getResearchSubject } from "./jobtread/leadResearch";
 export type { ResearchSubject } from "./jobtread/leadResearch";
 export { getArtRows } from "./jobtread/artCloud";
