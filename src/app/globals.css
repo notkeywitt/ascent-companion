@@ -270,6 +270,73 @@
   border-color: rgb(var(--line));
 }
 
+/* --- Skin 3 — "Shop Manual" (2026-11-20) ---------------------------------
+   Read off Willis H. Wagner, "Modern Woodworking" (Goodheart-Willcox, 1970s):
+   one spot colour, BURNT ORANGE, printed on warm paper with black ink. Titles
+   and captions are Futura in spaced capitals; figures are flat hairline
+   drawings with hard corners. Jost is the free Futura revival that stands in.
+
+   Contrast (WCAG, measured 2026-11-20):
+     #B4532A fill on #F1EBDC paper   4.19:1  graphics and fills, not words
+     #A84B24 text on paper / white   4.78 / 5.68:1  so links take this step
+     #FFF8EC label on #B4532A        4.80:1
+   The book has no dark mode. Dark is derived: the paper becomes a warm
+   brown-black and the orange lifts until it carries a word (5.5:1). */
+[data-palette="shopmanual"] {
+  --accent: 180 83 42; /* #B4532A the book's orange */
+  --accent-hover: 158 72 35; /* #9E4823 */
+  --accent-soft: 180 83 42;
+  --accent-text: 168 75 36; /* #A84B24 one step deeper, so a link reads (4.78:1) */
+  --accent-fg: 255 248 236; /* #FFF8EC paper-white label on an orange fill */
+  --brand: 180 83 42; /* logo square, peak mark, heading rules */
+
+  /* Printed rules: a touch heavier than the other skins, like ink on paper. */
+  --line: 220 210 188; /* #DCD2BC */
+  --line-soft: 232 224 206; /* #E8E0CE */
+  --line-strong: 196 183 155; /* #C4B79B */
+
+  --page: 241 235 220; /* #F1EBDC the page */
+  --page-fg: 30 28 25; /* #1E1C19 ink */
+  --ink: 28 26 22; /* #1C1A16 */
+  --ink-raised: 38 35 30; /* #26231E */
+  --ink-overlay: 48 44 37; /* #302C25 */
+
+  --font-body: var(--font-jost);
+  --font-display: var(--font-jost);
+  --display-weight: 500; /* "CONTENTS": medium, not bold */
+  --display-tracking: 0.08em;
+  --display-case: uppercase;
+  --caption-tracking: 0.12em;
+
+  /* Hard corners, like a printed figure. Circles stay circles. */
+  --radius-chip: 0;
+  --radius-inner: 0;
+  --radius-control: 0;
+  --radius-card: 0;
+  --radius-sheet: 0;
+  --radius-pill: 0;
+
+  /* Paper grain: SVG noise, a few percent of brown ink. */
+  --page-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .27 0 0 0 0 .18 .22 0 0 0 -.06'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-palette="shopmanual"].dark {
+  --accent: 217 119 74; /* #D9774A 5.53:1 on the page, 4.99:1 on a card */
+  --accent-hover: 229 137 94; /* #E5895E */
+  --accent-soft: 232 149 107; /* #E8956B */
+  --accent-text: 224 138 95; /* #E08A5F 5.94:1 on a card */
+  --accent-fg: 28 26 22; /* #1C1A16 ink label on an orange fill (5.53:1) */
+  --brand: 217 119 74;
+
+  --line: 58 53 44; /* #3A352C */
+  --line-soft: 46 42 35; /* #2E2A23 */
+  --line-strong: 77 70 58; /* #4D463A */
+
+  --page: 28 26 22; /* #1C1A16 */
+  --page-fg: 238 230 212; /* #EEE6D4 */
+
+  --page-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .8 .12 0 0 0 -.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* --- Categorical data-viz palette ---------------------------------------
    Fixed-order hue slots for charts (the cost rings, the CSI-division donuts
    on the Jobs view). Assign in order, never cycle; a slice past the last slot
