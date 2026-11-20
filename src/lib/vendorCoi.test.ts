@@ -5,6 +5,7 @@ import {
   coiKey,
   coiNeeded,
   coiRegister,
+  missingW9,
   coiRequestList,
   coiState,
   gmailComposeUrl,
@@ -108,6 +109,8 @@ describe("coiRegister", () => {
     lastBillOn: "2026-10-01",
     emails: [],
     lastRequestedOn: "",
+    w9: true,
+    holdHarmless: "",
     needed: true,
     state: coiState(coiExpires, today),
     ...over,
@@ -125,5 +128,10 @@ describe("coiRegister", () => {
       today,
     ).map((x) => x.name);
     expect(out).toEqual(["Gone", "None", "Soon", "Good"]);
+  });
+  it("flags a needed vendor with no W-9", () => {
+    expect(missingW9(r("A", "", { w9: false }))).toBe(true);
+    expect(missingW9(r("B", "", { w9: true }))).toBe(false);
+    expect(missingW9(r("C", "", { w9: false, needed: false }))).toBe(false);
   });
 });

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui";
 import { money } from "@/lib/money";
 import { setUrlParam } from "@/lib/urlParam";
-import { coiKey, coiRegister, gmailComposeUrl, type VendorCoiRow } from "@/lib/vendorCoi";
+import { coiKey, coiRegister, gmailComposeUrl, missingW9, type VendorCoiRow } from "@/lib/vendorCoi";
 import { CoiDot } from "@/components/CoiDot";
 
 /**
@@ -82,6 +82,8 @@ interface VendorDetail {
   phone: string;
   billType: "Bill" | "Expense";
   coiExpires: string;
+  w9: boolean;
+  holdHarmless: string;
   vendorType: string;
   addresses: string[];
   contacts: VendorContact[];
@@ -118,6 +120,7 @@ const FIELD_DEFS = [
   { key: "phone", label: "Phone", type: "tel", placeholder: "(360) 555-0134" },
   { key: "address", label: "Address", type: "text", placeholder: "Street, city, state ZIP" },
   { key: "coiExpires", label: "COI expires", type: "date", placeholder: "" },
+  { key: "holdHarmless", label: "Hold harmless", type: "text", placeholder: "Date or on file" },
 ] as const;
 
 /** The COI status read for every vendor (/api/vendor-coi/status). */
@@ -160,6 +163,7 @@ function VendorDetailCard({
     phone: detail.phone,
     address: detail.addresses[0] ?? "",
     coiExpires: detail.coiExpires,
+    holdHarmless: detail.holdHarmless,
   };
   const valueOf = (k: string) => draft[k] ?? stored[k];
   const changed = Object.fromEntries(
@@ -190,7 +194,7 @@ function VendorDetailCard({
         }
         setDraft({});
         if (j.detail) onSaved(j.detail as VendorDetail);
-        if ("coiExpires" in fields) onCoiChanged();
+        if ("coiExpires" in fields || "w9" in fields || "holdHarmless" in fields) onCoiChanged();
       })
       .catch((e) => setError(e instanceof Error ? e.message : "Network error"))
       .finally(() => setSaving(false));
@@ -252,6 +256,22 @@ function VendorDetailCard({
                 title={t === "Expense" ? "Already paid when it arrives" : "Paid later, on terms"}
               >
                 {t}
+              </FilterChip>
+            ))}
+          </div>
+        </div>
+
+        {/* W-9 on file. Saves on tap. */}
+        <div className={rowCls}>
+          <span className={rowLabelCls}>W-9</span>
+          <div className="flex gap-2">
+            {([true, false] as const).map((t) => (
+              <FilterChip
+                key={String(t)}
+                on={detail.w9 === t}
+                onClick={() => !saving && detail.w9 !== t && save({ w9: String(t) })}
+              >
+                {t ? "On file" : "None"}
               </FilterChip>
             ))}
           </div>
@@ -388,10 +408,7 @@ function CoiRequestRow({
 const STATE_LABEL = { expired: "Expired", unknown: "None on file", expiring: "Expiring", current: "OK" } as const;
 const STATE_TONE = { expired: "danger", unknown: "neutral", expiring: "warning", current: "success" } as const;
 
-/**
- * The COI register: every sub that needs a COI, worst first. W-9 and
- * hold-harmless are not shown: /api/vendor-details cannot write them yet.
- */
+/** The COI register: every sub that needs a COI, worst first. A "No W-9" chip marks a missing W-9. */
 function CoiRegisterDialog({ status, onClose }: { status: CoiStatus; onClose: () => void }) {
   const rows = coiRegister(Object.values(status.byId), status.today);
   const th = "px-3 py-2 text-left text-[11px] uppercase tracking-wide text-neutral-500 font-medium";
@@ -405,6 +422,8 @@ function CoiRegisterDialog({ status, onClose }: { status: CoiStatus; onClose: ()
               <th className={th}>Status</th>
               <th className={th}>Expires</th>
               <th className={th}>Last asked</th>
+              <th className={th}>W-9</th>
+              <th className={th}>Hold harmless</th>
             </tr>
           </thead>
           <tbody>
@@ -416,6 +435,10 @@ function CoiRegisterDialog({ status, onClose }: { status: CoiStatus; onClose: ()
                 </td>
                 <td className="px-3 py-2 tabular-nums">{isoLabel(r.coiExpires) || "—"}</td>
                 <td className="px-3 py-2 tabular-nums">{isoLabel(r.lastRequestedOn) || "never"}</td>
+                <td className="px-3 py-2">
+                  {missingW9(r) ? <Chip tone="warning">No W-9</Chip> : "Yes"}
+                </td>
+                <td className="px-3 py-2">{r.holdHarmless || "—"}</td>
               </tr>
             ))}
           </tbody>

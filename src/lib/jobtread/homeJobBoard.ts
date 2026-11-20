@@ -439,7 +439,14 @@ export interface VendorCoiFields {
   coiExpires: string;
   /** Subcontractor, Supplier, Rentals, Other, or "". */
   vendorType: string;
+  /** The "W-9" boolean field: a W-9 is on file. */
+  w9: boolean;
+  /** The "Hold Harmless" text field (a date or note), or "". */
+  holdHarmless: string;
 }
+
+/** A custom-field value as a yes/no: JobTread sends a boolean field as true or "true". */
+export const cfTrue = (v: unknown): boolean => v === true || String(v).toLowerCase() === "true";
 
 /**
  * Every vendor's "COI Expires" date and "Type" option, keyed by account id.
@@ -466,10 +473,12 @@ export async function _getVendorCoiFieldsUncached(
   const fieldId = (name: string) =>
     String(fields.find((f) => f?.name === name && f?.targetType === "vendor")?.id ?? "");
   const out: Record<string, VendorCoiFields> = {};
-  const slot = (id: string) => (out[id] ??= { coiExpires: "", vendorType: "" });
+  const slot = (id: string) => (out[id] ??= { coiExpires: "", vendorType: "", w9: false, holdHarmless: "" });
   for (const [name, key] of [
     ["COI Expires", "coiExpires"],
     ["Type", "vendorType"],
+    ["W-9", "w9"],
+    ["Hold Harmless", "holdHarmless"],
   ] as const) {
     const id = fieldId(name);
     if (!id) continue;
@@ -491,7 +500,8 @@ export async function _getVendorCoiFieldsUncached(
           const acct = n?.account?.id;
           const v = n?.value == null ? "" : String(n.value).trim();
           if (!acct || !v) continue;
-          slot(String(acct))[key] = key === "coiExpires" ? v.slice(0, 10) : v;
+          if (key === "w9") slot(String(acct)).w9 = cfTrue(n.value);
+          else slot(String(acct))[key] = key === "coiExpires" ? v.slice(0, 10) : v;
         }
       },
     );
@@ -578,6 +588,10 @@ export interface VendorDetail {
   coiExpires: string;
   /** The "Type" option field: Subcontractor, Supplier, Rentals, Other, or "". */
   vendorType: string;
+  /** The "W-9" boolean field. */
+  w9: boolean;
+  /** The "Hold Harmless" text field, or "". */
+  holdHarmless: string;
   /** One line per location, JobTread's own `address` string — `formattedAddress`
    *  is null on a vendor address typed by hand, which most of these are. */
   addresses: string[];
@@ -635,6 +649,8 @@ export async function getVendorDetail(cfg: PaveConfig, accountId: string): Promi
     billType: own.get("Bill Type") === "Expense" ? "Expense" : "Bill",
     coiExpires: (own.get("COI Expires") ?? "").slice(0, 10),
     vendorType: own.get("Type") ?? "",
+    w9: cfTrue(((a.customFieldValues?.nodes ?? []) as any[]).find((n) => n?.customField?.name === "W-9")?.value),
+    holdHarmless: own.get("Hold Harmless") ?? "",
     addresses: ((a.locations?.nodes ?? []) as any[])
       .map((l) => String(l?.formattedAddress ?? l?.address ?? "").trim())
       .filter(Boolean),
