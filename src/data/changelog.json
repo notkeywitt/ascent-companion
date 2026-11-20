@@ -1,5 +1,53 @@
 [
  {
+  "sha": "74ce39b3",
+  "date": "2026-11-20T06:27:49-08:00",
+  "title": "add Admin Change Log tab, lander writes it",
+  "plain": "Admin has a new Change Log tab that lists every app update in plain words, newest first."
+ },
+ {
+  "sha": "a27878bc",
+  "date": "2026-11-20T06:26:00-08:00",
+  "title": "mark renewals, client budget and deposit balance built on roadmap",
+  "plain": "mark renewals, client budget and deposit balance built on roadmap"
+ },
+ {
+  "sha": "e19706f1",
+  "date": "2026-11-20T06:25:30-08:00",
+  "title": "deposit balance per month, all-jobs deposit list, deposit review checks",
+  "plain": "deposit balance per month, all-jobs deposit list, deposit review checks"
+ },
+ {
+  "sha": "ec5b6974",
+  "date": "2026-11-20T06:25:18-08:00",
+  "title": "add client budget report page",
+  "plain": "add client budget report page"
+ },
+ {
+  "sha": "9b1e52cb",
+  "date": "2026-11-20T06:24:32-08:00",
+  "title": "rail foot keeps one height so bottom icons stay put when the rail collapses",
+  "plain": "rail foot keeps one height so bottom icons stay put when the rail collapses"
+ },
+ {
+  "sha": "70b1f10e",
+  "date": "2026-11-20T06:20:57-08:00",
+  "title": "renewals calendar page with due dates and warnings",
+  "plain": "renewals calendar page with due dates and warnings"
+ },
+ {
+  "sha": "d5a8487b",
+  "date": "2026-11-20T06:20:22-08:00",
+  "title": "COI register, expiring-in-30-days requests and amber COI dot",
+  "plain": "COI register, expiring-in-30-days requests and amber COI dot"
+ },
+ {
+  "sha": "1dcbc937",
+  "date": "2026-11-20T06:19:55-08:00",
+  "title": "stop duplicate safety meeting saves (submitId, in-flight guard, timeout warning)",
+  "plain": "stop duplicate safety meeting saves (submitId, in-flight guard, timeout warning)"
+ },
+ {
   "sha": "96d43c47",
   "date": "2026-11-20T06:16:15-08:00",
   "title": "add vehicles card to the office dashboard",
