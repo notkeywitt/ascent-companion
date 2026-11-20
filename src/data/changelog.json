@@ -1,5 +1,11 @@
 [
  {
+  "sha": "d4176e6b",
+  "date": "2026-11-20T06:58:24-08:00",
+  "title": "trim jobs hub month view: drop sync lines, tabs row, not-in-jobtread card, before-you-send card",
+  "plain": "trim jobs hub month view: drop sync lines, tabs row, not-in-jobtread card, before-you-send card"
+ },
+ {
   "sha": "c514fb70",
   "date": "2026-11-20T06:40:19-08:00",
   "title": "mark sub-coi and safety-dupes built on roadmap",
