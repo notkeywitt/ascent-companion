@@ -759,7 +759,7 @@ function UnpaidBillsWidget() {
             setReload((n) => n + 1);
           }}
         >
-          <BillView key={openId} docId={openId} embedded />
+          <BillView key={openId} docId={openId} embedded inset />
         </Dialog>
       )}
     </WidgetCard>

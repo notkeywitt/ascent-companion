@@ -186,7 +186,16 @@ function reloadJtWindow() {
  * it drops the page's Back link, its ‹ prev / next › links stay on /bills, and
  * the action drawer docks to the bill's own column instead of the whole width.
  */
-export function BillView({ docId, embedded = false }: { docId: string; embedded?: boolean }) {
+export function BillView({
+  docId,
+  embedded = false,
+  inset = false,
+}: {
+  docId: string;
+  embedded?: boolean;
+  /** Embedded in a Dialog with no padding of its own: pad the bill's edges. */
+  inset?: boolean;
+}) {
   const search = useSearchParams();
   const router = useRouter();
   // Bill moves run in the background, owned by the root layout — see BillMove.tsx.
@@ -1451,7 +1460,9 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
       embedded={embedded}
       className={
         embedded
-          ? "w-full"
+          ? inset
+            ? "w-full px-3 pt-2"
+            : "w-full"
           : "w-full max-w-2xl px-4 pad:px-7 lg:max-w-6xl pb-[calc(9rem+env(safe-area-inset-bottom))] pt-5"
       }
     >
@@ -1762,10 +1773,10 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
         <div
           style={
             embedded
-              ? { bottom: "var(--tabbar-h, 0px)" }
+              ? { bottom: "var(--tabbar-h, 0px)", paddingBottom: "var(--bar-pad, 0px)" }
               : { bottom: "var(--tabbar-h, 0px)", left: "var(--rail-w, 0px)" }
           }
-          className={`${embedded ? "sticky mt-4" : "fixed inset-x-0"} z-30 print:hidden ${
+          className={`${embedded ? `sticky mt-4 ${inset ? "-mx-3" : ""}` : "fixed inset-x-0"} z-30 print:hidden ${
             // Open, it reads as a sheet over the bill: a full edge, a shadow,
             // and a see-through ground blurring what is behind it. Closed, it
             // is the quiet strip it always was.
