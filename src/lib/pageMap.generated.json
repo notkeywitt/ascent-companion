@@ -105,6 +105,10 @@
    "file": "src/app/chat/page.tsx"
   },
   {
+   "route": "/client-budget",
+   "file": "src/app/client-budget/page.tsx"
+  },
+  {
    "route": "/clients",
    "file": "src/app/clients/page.tsx"
   },
@@ -781,6 +785,11 @@
    "kind": "link"
   },
   {
+   "from": "/client-budget",
+   "to": "/unbilled",
+   "kind": "link"
+  },
+  {
    "from": "/clients",
    "to": "/budget-import",
    "kind": "strip"
@@ -1199,6 +1208,11 @@
   {
    "from": "/trackingsheet",
    "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
+   "to": "/client-budget",
    "kind": "link"
   },
   {
