@@ -4,6 +4,7 @@
 #   npm run ship                       queue the committed work
 #   npm run ship -- "companion: msg"   commit what is staged first, then queue
 #   npm run ship -- --now ["msg"]      express lane: the lander deploys it alone, first
+#   npm run ship -- "msg" "sentence"   also add "Change-log: sentence" (Admin's Change Log)
 #
 # Runs typecheck and tests (seconds), then pushes HEAD to ready/<name>. The
 # lander (scripts/land.sh) merges the queue onto main, builds once and deploys.
@@ -23,6 +24,7 @@ if [ "${1:-}" = "--now" ]; then
   shift
 fi
 msg="${1:-}"
+plain="${2:-}"
 
 branch=$(git rev-parse --abbrev-ref HEAD)
 if [ "$branch" = "HEAD" ]; then
@@ -45,7 +47,11 @@ if [ -n "$binary" ]; then
 fi
 
 if [ -n "$msg" ] && ! git diff --cached --quiet; then
-  git commit -q -m "$msg" || { echo "ship: commit failed" >&2; exit 1; }
+  if [ -n "$plain" ]; then
+    git commit -q -m "$msg" --trailer "Change-log: $plain"
+  else
+    git commit -q -m "$msg"
+  fi || { echo "ship: commit failed" >&2; exit 1; }
 fi
 
 # Ship only what is committed. Anything left over would be missing from the
