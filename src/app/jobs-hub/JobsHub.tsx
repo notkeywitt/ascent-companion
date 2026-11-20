@@ -20,7 +20,6 @@ import dynamic from "next/dynamic";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
 import { CheckForBills } from "@/components/CheckForBills";
 import { ApproveAllBills } from "@/components/ApproveAllBills";
-import { SyncAllTrackingSheetsFor } from "@/components/TrackingSheetSync";
 import { SheetSyncButton } from "@/components/SheetSyncSettings";
 import { monthJobRows, monthWarrantyRow, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { WARRANTY_SLICE_KEY } from "@/lib/warranty";
@@ -600,8 +599,6 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                     Sheet sync settings left this card: the Checks tab and the
                     Month tab's Company tools hold them (owner, 2026-11-14). */}
                 <div className="flex shrink-0 flex-col items-center gap-2 border-t border-line-soft pt-3">
-                  <SyncAllTrackingSheetsFor ym={ym} className="text-center" resultSlot={syncResultSlot} />
-                  {can("jobs-hub") && <CheckForBills />}
                   <div className="flex flex-wrap items-start justify-center gap-2">
                     <DraftInvoicingEmail ym={ym} />
                     <ApproveAllBills ym={ym} />
@@ -660,7 +657,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         {/* The tabs, a row of their own under the header: at the card's foot
             they ran off a narrow screen (owner, 2026-11-03). Too wide still,
             the row scrolls sideways. With no job picked they are the month's. */}
-        {(selected || monthTabs.length > 0 || canTrackingSheet) && (
+        {selected && (
           <div className="no-scrollbar overflow-x-auto">
             <div className="mx-auto w-max">{tabs}</div>
           </div>
