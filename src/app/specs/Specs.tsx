@@ -580,7 +580,7 @@ type RowProps = {
   onSave: (costItemId: string) => Promise<void>;
 };
 
-const TH = "sticky z-10 border-b border-line bg-cream px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink dark:text-neutral-400";
+const TH = "sticky z-10 border-b border-line bg-page px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:bg-ink dark:text-neutral-400";
 const TD = "px-2 py-1.5 align-top";
 
 /** The desk view: every row in one dense table, a band per room. */

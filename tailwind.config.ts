@@ -44,6 +44,10 @@ export default {
       // cream and off-black fields, not the dominant interactive color.
       colors: {
         cream: "#FAF7EE",
+        // The skin's page ground, as a fill: sticky bars, the rail and the
+        // header use it so they match the page in every skin. `cream` is the
+        // fixed brand constant and no longer paints a surface.
+        page: "rgb(var(--page) / <alpha-value>)",
         offblack: "#1B1B17",
         olive: "#878054",
         ochre: "#CF9803",

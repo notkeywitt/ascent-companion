@@ -337,6 +337,16 @@
   --page-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .8 .12 0 0 0 -.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* FLAT SKINS. A printed page has no drop shadows. This zeroes Tailwind's
+   `--tw-shadow` on every element that sets one, so menus, dialogs, toasts and
+   sticky bars sit flat on their hairline. Focus rings survive: they ride
+   `--tw-ring-shadow`, which this leaves alone. Add a skin to the `:is()` list
+   to make it flat. */
+:is([data-palette="shopmanual"]) [class*="shadow"] {
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+}
+
 /* --- Categorical data-viz palette ---------------------------------------
    Fixed-order hue slots for charts (the cost rings, the CSI-division donuts
    on the Jobs view). Assign in order, never cycle; a slice past the last slot

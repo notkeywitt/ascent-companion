@@ -190,6 +190,15 @@ The non-colour tokens live in the "Skin tokens" block of `globals.css`. The
 | `--radius-pill` | `9999px` | `rounded-pill`: `FilterChip`, `Toggle`, `Meter`, `CountBadge` |
 | `--page-texture` | `none` | `body` background image, over `--page` |
 
+Two more skin hooks, outside the token block:
+
+- **`bg-page`** paints the skin's page colour as a fill. The header, rail,
+  sticky bars and full-screen loaders use it. Never paint a surface
+  `bg-cream`: that is the fixed brand constant, and it is wrong in any skin
+  whose paper is not `#FAF7EE`.
+- **Flat skins.** Add a skin's selector to the `:is()` list of the flat-skin
+  rule in `globals.css` to drop every drop shadow in it.
+
 Rules when you write UI:
 
 - Every corner uses a token: `rounded-chip|inner|control|card|sheet|pill`.
@@ -537,5 +546,7 @@ Skin tokens: Jost (SIL OFL Futura revival, `src/app/fonts`, not preloaded)
 for body and titles; titles uppercase, weight 500, tracking 0.08em; captions
 0.12em; every corner radius 0. The grain is an inline SVG noise tile.
 
-Known gaps: the header bar and rail paint the fixed `cream` colour, a step
-lighter than this paper. Menus and dialogs keep their drop shadows.
+The skin is FLAT: it is on the `:is()` list of the flat-skin rule in
+`globals.css`, which zeroes every Tailwind drop shadow and keeps focus rings.
+
+Cards and the phone tab bar stay white on the paper, like a pasted label.

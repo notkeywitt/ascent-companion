@@ -98,7 +98,7 @@ export function AppHeader() {
        pad is inside the measured box, so --appheader-h includes it. */
     <div
       ref={measure}
-      className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
+      className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 bg-page/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
     >
       <div className="relative flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
         {/* No back button: back is a swipe right from the screen's left

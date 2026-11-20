@@ -509,7 +509,7 @@ export function TabBar() {
         data-peek={peek || undefined}
         onPointerEnter={(e) => peekLater(true, e)}
         onPointerLeave={(e) => peekLater(false, e)}
-        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-cream/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-[width] duration-200 ease-out data-[peek]:shadow-xl dark:bg-ink/95 print:hidden pad:flex wide:w-[232px] wide:px-2`}
+        className={`rail-nav fixed inset-y-0 left-0 z-30 hidden w-[88px] flex-col gap-0.5 overflow-y-auto border-r border-line bg-page/95 px-1.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))] backdrop-blur transition-[width] duration-200 ease-out data-[peek]:shadow-xl dark:bg-ink/95 print:hidden pad:flex wide:w-[232px] wide:px-2`}
       >
         {rail.map((t) => {
           const on = t.key === railActive;

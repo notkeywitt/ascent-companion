@@ -79,7 +79,7 @@ export function LoadingScreen({
       role="status"
       aria-label="Loading"
       style={style}
-      className={`pointer-events-none fixed inset-0 z-[100] overflow-hidden bg-cream text-offblack dark:bg-ink dark:text-white ${
+      className={`pointer-events-none fixed inset-0 z-[100] overflow-hidden bg-page text-offblack dark:bg-ink dark:text-white ${
         delayed ? "loading-screen-in" : ""
       } ${className}`}
     >

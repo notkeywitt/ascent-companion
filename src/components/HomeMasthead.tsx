@@ -174,7 +174,7 @@ export function HomeMasthead({
       className={`relative mb-3 items-baseline justify-between gap-6 border-b border-line pb-2 pad:mb-6 pad:pb-4 ${
         shows ? "flex" : "hidden pad:flex"
       } ${backdrop ? "min-h-14 pad:min-h-20" : ""} ${
-        pinned ? "z-10 bg-cream/95 backdrop-blur pad:sticky pad:top-[var(--appheader-h)] pad:-mx-7 pad:px-7 dark:bg-ink/95" : ""
+        pinned ? "z-10 bg-page/95 backdrop-blur pad:sticky pad:top-[var(--appheader-h)] pad:-mx-7 pad:px-7 dark:bg-ink/95" : ""
       }`}
       data-pinned={pinned || undefined}
     >

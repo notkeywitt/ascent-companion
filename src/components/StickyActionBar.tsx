@@ -74,8 +74,8 @@ export function StickyActionBar({
 
   const base =
     dock === "right"
-      ? "sticky z-10 ml-auto flex w-fit max-w-[var(--actionbar-max-w)] items-center gap-2 rounded-card border border-line bg-cream/95 px-3 py-2 shadow-lg backdrop-blur dark:bg-ink/95 print:hidden"
-      : "sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-cream/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden";
+      ? "sticky z-10 ml-auto flex w-fit max-w-[var(--actionbar-max-w)] items-center gap-2 rounded-card border border-line bg-page/95 px-3 py-2 shadow-lg backdrop-blur dark:bg-ink/95 print:hidden"
+      : "sticky z-10 -mx-4 flex items-center gap-2 border-t border-line bg-page/95 px-4 py-2.5 backdrop-blur dark:bg-ink/95 print:hidden";
 
   return (
     <div
