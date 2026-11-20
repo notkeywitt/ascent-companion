@@ -516,3 +516,26 @@ moment the square went black.
 Olive and **ochre**, both. Olive the site defines and never paints; ochre it
 paints on the logo, and this palette does not. Palette 1 is where the brand hue
 lives.
+
+## Skin 3 — "Shop Manual" (shipped 2026-11-20)
+
+Read off photos of Willis H. Wagner, *Modern Woodworking* (1970s textbook).
+One spot colour, burnt orange, on warm paper with black ink. Titles and
+captions are Futura in spaced capitals. Figures are flat hairline drawings
+with hard corners. It is opt-in; the default stays Website · Dark.
+
+| Role | Light | Dark |
+|---|---|---|
+| Page | `#F1EBDC` paper, faint grain | `#1C1A16` brown-black, faint grain |
+| Body text | `#1E1C19` ink | `#EEE6D4` |
+| Accent fill, `brand` | `#B4532A` (4.19:1 on paper: fills only) | `#D9774A` (5.53:1) |
+| Accent text | `#A84B24` (4.78:1 on paper, 5.68:1 on white) | `#E08A5F` (5.94:1 on a card) |
+| Label on a fill | `#FFF8EC` (4.80:1) | `#1C1A16` (5.53:1) |
+| Hairlines | `#DCD2BC` / `#E8E0CE` / `#C4B79B` | `#3A352C` / `#2E2A23` / `#4D463A` |
+
+Skin tokens: Jost (SIL OFL Futura revival, `src/app/fonts`, not preloaded)
+for body and titles; titles uppercase, weight 500, tracking 0.08em; captions
+0.12em; every corner radius 0. The grain is an inline SVG noise tile.
+
+Known gaps: the header bar and rail paint the fixed `cream` colour, a step
+lighter than this paper. Menus and dialogs keep their drop shadows.

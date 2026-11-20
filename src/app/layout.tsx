@@ -54,6 +54,17 @@ const roboto = localFont({
 // previews), but the browser default for `font-mono` is Courier, which reads as
 // a different typeface entirely. Roboto Mono keeps the alignment inside the
 // brand family, so nothing in the app renders as Courier.
+// Shop Manual skin only (THEME.md, "Skins"). Jost is a free (SIL OFL) revival
+// of Futura, the face of the 1970s shop textbook the skin is drawn from.
+// `preload: false`: a device on another skin never downloads it.
+const jost = localFont({
+  src: "./fonts/jost-latin-wght-normal.woff2",
+  weight: "100 900",
+  variable: "--font-jost",
+  display: "swap",
+  preload: false,
+});
+
 const robotoMono = localFont({
   src: "./fonts/roboto-mono-latin-wght-normal.woff2",
   weight: "100 700",
@@ -127,7 +138,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const menu = await loadRoleMenu(role);
 
   return (
-    <html lang="en" className={`${roboto.variable} ${robotoMono.variable}`}>
+    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} ${jost.variable}`}>
       <head>
         {/* Theme, palette and any theme-editor draft, set on <html> BEFORE the
             first paint. All three are per-device choices held in localStorage,
@@ -149,7 +160,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette')==='guidelines'?'guidelines':'website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')!=='0')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p!=='guidelines'&&p!=='shopmanual')p='website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')!=='0')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>
