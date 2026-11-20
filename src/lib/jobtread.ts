@@ -308,10 +308,12 @@ export type {
   DocAccessRow,
 } from "./jobtread/documentAccess";
 export {
+  getAllJobDepositLines,
   getJobDepositInputs,
 } from "./jobtread/jobDeposits";
 export type {
   ClientPaymentRow,
+  JobDepositLines,
   JobDepositRead,
 } from "./jobtread/jobDeposits";
 export {

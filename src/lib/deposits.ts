@@ -173,6 +173,78 @@ export function buildDepositLedger(input: DepositInputs): DepositLedger {
   };
 }
 
+// ── the deposit, month by month ──────────────────────────────────────────────
+
+/** One billing month of the deposit: what came in, what was drawn, what is left after it. */
+export interface DepositMonth {
+  /** YYYY-MM — the invoice's issue month, which is its billing month. "" when undated. */
+  ym: string;
+  /** Deposit received this month (deposit invoices, only when the deposit comes from JobTread). */
+  added: number;
+  /** Drawn on sent invoices this month. */
+  drawn: number;
+  /** Drawn on drafts this month. Shown, not counted. */
+  onDraft: number;
+  /** The balance after this month. Null when no deposit is recorded. */
+  left: number | null;
+}
+
+/**
+ * The ledger's entries grouped by billing month, oldest first, with the running
+ * balance. A hand-entered deposit opens at Deposit − Previously applied; a
+ * JobTread deposit opens at 0 and grows as its deposit invoices are paid. The
+ * last month's `left` is always the ledger's Left.
+ */
+export function depositByMonth(ledger: DepositLedger): DepositMonth[] {
+  const byYm = new Map<string, DepositMonth>();
+  for (const e of ledger.entries) {
+    const ym = e.date?.slice(0, 7) ?? "";
+    const m = byYm.get(ym) ?? { ym, added: 0, drawn: 0, onDraft: 0, left: null };
+    if (e.kind === "deposit" && ledger.source === "jobtread") m.added += e.amount;
+    else if (e.kind === "drawn") m.drawn += e.amount;
+    else if (e.kind === "draft") m.onDraft += e.amount;
+    byYm.set(ym, m);
+  }
+  let running: number | null =
+    ledger.source === "entered" ? ledger.deposit - ledger.previouslyApplied : ledger.source ? 0 : null;
+  // Undated ("") last, the way the ledger sorts them.
+  const months = [...byYm.values()].sort((a, b) => (a.ym || "9999").localeCompare(b.ym || "9999"));
+  return months.map((m) => {
+    if (running != null) running = round2(running + m.added - m.drawn);
+    return { ...m, added: round2(m.added), drawn: round2(m.drawn), onDraft: round2(m.onDraft), left: running };
+  });
+}
+
+/** One job's line on the all-jobs deposit list. */
+export interface DepositSummary {
+  jobId: string;
+  jobName: string;
+  source: DepositLedger["source"];
+  deposit: number;
+  /** Previously applied + drawn on JobTread invoices. */
+  applied: number;
+  onDraft: number;
+  left: number | null;
+  /** The billing month of the last draw, YYYY-MM. */
+  lastDrawYm: string | null;
+  flags: DepositFlag[];
+}
+
+export function summarizeDeposit(jobId: string, jobName: string, ledger: DepositLedger): DepositSummary {
+  const last = ledger.entries.filter((e) => e.kind === "drawn" && e.date).at(-1);
+  return {
+    jobId,
+    jobName,
+    source: ledger.source,
+    deposit: ledger.deposit,
+    applied: round2(ledger.previouslyApplied + ledger.drawn),
+    onDraft: ledger.onDraft,
+    left: ledger.left,
+    lastDrawYm: last?.date?.slice(0, 7) ?? null,
+    flags: ledger.flags,
+  };
+}
+
 // ── drawing the deposit on a draft invoice ───────────────────────────────────
 
 /** The draft invoice a draw is about to land on, as JobTread holds it now. */

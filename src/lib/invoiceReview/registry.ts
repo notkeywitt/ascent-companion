@@ -28,6 +28,7 @@ import { compareFindings, isElectricalJob, type Finding, type MonthEvidence } fr
 
 import { backupCheck } from "./checks/backup";
 import { costBasisCheck } from "./checks/costBasis";
+import { depositLineTaxableCheck, depositLineUncodedCheck, depositOverdrawnCheck } from "./checks/deposits";
 import { draftBillsCheck } from "./checks/draftBills";
 import { duplicateBillCheck } from "./checks/duplicateBill";
 import { duplicateDraftCheck } from "./checks/duplicateDraft";
@@ -63,6 +64,7 @@ const JOB_CHECKS: JobCheck<never>[] = [
   taxableFlagCheck,
   taxDoubledCheck,
   duplicateWideCheck,
+  depositOverdrawnCheck,
 ] as unknown as JobCheck<never>[];
 
 /** Once per client invoice. */
@@ -74,6 +76,8 @@ const INVOICE_CHECKS: InvoiceCheck<never>[] = [
   salesTaxLineCheck,
   invoiceLinesCheck,
   lineCodeMismatchCheck,
+  depositLineTaxableCheck,
+  depositLineUncodedCheck,
 ] as unknown as InvoiceCheck<never>[];
 
 /** Once per review. */

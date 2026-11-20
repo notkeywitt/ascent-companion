@@ -12,9 +12,13 @@ import {
   MetaLine,
   SectionHeading,
   StatementBlock,
+  tableCls,
 } from "@/components/ui";
 import type { Recon } from "@/components/InvoiceReconcile";
+import { monthLabel } from "@/lib/billingMonths";
+import { AllDeposits } from "./AllDeposits";
 import {
+  depositByMonth,
   parseDollars,
   suggestDraw,
   type DepositEntry,
@@ -87,6 +91,8 @@ export function DepositCard({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPayments, setShowPayments] = useState(false);
+  /** The all-jobs deposit list, open below the card. */
+  const [showAll, setShowAll] = useState(false);
   /** The hand-entered deposit form, open. */
   const [form, setForm] = useState<{ amount: string; applied: string; note: string } | null>(null);
   /** Typed draw amounts, per draft invoice id. Unset = the suggested amount. */
@@ -237,6 +243,17 @@ export function DepositCard({
     </form>
   );
 
+  const allJobsLink = (
+    <button key="a" type="button" className="underline" onClick={() => setShowAll((v) => !v)}>
+      {showAll ? "Hide all jobs' deposits" : "All jobs' deposits"}
+    </button>
+  );
+  const allJobs = showAll && (
+    <div className="mt-3">
+      <AllDeposits currentJobId={jobId} />
+    </div>
+  );
+
   if (!ledger.hasDeposit && clientPayments.length === 0) {
     return (
       <div className="mt-3">
@@ -248,12 +265,18 @@ export function DepositCard({
               <button key="e" type="button" className="underline" onClick={openForm}>
                 Enter a deposit
               </button>,
+              allJobsLink,
             ]}
           />
         )}
+        {allJobs}
       </div>
     );
   }
+
+  const months = depositByMonth(ledger);
+  const anyAdded = months.some((m) => m.added);
+  const anyDraft = months.some((m) => m.onDraft);
 
   return (
     <Card className="mt-3">
@@ -407,6 +430,50 @@ export function DepositCard({
             </ListCard>
           )}
 
+          {months.length > 0 && (
+            <div className="mt-4">
+              <SectionHeading>By billing month</SectionHeading>
+              <div className="mt-2 overflow-x-auto">
+                <table className={tableCls.root}>
+                  <thead>
+                    <tr>
+                      <th className={tableCls.th}>Month</th>
+                      {anyAdded && <th className={tableCls.thNum}>Deposit in</th>}
+                      <th className={tableCls.thNum}>Applied</th>
+                      {anyDraft && <th className={tableCls.thNum}>On a draft</th>}
+                      <th className={tableCls.thNum}>Left after</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ledger.source === "entered" && (
+                      <tr className={tableCls.tr}>
+                        <td className={tableCls.td}>Before JobTread</td>
+                        {anyAdded && <td className={tableCls.tdNum} />}
+                        <td className={tableCls.tdNum}>{money(ledger.previouslyApplied)}</td>
+                        {anyDraft && <td className={tableCls.tdNum} />}
+                        <td className={tableCls.tdNum}>{money(ledger.deposit - ledger.previouslyApplied)}</td>
+                      </tr>
+                    )}
+                    {months.map((m) => (
+                      <tr key={m.ym} className={tableCls.tr}>
+                        <td className={tableCls.td}>
+                          {m.ym ? monthLabel(m.ym) : "No date"}
+                          {ledger.entries.some((e) => thisMonth.has(e.invoiceId) && (e.date?.slice(0, 7) ?? "") === m.ym) && (
+                            <span className="ml-1.5 text-xs text-neutral-500 dark:text-neutral-400">this month</span>
+                          )}
+                        </td>
+                        {anyAdded && <td className={tableCls.tdNum}>{m.added ? money(m.added) : ""}</td>}
+                        <td className={tableCls.tdNum}>{m.drawn ? money(m.drawn) : ""}</td>
+                        {anyDraft && <td className={tableCls.tdNum}>{m.onDraft ? money(m.onDraft) : ""}</td>}
+                        <td className={`${tableCls.tdNum} font-semibold`}>{m.left == null ? "—" : money(m.left)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {!form && ledger.source !== "jobtread" && (
             <MetaLine
               className="mt-2"
@@ -480,6 +547,9 @@ export function DepositCard({
           )}
         </div>
       )}
+
+      <MetaLine className="mt-3" items={[allJobsLink]} />
+      {allJobs}
 
       {error && (
         <Banner tone="error" className="mt-3 text-xs">

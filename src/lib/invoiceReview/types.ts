@@ -15,6 +15,7 @@
 
 /** How serious a finding is. `error` = the invoice is probably wrong as it
  *  stands; `warning` = worth a human look; `info` = context, never a problem. */
+import type { DepositLedger } from "@/lib/deposits";
 import type { SheetIssueKind } from "./sheetCompare";
 import type { SheetEvidence } from "./sheetEvidence";
 
@@ -125,7 +126,16 @@ export type FindingKind =
   /** A priced invoice line with no cost behind it — typed by hand. */
   | "invoice-line-no-cost"
   /** An invoice line's text names a different cost code than the one it is billed under. */
-  | "invoice-line-code-mismatch";
+  | "invoice-line-code-mismatch"
+  // ── Deposits (DEPOSITS_PLAN.md, Stage 5) ─────────────────────────────────
+  /** The job's deposit draws, drafts included, exceed the deposit. */
+  | "deposit-overdrawn"
+  /** Deposit drawn on a job with no deposit recorded. */
+  | "deposit-unrecorded"
+  /** A CD (deposit) line marked taxable. */
+  | "deposit-line-taxable"
+  /** A line named "Deposit" that is not coded CD. */
+  | "deposit-line-uncoded";
 
 /** One thing the review wants a human to look at. */
 export interface Finding {
@@ -625,6 +635,12 @@ export interface JobEvidence {
    * Undefined when they could not be read.
    */
   priorBills?: BillRef[];
+  /**
+   * The job's deposit ledger (src/lib/deposits.ts), read only when one of the
+   * month's invoices carries a CD line. Undefined means not read: the deposit
+   * checks say nothing.
+   */
+  deposit?: DepositLedger;
 }
 
 /** A whole month of client invoices, as reviewed. */
