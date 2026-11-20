@@ -1,5 +1,23 @@
 [
  {
+  "sha": "c514fb70",
+  "date": "2026-11-20T06:40:19-08:00",
+  "title": "mark sub-coi and safety-dupes built on roadmap",
+  "plain": "mark sub-coi and safety-dupes built on roadmap"
+ },
+ {
+  "sha": "6c9b3c45",
+  "date": "2026-11-20T06:39:57-08:00",
+  "title": "write deposit ledger to tracking sheet Deposits tab",
+  "plain": "write deposit ledger to tracking sheet Deposits tab"
+ },
+ {
+  "sha": "a3ab3bd0",
+  "date": "2026-11-20T06:33:10-08:00",
+  "title": "W-9 and Hold Harmless vendor fields, COI register columns and no-W-9 flag",
+  "plain": "W-9 and Hold Harmless vendor fields, COI register columns and no-W-9 flag"
+ },
+ {
   "sha": "d79b5be3",
   "date": "2026-11-20T06:36:33-08:00",
   "title": "show finding detail on needs-attention cards; one sheet card for not synced and labor hours",
