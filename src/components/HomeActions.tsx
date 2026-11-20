@@ -2,7 +2,6 @@
 
 import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Loading } from "@/components/ui";
@@ -26,8 +25,7 @@ const QrScanner = dynamic(() => import("@/components/QrScanner").then((m) => m.Q
  *   Add bill      — the camera; the photo goes to /add-bill to be read.
  *   Scan tool     — the QR scanner in a sheet; the code goes to /tools, which
  *                   opens its relocate dialog (or New tool for an unknown code).
- *   Record miles  — starts the trip on /mileage-tracker; a link under it opens
- *                   the By hand tab.
+ *   Record miles  — starts the trip on /mileage-tracker.
  * Photos cross the navigation in module state (deposit-tracker/pendingPhotos).
  */
 export function HomeActions() {
@@ -85,20 +83,12 @@ export function HomeActions() {
           />
         )}
         {miles && (
-          <div className="flex flex-col">
-            <Big
-              onClick={() => router.push("/mileage-tracker?start=1")}
-              title="Record miles"
-              desc="Start the trip"
-              mark={<PinMark />}
-            />
-            <Link
-              href="/mileage-tracker?tab=manual"
-              className="mt-1 min-h-11 px-1 py-2 text-[12px] font-semibold text-accent"
-            >
-              Enter miles by hand
-            </Link>
-          </div>
+          <Big
+            onClick={() => router.push("/mileage-tracker?start=1")}
+            title="Record miles"
+            desc="Start the trip"
+            mark={<PinMark />}
+          />
         )}
       </div>
 

@@ -114,18 +114,9 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-stretch gap-2">
-        <NeedsAttention />
-        {askable && (
-          <IconButton
-            label="New feature request"
-            onClick={() => setAskOpen(true)}
-            className="h-auto self-stretch border border-line"
-          >
-            <RequestMark />
-          </IconButton>
-        )}
-        {desktop && (
+      {desktop && (
+        <div className="flex items-stretch gap-2">
+          <NeedsAttention />
           <IconButton
             label="Arrange Home"
             onClick={() => setSettingsOpen(true)}
@@ -133,8 +124,8 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
           >
             <SlidersMark />
           </IconButton>
-        )}
-      </div>
+        </div>
+      )}
 
       <HomeActions />
 
@@ -188,6 +179,19 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
             <span />
           )}
         </div>
+      )}
+
+      {desktop === false && <NeedsAttention />}
+
+      {askable && (
+        <button
+          type="button"
+          aria-label="New feature request"
+          onClick={() => setAskOpen(true)}
+          className="fixed bottom-[calc(var(--tabbar-h)+1rem)] right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-fg shadow-lg transition hover:bg-accent-hover active:scale-95"
+        >
+          <RequestMark />
+        </button>
       )}
 
       {askUsed && (
