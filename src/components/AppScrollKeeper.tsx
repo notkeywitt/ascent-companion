@@ -101,8 +101,12 @@ export function AppScrollKeeper() {
     const vv = window.visualViewport;
     document.addEventListener("focusout", reset);
     vv?.addEventListener("resize", reset);
+    // A drag on fixed chrome (the bottom bar, the header) can scroll the window
+    // too. Catch any window scroll, not only the keyboard's.
+    window.addEventListener("scroll", reset, { passive: true });
     return () => {
       window.clearTimeout(timer);
+      window.removeEventListener("scroll", reset);
       document.removeEventListener("focusout", reset);
       vv?.removeEventListener("resize", reset);
     };

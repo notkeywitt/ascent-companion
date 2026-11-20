@@ -486,8 +486,8 @@ html.dark .dark\:text-neutral-500 {
    and <StickyActionBar>'s `bottom` — both read the ONE number instead of each
    hardcoding an offset that drifts the moment the bar changes height. */
 :root {
-  /* h-14 (3.5rem) tab + the home-indicator inset. */
-  --tabbar-h: calc(3.5rem + env(safe-area-inset-bottom));
+  /* grab bar (0.625rem) + h-14 (3.5rem) tab + the home-indicator inset. */
+  --tabbar-h: calc(4.125rem + env(safe-area-inset-bottom));
 
   /* Height of the sticky TOP chrome (components/AppHeader — logo, search and
      Add bill, all on one row). Unlike the tab bar this is not a fixed
@@ -623,6 +623,7 @@ html[data-rail="hidden"] {
   body {
     height: 100%;
     overflow: hidden;
+    overscroll-behavior: none;
   }
   /* The bar's clearance moves to the box that scrolls (rule below). `html
      body` so it outranks the plain `body` rule further down this file. */

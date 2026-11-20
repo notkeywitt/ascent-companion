@@ -451,7 +451,10 @@ export function TabBar() {
           light and white in dark. */}
       <nav
         aria-label="Main"
-        className="fixed inset-x-0 bottom-0 z-30 rounded-t-sheet border-t border-line bg-white pb-[env(safe-area-inset-bottom)] text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-white print:hidden pad:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 touch-none rounded-t-sheet border-t border-line bg-white pb-[env(safe-area-inset-bottom)] text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-white print:hidden pad:hidden"
+        // `touch-none`: a drag that starts on the bar must not pan the window.
+        // The bar sits outside #app-shell, so iOS scrolls the window instead
+        // and the whole app, bar included, slides up. Taps and this swipe still work.
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
         onTouchEnd={(e) => {
           const start = touchY.current;
