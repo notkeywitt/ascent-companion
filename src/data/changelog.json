@@ -1,5 +1,11 @@
 [
  {
+  "sha": "df2345ef",
+  "date": "2026-11-20T17:03:00Z",
+  "title": "bottom bar stays put when swiped in the installed app",
+  "plain": "On the phone app, swiping up on the bottom bar no longer drags the whole screen up."
+ },
+ {
   "sha": "bcb9c08b",
   "date": "2026-11-20T17:03:23Z",
   "title": "leave expenses out of the unpaid bills widget",
