@@ -103,7 +103,7 @@ import { billPaidState, driveMainWindowToDoc, type Detail } from "@/components/B
 import { runTrackingSync } from "@/components/TrackingSheetSync";
 import { LastRun } from "@/components/LastRun";
 import { TrackingSheetRisks } from "@/components/TrackingSheetRisks";
-import { PreSendCheck, sourceLinkOf, type FindingLink } from "./PreSendCheck";
+import { sourceLinkOf, type FindingLink } from "./PreSendCheck";
 import { BillPopup } from "./BillPopup";
 import { InvoicingTabs } from "@/components/InvoicingTabs";
 import type { Selection } from "./DraftWorkbench";
@@ -3133,25 +3133,6 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           {codingCol}
         </SplitGrid>
       )}
-
-      {/* THE CHECK'S RESULT, wherever the check was run from. It sits at this
-          spot in the DOM so it lands above the workbench on desktop (the grid
-          below is `lg:order-1`) and below it on a phone, and it renders only
-          once there is something to report. Embedded (the Jobs page) it stays
-          at the foot of the sheet on every width. */}
-      {jobId && (preSend.mem || preSend.error || preSendRunning) && (
-        <div className={embed ? "order-last mt-4" : "order-last mt-4 lg:order-none lg:mb-4"}>
-          <PreSendCheck
-            run={preSend}
-            onRun={runPreSend}
-            linkFor={findingLink}
-            onRecheck={recheck}
-            onClear={clear}
-            onUnclear={unclear}
-          />
-        </div>
-      )}
-
 
       {/* THE MONTH'S LAST STEP, on touch: approve the month's draft bills, then
           raise its invoice in JobTread. `order-last` drops it below the columns.

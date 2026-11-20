@@ -2,7 +2,6 @@
 
 import { Card, SectionHeading } from "@/components/ui";
 import { useAccess } from "@/components/AccessProvider";
-import { UncapturedBills } from "@/components/UncapturedBills";
 import { DriveSyncStatus } from "@/components/SyncNowButton";
 import { SheetSyncButton } from "@/components/SheetSyncSettings";
 import { AllBills } from "@/app/trackingsheet/AllBills";
@@ -18,7 +17,6 @@ export function MonthWork({ ym }: { ym: string }) {
   const { can } = useAccess();
   return (
     <div>
-      <UncapturedBills />
       <UnsyncedDrafts />
       <AllBills ym={ym} />
       {can("sync") && (
