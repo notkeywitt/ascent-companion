@@ -17,7 +17,20 @@ export async function GET(req: NextRequest) {
   const jobId = req.nextUrl.searchParams.get("jobId")?.trim();
   try {
     const cfg = getPaveConfig();
-    const bills = jobId ? await getDraftBills(cfg, jobId) : await getAllDraftBills(cfg);
+    // ?status=pending|approved|all reads bills that already left the draft
+    // queue (read-only). Default and per-job reads stay drafts.
+    const st = req.nextUrl.searchParams.get("status");
+    const bills = jobId
+      ? await getDraftBills(cfg, jobId)
+      : st === "pending" || st === "approved"
+        ? await getAllDraftBills(cfg, st)
+        : st === "all"
+          ? (
+              await Promise.all(
+                (["draft", "pending", "approved"] as const).map((x) => getAllDraftBills(cfg, x)),
+              )
+            ).flat()
+          : await getAllDraftBills(cfg);
 
     // Newest first. issueDate is yyyy-MM-dd, so string compare orders it;
     // undated bills sink to the bottom.
