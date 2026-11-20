@@ -105,7 +105,7 @@ export function AppearanceCard() {
       {open && (
         <Card className="mt-3" pad={false}>
           <div className="border-b border-line-soft p-4">
-            <SectionLabel>Colours</SectionLabel>
+            <SectionLabel>Skin</SectionLabel>
             <div className="mt-2.5 grid grid-cols-2 gap-2">
               {PALETTES.map((p) => (
                 <button

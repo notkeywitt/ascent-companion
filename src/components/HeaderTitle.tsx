@@ -29,7 +29,7 @@ export function HeaderTitle({ children }: { children: React.ReactNode }) {
   }, []);
   if (!slot) return null;
   return createPortal(
-    <h1 className="truncate text-[17px] font-bold leading-tight tracking-tight">{children}</h1>,
+    <h1 className="ui-display truncate text-[17px] leading-tight">{children}</h1>,
     slot,
   );
 }

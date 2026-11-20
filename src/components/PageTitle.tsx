@@ -37,7 +37,7 @@ export function PageTitle({
     <>
       <HeaderTitle>{children}</HeaderTitle>
       <div className={"hidden items-center pad:flex " + className}>
-        <h1 className={(size === "2xl" ? "text-2xl" : "text-xl") + " font-bold tracking-tight"}>
+        <h1 className={(size === "2xl" ? "text-2xl" : "text-xl") + " ui-display"}>
           {children}
         </h1>
       </div>

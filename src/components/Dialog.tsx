@@ -116,7 +116,7 @@ export function Dialog({
         className={`flex max-h-[90dvh] w-full flex-col outline-none ${SIZES[size]} ${
           bare
             ? ""
-            : "overflow-hidden rounded-t-2xl border border-line bg-white text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-neutral-100 sm:rounded-2xl"
+            : "overflow-hidden rounded-t-sheet border border-line bg-white text-neutral-900 shadow-xl dark:bg-ink-overlay dark:text-neutral-100 sm:rounded-sheet"
         } ${className}`}
       >
         {(title || description) && (
