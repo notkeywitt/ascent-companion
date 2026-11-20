@@ -409,6 +409,8 @@ export const VIEWS: ViewDef[] = [
   { id: "office", label: "Office Dashboard", group: "Office", paths: ["/office", "/api/office"] },
   // Roadmap — the features the Drive survey (2026-11-17) proposed, ranked by
   // the office. Votes only; office + admin by default.
+  // Company renewals calendar — companion DB only (company_details key "renewals").
+  { id: "renewals", label: "Renewals", group: "Office", paths: ["/renewals", "/api/renewals"] },
   { id: "roadmap", label: "Roadmap", group: "Office", paths: ["/roadmap", "/api/roadmap"] },
   // The email-blast API is listed here so it inherits the office/admin gate; the
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting

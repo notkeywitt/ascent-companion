@@ -237,6 +237,10 @@
    "file": "src/app/privacy/page.tsx"
   },
   {
+   "route": "/renewals",
+   "file": "src/app/renewals/page.tsx"
+  },
+  {
    "route": "/requests",
    "file": "src/app/requests/page.tsx"
   },
