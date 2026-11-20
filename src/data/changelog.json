@@ -1,5 +1,17 @@
 [
  {
+  "sha": "3321ff2f",
+  "date": "2026-11-20T07:04:46-08:00",
+  "title": "add close route to the page map",
+  "plain": "add close route to the page map"
+ },
+ {
+  "sha": "5baf1c0f",
+  "date": "2026-11-20T06:54:37-08:00",
+  "title": "close month on invoice status after the invoice is sent; lock and unlock per job",
+  "plain": "close month on invoice status after the invoice is sent; lock and unlock per job"
+ },
+ {
   "sha": "ec18d5ad",
   "date": "2026-11-20T07:02:03-08:00",
   "title": "punch list page for every role, in the Jobs menu",
