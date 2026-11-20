@@ -1221,6 +1221,11 @@
   },
   {
    "from": "/trackingsheet",
+   "to": "/invoicing-summary",
+   "kind": "link"
+  },
+  {
+   "from": "/trackingsheet",
    "to": "/jobs-hub",
    "kind": "link"
   },
@@ -1553,10 +1558,6 @@
   {
    "from": "/tools",
    "to": "/tool-schedule"
-  },
-  {
-   "from": "/trackingsheet",
-   "to": "/"
   },
   {
    "from": "/trackingsheet",
