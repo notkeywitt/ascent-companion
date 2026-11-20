@@ -1770,8 +1770,8 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             // and a see-through ground blurring what is behind it. Closed, it
             // is the quiet strip it always was.
             drawerOpen
-              ? "rounded-t-card border border-b-0 border-line-strong bg-cream/70 shadow-lg backdrop-blur-xl dark:bg-ink/70"
-              : "border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95"
+              ? "rounded-t-card border border-b-0 border-line-strong bg-page/70 shadow-lg backdrop-blur-xl dark:bg-ink/70"
+              : "border-t border-line bg-page/95 backdrop-blur dark:border-white/10 dark:bg-ink/95"
           }`}
         >
           <div className={embedded ? "px-3" : "max-w-2xl px-4 pad:px-7 lg:max-w-6xl"}>

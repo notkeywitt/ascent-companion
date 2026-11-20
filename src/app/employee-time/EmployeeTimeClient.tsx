@@ -3456,7 +3456,7 @@ function Sheet({
     <div className="fixed inset-0 z-40 flex flex-col justify-end" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" aria-label="Close" onClick={onClose} className="absolute inset-0 bg-black/40" />
       <div
-        className={`relative flex flex-col rounded-t-3xl border-t border-line bg-cream shadow-2xl dark:bg-ink-overlay ${
+        className={`relative flex flex-col rounded-t-3xl border-t border-line bg-page shadow-2xl dark:bg-ink-overlay ${
           tall ? "max-h-[92vh]" : "max-h-[85vh]"
         }`}
       >

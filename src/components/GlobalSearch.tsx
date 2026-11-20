@@ -344,7 +344,7 @@ export function GlobalSearch() {
         ref={boxRef}
         className={
           expanded
-            ? "absolute inset-0 z-10 flex items-center gap-1 bg-cream px-2 dark:bg-ink pad:static pad:z-auto pad:block pad:min-w-0 pad:flex-1 pad:max-w-xl pad:bg-transparent pad:px-0 dark:pad:bg-transparent"
+            ? "absolute inset-0 z-10 flex items-center gap-1 bg-page px-2 dark:bg-ink pad:static pad:z-auto pad:block pad:min-w-0 pad:flex-1 pad:max-w-xl pad:bg-transparent pad:px-0 dark:pad:bg-transparent"
             : "relative hidden min-w-0 flex-1 pad:block pad:max-w-xl"
         }
       >
