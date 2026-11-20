@@ -51,7 +51,8 @@ export function inboxRow(f: Finding, ym: string, hubFirst = false): FindingInput
     kind: f.kind,
     subject: f.jobId,
     severity: f.severity,
-    title: f.jobName ? `${f.jobName}: ${f.title}` : f.title,
+    // The detail rides after a newline; FindingsInbox shows it under the title.
+    title: (f.jobName ? `${f.jobName}: ${f.title}` : f.title) + (f.detail ? `\n${f.detail}` : ""),
     link,
     // "<action>:<id>" (components/findingFix.ts). Only qbo-never-approved has
     // an inline fix; any other bill finding names its bill as "bill:<id>".

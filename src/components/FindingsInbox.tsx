@@ -218,11 +218,12 @@ export function FindingsInbox({ limit }: { limit?: number }) {
                 <Notice
                   key={r.id}
                   tone={TONE[r.severity] ?? "warning"}
-                  title={r.title}
+                  title={r.title.split("\n")[0]}
                   action={r.link ? { label: "Fix", href: r.link } : undefined}
                   onSnooze={() => act(r.id, "snooze")}
                   onDismiss={() => act(r.id, "dismiss")}
                 >
+                  {r.title.includes("\n") && <p className="text-[13px]">{r.title.slice(r.title.indexOf("\n") + 1)}</p>}
                   <MetaLine items={[`Since ${day(r.firstSeenAt)}`, r.verdict && <Chip tone={VERDICT[r.verdict.verdict].tone}>{VERDICT[r.verdict.verdict].label}</Chip>]} />
                   {r.verdict?.why && <p className="mt-1 text-[13px]">{r.verdict.why}</p>}
                   {fix && (
