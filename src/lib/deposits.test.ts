@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDepositLedger,
   depositByMonth,
+  depositSheetPayload,
   parseDollars,
   summarizeDeposit,
   planDepositDraw,
@@ -130,6 +131,52 @@ describe("depositByMonth — applied per billing month, and the balance left", (
     expect(depositByMonth(buildDepositLedger(ferron()))).toEqual([
       { ym: "2026-08", added: 0, drawn: 20000, onDraft: 0, left: null },
     ]);
+  });
+});
+
+describe("depositSheetPayload — the tracking sheet's Deposits tab", () => {
+  // Berger: $128,842 deposit, $72,000 before JobTread, Aug $20,000, Sep $20,000,
+  // Oct $15,000 on the draft.
+  const bergerThree = () => {
+    const input = berger();
+    input.lines.push({ id: "l386", price: -20000, isTaxable: false, invoice: inv({ id: "iSep", number: 386, issueDate: "2026-09-30" }) });
+    input.lines.push({ id: "lD", price: -15000, isTaxable: false, invoice: inv({ id: "iD", number: 400, status: "draft", issueDate: "2026-10-31" }) });
+    return buildDepositLedger(input);
+  };
+
+  it("hand-worked: October's draft counts this month, Aug + Sep are before", () => {
+    // 128,842 − 72,000 − 40,000 − 15,000 = 1,842
+    expect(depositSheetPayload(bergerThree(), "2026-10").summary).toEqual({
+      deposit: 128842,
+      previouslyApplied: 72000,
+      drawnBefore: 40000,
+      drawnThis: 15000,
+      left: 1842,
+      ym: "2026-10",
+    });
+  });
+
+  it("a mid-history month: later draws are left out", () => {
+    expect(depositSheetPayload(bergerThree(), "2026-09").summary).toMatchObject({ drawnBefore: 20000, drawnThis: 20000, left: 16842 });
+  });
+
+  it("rows carry every entry with its invoice status", () => {
+    const rows = depositSheetPayload(bergerThree(), "2026-10").rows;
+    expect(rows.map((r) => [r.invoiceNumber, r.kind, r.status, r.amount])).toEqual([
+      [320, "drawn", "approved", 20000],
+      [386, "drawn", "approved", 20000],
+      [400, "draft", "draft", 15000],
+    ]);
+    expect(depositSheetPayload(buildDepositLedger(studio(135487.5)), "2026-10").rows[0]).toMatchObject({ kind: "deposit", unpaid: 135487.5 });
+  });
+
+  it("left equals the card's Deposit left when nothing is on a draft", () => {
+    const ledger = buildDepositLedger(berger());
+    expect(depositSheetPayload(ledger, "2026-08").summary.left).toBe(ledger.left);
+  });
+
+  it("no deposit recorded: left is null", () => {
+    expect(depositSheetPayload(buildDepositLedger(ferron()), "2026-08").summary).toMatchObject({ drawnThis: 20000, left: null });
   });
 });
 

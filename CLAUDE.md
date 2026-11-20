@@ -43,8 +43,11 @@ hook says so. A cloud session on a `claude/*` branch is already isolated.
 
 ```
 git add <each file this change touched>
-npm run ship -- "companion: <message>"
+npm run ship -- "companion: <message>" "<one plain sentence>"
 ```
+
+The second argument becomes the commit's `Change-log:` line. Admin's Change Log
+shows it. Write what the office will notice, with no code words.
 
 `ship` checks for binary-looking text files, runs typecheck and tests, commits
 what is staged and queues the branch as `ready/<name>`. Tell the owner one line:

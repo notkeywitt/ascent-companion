@@ -664,7 +664,7 @@ export function TabBar() {
           <AppMenu account />
           {/* The desktop widget's launcher sits beside the Hide arrow (owner,
               2026-11-11). Narrow rail: two small buttons in a row. */}
-          <div className="rail-foot mt-1 flex items-center justify-center gap-0.5 wide:justify-start">
+          <div className="rail-foot mt-1 flex h-[4.75rem] items-start justify-center gap-0.5 wide:justify-start">
             <RailWidgetButton />
             <button
               type="button"

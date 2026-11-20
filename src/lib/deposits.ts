@@ -215,6 +215,59 @@ export function depositByMonth(ledger: DepositLedger): DepositMonth[] {
   });
 }
 
+// ── the tracking sheet's Deposits tab ────────────────────────────────────────
+
+/** What appscript `writeTrackingDeposits` writes to the sheet's "Deposits" tab. */
+export interface DepositSheetPayload {
+  rows: {
+    date: string | null;
+    kind: EntryKind;
+    invoiceNumber: number | null;
+    invoiceName: string;
+    status: string;
+    amount: number;
+    unpaid?: number;
+  }[];
+  summary: {
+    deposit: number;
+    previouslyApplied: number;
+    /** Drawn on sent invoices in months before `ym`. */
+    drawnBefore: number;
+    /** Drawn in `ym`, drafts included: the month's invoice is usually still a draft at sync time. */
+    drawnThis: number;
+    /** Null when no deposit is recorded. */
+    left: number | null;
+    ym: string;
+  };
+}
+
+/** The ledger as the sheet's Deposits tab shows it for billing month `ym` (YYYY-MM). */
+export function depositSheetPayload(ledger: DepositLedger, ym: string): DepositSheetPayload {
+  const months = depositByMonth(ledger);
+  const drawnBefore = round2(months.filter((m) => m.ym && m.ym < ym).reduce((s, m) => s + m.drawn, 0));
+  const it = months.find((m) => m.ym === ym);
+  const drawnThis = round2((it?.drawn ?? 0) + (it?.onDraft ?? 0));
+  return {
+    rows: ledger.entries.map((e) => ({
+      date: e.date,
+      kind: e.kind,
+      invoiceNumber: e.invoiceNumber,
+      invoiceName: e.invoiceName,
+      status: e.invoiceStatus,
+      amount: e.amount,
+      ...(e.unpaid != null ? { unpaid: e.unpaid } : {}),
+    })),
+    summary: {
+      deposit: ledger.deposit,
+      previouslyApplied: ledger.previouslyApplied,
+      drawnBefore,
+      drawnThis,
+      left: ledger.source ? round2(ledger.deposit - ledger.previouslyApplied - drawnBefore - drawnThis) : null,
+      ym,
+    },
+  };
+}
+
 /** One job's line on the all-jobs deposit list. */
 export interface DepositSummary {
   jobId: string;
