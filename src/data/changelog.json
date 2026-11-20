@@ -1,5 +1,11 @@
 [
  {
+  "sha": "8ed17f6b",
+  "date": "2026-11-20T16:58:25Z",
+  "title": "leave sunset out of the unpaid bills widget",
+  "plain": "The Unpaid bills card on Home no longer lists Sunset Builders bills, which are paid off the monthly statement."
+ },
+ {
   "sha": "659ef2f9",
   "date": "2026-11-20T16:53:37Z",
   "title": "unpaid bills widget on home, november on",
