@@ -101,7 +101,7 @@ export async function report(
       f.kind ?? "",
       f.subject ?? "",
       f.severity ?? "warning",
-      f.title.slice(0, 400),
+      f.title.slice(0, 1200),
       f.link ?? "",
       f.fixAction ?? "",
       now,

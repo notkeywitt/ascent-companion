@@ -31,6 +31,12 @@ const FIX: Record<SheetIssueKind, string> = {
   "sheet-error": "Repair the formula in that cell.",
 };
 
+/** Kinds reported once per sheet, with the label in the title. */
+const GROUPED: Partial<Record<SheetIssueKind, string>> = {
+  "not-synced": "not synced",
+  "labor-hours-off": "labor hours off",
+};
+
 export const SHEET_KINDS = (Object.keys(FIX) as SheetIssueKind[]).map((k) => `sheet-${k}` as const);
 
 export const trackingSheetCheck = defineMonthCheck<TrackingSheetConfig>({
@@ -43,7 +49,28 @@ export const trackingSheetCheck = defineMonthCheck<TrackingSheetConfig>({
     const out: Finding[] = [];
     for (const sheet of month.sheets ?? []) {
       const job = month.jobs.find((j) => j.jobId === sheet.jobId);
+      // One finding per sheet for these kinds, not one per code: the cure is one re-sync or re-run.
+      for (const [gk, label] of Object.entries(GROUPED) as [SheetIssueKind, string][]) {
+        const group = sheet.result.issues.filter((i) => i.kind === gk);
+        if (!group.length) continue;
+        out.push({
+          jobId: sheet.jobId,
+          jobName: job?.jobName ?? sheet.label,
+          customerName: job?.customerName ?? "",
+          invoiceId: "",
+          invoiceNumber: "",
+          key: findingKey(`sheet-${gk}` as const, sheet.jobId, "all"),
+          kind: `sheet-${gk}` as const,
+          severity: "error",
+          title: `Tracking Sheet ${label} (${group.length} code${group.length === 1 ? "" : "s"})`,
+          detail: `${group.map((i) => i.detail).join(" ")} ${FIX[gk]}`,
+          amount: group.reduce((n, i) => n + Math.abs((i.expected ?? 0) - (i.sheet ?? 0)), 0) || undefined,
+          sourceLink: sheet.url,
+          sourceLabel: "Open the sheet",
+        });
+      }
       for (const issue of sheet.result.issues) {
+        if (issue.kind in GROUPED) continue;
         const kind = `sheet-${issue.kind}` as const;
         const gap =
           issue.expected != null && issue.sheet != null
