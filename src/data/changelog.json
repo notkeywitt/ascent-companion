@@ -1,0 +1,2156 @@
+[
+ {
+  "sha": "96d43c47",
+  "date": "2026-11-20T06:16:15-08:00",
+  "title": "add vehicles card to the office dashboard",
+  "plain": "Storage set up for the new Vehicles card; nothing changes on screen."
+ },
+ {
+  "sha": "fbafd330",
+  "date": "2026-11-20T06:15:52-08:00",
+  "title": "add vehicles card to the office dashboard",
+  "plain": "The Office dashboard has a new Vehicles card."
+ },
+ {
+  "sha": "a4eb16b4",
+  "date": "2026-11-20T06:13:23-08:00",
+  "title": "home to-do settings and in-app dialog, clocked-in map card",
+  "plain": "The Home to-do list has its own settings and opens items in a pop-up, and a new map card shows who is clocked in."
+ },
+ {
+  "sha": "5959cf34",
+  "date": "2026-11-20T06:07:55-08:00",
+  "title": "uncheck a job to remove an employee from it; queue list shows slot numbers",
+  "plain": "Unchecking a job now removes an employee from it, and the request queue shows slot numbers."
+ },
+ {
+  "sha": "a7267ebc",
+  "date": "2026-11-20T06:04:30-08:00",
+  "title": "add grab bar and editable icon row to mobile drawer",
+  "plain": "The phone menu drawer has a grab bar and a row of icons you can change."
+ },
+ {
+  "sha": "08a3dff4",
+  "date": "2026-11-20T02:28:38Z",
+  "title": "skin page fill for header, rail and sticky bars; shop manual drops shadows",
+  "plain": "The chosen look now colours the header, side bar and bottom bars, and the Shop Manual look drops shadows."
+ },
+ {
+  "sha": "4f7d1411",
+  "date": "2026-11-20T02:22:52Z",
+  "title": "shop manual skin, burnt orange on paper with jost caps and square corners",
+  "plain": "A new Shop Manual look: burnt orange on paper with bold capitals and square corners."
+ },
+ {
+  "sha": "8e9eedb3",
+  "date": "2026-11-20T02:16:41Z",
+  "title": "corner radius sweep, every rounded-* on a skin token",
+  "plain": "Rounded corners across the app now follow the chosen look."
+ },
+ {
+  "sha": "3a9cf8a4",
+  "date": "2026-11-20T02:10:03Z",
+  "title": "skin tokens for fonts, title style, corners and page texture; appearance says skin",
+  "plain": "Looks can now change fonts, title style, corners and page texture, and Appearance calls them \"skins\"."
+ },
+ {
+  "sha": "8930f274",
+  "date": "2026-11-19T22:51:40Z",
+  "title": "trim CLAUDE.md; move details to owning docs and hooks",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "e83b4386",
+  "date": "2026-11-19T14:22:34-08:00",
+  "title": "only draft documents can be attached to a task, bills, expenses, estimates and bid requests",
+  "plain": "Only draft bills, expenses, estimates and bid requests can be attached to a task."
+ },
+ {
+  "sha": "8de03154",
+  "date": "2026-11-19T14:04:51-08:00",
+  "title": "attach list shows draft bills only, cost codes in rows, title opens document details",
+  "plain": "The attach list shows draft bills only, with cost codes on each row, and tapping a title opens the document."
+ },
+ {
+  "sha": "ce5b9c9a",
+  "date": "2026-11-19T13:46:07-08:00",
+  "title": "bill card Link to Task button opens the job's schedule, tap a task to link the bill",
+  "plain": "A bill's Link to Task button opens the job's schedule, and tapping a task links the bill to it."
+ },
+ {
+  "sha": "99f5fdc1",
+  "date": "2026-11-19T13:38:05-08:00",
+  "title": "schedule stage 4, bills and estimates on tasks through JobTread's own document task link",
+  "plain": "Bills and estimates can be linked to schedule tasks, using JobTread's own task link."
+ },
+ {
+  "sha": "6ec7c851",
+  "date": "2026-11-19T13:15:41-08:00",
+  "title": "schedule page stage 1, read-only gantt, home card links to it, plan with bills-to-tasks research",
+  "plain": "A new read-only Schedule page shows a job's timeline, and the Home card links to it."
+ },
+ {
+  "sha": "a84891cb",
+  "date": "2026-11-19T13:05:40-08:00",
+  "title": "side rail icons keep their position when the rail opens",
+  "plain": "Side bar icons stay in place when the side bar opens."
+ },
+ {
+  "sha": "3ff65917",
+  "date": "2026-11-19T13:02:12-08:00",
+  "title": "feature requests page, status filter and one column list",
+  "plain": "The Feature Requests page has a status filter and a single-column list."
+ },
+ {
+  "sha": "c310c2ff",
+  "date": "2026-11-19T13:00:57-08:00",
+  "title": "queue 32 37 39 46 47 52 54, ribbon label, weekdays only, boids link, map full screen, new hire in dialog",
+  "plain": "A batch of requests: a ribbon label, weekdays only, a link to the bird art, a full-screen map and the new-hire form in a pop-up."
+ },
+ {
+  "sha": "135e174f",
+  "date": "2026-11-19T20:12:32Z",
+  "title": "lander exits quietly when a newer push to the queue is waiting",
+  "plain": "Behind-the-scenes change to how updates are released; nothing changes on screen."
+ },
+ {
+  "sha": "184e8810",
+  "date": "2026-11-19T12:02:52-08:00",
+  "title": "change vendor in a bill's actions, void and recreate like a job move",
+  "plain": "You can change a bill's vendor from its actions; the app voids the bill and re-creates it, like a job move."
+ },
+ {
+  "sha": "185c7069",
+  "date": "2026-11-19T11:56:30-08:00",
+  "title": "accounts payable shows the mailed date and confirms before removing the mark",
+  "plain": "Accounts Payable shows the date a check was mailed and asks before removing that mark."
+ },
+ {
+  "sha": "a7510b83",
+  "date": "2026-11-19T11:16:27-08:00",
+  "title": "bills page date is a drop-down filter, not a grouping",
+  "plain": "The date on the Bills page is now a drop-down filter instead of a grouping."
+ },
+ {
+  "sha": "423775d1",
+  "date": "2026-11-19T11:08:57-08:00",
+  "title": "bills page show or hide toggle for ascent electrical bills and expenses",
+  "plain": "The Bills page can show or hide Ascent Electrical bills and expenses."
+ },
+ {
+  "sha": "a1c311e3",
+  "date": "2026-11-19T11:06:52-08:00",
+  "title": "bill type toggle beside the total, page scrolls to the opened bill, bills list groups fold",
+  "plain": "The Bills page has a bill-type switch beside the total, scrolls to the bill you open, and its groups fold."
+ },
+ {
+  "sha": "9b29a6aa",
+  "date": "2026-11-19T11:04:30-08:00",
+  "title": "bills page month selector, row checkboxes for bulk approve and mark reviewed, hides bills before september 2026",
+  "plain": "The Bills page has a month picker and checkboxes to approve or mark many bills reviewed at once, and hides bills before September 2026."
+ },
+ {
+  "sha": "9be98472",
+  "date": "2026-11-19T10:55:28-08:00",
+  "title": "accounts payable check mailed box on each bill",
+  "plain": "Accounts Payable has a \"check mailed\" box on each bill."
+ },
+ {
+  "sha": "8372e108",
+  "date": "2026-11-19T10:53:00-08:00",
+  "title": "accounts payable group header shows total and owed",
+  "plain": "Each group on Accounts Payable shows its total and the amount owed."
+ },
+ {
+  "sha": "9a366cac",
+  "date": "2026-11-19T14:53:32Z",
+  "title": "phone drawer shows the rail's icons in rows like the home row",
+  "plain": "The phone menu drawer shows the side bar's icons in rows, like the Home buttons."
+ },
+ {
+  "sha": "ca040d84",
+  "date": "2026-11-18T21:12:02Z",
+  "title": "time clock tab shows today's total hours at the top",
+  "plain": "The Time Clock tab shows today's total hours at the top."
+ },
+ {
+  "sha": "d3e224d7",
+  "date": "2026-11-18T12:19:48-08:00",
+  "title": "item picker shows the name big with the code small below",
+  "plain": "The item picker shows the item name large with its code small underneath."
+ },
+ {
+  "sha": "8343fb5f",
+  "date": "2026-11-18T12:08:18-08:00",
+  "title": "time clock says item, files regular pay with no picker, blue switch button opens notes then job and item",
+  "plain": "The Time Clock says \"item\", files regular pay without asking, and the blue switch button opens notes, then job and item."
+ },
+ {
+  "sha": "3598ca40",
+  "date": "2026-11-18T11:38:26-08:00",
+  "title": "its ok rules one finding ok for everyone; backup pairing prefers the pdf that names the bill",
+  "plain": "Marking a finding \"It's OK\" clears it for everyone, and backup PDFs are matched to the bill they name first."
+ },
+ {
+  "sha": "bf2f8c45",
+  "date": "2026-11-18T11:34:45-08:00",
+  "title": "invoice status fix sheet gets an its ok button that hides one finding",
+  "plain": "The Invoice Status fix panel has an \"It's OK\" button that hides one finding."
+ },
+ {
+  "sha": "2c47ea1b",
+  "date": "2026-11-18T11:30:38-08:00",
+  "title": "invoice status fix link sits right after the finding text",
+  "plain": "On Invoice Status, the fix link sits right after the finding's text."
+ },
+ {
+  "sha": "6fa82469",
+  "date": "2026-11-18T11:05:12-08:00",
+  "title": "invoice status fix sheet explains each finding, voids duplicate drafts and moves stray backup pdfs",
+  "plain": "The Invoice Status fix panel explains each finding, voids duplicate drafts and moves misplaced backup PDFs."
+ },
+ {
+  "sha": "2afaa3a1",
+  "date": "2026-11-18T10:42:56-08:00",
+  "title": "invoice status checks link to where each finding is fixed",
+  "plain": "Each check on Invoice Status links to where its finding is fixed."
+ },
+ {
+  "sha": "f2de7806",
+  "date": "2026-11-18T10:39:39-08:00",
+  "title": "invoice status opens on the month before the billing month",
+  "plain": "Invoice Status opens on the month before the billing month."
+ },
+ {
+  "sha": "a6682fef",
+  "date": "2026-11-18T10:25:55-08:00",
+  "title": "invoice status runs full page width, tracking sheets link leaves the invoicing tabs",
+  "plain": "Invoice Status uses the full page width, and the Tracking Sheets link leaves the invoicing tabs."
+ },
+ {
+  "sha": "efef7c7b",
+  "date": "2026-11-18T10:13:11-08:00",
+  "title": "centre the selected icon highlight in the collapsed rail",
+  "plain": "The highlight on the selected icon is centred when the side bar is closed."
+ },
+ {
+  "sha": "964032bd",
+  "date": "2026-11-18T10:11:30-08:00",
+  "title": "labor rates map lists every clock-in cost code, Labor and Allowance",
+  "plain": "The Labor Rates map lists every clock-in cost code, plus Labor and Allowance."
+ },
+ {
+  "sha": "454371e3",
+  "date": "2026-11-18T10:08:12-08:00",
+  "title": "a job billed on several invoices in a month gets a card per invoice, at-cost materials invoices are understood, and a new check adds the month up across all invoices",
+  "plain": "A job billed on several invoices in one month gets a card per invoice, at-cost materials invoices are understood, and a new check adds up the month across all invoices."
+ },
+ {
+  "sha": "3ce5c235",
+  "date": "2026-11-18T10:03:47-08:00",
+  "title": "invoicing rail link opens invoice status",
+  "plain": "The Invoicing link in the side bar opens Invoice Status."
+ },
+ {
+  "sha": "4545a418",
+  "date": "2026-11-18T09:59:15-08:00",
+  "title": "sunset invoices file as bills again; the sunset switch turns draft expenses back into bills",
+  "plain": "Sunset invoices are filed as bills again, and the Sunset switch turns draft expenses back into bills."
+ },
+ {
+  "sha": "abe4247b",
+  "date": "2026-11-18T15:24:53Z",
+  "title": "labor rates map fills blank rates from the tracking sheets' service cost reference tabs",
+  "plain": "The Labor Rates map fills in missing rates from the tracking sheets' service cost tabs."
+ },
+ {
+  "sha": "f6e2d244",
+  "date": "2026-11-18T15:18:02Z",
+  "title": "labor rates map groups codes by division, collapsed, with a rate per division",
+  "plain": "The Labor Rates map groups cost codes by division, folded, with one rate per division."
+ },
+ {
+  "sha": "96dc2d6d",
+  "date": "2026-11-17T22:57:26-08:00",
+  "title": "bills gets the job picker, show filter and approve button; ascent jobs sink in both lists",
+  "plain": "The Bills page has a job picker, a show filter and an Approve button, and Ascent's own jobs sit at the bottom of both lists."
+ },
+ {
+  "sha": "8a6eaa25",
+  "date": "2026-11-17T22:38:58-08:00",
+  "title": "labor rates map on pay rates; check pay rates highlights then assigns map rates",
+  "plain": "Storage set up for the Labor Rates map; nothing changes on screen."
+ },
+ {
+  "sha": "40b6b54b",
+  "date": "2026-11-17T22:38:35-08:00",
+  "title": "labor rates map on pay rates; check pay rates highlights then assigns map rates",
+  "plain": "The Pay Rates page has a Labor Rates map, and Check Pay Rates highlights mismatches, then fills in rates from the map."
+ },
+ {
+  "sha": "bad78b2c",
+  "date": "2026-11-17T22:32:34-08:00",
+  "title": "labor list gets the tracking sheet's filters and group switch; time entry note text bigger",
+  "plain": "The Labor list has the tracking sheet's filters and grouping switch, and time entry notes are larger."
+ },
+ {
+  "sha": "774b345e",
+  "date": "2026-11-18T01:31:19Z",
+  "title": "tracking sheet headline reads Invoiced with the month's invoice total once invoiced",
+  "plain": "Once a month is invoiced, the tracking sheet's headline reads \"Invoiced\" with the month's invoice total."
+ },
+ {
+  "sha": "848730a2",
+  "date": "2026-11-17T22:25:14Z",
+  "title": "invoicing email draft reads the month fresh so invoice links are live",
+  "plain": "The invoicing email draft reads the month fresh, so its invoice links work."
+ },
+ {
+  "sha": "e29a5e1d",
+  "date": "2026-11-17T22:14:27Z",
+  "title": "invoicing email summary PDFs print the real JobTread invoices, not a bills rebuild",
+  "plain": "The invoicing email's summary PDFs print the real JobTread invoices."
+ },
+ {
+  "sha": "a91fd610",
+  "date": "2026-11-17T13:39:07-08:00",
+  "title": "roadmap gets an office rail icon",
+  "plain": "The Roadmap has an icon in the office side bar."
+ },
+ {
+  "sha": "97befbcb",
+  "date": "2026-11-17T13:37:47-08:00",
+  "title": "roadmap and app feedback get office rail icons",
+  "plain": "The Roadmap and App Feedback have icons in the office side bar."
+ },
+ {
+  "sha": "b69c7bf0",
+  "date": "2026-11-17T17:57:32Z",
+  "title": "bill coding card splits one line into two, amounts always add up, staged until Save",
+  "plain": "The bill coding card can split one line into two, the amounts always add up, and nothing saves until you tap Save."
+ },
+ {
+  "sha": "7fb4a52e",
+  "date": "2026-11-17T17:43:41Z",
+  "title": "page map sketch can add and remove pages, restore them, and change tab/strip/nav by clicking a badge",
+  "plain": "The Page Map sketch can add, remove and restore pages, and change how each is reached by clicking its badge."
+ },
+ {
+  "sha": "da91b471",
+  "date": "2026-11-17T14:53:00Z",
+  "title": "page map flow chart zooms, goes full screen, labels tab vs navigation, and can be rearranged as a sketch",
+  "plain": "The Page Map flow chart can zoom, go full screen, and be rearranged as a sketch."
+ },
+ {
+  "sha": "ea25cc5b",
+  "date": "2026-11-17T14:33:57Z",
+  "title": "page map gets a hierarchical flow chart view (home, workspace, page, pages it opens)",
+  "plain": "The Page Map has a flow chart view: Home, then each workspace, page and the pages it opens."
+ },
+ {
+  "sha": "aa6006af",
+  "date": "2026-11-17T14:25:17Z",
+  "title": "page text gets default/custom/blank radios, drops its subtitle; new pages have no subtitle",
+  "plain": "Page text editing has Default, Custom and Blank choices, and pages no longer show a subtitle."
+ },
+ {
+  "sha": "bb363c5e",
+  "date": "2026-11-17T14:23:22Z",
+  "title": "add Page Map tab to Admin, colour-coded by workspace, to guide overhaul phase 7",
+  "plain": "Admin has a new Page Map tab showing every page, coloured by workspace."
+ },
+ {
+  "sha": "f09f5462",
+  "date": "2026-11-17T07:26:31Z",
+  "title": "add roadmap page under office to rank the drive-survey features",
+  "plain": "A new Roadmap page under Office ranks the features from the office survey."
+ },
+ {
+  "sha": "014975b6",
+  "date": "2026-11-17T05:00:13Z",
+  "title": "job flock gets data-mapped hue shades, fading trails, per-bird scale/speed/sight, a fuller 3d and tank, and no tank box lines",
+  "plain": "The Job Flock art has colour shades from the data, fading trails, more bird controls, and a fuller 3D and tank view."
+ },
+ {
+  "sha": "bd7953cf",
+  "date": "2026-11-16T12:46:20-08:00",
+  "title": "keep rail icons full size when the rail is collapsed",
+  "plain": "Side bar icons stay full size when the side bar is closed."
+ },
+ {
+  "sha": "79f90cc3",
+  "date": "2026-11-16T20:40:43Z",
+  "title": "bill clones pair with the live re-made bill, refuse duplicate clones, move a wrong-job copy",
+  "plain": "Bill Clones pairs each clone with the re-made bill, refuses duplicates, and can move a copy filed on the wrong job."
+ },
+ {
+  "sha": "a25ee0d3",
+  "date": "2026-11-16T20:23:17Z",
+  "title": "add the Macs' updater — keeps each Mac's repo copy on main and shows its code version on AI Scripts",
+  "plain": "The office Macs now keep their copy of the app up to date and show their version on AI Scripts."
+ },
+ {
+  "sha": "e5b8bb63",
+  "date": "2026-11-16T20:22:39Z",
+  "title": "add bill clones page to re-file a vendor's month of expenses as bills",
+  "plain": "A new Bill Clones page re-files a vendor's month of expenses as bills."
+ },
+ {
+  "sha": "f7b32cc1",
+  "date": "2026-11-16T19:33:43Z",
+  "title": "AI Scripts gets its own sidebar entry under Admin",
+  "plain": "AI Scripts has its own entry in the side bar under Admin."
+ },
+ {
+  "sha": "5e4ad4d1",
+  "date": "2026-11-16T11:13:24-08:00",
+  "title": "labor office and shop sort fix",
+  "plain": "Fixed the sort order of Office and Shop on the Labor page."
+ },
+ {
+  "sha": "df1a2c8e",
+  "date": "2026-11-16T11:13:04-08:00",
+  "title": "labor tidy calendar header, budget in tools, job picker above list, office and shop last",
+  "plain": "The Labor page has a tidier calendar header, budget under tools, the job picker above the list, and Office and Shop last."
+ },
+ {
+  "sha": "71209826",
+  "date": "2026-11-16T11:13:03-08:00",
+  "title": "jobs hub reserves an open bill card's height under the list and map row",
+  "plain": "The Jobs hub keeps room for an open bill card under the list and map."
+ },
+ {
+  "sha": "5d5b0810",
+  "date": "2026-11-16T11:13:00-08:00",
+  "title": "keep rail icons in one place and ease the open and close",
+  "plain": "Side bar icons stay in one place, and the side bar opens and closes smoothly."
+ },
+ {
+  "sha": "a20ccf39",
+  "date": "2026-11-16T11:12:58-08:00",
+  "title": "tighten miles map padding and keep Start trip above the bar",
+  "plain": "The Miles map has tighter spacing, and Start Trip stays above the bottom bar."
+ },
+ {
+  "sha": "2b3554a8",
+  "date": "2026-11-16T11:12:42-08:00",
+  "title": "make the notes card draggable with an opacity slider",
+  "plain": "The Notes card can be dragged around and has a see-through slider."
+ },
+ {
+  "sha": "248520ad",
+  "date": "2026-11-16T19:11:54Z",
+  "title": "add AI Scripts page — live run progress, stop, run now and per-script settings; lead research defaults to sonnet",
+  "plain": "A new AI Scripts page shows each automatic script running live, with Stop, Run Now and settings."
+ },
+ {
+  "sha": "009fdc73",
+  "date": "2026-11-16T11:07:25-08:00",
+  "title": "use approve-bill: and bill: fixAction ids; note the check fixes in the overhaul plan",
+  "plain": "The approve-bill and bill fixes from the checks now point to the right bill."
+ },
+ {
+  "sha": "a94dffe4",
+  "date": "2026-11-16T11:05:41-08:00",
+  "title": "key email signals on message id and type; carry the jobtread to-do id as fixAction",
+  "plain": "Email warnings no longer repeat for the same message, and JobTread to-do findings link to their to-do."
+ },
+ {
+  "sha": "bac15971",
+  "date": "2026-11-16T07:07:16-08:00",
+  "title": "match unknown senders on the vendor address on file before name and domain",
+  "plain": "Mail from an unknown sender is matched to a vendor by the address on file first."
+ },
+ {
+  "sha": "039cb1c9",
+  "date": "2026-11-16T07:06:33-08:00",
+  "title": "invoice-review inbox rows keep unread kinds open, carry their real link and bill id; pre-send always reports",
+  "plain": "Invoice review findings stay open until read, carry their real links, and the pre-send check always reports."
+ },
+ {
+  "sha": "1eec66d0",
+  "date": "2026-11-16T07:04:26-08:00",
+  "title": "keep a closed billing month's findings out of the inbox; let report leave unread kinds open",
+  "plain": "Findings from a closed billing month stay out of the inbox."
+ },
+ {
+  "sha": "da0ec7fe",
+  "date": "2026-11-16T07:02:28-08:00",
+  "title": "add approve bill and mark done fixes to needs attention",
+  "plain": "Needs Attention has Approve Bill and Mark Done buttons."
+ },
+ {
+  "sha": "a37dd745",
+  "date": "2026-11-16T14:59:57Z",
+  "title": "add KLOI and Lopez Rocks buttons to office and admin phone home",
+  "plain": "The office and admin phone Home has KLOI and Lopez Rocks buttons."
+ },
+ {
+  "sha": "48b86078",
+  "date": "2026-11-16T14:20:36Z",
+  "title": "accounts payable bills open in a pop-up, group by vendor or job",
+  "plain": "Accounts Payable bills open in a pop-up and can be grouped by vendor or job."
+ },
+ {
+  "sha": "431108e3",
+  "date": "2026-11-16T06:45:44Z",
+  "title": "add lead research — property dossier on opus, penciled in for review",
+  "plain": "New lead research builds a property file for a lead, filled in for the office to review."
+ },
+ {
+  "sha": "14f17d55",
+  "date": "2026-11-16T06:40:46Z",
+  "title": "job flock tank view, tighter 3d flocks, full screen that works on a phone",
+  "plain": "The Job Flock art has a tank view, tighter 3D flocks and a full screen that works on a phone."
+ },
+ {
+  "sha": "35c3c35b",
+  "date": "2026-11-16T06:21:54Z",
+  "title": "job flock in 3d, harmony palettes from two picks, picture stays in view with the panel open",
+  "plain": "The Job Flock art can show in 3D, makes colour sets from two picks, and stays in view with the panel open."
+ },
+ {
+  "sha": "11c54b5a",
+  "date": "2026-11-16T06:07:39Z",
+  "title": "add accounts payable tab to the bills page",
+  "plain": "The Bills page has a new Accounts Payable tab."
+ },
+ {
+  "sha": "bf848669",
+  "date": "2026-11-16T06:05:20Z",
+  "title": "job flock edges toggle between walls and wrap around",
+  "plain": "The Job Flock art can switch between walls and wrap-around edges."
+ },
+ {
+  "sha": "9c953eca",
+  "date": "2026-11-16T05:58:46Z",
+  "title": "job flock runs the year, minimal full-screen page with a slide-away panel, desktop screen saver",
+  "plain": "The Job Flock art plays through the year, has a simple full-screen page, and can run as a desktop screen saver."
+ },
+ {
+  "sha": "6198d603",
+  "date": "2026-11-15T21:26:48-08:00",
+  "title": "office dashboard notices get their own column, files no longer span the bottom",
+  "plain": "On the Office dashboard, notices have their own column and files no longer stretch across the bottom."
+ },
+ {
+  "sha": "1829e221",
+  "date": "2026-11-16T05:25:37Z",
+  "title": "job flock, a boids sim of bill, crew and budget rows",
+  "plain": "New Job Flock art: birds that move based on bills, crew and budget lines."
+ },
+ {
+  "sha": "18822126",
+  "date": "2026-11-16T05:14:05Z",
+  "title": "art colour scheme picker, pick two or one of eight presets",
+  "plain": "The art pages have a colour picker: pick two colours or one of eight presets."
+ },
+ {
+  "sha": "be510fc3",
+  "date": "2026-11-16T05:08:59Z",
+  "title": "art gallery adds islands, weave, rose, river, fingerprints and words",
+  "plain": "The art gallery adds six new pieces: islands, weave, rose, river, fingerprints and words."
+ },
+ {
+  "sha": "699070e0",
+  "date": "2026-11-16T05:03:37Z",
+  "title": "work weave and week rose art pieces (wip, not queued)",
+  "plain": "Work in progress on two art pieces; not yet in the app."
+ },
+ {
+  "sha": "240ff295",
+  "date": "2026-11-16T05:02:10Z",
+  "title": "art rows read, shared art kit, live t-SNE islands (wip, not queued)",
+  "plain": "Work in progress on the art pages; not yet in the app."
+ },
+ {
+  "sha": "ad663092",
+  "date": "2026-11-16T04:53:35Z",
+  "title": "add art that makes itself with the cost cloud",
+  "plain": "A new art page draws pictures from JobTread data, starting with the Cost Cloud."
+ },
+ {
+  "sha": "c3c4d76a",
+  "date": "2026-11-16T01:10:37Z",
+  "title": "this week card keeps every job with an entry in the week",
+  "plain": "The This Week card keeps every job that has an entry in the week."
+ },
+ {
+  "sha": "f94f8c09",
+  "date": "2026-11-16T01:10:16Z",
+  "title": "Revert \"companion: this week card lists every open job, with a note on empty ones\"",
+  "plain": "Undid the change that listed every open job on the This Week card."
+ },
+ {
+  "sha": "31cbf32e",
+  "date": "2026-11-16T00:49:35Z",
+  "title": "this week card lists every open job, with a note on empty ones",
+  "plain": "The This Week card lists every open job, with a note on empty ones."
+ },
+ {
+  "sha": "2cc2ae95",
+  "date": "2026-11-15T14:54:32-08:00",
+  "title": "this week card reads left to right from now — next up, calendar, a bar per task, every tap a dialog",
+  "plain": "The This Week card reads left to right from today, with next up, a calendar and a bar per task; every tap opens a pop-up."
+ },
+ {
+  "sha": "92b8c1c3",
+  "date": "2026-11-15T19:21:20Z",
+  "title": "jobs hub heads with home's masthead, date and month on one line, no phone gap over the map",
+  "plain": "The Jobs hub has the Home masthead, with date and month on one line and no gap above the map on a phone."
+ },
+ {
+  "sha": "0fb36327",
+  "date": "2026-11-15T18:49:33Z",
+  "title": "jobs ribbon header and map get room on a phone",
+  "plain": "The Jobs ribbon header and map get more room on a phone."
+ },
+ {
+  "sha": "34a92579",
+  "date": "2026-11-15T17:19:37Z",
+  "title": "page-change line runs at double speed and plays whole or not at all",
+  "plain": "The line drawn when you change pages moves twice as fast and plays fully or not at all."
+ },
+ {
+  "sha": "11e8ecff",
+  "date": "2026-11-15T16:57:54Z",
+  "title": "loading screen draws the ascent ridge as one line, then erases it",
+  "plain": "The loading screen draws the Ascent ridge as one line, then erases it."
+ },
+ {
+  "sha": "232dfe3a",
+  "date": "2026-11-15T07:56:44-08:00",
+  "title": "week card design options (agenda, strip, grid)",
+  "plain": "Trial designs for the week card: agenda, strip and grid."
+ },
+ {
+  "sha": "5b84e06e",
+  "date": "2026-11-15T07:35:17-08:00",
+  "title": "labor calendar opens the entry panel at its right, labor card styled like the bill card",
+  "plain": "The Labor calendar opens the entry panel on its right, and the labor card looks like the bill card."
+ },
+ {
+  "sha": "517f17f4",
+  "date": "2026-11-15T07:30:31-08:00",
+  "title": "labor tab gets a hard hat icon",
+  "plain": "The Labor tab has a hard hat icon."
+ },
+ {
+  "sha": "57041e24",
+  "date": "2026-11-15T07:29:06-08:00",
+  "title": "edit a mismatched entry in the check pay rates panel",
+  "plain": "You can edit a mismatched entry in the Check Pay Rates panel."
+ },
+ {
+  "sha": "21c404d1",
+  "date": "2026-11-15T07:28:37-08:00",
+  "title": "show warning counts by kind in admin activity",
+  "plain": "Admin Activity shows warning counts by kind."
+ },
+ {
+  "sha": "0068a400",
+  "date": "2026-11-15T07:20:21-08:00",
+  "title": "drop notice_reads, refresh sunset findings from the digest timer",
+  "plain": "Sunset findings refresh on the digest timer; an old notice table was removed behind the scenes."
+ },
+ {
+  "sha": "51ab2bd5",
+  "date": "2026-11-15T07:20:12-08:00",
+  "title": "invoice status side-by-side with JobTread, per-check marks, link buttons",
+  "plain": "Invoice Status shows side by side with JobTread, with a mark per check and link buttons."
+ },
+ {
+  "sha": "b4fd5f11",
+  "date": "2026-11-15T07:13:09-08:00",
+  "title": "pin the open bill beside the list, scroll to it on open, ribbon flush under the header, fold before you send",
+  "plain": "The open bill stays beside the list, the list scrolls to it, the ribbon sits under the header, and groups fold before you send."
+ },
+ {
+  "sha": "3a34745c",
+  "date": "2026-11-15T07:11:22-08:00",
+  "title": "labor note on its own line",
+  "plain": "The note on a labor entry sits on its own line."
+ },
+ {
+  "sha": "fc7c90e7",
+  "date": "2026-11-15T07:02:04-08:00",
+  "title": "labor row panel, tools menu, pay rate map check, calendar unselect, jobs hub stays mounted",
+  "plain": "The Labor page has a row panel, a tools menu, a pay rate check and calendar unselect, and the Jobs hub stays loaded."
+ },
+ {
+  "sha": "941ca475",
+  "date": "2026-11-15T06:40:25-08:00",
+  "title": "collapsing rail, labor calendar, customers toggle, admin picker, notes drag bar, new hire pop-up",
+  "plain": "A folding side bar, a Labor calendar, a Customers toggle, an Admin picker, a Notes drag bar and a new-hire pop-up."
+ },
+ {
+  "sha": "c40f143b",
+  "date": "2026-11-15T06:29:28-08:00",
+  "title": "overhaul plan phase 5 second half status",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "8484d3f3",
+  "date": "2026-11-15T06:29:28-08:00",
+  "title": "not in jobtread heads with the notice primitive",
+  "plain": "The \"Not in JobTread\" warning uses the standard notice style."
+ },
+ {
+  "sha": "4023ce64",
+  "date": "2026-11-15T06:29:28-08:00",
+  "title": "lswdd pay reminder reports into the findings inbox, later snoozes the reader's row",
+  "plain": "The LSWDD pay reminder shows in the findings inbox, and Later snoozes it for that person only."
+ },
+ {
+  "sha": "78a2e7ba",
+  "date": "2026-11-15T06:29:28-08:00",
+  "title": "notice dismissals live in the findings store, notice_reads copied and no longer used",
+  "plain": "Dismissed notices are now kept with the findings; nothing changes on screen."
+ },
+ {
+  "sha": "112190f6",
+  "date": "2026-11-15T06:29:22-08:00",
+  "title": "sunset unreconciled, tracking sheet risks and billing month report into the findings inbox",
+  "plain": "Unreconciled Sunset bills, tracking sheet risks and the billing month report show in the findings inbox."
+ },
+ {
+  "sha": "eefd4d5d",
+  "date": "2026-11-15T06:20:40-08:00",
+  "title": "floating Notes card opened from the rail, routes to feature requests or notes",
+  "plain": "A floating Notes card opens from the side bar and sends a note to Feature Requests or Notes."
+ },
+ {
+  "sha": "32db7789",
+  "date": "2026-11-15T06:05:53-08:00",
+  "title": "batch skill lints changed files by name and checks the landing",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "2ce2eba1",
+  "date": "2026-11-15T06:04:55-08:00",
+  "title": "escape apostrophe in labor budget message (lint)",
+  "plain": "Fixed a small text glitch in the labor budget message."
+ },
+ {
+  "sha": "9007137e",
+  "date": "2026-11-15T00:15:37-08:00",
+  "title": "this week edits tasks and to-dos on any job, calendar events back",
+  "plain": "This Week can edit tasks and to-dos on any job, and calendar events are back."
+ },
+ {
+  "sha": "7be03f3b",
+  "date": "2026-11-15T00:10:47-08:00",
+  "title": "fold sunset, lswdd and amazon under the bills dashboard",
+  "plain": "Sunset, LSWDD and Amazon now sit under the Bills dashboard."
+ },
+ {
+  "sha": "3b6151f5",
+  "date": "2026-11-15T00:05:44-08:00",
+  "title": "batch skill — cleanup and early-wave notes",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "1ac7abcb",
+  "date": "2026-11-15T00:04:07-08:00",
+  "title": "this week replaces today on home, full width, with details panel and flip-over edit form",
+  "plain": "This Week replaces Today on Home, full width, with a details panel and a flip-over edit form."
+ },
+ {
+  "sha": "0b86e657",
+  "date": "2026-11-15T00:03:20-08:00",
+  "title": "add labor review page with inline edit and add time",
+  "plain": "A new Labor Review page lets you edit and add time in place."
+ },
+ {
+  "sha": "38656592",
+  "date": "2026-11-15T00:03:17-08:00",
+  "title": "desktop layouts for money and admin pages",
+  "plain": "Money and Admin pages have desktop layouts."
+ },
+ {
+  "sha": "5fc5b6c1",
+  "date": "2026-11-15T00:02:06-08:00",
+  "title": "desktop layouts for people pages",
+  "plain": "People pages have desktop layouts."
+ },
+ {
+  "sha": "a9d683d2",
+  "date": "2026-11-15T00:01:41-08:00",
+  "title": "desktop layouts for field pages",
+  "plain": "Field pages have desktop layouts."
+ },
+ {
+  "sha": "68342185",
+  "date": "2026-11-14T23:59:42-08:00",
+  "title": "ribbon labels jobs inline, adds a total line, cycles hours/bills/invoiced, and heads the jobs hub",
+  "plain": "The ribbon labels jobs, adds a total line, cycles through hours, bills and invoiced, and heads the Jobs hub."
+ },
+ {
+  "sha": "29591d19",
+  "date": "2026-11-14T23:59:36-08:00",
+  "title": "bills dashboard with statement tabs, more bill grouping and sorting, vendors list styled like customers",
+  "plain": "A Bills dashboard with statement tabs, more grouping and sorting, and a Vendors list styled like Customers."
+ },
+ {
+  "sha": "1b046324",
+  "date": "2026-11-14T23:57:31-08:00",
+  "title": "desktop rail trims, half-built house Jobs icon, hover sub-items, Pay Rates link, masthead date beside month",
+  "plain": "The desktop side bar is trimmed, has a new Jobs icon, shows sub-items on hover and links to Pay Rates."
+ },
+ {
+  "sha": "950185cd",
+  "date": "2026-11-14T23:57:17-08:00",
+  "title": "hub bill card opens in view, Checks and Status open on the job, smaller donuts and bigger notes",
+  "plain": "The hub's bill card opens in view, Checks and Status open on the job, donuts are smaller and notes bigger."
+ },
+ {
+  "sha": "9236368c",
+  "date": "2026-11-14T23:56:42-08:00",
+  "title": "merge Needs Attention and Notices into a wide desktop Office dashboard",
+  "plain": "Needs Attention and Notices are merged into a wide desktop Office dashboard."
+ },
+ {
+  "sha": "8eccc744",
+  "date": "2026-11-14T23:56:34-08:00",
+  "title": "never-approved check fires on draft bills, not payable ones",
+  "plain": "The never-approved check now flags draft bills, not payable ones."
+ },
+ {
+  "sha": "0d8067f4",
+  "date": "2026-11-14T23:53:54-08:00",
+  "title": "batch skill — group a pasted list, subagent per group, one deploy",
+  "plain": "Behind-the-scenes change to how a list of requests is worked; nothing changes on screen."
+ },
+ {
+  "sha": "c9787dbd",
+  "date": "2026-11-14T23:50:52-08:00",
+  "title": "field home with map, radio and request box; job name in header; miles map shows all jobs; home on field bar",
+  "plain": "Field crews get a Home with a map, radio and request box, the job name in the header, and all jobs on the Miles map."
+ },
+ {
+  "sha": "390751e8",
+  "date": "2026-11-15T05:29:52Z",
+  "title": "home line date reads weekday the 15th, no month",
+  "plain": "The Home date line reads the weekday and day, with no month."
+ },
+ {
+  "sha": "70820498",
+  "date": "2026-11-15T05:27:09Z",
+  "title": "home line shows the day and date on the left on phones, short form",
+  "plain": "On phones, the Home line shows the short day and date on the left."
+ },
+ {
+  "sha": "1d406f3a",
+  "date": "2026-11-15T05:17:21Z",
+  "title": "year ribbon draws as contours, ink mountain per job line and dashed bills",
+  "plain": "The year ribbon is drawn as contours: a mountain per job and dashed bills."
+ },
+ {
+  "sha": "15f452b0",
+  "date": "2026-11-15T05:10:31Z",
+  "title": "phone search icon, page titles in the header bar, tools tab bar, one mountain mark",
+  "plain": "Phones get a search icon, page titles in the header, a tools tab bar and one mountain logo."
+ },
+ {
+  "sha": "cb082e64",
+  "date": "2026-11-15T05:03:51Z",
+  "title": "lopez map atop miles with saved places, you, start and end; smaller start button; by hand on one card",
+  "plain": "The Lopez map sits above Miles with saved places, your spot, start and end, and a smaller Start button."
+ },
+ {
+  "sha": "fae93c12",
+  "date": "2026-11-15T05:03:22Z",
+  "title": "phone drawer opens the menu, header hamburger removed",
+  "plain": "The phone drawer opens the menu, and the header menu button is gone."
+ },
+ {
+  "sha": "46b56010",
+  "date": "2026-11-15T04:26:02Z",
+  "title": "year ribbon behind the home month line, no panel, bills spread over their month",
+  "plain": "The year ribbon sits behind the Home month line, and bills spread across their month."
+ },
+ {
+  "sha": "27370bc2",
+  "date": "2026-11-15T04:23:54Z",
+  "title": "month week day zoom on the jobs page schedule",
+  "plain": "The Jobs page schedule zooms by month, week and day."
+ },
+ {
+  "sha": "08b925fa",
+  "date": "2026-11-15T04:17:20Z",
+  "title": "hide the page help ? mark on phones",
+  "plain": "The page help question mark is hidden on phones."
+ },
+ {
+  "sha": "58523be9",
+  "date": "2026-11-15T04:04:54Z",
+  "title": "home week bars, tap a day for its schedule and a bar for the job's schedule",
+  "plain": "Home shows week bars: tap a day for its schedule or a bar for the job's schedule."
+ },
+ {
+  "sha": "383075d0",
+  "date": "2026-11-15T03:57:29Z",
+  "title": "year ribbon drops text and vertical lines, sits atop home on phones",
+  "plain": "The year ribbon drops text and vertical lines and sits at the top of Home on phones."
+ },
+ {
+  "sha": "2a9200d2",
+  "date": "2026-11-15T03:45:15Z",
+  "title": "year ribbon on home and the jobs page, crew hours above and vendor bills below",
+  "plain": "A year ribbon on Home and the Jobs page shows crew hours above and vendor bills below."
+ },
+ {
+  "sha": "a0b3bdc6",
+  "date": "2026-11-14T23:36:24Z",
+  "title": "check for bills line counts down to the next email scan",
+  "plain": "The check for bills line counts down to the next email scan."
+ },
+ {
+  "sha": "155f5061",
+  "date": "2026-11-14T23:34:25Z",
+  "title": "invoicing email notes card shows each job's jobs page notes with add to note",
+  "plain": "The invoicing email notes card shows each job's notes from the Jobs page, with Add to Note."
+ },
+ {
+  "sha": "917edcad",
+  "date": "2026-11-14T23:31:41Z",
+  "title": "desktop rail opens to the full sidebar while the mouse rests on it",
+  "plain": "The desktop side bar opens fully while the mouse rests on it."
+ },
+ {
+  "sha": "a8f7de8b",
+  "date": "2026-11-14T23:26:43Z",
+  "title": "close month files each tracking sheet once, the sheets move on when every sheet is filed",
+  "plain": "Close Month files each tracking sheet once and moves on when every sheet is filed."
+ },
+ {
+  "sha": "3062744f",
+  "date": "2026-11-14T21:42:11Z",
+  "title": "home chip shows the tracking sheets' month close, with a read-only close preview per sheet",
+  "plain": "The Home month chip shows each tracking sheet's month close, with a preview you can look at but not change."
+ },
+ {
+  "sha": "f6052ce3",
+  "date": "2026-11-14T18:05:17Z",
+  "title": "home month change no longer copies tracking sheets into records; the per-job close replaces it",
+  "plain": "Changing the month on Home no longer copies tracking sheets into records; closing each job's month does that now."
+ },
+ {
+  "sha": "0a9515e0",
+  "date": "2026-11-14T16:26:16Z",
+  "title": "changing the home billing month copies each tracking sheet's current invoice into its records first",
+  "plain": "Changing the billing month on Home first saves each tracking sheet's current invoice into its records."
+ },
+ {
+  "sha": "8dcfa5a5",
+  "date": "2026-11-14T16:14:38Z",
+  "title": "sheet sync month list reaches today's month, so a held month can advance",
+  "plain": "The sheet sync month list now reaches the current month, so a held month can move forward."
+ },
+ {
+  "sha": "a45ff976",
+  "date": "2026-11-14T15:55:20Z",
+  "title": "phone bar swaps Invoicing for Jobs",
+  "plain": "The phone's bottom bar shows Jobs in place of Invoicing."
+ },
+ {
+  "sha": "7b427e63",
+  "date": "2026-11-14T15:44:21Z",
+  "title": "a mileage save finishes even when the app closes first",
+  "plain": "A mileage entry finishes saving even if you close the app right away."
+ },
+ {
+  "sha": "e40199b1",
+  "date": "2026-11-14T15:41:53Z",
+  "title": "app feedback becomes feature requests — rail link under help, delete, admin home button",
+  "plain": "App Feedback is now Feature Requests, with a link under Help, a delete option and an Admin button on Home."
+ },
+ {
+  "sha": "a4a48da3",
+  "date": "2026-11-14T15:38:48Z",
+  "title": "jobs hub card drops check all jobs and sheet sync settings, sync notice moves to the card's foot",
+  "plain": "The Jobs hub card drops the \"check all jobs\" and sheet sync settings; the sync notice moves to the bottom of the card."
+ },
+ {
+  "sha": "389e6c60",
+  "date": "2026-11-14T15:38:40Z",
+  "title": "header stays below the ios status bar",
+  "plain": "The top header no longer slides under the iPhone's status bar."
+ },
+ {
+  "sha": "8214f20e",
+  "date": "2026-11-14T07:38:05-08:00",
+  "title": "link split bills and show whether the pieces still add up",
+  "plain": "Split bills are linked together, and the app shows whether the pieces still add up to the whole."
+ },
+ {
+  "sha": "aaedd4b1",
+  "date": "2026-11-14T07:32:17-08:00",
+  "title": "split a time entry into two from the time coding card",
+  "plain": "You can split one time entry into two from the time coding card."
+ },
+ {
+  "sha": "0770d7ba",
+  "date": "2026-11-14T07:31:05-08:00",
+  "title": "closed mobile bar matches the open drawer, grabber removed",
+  "plain": "The closed phone menu bar now matches the open menu, and the grab handle is gone."
+ },
+ {
+  "sha": "95ff5c0c",
+  "date": "2026-11-14T07:30:51-08:00",
+  "title": "dedupe today card events that sit on several calendars",
+  "plain": "The Today card no longer shows the same event twice when it is on several calendars."
+ },
+ {
+  "sha": "7011d3a0",
+  "date": "2026-11-14T07:30:40-08:00",
+  "title": "widget open button toggles show and hide",
+  "plain": "The desktop widget's open button now shows and hides the widget."
+ },
+ {
+  "sha": "0f8b7240",
+  "date": "2026-11-14T07:18:37-08:00",
+  "title": "jobs hub replaces the tracking sheet pages — month, checks and status tabs, rail entries, job card buttons in the save menu",
+  "plain": "The Jobs hub replaces the tracking sheet pages, with Month, Checks and Status tabs."
+ },
+ {
+  "sha": "7d43e92b",
+  "date": "2026-11-14T06:25:51-08:00",
+  "title": "invoice status reads recipients in smaller chunks so jobtread stops answering 413",
+  "plain": "Invoice status loads reliably again; it asks JobTread for recipients in smaller batches."
+ },
+ {
+  "sha": "34f7d557",
+  "date": "2026-11-13T22:27:48-08:00",
+  "title": "jobs hub status lines take their own row and say where the sheet timer is instead of no run recorded",
+  "plain": "Jobs hub status lines sit on their own row and say when the sheet sync runs next."
+ },
+ {
+  "sha": "7f1d8fce",
+  "date": "2026-11-13T22:16:14-08:00",
+  "title": "close month in one step — sheet push, finalize, client access, draft invoice; advancing the month names unfinalized sheets",
+  "plain": "Closing a month is one step: update the sheet, finalize, give the client access and draft the invoice."
+ },
+ {
+  "sha": "8df0ff28",
+  "date": "2026-11-13T22:11:50-08:00",
+  "title": "approving a bill gives the job's one customer contact document access to it",
+  "plain": "Approving a bill gives the job's customer contact access to that bill."
+ },
+ {
+  "sha": "177f2d90",
+  "date": "2026-11-13T22:10:14-08:00",
+  "title": "one save rule — delete, add, buyback and void stage behind save changes; approve, dates and numbers write at once with a toast",
+  "plain": "One save rule everywhere: deletes, adds and voids wait for Save Changes, while approvals and dates save at once."
+ },
+ {
+  "sha": "b35b4eb4",
+  "date": "2026-11-13T21:58:38-08:00",
+  "title": "last-run time and a retry link in place of the sync, check-for-bills, refresh and run-now buttons",
+  "plain": "Several sync and refresh buttons are replaced by a \"last run\" time and a Retry link."
+ },
+ {
+  "sha": "cf760b2a",
+  "date": "2026-11-13T21:56:11-08:00",
+  "title": "draft invoice sends quantity 1 for a bill line with no quantity",
+  "plain": "A draft invoice now uses a quantity of 1 for a bill line with no quantity."
+ },
+ {
+  "sha": "58d2e533",
+  "date": "2026-11-13T21:52:40-08:00",
+  "title": "create draft customer invoice from tracking sheets",
+  "plain": "You can create a draft customer invoice from the tracking sheets."
+ },
+ {
+  "sha": "3e1fb448",
+  "date": "2026-11-13T21:51:58-08:00",
+  "title": "job check runs on open and after each save, check this job button gone",
+  "plain": "The job check runs on its own when you open a job and after each save, so its button is gone."
+ },
+ {
+  "sha": "7d4d963a",
+  "date": "2026-11-13T21:45:52-08:00",
+  "title": "labor report refiles itself after a labor edit, status line in place of the button",
+  "plain": "The labor report refiles itself after a labor edit, and a status line replaces the button."
+ },
+ {
+  "sha": "7e9d485e",
+  "date": "2026-11-13T21:39:43-08:00",
+  "title": "probe checks a draft invoice keeps its issue date",
+  "plain": "Behind-the-scenes test that a draft invoice keeps its issue date; nothing changes on screen."
+ },
+ {
+  "sha": "5ccb536f",
+  "date": "2026-11-13T21:35:08-08:00",
+  "title": "add probe for creating a draft customer invoice",
+  "plain": "Behind-the-scenes test for creating a draft customer invoice; nothing changes on screen."
+ },
+ {
+  "sha": "64dd9288",
+  "date": "2026-11-13T21:20:43-08:00",
+  "title": "labor spread opens the narrowed labor list, unmatched backup gets a Drive search link",
+  "plain": "The labor spread opens a filtered labor list, and unmatched backup gets a Drive search link."
+ },
+ {
+  "sha": "4ba0f01d",
+  "date": "2026-11-13T21:16:04-08:00",
+  "title": "drop digest_dismissals, the findings store holds the digest's dismissals",
+  "plain": "Digest dismissals are now kept with the other findings; nothing changes on screen."
+ },
+ {
+  "sha": "e358ba45",
+  "date": "2026-11-13T21:14:27-08:00",
+  "title": "monthly check carries verdicts forward, lists by verdict, copies a claude prompt per finding",
+  "plain": "The monthly check carries past verdicts forward, lists findings by verdict and copies a Claude prompt for each."
+ },
+ {
+  "sha": "38d6be66",
+  "date": "2026-11-13T21:07:22-08:00",
+  "title": "monthly check reads the tracking sheets in code",
+  "plain": "The monthly check reads the tracking sheets itself."
+ },
+ {
+  "sha": "f8874da6",
+  "date": "2026-11-13T16:59:40-08:00",
+  "title": "digest dismissals live in the findings store, digest reports to-do and follow-ups into the inbox",
+  "plain": "Digest dismissals are kept with the findings, and the digest sends to-dos and follow-ups to the inbox."
+ },
+ {
+  "sha": "b6d7b990",
+  "date": "2026-11-13T16:45:56-08:00",
+  "title": "monthly check runs unattended — edit permission, jobtread connector, done only when the pass posts",
+  "plain": "The monthly check can run on its own without anyone watching."
+ },
+ {
+  "sha": "9e01644b",
+  "date": "2026-11-13T16:10:17-08:00",
+  "title": "approve all draft bills for the month from the all jobs card",
+  "plain": "You can approve all of a month's draft bills at once from the All Jobs card."
+ },
+ {
+  "sha": "35365e82",
+  "date": "2026-11-13T16:05:58-08:00",
+  "title": "hand-rolled amber warning boxes use Notice",
+  "plain": "Yellow warning boxes across the app now share one look."
+ },
+ {
+  "sha": "b6294382",
+  "date": "2026-11-13T16:03:03-08:00",
+  "title": "pre-send check keeps an inbox dismissal",
+  "plain": "The pre-send check remembers a finding you dismissed in the inbox."
+ },
+ {
+  "sha": "fe30ba50",
+  "date": "2026-11-13T16:02:55-08:00",
+  "title": "sunset duplicates report into the findings inbox",
+  "plain": "Sunset duplicates now show up in the findings inbox."
+ },
+ {
+  "sha": "b940fb0b",
+  "date": "2026-11-13T16:02:41-08:00",
+  "title": "pre-send check reports into the findings inbox",
+  "plain": "The pre-send check now reports into the findings inbox."
+ },
+ {
+  "sha": "2faacc39",
+  "date": "2026-11-13T16:02:20-08:00",
+  "title": "time sync reports into the findings inbox",
+  "plain": "The time sync now reports into the findings inbox."
+ },
+ {
+  "sha": "14e2430a",
+  "date": "2026-11-13T16:02:03-08:00",
+  "title": "flagged bills report into the findings inbox",
+  "plain": "Flagged bills now show up in the findings inbox."
+ },
+ {
+  "sha": "23764cb3",
+  "date": "2026-11-13T16:01:45-08:00",
+  "title": "uncaptured bills report into the findings inbox",
+  "plain": "Bills that were never captured now show up in the findings inbox."
+ },
+ {
+  "sha": "845c7645",
+  "date": "2026-11-13T16:01:30-08:00",
+  "title": "needs project reports into the findings inbox, banner removed",
+  "plain": "Bills needing a project now show up in the findings inbox, and the banner is gone."
+ },
+ {
+  "sha": "51be9dd0",
+  "date": "2026-11-13T15:58:32-08:00",
+  "title": "overhaul phase 5 first half, findings store, needs attention inbox, invoice review and stuck vendors report into it",
+  "plain": "A new Needs Attention inbox collects findings, starting with invoice review and stuck vendors."
+ },
+ {
+  "sha": "44c07d6f",
+  "date": "2026-11-13T11:50:06-08:00",
+  "title": "overhaul phase 4, office home with needs attention, today strip, one to-do list, phone buttons and per-user desktop widgets",
+  "plain": "New office Home screen: Needs Attention, a Today strip, one to-do list, phone buttons and desktop cards you can arrange."
+ },
+ {
+  "sha": "67732d90",
+  "date": "2026-11-13T11:07:45-08:00",
+  "title": "overhaul phase 3.3, drawer and menu on sheet, job links to the hub, sync settings panel, back links, selects",
+  "plain": "The menu and drawer were rebuilt, job links open the hub, and back links were added."
+ },
+ {
+  "sha": "65563841",
+  "date": "2026-11-13T10:55:22-08:00",
+  "title": "overhaul phase 3.1 and 3.2, base ui primitives, touch sizes, reduced motion",
+  "plain": "Buttons and fields are easier to tap on phones, and motion is reduced when your device asks for it."
+ },
+ {
+  "sha": "70a127db",
+  "date": "2026-11-13T10:04:28-08:00",
+  "title": "invoicing email out-of-date notice is a small bug on the button",
+  "plain": "The \"invoicing email out of date\" notice is now a small mark on the button."
+ },
+ {
+  "sha": "05be14ff",
+  "date": "2026-11-13T09:36:55-08:00",
+  "title": "home redirect only on a real app open, menu Home reaches Today",
+  "plain": "The app sends you to Home only when you first open it, and the menu's Home goes to Today."
+ },
+ {
+  "sha": "0437c183",
+  "date": "2026-11-13T07:20:26-08:00",
+  "title": "overhaul phase 2, analytics, route counts, lazy hub tabs, server redirect, caches",
+  "plain": "Pages load faster, with usage counts and saved results behind the scenes."
+ },
+ {
+  "sha": "82596372",
+  "date": "2026-11-13T07:01:19-08:00",
+  "title": "side rail starts hidden, bill scan pins below header, ignore .env files",
+  "plain": "The side rail starts hidden, and the bill scan stays pinned below the header."
+ },
+ {
+  "sha": "34ab4d5f",
+  "date": "2026-11-13T06:41:58-08:00",
+  "title": "add npm run preview for phone review",
+  "plain": "New way to preview a change on a phone before it goes live; nothing changes in the app."
+ },
+ {
+  "sha": "010421d5",
+  "date": "2026-11-13T06:31:25-08:00",
+  "title": "release queue and lander replace direct pushes to main",
+  "plain": "Updates now go through a release queue before they reach the live app; nothing changes on screen."
+ },
+ {
+  "sha": "7bd785c6",
+  "date": "2026-11-12T14:41:46-08:00",
+  "title": "job card sync button syncs only the selected job's sheet",
+  "plain": "The job card's Sync button now syncs only that job's sheet."
+ },
+ {
+  "sha": "44916a64",
+  "date": "2026-11-12T13:56:15-08:00",
+  "title": "check for bills button on jobs hub",
+  "plain": "The Jobs hub has a Check for Bills button."
+ },
+ {
+  "sha": "8b38c352",
+  "date": "2026-11-12T13:52:09-08:00",
+  "title": "email out of date notice when the month changes after the draft",
+  "plain": "The invoicing email shows an \"out of date\" notice when the month changes after the draft."
+ },
+ {
+  "sha": "f0f5af33",
+  "date": "2026-11-12T13:40:26-08:00",
+  "title": "invoicing email files both pdfs per job, job-in-app link, summary never missing",
+  "plain": "The invoicing email files both PDFs for each job, links to the job in the app and always has a summary."
+ },
+ {
+  "sha": "0f0136fd",
+  "date": "2026-11-12T13:31:21-08:00",
+  "title": "direct links for jobs hub job, month and bill",
+  "plain": "You can link straight to a job, month or bill in the Jobs hub."
+ },
+ {
+  "sha": "9fbdc811",
+  "date": "2026-11-12T20:54:30Z",
+  "title": "update session ledger",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "bb21a95f",
+  "date": "2026-11-12T20:54:16Z",
+  "title": "add bill from a drive folder link",
+  "plain": "You can add a bill from a Google Drive folder link."
+ },
+ {
+  "sha": "453b88d8",
+  "date": "2026-11-12T11:43:21-08:00",
+  "title": "employees email button creates a draft, not a send",
+  "plain": "The Employees email button now makes a draft instead of sending."
+ },
+ {
+  "sha": "3f26cc70",
+  "date": "2026-11-12T11:23:11-08:00",
+  "title": "monthly check compares Tracking Sheet subtotals and grand totals to the Labor and Sub/Vendor tabs",
+  "plain": "The monthly check compares tracking sheet totals to the Labor and Sub/Vendor tabs."
+ },
+ {
+  "sha": "69bd4fb0",
+  "date": "2026-11-12T10:32:31-08:00",
+  "title": "invoicing email intro is the package title, for review",
+  "plain": "The invoicing email opens with the package title, ready for review."
+ },
+ {
+  "sha": "99c94ba7",
+  "date": "2026-11-12T10:13:02-08:00",
+  "title": "invoicing email as inline links, per-job summary pdf",
+  "plain": "The invoicing email uses links in the text and a summary PDF for each job."
+ },
+ {
+  "sha": "066ca15c",
+  "date": "2026-11-12T09:56:55-08:00",
+  "title": "add invoice preview to billing summary",
+  "plain": "The billing summary now has an invoice preview."
+ },
+ {
+  "sha": "453cfb9b",
+  "date": "2026-11-12T09:17:40-08:00",
+  "title": "collapse hidden rail to icon strip",
+  "plain": "The hidden side rail shrinks to a strip of icons."
+ },
+ {
+  "sha": "60a15026",
+  "date": "2026-11-12T09:11:05-08:00",
+  "title": "hide help mark on desktop (lg and up)",
+  "plain": "The help question mark is hidden on computers."
+ },
+ {
+  "sha": "aae63930",
+  "date": "2026-11-12T16:04:40Z",
+  "title": "turn off mail-capture check and skip Electrical in invoice review",
+  "plain": "The invoice review stops checking captured mail and skips Electrical."
+ },
+ {
+  "sha": "0fe4b423",
+  "date": "2026-11-12T15:14:57Z",
+  "title": "add session ledger for invoice check review",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "9fe30e55",
+  "date": "2026-11-11T14:41:28-08:00",
+  "title": "history entries keep the previous Our notes, not the new ones",
+  "plain": "Lead history entries keep the old \"Our notes\", not the new ones."
+ },
+ {
+  "sha": "c656bb3d",
+  "date": "2026-11-11T14:36:26-08:00",
+  "title": "log a next-step history entry when Our notes change too",
+  "plain": "Changing \"Our notes\" on a lead now adds a history entry too."
+ },
+ {
+  "sha": "e1dffbaf",
+  "date": "2026-11-11T14:31:31-08:00",
+  "title": "collapse lead next-step notes behind a click; history entries expand to show details",
+  "plain": "A lead's next-step notes fold away behind a click, and history entries open to show details."
+ },
+ {
+  "sha": "dd513bfc",
+  "date": "2026-11-11T14:26:17-08:00",
+  "title": "Home follows the masthead's billing month, drops its own picker, and the new cards match the jobs list height",
+  "plain": "Home follows the billing month at the top of the app, drops its own month picker, and its cards line up."
+ },
+ {
+  "sha": "fd7a1a1a",
+  "date": "2026-11-11T14:19:13-08:00",
+  "title": "map the banner's most-edited-page Refresh and widget copy",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "aef1efc0",
+  "date": "2026-11-11T14:18:20-08:00",
+  "title": "banner Refresh opens the most-edited page; show the banner in the desktop widget",
+  "plain": "The \"new version\" banner's Refresh opens the page that changed most, and the desktop widget shows the banner."
+ },
+ {
+  "sha": "af7ce3e0",
+  "date": "2026-11-11T14:15:44-08:00",
+  "title": "show My to-dos and Newest leads on Home only; the Jobs page keeps its rings and notes",
+  "plain": "My To-dos and Newest Leads show on Home only; the Jobs page keeps its rings and notes."
+ },
+ {
+  "sha": "81d15a14",
+  "date": "2026-11-11T14:13:06-08:00",
+  "title": "remove the Leads count card from the top of Customers",
+  "plain": "The Leads count card is gone from the top of Customers."
+ },
+ {
+  "sha": "0a069ded",
+  "date": "2026-11-11T14:10:26-08:00",
+  "title": "KLOI play/pause button in the desktop rail above LopezRocks; one shared stream",
+  "plain": "A KLOI radio play/pause button sits in the desktop side rail above LopezRocks."
+ },
+ {
+  "sha": "09ef99dd",
+  "date": "2026-11-11T14:07:44-08:00",
+  "title": "add admin 'new version live' banner that polls the server's build",
+  "plain": "Admins see a \"new version live\" banner when an update is ready."
+ },
+ {
+  "sha": "a14037d6",
+  "date": "2026-11-11T14:02:11-08:00",
+  "title": "Jobs page with no job shows My to-dos and Newest leads cards in place of the month rings",
+  "plain": "The Jobs page with no job picked shows My To-dos and Newest Leads."
+ },
+ {
+  "sha": "995eecac",
+  "date": "2026-11-11T14:01:27-08:00",
+  "title": "keep the Signal poll quiet when the Mac is offline",
+  "plain": "The Signal message sync stays quiet when the office Mac is offline."
+ },
+ {
+  "sha": "a86636f3",
+  "date": "2026-11-11T14:00:54-08:00",
+  "title": "move the widget button into the side rail beside the Hide arrow",
+  "plain": "The widget button moves into the side rail beside the Hide arrow."
+ },
+ {
+  "sha": "83116002",
+  "date": "2026-11-11T13:57:47-08:00",
+  "title": "add a Listen to KLOI play/pause row above LopezRocks in the menu",
+  "plain": "The menu has a Listen to KLOI play/pause row above LopezRocks."
+ },
+ {
+  "sha": "8a534552",
+  "date": "2026-11-11T13:44:08-08:00",
+  "title": "draw the selected lead's ring inside the card so the list scroll does not clip it",
+  "plain": "The selected lead's highlight no longer gets cut off when you scroll the list."
+ },
+ {
+  "sha": "8ebc26b1",
+  "date": "2026-11-11T13:43:52-08:00",
+  "title": "Home widget button shows an install line when the widget is missing",
+  "plain": "Home's widget button tells you how to install the widget when it is missing."
+ },
+ {
+  "sha": "103485b9",
+  "date": "2026-11-11T13:37:52-08:00",
+  "title": "Customers leads open in a side card like Vendors; buttons move to the header's top right",
+  "plain": "Customer leads open in a side card like Vendors, with buttons at the top right."
+ },
+ {
+  "sha": "b03f52da",
+  "date": "2026-11-11T13:35:50-08:00",
+  "title": "list Customers sections in the sidebar, drop the tab strip from 2xl",
+  "plain": "Customers sections are listed in the sidebar, and the tab strip is gone on large screens."
+ },
+ {
+  "sha": "ce66882c",
+  "date": "2026-11-11T13:34:07-08:00",
+  "title": "hide the widget's scroll bars; add Home button that opens the desktop widget",
+  "plain": "The widget hides its scroll bars, and Home has a button to open the desktop widget."
+ },
+ {
+  "sha": "a734753d",
+  "date": "2026-11-11T13:29:47-08:00",
+  "title": "add Run now button to AscentBot that triggers the Signal sync on the Mac",
+  "plain": "AscentBot has a Run Now button that starts the Signal sync on the office Mac."
+ },
+ {
+  "sha": "9aa6aa34",
+  "date": "2026-11-11T13:11:56-08:00",
+  "title": "add /widget page and a Mac desktop panel that shows it",
+  "plain": "New desktop widget for the Mac that shows a slim version of the app."
+ },
+ {
+  "sha": "87095b29",
+  "date": "2026-11-11T13:03:40-08:00",
+  "title": "clip the intake summary on connect when the customer has no Notes yet",
+  "plain": "Connecting a lead trims the intake summary when the customer has no notes yet."
+ },
+ {
+  "sha": "ee61b45c",
+  "date": "2026-11-11T12:50:37-08:00",
+  "title": "measure Notes by bytes and double line breaks so the 1024 cap holds under JT's count",
+  "plain": "Lead notes are measured the way JobTread counts them, so they stay under its limit."
+ },
+ {
+  "sha": "88c07ae1",
+  "date": "2026-11-11T12:42:25-08:00",
+  "title": "drop the Need action and Quiet cards from the leads board",
+  "plain": "The Need Action and Quiet cards are gone from the leads board."
+ },
+ {
+  "sha": "6d3442f3",
+  "date": "2026-11-11T12:39:31-08:00",
+  "title": "next steps is a static notice with an Update dialog and a kept history",
+  "plain": "A lead's next steps show as a notice with an Update button and a kept history."
+ },
+ {
+  "sha": "613d1703",
+  "date": "2026-11-11T12:39:27-08:00",
+  "title": "cap lead Notes at JT's 1024-char limit; shrink the new intake, never the history",
+  "plain": "Lead notes stay under JobTread's length limit by shortening the new intake, never the history."
+ },
+ {
+  "sha": "4f65f23a",
+  "date": "2026-11-11T12:37:14-08:00",
+  "title": "move Ascent Details to the database; edit them and upload company documents",
+  "plain": "Ascent Details can now be edited in the app, and you can upload company documents."
+ },
+ {
+  "sha": "931e02b8",
+  "date": "2026-11-11T12:31:46-08:00",
+  "title": "drop the Office Dashboard subtitle",
+  "plain": "The Office Dashboard no longer has a subtitle."
+ },
+ {
+  "sha": "54f04250",
+  "date": "2026-11-11T20:06:57Z",
+  "title": "session ledger for leads push work",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "5f5c2024",
+  "date": "2026-11-11T20:06:39Z",
+  "title": "leads push asks for an existing customer, add not converted, buttons to card bottom",
+  "plain": "Sending a lead on asks for an existing customer, adds \"not converted\", and moves buttons to the card bottom."
+ },
+ {
+  "sha": "77c8a2fb",
+  "date": "2026-11-11T12:20:32-08:00",
+  "title": "add Ascent Details card to the Office Dashboard",
+  "plain": "The Office Dashboard has a new Ascent Details card."
+ },
+ {
+  "sha": "5c77dea4",
+  "date": "2026-11-11T11:36:02-08:00",
+  "title": "leads qualified/not qualified with archive, slimmer lead card, Customers on the rail, drop the tab strip",
+  "plain": "Leads can be marked qualified or not and archived, the lead card is slimmer, and Customers is on the side rail."
+ },
+ {
+  "sha": "f32c35b9",
+  "date": "2026-11-11T15:09:30Z",
+  "title": "remove tools page blurb and batch timer line",
+  "plain": "The Tools page drops its intro text and the batch timer line."
+ },
+ {
+  "sha": "befebeab",
+  "date": "2026-11-11T14:29:07Z",
+  "title": "tool batch gps site, update mode, copy prompt, sonnet",
+  "plain": "Tool batch now records the GPS site, can update existing tools and has a copyable prompt."
+ },
+ {
+  "sha": "72d5b1aa",
+  "date": "2026-11-11T06:33:26Z",
+  "title": "update session ledger 2026-11-11-brave-gates",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "f5d5d967",
+  "date": "2026-11-11T06:30:14Z",
+  "title": "add tools batch add and office-mac analysis",
+  "plain": "You can add a batch of tools from photos, and the office Mac fills in their details."
+ },
+ {
+  "sha": "607341ad",
+  "date": "2026-11-10T16:44:39-08:00",
+  "title": "stage 7 tools and mileage tables, backfill, flag-off dual-write",
+  "plain": "Tools and mileage now also save to the app's own records, ready for the switch."
+ },
+ {
+  "sha": "a8396add",
+  "date": "2026-11-10T14:39:55-08:00",
+  "title": "checks page folds customer groups, Office last and folded; report links both sides",
+  "plain": "The Checks page folds customer groups, puts Office last, and its report links both ways."
+ },
+ {
+  "sha": "4ec0e2bd",
+  "date": "2026-11-10T14:17:31-08:00",
+  "title": "hide workspace pills on jobs hub at every narrow width",
+  "plain": "The Jobs page hides the workspace buttons on narrow screens."
+ },
+ {
+  "sha": "652e1096",
+  "date": "2026-11-10T14:13:30-08:00",
+  "title": "monthly review treats unbuilt invoices as staging; checks page shows report + findings only",
+  "plain": "The monthly review treats invoices not yet built as in progress, and the Checks page shows only the report and findings."
+ },
+ {
+  "sha": "325a72dc",
+  "date": "2026-11-10T14:03:49-08:00",
+  "title": "add In Trailer? dropdown to the new tool dialog",
+  "plain": "The new tool form has an \"In Trailer?\" choice."
+ },
+ {
+  "sha": "9718a8b6",
+  "date": "2026-11-10T20:27:17Z",
+  "title": "tap a phase bar on the tool schedule to assign tools to the whole phase",
+  "plain": "On the Tool Schedule, tap a phase bar to assign tools to the whole phase."
+ },
+ {
+  "sha": "25652bf2",
+  "date": "2026-11-10T11:50:02-08:00",
+  "title": "tool schedule gantt groups tasks by job and phase like jobtread",
+  "plain": "The Tool Schedule chart groups tasks by job and phase, like JobTread."
+ },
+ {
+  "sha": "544cff3e",
+  "date": "2026-11-10T11:49:39-08:00",
+  "title": "move all-jobs notes below the month picker",
+  "plain": "The all-jobs notes now sit below the month picker."
+ },
+ {
+  "sha": "571fed0e",
+  "date": "2026-11-10T11:42:02-08:00",
+  "title": "tool schedule gantt by task, tool groups and job trailer loads",
+  "plain": "The Tool Schedule chart shows tasks, tool groups and what each job's trailer carries."
+ },
+ {
+  "sha": "68a6085f",
+  "date": "2026-11-10T11:35:00-08:00",
+  "title": "sheet check says when extra labor hours are unapproved",
+  "plain": "The tracking sheet check says when extra labor hours are not approved."
+ },
+ {
+  "sha": "287933fc",
+  "date": "2026-11-10T11:34:36-08:00",
+  "title": "notes card reads notes only, not the whole month",
+  "plain": "The notes card shows only notes, not the whole month."
+ },
+ {
+  "sha": "589e540f",
+  "date": "2026-11-10T11:32:29-08:00",
+  "title": "sheet check finds the totals row above helper rows",
+  "plain": "The tracking sheet check finds the totals row even when helper rows sit below it."
+ },
+ {
+  "sha": "db1d0059",
+  "date": "2026-11-10T11:31:06-08:00",
+  "title": "sheet check ignores repeated header codes with no money",
+  "plain": "The tracking sheet check ignores repeated header codes that have no money."
+ },
+ {
+  "sha": "3955738b",
+  "date": "2026-11-10T18:49:44Z",
+  "title": "tool schedule catalogue is the tool tracker",
+  "plain": "The Tool Schedule now uses the Tool Tracker list as its list of tools."
+ },
+ {
+  "sha": "d51fa29f",
+  "date": "2026-11-10T14:52:07Z",
+  "title": "update tool schedule session ledger",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "93358a27",
+  "date": "2026-11-10T10:51:20-08:00",
+  "title": "monthly check reconciles tracking sheets and shows its full report",
+  "plain": "The monthly check compares the client tracking sheets and shows its full report."
+ },
+ {
+  "sha": "51650129",
+  "date": "2026-11-10T10:41:50-08:00",
+  "title": "jobs header keeps list and map side by side below 2xl",
+  "plain": "The Jobs page keeps the list and the map side by side on mid-size screens."
+ },
+ {
+  "sha": "88383f57",
+  "date": "2026-11-10T18:24:11Z",
+  "title": "add time for any employee from split view calendar",
+  "plain": "You can add time for any employee from the split view calendar."
+ },
+ {
+  "sha": "56f8afae",
+  "date": "2026-11-10T10:20:24-08:00",
+  "title": "move the invoice review's claude work to claude code on the office mac",
+  "plain": "The invoice review's AI work now runs on the office Mac."
+ },
+ {
+  "sha": "7abe03e1",
+  "date": "2026-11-10T10:17:38-08:00",
+  "title": "link the vendor name on a bill card to its vendor page",
+  "plain": "The vendor name on a bill card opens that vendor's page."
+ },
+ {
+  "sha": "f87a6d8d",
+  "date": "2026-11-10T10:17:36-08:00",
+  "title": "tools title dropdown on desktop too",
+  "plain": "The Tools page title is a drop-down menu on a computer too."
+ },
+ {
+  "sha": "74a96c85",
+  "date": "2026-11-10T17:16:38Z",
+  "title": "all-jobs labor list, group by job, shared filters",
+  "plain": "The all-jobs labor list can group by job and shares its filters."
+ },
+ {
+  "sha": "6a5a2cd2",
+  "date": "2026-11-10T16:11:41Z",
+  "title": "share the tools title menu with tool schedule and requisitions",
+  "plain": "The Tool Schedule and Requisitions pages share the Tools title menu."
+ },
+ {
+  "sha": "b4d9401e",
+  "date": "2026-11-10T15:49:16Z",
+  "title": "drop pill row on phone for tool schedule and requisitions",
+  "plain": "On a phone, the Tool Schedule and Requisitions pages drop the row of buttons at the top."
+ },
+ {
+  "sha": "ac1988e0",
+  "date": "2026-11-10T15:43:13Z",
+  "title": "tools title menu on phone, drop pill row",
+  "plain": "On a phone, the Tools title is a menu instead of a row of buttons."
+ },
+ {
+  "sha": "bb7bb5af",
+  "date": "2026-11-10T15:38:16Z",
+  "title": "dark status bar for the installed app",
+  "plain": "The installed app shows a dark bar at the top of the phone screen."
+ },
+ {
+  "sha": "ce20a8b4",
+  "date": "2026-11-10T15:17:10Z",
+  "title": "map tools straight to phases and tasks, book tools by hand",
+  "plain": "Tools link straight to phases and tasks, and you can book a tool by hand."
+ },
+ {
+  "sha": "f7eaed98",
+  "date": "2026-11-10T14:52:27Z",
+  "title": "add links in notices and linkable view addresses",
+  "plain": "Notices can hold links, and more pages have addresses you can link to."
+ },
+ {
+  "sha": "83f784b4",
+  "date": "2026-11-10T14:46:02Z",
+  "title": "tool schedule job filter, searchable code pickers, sorting",
+  "plain": "The Tool Schedule has a job filter, searchable code lists and sorting."
+ },
+ {
+  "sha": "e7c272eb",
+  "date": "2026-11-10T06:59:18Z",
+  "title": "add tool schedule page and catalogue editor",
+  "plain": "New Tool Schedule page, with an editor for the tool list."
+ },
+ {
+  "sha": "1fbc044a",
+  "date": "2026-11-10T06:36:40Z",
+  "title": "add tool schedule reads and rules (stage 1)",
+  "plain": "First groundwork for the Tool Schedule; nothing new on screen yet."
+ },
+ {
+  "sha": "7a1dee48",
+  "date": "2026-11-10T06:30:20Z",
+  "title": "start tool schedule session ledger",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ },
+ {
+  "sha": "6456deda",
+  "date": "2026-11-10T06:31:53Z",
+  "title": "add time entries from split view calendar mode",
+  "plain": "You can add time entries from the split view calendar."
+ },
+ {
+  "sha": "17783f42",
+  "date": "2026-11-10T06:16:12Z",
+  "title": "add split view beta calendar mode",
+  "plain": "Split view has a new trial calendar mode."
+ },
+ {
+  "sha": "3f8a9a00",
+  "date": "2026-11-10T00:39:04Z",
+  "title": "fix lint error failing ci, add lint to pre-push hook",
+  "plain": "Behind-the-scenes fix to the automatic checks; nothing changes on screen."
+ },
+ {
+  "sha": "013ed030",
+  "date": "2026-11-10T00:28:34Z",
+  "title": "show field users only their own logged miles",
+  "plain": "Field users see only their own logged miles."
+ },
+ {
+  "sha": "e6a5a67a",
+  "date": "2026-11-10T00:22:38Z",
+  "title": "hide act-as link and time-off line on phone time page",
+  "plain": "On a phone, the Time page hides the \"act as\" link and the time-off line."
+ },
+ {
+  "sha": "fd674b08",
+  "date": "2026-11-09T23:43:02Z",
+  "title": "drop time strip on phone, add payroll icon to rail and drawer",
+  "plain": "On a phone, the time strip is gone, and Payroll has an icon in the side menu."
+ },
+ {
+  "sha": "1c047a14",
+  "date": "2026-11-09T13:24:03-08:00",
+  "title": "print button on the bill scan lightbox",
+  "plain": "The enlarged bill scan has a Print button."
+ },
+ {
+  "sha": "fc35d8e3",
+  "date": "2026-11-09T13:15:59-08:00",
+  "title": "invoicing email button opens notes at once, with save and draft",
+  "plain": "The invoicing email button opens the notes right away, with Save and Draft."
+ },
+ {
+  "sha": "262db273",
+  "date": "2026-11-09T13:14:12-08:00",
+  "title": "mileage tabs (record / by hand / logged miles) and edit a logged trip",
+  "plain": "Mileage has tabs (record, by hand, logged miles), and you can edit a logged trip."
+ },
+ {
+  "sha": "0f3eaccc",
+  "date": "2026-11-09T13:02:35-08:00",
+  "title": "drop draft-bills-to-expenses card and header text from sunset statements",
+  "plain": "Sunset statements drop the draft-bills-to-expenses card and the header text."
+ },
+ {
+  "sha": "deb03e9e",
+  "date": "2026-11-09T12:53:57-08:00",
+  "title": "lswdd bill list, approve all, and pay-by reminder",
+  "plain": "New LSWDD bill list with Approve all and a pay-by reminder."
+ },
+ {
+  "sha": "4260bd73",
+  "date": "2026-11-09T12:47:22-08:00",
+  "title": "track vendor coi expiry and requests, add request cois draft",
+  "plain": "The app tracks when vendor insurance certificates expire and drafts requests for new ones."
+ },
+ {
+  "sha": "10e54f24",
+  "date": "2026-11-09T19:43:32Z",
+  "title": "save the running clock's note to jobtread so it follows you across devices",
+  "plain": "The running clock's note saves to JobTread, so it follows you to other devices."
+ },
+ {
+  "sha": "25e35a3e",
+  "date": "2026-11-09T11:18:16-08:00",
+  "title": "pick the employee on both sides of split view",
+  "plain": "You can pick the employee on both sides of split view."
+ },
+ {
+  "sha": "714dbdb1",
+  "date": "2026-11-09T11:08:26-08:00",
+  "title": "add the desktop week time card to the time clock",
+  "plain": "The time clock on a computer now shows a card with your week's hours."
+ },
+ {
+  "sha": "1a4f3e74",
+  "date": "2026-11-09T10:58:36-08:00",
+  "title": "add start and end hours to the time bug",
+  "plain": "The small floating time clock now shows start and end hours."
+ },
+ {
+  "sha": "305b82bc",
+  "date": "2026-11-09T10:46:03-08:00",
+  "title": "pop the time bug out into an always-on-top window",
+  "plain": "The floating time clock can pop out into its own window that stays on top."
+ },
+ {
+  "sha": "ea4d3e9b",
+  "date": "2026-11-09T10:30:45-08:00",
+  "title": "add open pop-up link to the stuck-vendor notice",
+  "plain": "The stuck-vendor notice now has a link to open its pop-up."
+ },
+ {
+  "sha": "96d4a2f8",
+  "date": "2026-11-09T10:22:39-08:00",
+  "title": "add the floating time bug on desktop",
+  "plain": "A small floating time clock now shows on computers."
+ },
+ {
+  "sha": "2f7569e1",
+  "date": "2026-11-09T09:40:13-08:00",
+  "title": "open every vendor bill link on the jobs hub tracking sheet",
+  "plain": "On the Jobs hub, every vendor bill link on the tracking sheet now opens."
+ },
+ {
+  "sha": "4f242bf2",
+  "date": "2026-11-09T15:57:51Z",
+  "title": "weekly summary email back to plain bullets",
+  "plain": "The weekly summary email goes back to plain bullet points."
+ },
+ {
+  "sha": "c80993a3",
+  "date": "2026-11-08T21:25:15Z",
+  "title": "weekly summary pdf rides the expenditure summary trigger",
+  "plain": "The weekly summary PDF is now made at the same time as the expenditure summary."
+ },
+ {
+  "sha": "89681653",
+  "date": "2026-11-08T20:43:26Z",
+  "title": "weekly summary pdf now files itself in weekly wraps",
+  "plain": "The weekly summary PDF now files itself in the Weekly Wraps folder."
+ },
+ {
+  "sha": "fe7622cc",
+  "date": "2026-11-08T20:30:03Z",
+  "title": "weekly summary adds heads-ups, open leads, crew requests, subscriptions, meetings",
+  "plain": "The weekly summary now covers heads-ups, open leads, crew requests, subscriptions and meetings."
+ },
+ {
+  "sha": "77f26419",
+  "date": "2026-11-08T20:18:36Z",
+  "title": "weekly summary drops voids, apps script and prepared-by line",
+  "plain": "The weekly summary no longer lists voided bills, back-end notes or a prepared-by line."
+ },
+ {
+  "sha": "1bdedb8c",
+  "date": "2026-11-08T19:50:32Z",
+  "title": "weekly summary email in the field-binder style",
+  "plain": "The weekly summary email now uses the Field Binder look."
+ },
+ {
+  "sha": "84c8406d",
+  "date": "2026-11-08T19:46:06Z",
+  "title": "weekly summary as a field-binder style google doc",
+  "plain": "The weekly summary is now also saved as a Google Doc in the Field Binder look."
+ },
+ {
+  "sha": "ffe90cd9",
+  "date": "2026-11-08T18:57:51Z",
+  "title": "add weekly office summary skill",
+  "plain": "Claude can now draft a weekly office summary."
+ },
+ {
+  "sha": "0a0cd5e7",
+  "date": "2026-11-08T18:02:08Z",
+  "title": "round a typed unit cost before the subtotal",
+  "plain": "A typed unit cost is now rounded before the subtotal is worked out."
+ },
+ {
+  "sha": "77a35eb9",
+  "date": "2026-11-08T17:19:19Z",
+  "title": "pin board money math with tests",
+  "plain": "Behind-the-scenes checks now guard the board's money math; nothing changes on screen."
+ },
+ {
+  "sha": "ab25f620",
+  "date": "2026-11-08T17:20:30Z",
+  "title": "split jobtread.ts into one file per section",
+  "plain": "Behind-the-scenes cleanup of how the app talks to JobTread; nothing changes on screen."
+ },
+ {
+  "sha": "6b3540fd",
+  "date": "2026-11-08T17:12:53Z",
+  "title": "remove the generic /api/pave gateway",
+  "plain": "An old, unused back door to JobTread was removed to make the app safer."
+ },
+ {
+  "sha": "73be4e03",
+  "date": "2026-11-08T16:03:06Z",
+  "title": "move plans to docs/plans with status lines",
+  "plain": "Notes for developers reorganized; nothing changes in the app."
+ },
+ {
+  "sha": "009f48c1",
+  "date": "2026-11-08T15:52:56Z",
+  "title": "ship commits an untracked session ledger",
+  "plain": "Behind-the-scenes change to how updates are sent out; nothing changes on screen."
+ },
+ {
+  "sha": "211d3041",
+  "date": "2026-11-07T14:52:42Z",
+  "title": "ask for a destination when a trip ends with 0 miles",
+  "plain": "When a trip ends with 0 miles, the Miles page now asks where you went."
+ },
+ {
+  "sha": "21734628",
+  "date": "2026-11-07T14:46:23Z",
+  "title": "remove help text from miles page",
+  "plain": "The Miles page no longer shows help text."
+ },
+ {
+  "sha": "e61838fc",
+  "date": "2026-11-07T14:40:57Z",
+  "title": "remove two help lines from employee edit panel",
+  "plain": "Two help lines were removed from the employee edit panel."
+ },
+ {
+  "sha": "77b04f8b",
+  "date": "2026-11-07T14:40:03Z",
+  "title": "call tracking sheet focus-bill hooks before the no-job return",
+  "plain": "Fixed an error on the tracking sheet when no job is picked."
+ },
+ {
+  "sha": "8f1bfb1d",
+  "date": "2026-11-07T14:36:35Z",
+  "title": "update session ledger for hopeful-davinci",
+  "plain": "Behind-the-scenes work log updated; nothing changes in the app."
+ },
+ {
+  "sha": "52d1f073",
+  "date": "2026-11-07T14:33:48Z",
+  "title": "add session ledger for hopeful-davinci",
+  "plain": "Behind-the-scenes work log updated; nothing changes in the app."
+ },
+ {
+  "sha": "575ef533",
+  "date": "2026-11-07T14:34:26Z",
+  "title": "name opens employee editor, new hires button, safety meeting in drawer",
+  "plain": "Tapping an employee's name now opens their editor; a New Hires button and the safety meeting were added to the slide-out menu."
+ },
+ {
+  "sha": "c5752852",
+  "date": "2026-11-07T14:30:10Z",
+  "title": "remove description text from employee pages",
+  "plain": "Employee pages no longer show description text."
+ },
+ {
+  "sha": "95047ce5",
+  "date": "2026-11-07T01:22:39Z",
+  "title": "show drawer page in the bar's centre slot",
+  "plain": "The bottom bar's middle button now shows the slide-out menu's page."
+ },
+ {
+  "sha": "abc64da4",
+  "date": "2026-11-07T01:16:22Z",
+  "title": "hide workspace tab strip on jobs hub phone view",
+  "plain": "On a phone, the Jobs hub no longer shows the row of workspace tabs."
+ },
+ {
+  "sha": "57cddadc",
+  "date": "2026-11-06T11:53:11-08:00",
+  "title": "invoice status and package email list every invoice on a job",
+  "plain": "Invoice status and the package email now list every invoice on a job."
+ },
+ {
+  "sha": "26ca7452",
+  "date": "2026-11-06T11:53:11-08:00",
+  "title": "understand a $0 warranty invoice beside the month's normal one",
+  "plain": "The app now understands a $0 warranty invoice sent beside the month's normal invoice."
+ },
+ {
+  "sha": "63449e01",
+  "date": "2026-11-06T11:31:54-08:00",
+  "title": "show Draft Email and Check All Jobs beside Sync on a picked job's card",
+  "plain": "A picked job's card now shows Draft Email and Check All Jobs beside Sync."
+ },
+ {
+  "sha": "30452346",
+  "date": "2026-11-06T11:31:18-08:00",
+  "title": "below xl the jobs list and map share the top row; upright, a screen-fitting map sits over the jobs dropdown",
+  "plain": "On smaller screens the Jobs list and map now share the top row."
+ },
+ {
+  "sha": "934a60bc",
+  "date": "2026-11-06T10:58:34-08:00",
+  "title": "job card lays out as a head row (job, total, month) over fixed details, rings and notes that drop out, never shrink",
+  "plain": "Job cards were rearranged so details and notes stay readable on any screen width."
+ },
+ {
+  "sha": "5965ef9c",
+  "date": "2026-11-06T10:46:22-08:00",
+  "title": "narrow job card puts the total in the blank space right of the job name",
+  "plain": "On a narrow job card, the total now sits beside the job name."
+ },
+ {
+  "sha": "ce8d38bf",
+  "date": "2026-11-06T10:44:51-08:00",
+  "title": "a note's related bills always stack in a column",
+  "plain": "A note's related bills now always stack in a column."
+ },
+ {
+  "sha": "a14b220b",
+  "date": "2026-11-06T10:43:17-08:00",
+  "title": "bill row Note link sits beside the vendor name",
+  "plain": "A bill row's Note link now sits beside the vendor name."
+ },
+ {
+  "sha": "60090519",
+  "date": "2026-11-06T10:36:29-08:00",
+  "title": "job card folds by its own width — details drop down under the name, then rings hide and notes sit under the total",
+  "plain": "Job cards now fold neatly as the screen gets narrower."
+ },
+ {
+  "sha": "a5181ef4",
+  "date": "2026-11-06T10:32:13-08:00",
+  "title": "bill rows on the Jobs page get an Add Note link; a bill with a note shows Note and jumps to it",
+  "plain": "Bill rows on the Jobs page get an Add Note link, and a bill with a note jumps to it."
+ },
+ {
+  "sha": "c7b8d93e",
+  "date": "2026-11-06T10:25:54-08:00",
+  "title": "commit tsconfig.json as Next writes it, so builds stop dirtying the tree",
+  "plain": "Behind-the-scenes change; nothing changes on screen."
+ },
+ {
+  "sha": "a4e4065c",
+  "date": "2026-11-06T10:24:44-08:00",
+  "title": "notes link bills through the Tracking Sheet's month list pop-up; a linked bill opens on the Jobs page",
+  "plain": "Notes can link bills from the Tracking Sheet's month list, and a linked bill opens on the Jobs page."
+ },
+ {
+  "sha": "aa087f9f",
+  "date": "2026-11-06T10:18:42-08:00",
+  "title": "job card rings key the top three codes, amounts tight against them",
+  "plain": "The rings on job cards now label the top three cost codes."
+ },
+ {
+  "sha": "9997d9f6",
+  "date": "2026-11-06T10:16:22-08:00",
+  "title": "notes add form floats below the card instead of scrolling inside it",
+  "plain": "The add-note form now opens below the card instead of scrolling inside it."
+ },
+ {
+  "sha": "b6b99649",
+  "date": "2026-11-06T10:14:45-08:00",
+  "title": "replace Jobs month selector with Draft Email, Sync Tracking Sheets and Check All Jobs buttons",
+  "plain": "The Jobs month picker was replaced by Draft Email, Sync Tracking Sheets and Check All Jobs buttons."
+ },
+ {
+  "sha": "962bbba2",
+  "date": "2026-11-06T10:12:55-08:00",
+  "title": "jobs card makes room for notes — fixed details, small stacked rings, sync at the foot",
+  "plain": "Job cards make room for notes, with smaller rings and Sync at the bottom."
+ },
+ {
+  "sha": "aacbd59c",
+  "date": "2026-11-06T10:06:41-08:00",
+  "title": "add notes card before drafting the invoicing email",
+  "plain": "A notes card now appears before you draft the invoicing email."
+ },
+ {
+  "sha": "242cfda8",
+  "date": "2026-11-06T10:02:34-08:00",
+  "title": "link notes to bills; keep the Add note button clear of the month picker",
+  "plain": "Notes can now be linked to bills, and the Add Note button no longer covers the month picker."
+ },
+ {
+  "sha": "7583d25d",
+  "date": "2026-11-06T09:52:53-08:00",
+  "title": "keep group switch in Bills header when the block is closed",
+  "plain": "The group switch stays in the Bills header when that section is closed."
+ },
+ {
+  "sha": "324347ed",
+  "date": "2026-11-06T09:51:27-08:00",
+  "title": "add Notes (tagged, editable in place, edit history, kept forever) to the Jobs page",
+  "plain": "The Jobs page now has Notes: tagged, editable in place, with edit history, kept forever."
+ },
+ {
+  "sha": "1315f39c",
+  "date": "2026-11-06T09:33:27-08:00",
+  "title": "move group switch into the Bills header like Labor",
+  "plain": "The group switch moved into the Bills header, matching Labor."
+ },
+ {
+  "sha": "d6a5bde9",
+  "date": "2026-11-06T09:24:48-08:00",
+  "title": "draw focus outline inside clipped list cards so corners show",
+  "plain": "The highlight around a selected list item no longer gets cut off at the corners."
+ },
+ {
+  "sha": "bbe5dd29",
+  "date": "2026-11-06T17:19:16Z",
+  "title": "phone tab bar follows the theme (cream in light)",
+  "plain": "The phone's bottom bar now follows light and dark mode."
+ },
+ {
+  "sha": "0b83ccb5",
+  "date": "2026-11-06T16:13:56Z",
+  "title": "scroll the installed app inside the page box so iphone stops dragging the tab bar up",
+  "plain": "On iPhone, scrolling the installed app no longer drags the bottom bar up."
+ },
+ {
+  "sha": "025ee45e",
+  "date": "2026-11-06T15:48:03Z",
+  "title": "slim CLAUDE.md, move Pave gotchas out, add pointers to the Apps Script repo",
+  "plain": "Notes for developers updated; nothing changes in the app."
+ }
+]

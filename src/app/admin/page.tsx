@@ -37,6 +37,7 @@ import { ActivityPanel } from "./ActivityPanel";
 import { PageMapPanel } from "./PageMapPanel";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
 import { BuildFooter } from "./BuildFooter";
+import { ChangeLogPanel } from "./ChangeLogPanel";
 
 interface Member {
   email: string;
@@ -61,7 +62,7 @@ const GROUPED = GROUP_ORDER.map((g) => ({
   views: VIEWS.filter((v) => v.group === g),
 })).filter((g) => g.views.length > 0);
 
-type AdminTab = "access" | "activity" | "digest" | "ascentbot" | "look" | "audit" | "historical" | "map";
+type AdminTab = "access" | "activity" | "digest" | "ascentbot" | "look" | "audit" | "historical" | "map" | "changelog";
 
 // One picker for every Admin page. The first three are this page's own panels;
 // the rest are the pages that used to be separate Admin menu rows.
@@ -70,6 +71,7 @@ const ADMIN_TABS: { id: AdminTab; label: string; view: string }[] = [
   { id: "activity", label: "Activity", view: "admin" },
   { id: "digest", label: "Digest", view: "admin" },
   { id: "map", label: "Page Map", view: "admin" },
+  { id: "changelog", label: "Change Log", view: "admin" },
   { id: "ascentbot", label: "AscentBot", view: "ascentbot" },
   { id: "look", label: "Look & Text", view: "page-copy" },
   { id: "audit", label: "Audit", view: "logs" },
@@ -97,6 +99,8 @@ export default function AdminPage() {
         <ActivityPanel />
       ) : tab === "map" ? (
         <PageMapPanel />
+      ) : tab === "changelog" ? (
+        <ChangeLogPanel />
       ) : tab === "digest" ? (
         <DigestSettingsPanel />
       ) : tab === "ascentbot" ? (

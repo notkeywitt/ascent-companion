@@ -117,8 +117,20 @@ land_batch() { # names…
   done
 }
 
+# Record the landed commits in the Admin Change Log (src/data/changelog.json),
+# as one more commit in this same push: one deploy, and a push to main never
+# starts the lander. Best effort: a failure here never holds up the deploy.
+changelog() {
+  [ -f scripts/changelog/generate.mjs ] || return 0
+  [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ] || return 0
+  node scripts/changelog/generate.mjs || { git checkout -q -- src/data/changelog.json 2>/dev/null; return 0; }
+  git diff --quiet -- src/data/changelog.json && return 0
+  git commit -q -m "lander: update change log" -- src/data/changelog.json || git reset -q --hard HEAD
+}
+
 push() {
   [ -n "$refspecs" ] || return 0
+  changelog
   # shellcheck disable=SC2086 # refspecs is a word list on purpose
   if ! git push --atomic origin HEAD:refs/heads/main $refspecs; then
     if newer_push_waiting; then
