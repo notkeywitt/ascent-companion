@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import type { RiskCode } from "@/components/TrackingSheetRisks";
 import { callAppsScript } from "@/lib/appsScript";
+import { writeDepositSheet, type DepositSheetResult } from "@/lib/depositRead";
 import { report, type FindingInput } from "@/lib/findings";
 import { money } from "@/lib/money";
 import { getMonthAction, recordMonthAction } from "@/lib/monthActions";
@@ -138,6 +139,9 @@ export async function POST(req: NextRequest) {
   // only when the close would copy: never over a block that already holds the
   // month, never with another month's labor, never on a sheet wired twice.
   const ym = `${year}-${String(month).padStart(2, "0")}`;
+  /** A real sync also rewrites the sheet's Deposits tab (deposits stage 3). It
+   *  runs beside the sync, to stay inside maxDuration, and never fails it. */
+  let depositSheet: Promise<DepositSheetResult> | null = null;
   if ((op === "sync" || op === "finalize") && body.dryRun !== true) {
     let list: Record<string, unknown>;
     try {
@@ -150,6 +154,10 @@ export async function POST(req: NextRequest) {
     const filed = (await getMonthAction("finalize", projectId, ym).catch(() => undefined)) !== undefined;
     const why = sheetWriteBlocked(ym, sheetsYm, filed);
     if (why) return NextResponse.json({ error: why }, { status: 409 });
+    if (op === "sync") {
+      const job = ((list.jobs as SheetJob[]) ?? []).find((j) => j.id === projectId);
+      if (job?.jtJobId) depositSheet = writeDepositSheet({ jtJobId: job.jtJobId, projectId, ym });
+    }
     if (op === "finalize") {
       const job = ((list.jobs as SheetJob[]) ?? []).find((j) => j.id === projectId);
       if (!job) return NextResponse.json({ error: "No tracking sheet is wired to that project." }, { status: 404 });
@@ -221,5 +229,5 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ...b, advanced: "", advanceError: e instanceof Error ? e.message : String(e) });
     }
   }
-  return NextResponse.json(b);
+  return NextResponse.json(depositSheet ? { ...b, depositSheet: await depositSheet } : b);
 }
