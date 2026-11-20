@@ -14,6 +14,7 @@ import {
   Skeleton,
   Toggle,
   btn,
+  Button,
 } from "@/components/ui";
 import { toggleKloi, useKloi } from "@/lib/kloi";
 import { toast } from "@/components/Toast";
@@ -22,10 +23,18 @@ import { AttentionList, useAttention } from "@/components/TodayQueue";
 import { HomeActions, useUsed } from "@/components/HomeActions";
 import { HubLeadsCard } from "@/components/HubLeadsCard";
 import { PaymentMark, liveTotals, useInvoicingSummary } from "@/app/invoicing-summary/summary";
-import { WeekAhead } from "@/components/WeekAhead";
+import { ItemForm, WeekAhead } from "@/components/WeekAhead";
+import { Dialog } from "@/components/Dialog";
+import type { MapJob } from "@/lib/lopezMap";
 import { WIDGETS, isWide, type HomeLayout, type WidgetId } from "@/lib/homeWidgets";
-import type { HomeTodo } from "@/lib/homeTodos";
-import { jtToDoUrl } from "@/lib/jtLinks";
+import {
+  DEFAULT_PREFS,
+  applyTodoPrefs,
+  normalizePrefs,
+  type HomeTodo,
+  type TodoPrefs,
+} from "@/lib/homeTodos";
+import { orgDay } from "@/lib/orgTime";
 import { fmtDate } from "@/lib/leadBoard";
 import { money0 } from "@/lib/money";
 
@@ -48,6 +57,7 @@ import { money0 } from "@/lib/money";
 
 // Loaded on first use, to keep Home's first load small: the sheet (Base UI),
 // the stored digest and the to-do form (it carries the job picker).
+const LopezMap = dynamic(() => import("@/components/LopezMap").then((m) => m.LopezMap));
 const Sheet = dynamic(() => import("@/components/Sheet").then((m) => m.Sheet), { ssr: false });
 const DigestFindings = dynamic(
   () => import("@/components/DigestFindings").then((m) => m.DigestFindings),
@@ -138,6 +148,8 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
                   <WeekWidget />
                 ) : id === "todos" ? (
                   <TodosWidget />
+                ) : id === "crew" ? (
+                  <CrewWidget />
                 ) : id === "invoicing" ? (
                   <InvoicingWidget />
                 ) : (
@@ -251,7 +263,9 @@ const KIND_LABEL: Record<HomeTodo["kind"], string> = {
   mine: "Yours",
   office: "Office",
   unclaimed: "Unclaimed",
+  other: "Others'",
 };
+const PREFS_KEY = "home.todoPrefs";
 const SHOWN = 8;
 
 /** Home's one to-do list (lib/homeTodos): yours, the Office job's, nobody's.
@@ -261,23 +275,57 @@ export function TodosWidget() {
   const [d, setD] = useState<{ linked: boolean; todos: HomeTodo[] } | null>(null);
   const [failed, setFailed] = useState(false);
   const [all, setAll] = useState(false);
-
-  const load = useCallback((fresh = false) => {
-    fetch(`/api/home/todos${fresh ? "?fresh=1" : ""}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then((j) => (j.ok ? setD(j) : setFailed(true)))
-      .catch(() => setFailed(true));
+  const [prefs, setPrefs] = useState<TodoPrefs>(DEFAULT_PREFS);
+  const [panel, setPanel] = useState(false);
+  const panelUsed = useUsed(panel);
+  const [open, setOpen] = useState<HomeTodo | null>(null);
+  // Stored per browser (localStorage), read after mount so the server HTML matches.
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    try {
+      setPrefs(normalizePrefs(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "null")));
+    } catch {}
+    setReady(true);
   }, []);
-  useEffect(() => load(), [load]);
+  const change = (next: TodoPrefs) => {
+    setPrefs(next);
+    try {
+      localStorage.setItem(PREFS_KEY, JSON.stringify(next));
+    } catch {}
+  };
 
-  const todos = d?.todos ?? [];
+  const everyone = prefs.kinds.includes("other");
+  const load = useCallback(
+    (fresh = false) => {
+      const q = [fresh && "fresh=1", everyone && "scope=all"].filter(Boolean).join("&");
+      fetch(`/api/home/todos${q ? `?${q}` : ""}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .then((j) => (j.ok ? setD(j) : setFailed(true)))
+        .catch(() => setFailed(true));
+    },
+    [everyone],
+  );
+  useEffect(() => {
+    if (ready) load();
+  }, [load, ready]);
+
+  const today = orgDay(new Date().toISOString());
+  const groups = applyTodoPrefs(d?.todos ?? [], prefs, today);
+  const todos = groups.flatMap((g) => g.todos);
   const overdue = todos.filter((t) => t.overdue).length;
-  const shown = all ? todos : todos.slice(0, SHOWN);
+  let budget = all ? Infinity : SHOWN;
 
   return (
     <WidgetCard
       title="To-dos"
-      trailing={overdue > 0 ? <Chip tone="danger">{overdue} overdue</Chip> : null}
+      trailing={
+        <span className="flex items-center gap-2">
+          {overdue > 0 && <Chip tone="danger">{overdue} overdue</Chip>}
+          <IconButton label="To-do settings" onClick={() => setPanel(true)}>
+            <SlidersMark />
+          </IconButton>
+        </span>
+      }
     >
       {failed ? (
         <p className="text-[12px] text-neutral-500">Could not read the to-dos from JobTread.</p>
@@ -285,43 +333,56 @@ export function TodosWidget() {
         <Skeleton className="h-24 w-full rounded-control" />
       ) : todos.length === 0 ? (
         <p className="text-[12px] text-neutral-500">
-          Nothing open.
+          {d.todos.length ? "Nothing matches the settings." : "Nothing open."}
           {!d.linked &&
             " This account is not linked to a JobTread user, so only the Office job's and unclaimed to-dos show."}
         </p>
       ) : (
-        <ul className="divide-y divide-line-soft">
-          {shown.map((t) => (
-            <li key={t.id}>
-              <a
-                href={jtToDoUrl(t.id)}
-                target="_blank"
-                rel="noreferrer"
-                className="block min-h-11 rounded-inner px-1 py-1.5 hover:bg-line-soft"
-              >
-                <span className="block truncate text-[13px] font-medium">{t.name}</span>
-                <MetaLine
-                  items={[
-                    t.due ? (
-                      <span key="due" className={t.overdue ? "font-semibold text-danger" : ""}>
-                        {t.overdue ? "Overdue · " : "Due "}
-                        {fmtDate(t.due)}
-                      </span>
-                    ) : (
-                      "No due date"
-                    ),
-                    KIND_LABEL[t.kind],
-                    t.kind === "mine"
-                      ? t.jobName
-                      : t.kind === "office"
-                        ? t.assignees.join(", ") || null
-                        : t.jobName,
-                  ]}
-                />
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div>
+          {groups.map((g) => {
+            const rows = g.todos.slice(0, Math.max(budget, 0));
+            budget -= rows.length;
+            if (!rows.length) return null;
+            return (
+              <div key={g.label}>
+                {g.label && (
+                  <div className="pt-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                    {prefs.group === "kind" ? KIND_LABEL[g.label as HomeTodo["kind"]] : g.label}
+                  </div>
+                )}
+                <ul className="divide-y divide-line-soft">
+                  {rows.map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        onClick={() => setOpen(t)}
+                        className="block min-h-11 w-full rounded-inner px-1 py-1.5 text-left hover:bg-line-soft"
+                      >
+                        <span className="block truncate text-[13px] font-medium">{t.name}</span>
+                        <MetaLine
+                          items={[
+                            t.due ? (
+                              <span key="due" className={t.overdue ? "font-semibold text-danger" : ""}>
+                                {t.overdue ? "Overdue · " : "Due "}
+                                {fmtDate(t.due)}
+                              </span>
+                            ) : (
+                              "No due date"
+                            ),
+                            KIND_LABEL[t.kind],
+                            t.kind === "mine" || t.kind === "unclaimed"
+                              ? t.jobName
+                              : t.assignees.join(", ") || t.jobName,
+                          ]}
+                        />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
       )}
       {todos.length > SHOWN && (
         <button
@@ -337,7 +398,110 @@ export function TodosWidget() {
           <CreateTodo onCreated={() => load(true)} />
         </div>
       )}
+      {open && (
+        <Dialog onClose={() => setOpen(null)} label={open.name}>
+          <ItemForm
+            key={open.id}
+            entry={{
+              job: { id: open.jobId ?? "", name: open.jobName ?? "No job", days: [], total: 0 },
+              item: {
+                id: open.id,
+                name: open.name,
+                kind: "todo",
+                phase: "",
+                start: open.due ?? "",
+                end: open.due ?? "",
+                startTime: "",
+                endTime: "",
+                description: open.description,
+              },
+              day: 0,
+            }}
+            editable={can("home")}
+            onClose={() => setOpen(null)}
+            onSaved={() => {
+              setOpen(null);
+              load(true);
+            }}
+          />
+        </Dialog>
+      )}
+      {panelUsed && (
+        <Sheet open={panel} onClose={() => setPanel(false)} title="To-do settings">
+          <TodoSettings prefs={prefs} onChange={change} />
+        </Sheet>
+      )}
     </WidgetCard>
+  );
+}
+
+function TodoSettings({ prefs, onChange }: { prefs: TodoPrefs; onChange: (p: TodoPrefs) => void }) {
+  const set = (patch: Partial<TodoPrefs>) => onChange({ ...prefs, ...patch });
+  const kinds = (Object.keys(KIND_LABEL) as HomeTodo["kind"][]).map((k) => (
+    <Toggle
+      key={k}
+      checked={prefs.kinds.includes(k)}
+      onChange={(on) => set({ kinds: on ? [...prefs.kinds, k] : prefs.kinds.filter((x) => x !== k) })}
+      label={k === "other" ? "Other people's to-dos" : KIND_LABEL[k]}
+    />
+  ));
+  return (
+    <div className="space-y-4">
+      <p className="text-[12px] text-neutral-500">Saved on this device.</p>
+      <div className="space-y-1">
+        <div className="text-[12px] font-semibold">Show</div>
+        {kinds}
+        <Toggle
+          checked={prefs.hideUndated}
+          onChange={(on) => set({ hideUndated: on })}
+          label="Hide to-dos with no due date"
+        />
+      </div>
+      <div className="space-y-1">
+        <div className="text-[12px] font-semibold">Due within</div>
+        <Segmented
+          label="Due within"
+          value={prefs.within}
+          onChange={(within) => set({ within })}
+          options={[
+            { value: "any", label: "Any" },
+            { value: "0", label: "Today" },
+            { value: "7", label: "7 days" },
+            { value: "30", label: "30 days" },
+          ]}
+        />
+      </div>
+      <div className="space-y-1">
+        <div className="text-[12px] font-semibold">Sort</div>
+        <Segmented
+          label="Sort"
+          value={prefs.sort}
+          onChange={(sort) => set({ sort })}
+          options={[
+            { value: "urgency", label: "Urgency" },
+            { value: "due", label: "Due" },
+            { value: "job", label: "Job" },
+            { value: "name", label: "Name" },
+          ]}
+        />
+      </div>
+      <div className="space-y-1">
+        <div className="text-[12px] font-semibold">Group</div>
+        <Segmented
+          label="Group"
+          value={prefs.group}
+          onChange={(group) => set({ group })}
+          options={[
+            { value: "none", label: "None" },
+            { value: "kind", label: "Whose" },
+            { value: "job", label: "Job" },
+          ]}
+        />
+      </div>
+      <Button variant="ghost" size="sm" onClick={() => onChange(DEFAULT_PREFS)}>
+        Reset
+      </Button>
+    </div>
   );
 }
 
@@ -354,6 +518,65 @@ function WeekWidget() {
       }
     >
       <WeekAhead />
+    </WidgetCard>
+  );
+}
+
+/* ------------------------------------------------------------------- crew */
+
+interface ClockedJob {
+  jobId: string;
+  jobName: string;
+  people: string[];
+}
+
+/** Who is clocked in, and where: the island map with a dot per job that has
+ *  someone on the clock (the number is how many). Read-only. */
+function CrewWidget() {
+  const [clocked, setClocked] = useState<ClockedJob[] | null>(null);
+  const [jobs, setJobs] = useState<MapJob[]>([]);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    fetch("/api/home/clocked", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => (j.ok ? setClocked(j.jobs) : setFailed(true)))
+      .catch(() => setFailed(true));
+    fetch("/api/jobs?withPhase=1")
+      .then((r) => r.json())
+      .then((j) => setJobs(j.jobs ?? []))
+      .catch(() => {});
+  }, []);
+  const mapJobs: MapJob[] = (clocked ?? []).flatMap((c) => {
+    const j = jobs.find((x) => x.id === c.jobId);
+    return j ? [{ ...j, count: c.people.length }] : [];
+  });
+  const total = (clocked ?? []).reduce((n, c) => n + c.people.length, 0);
+
+  return (
+    <WidgetCard title="Clocked in" trailing={clocked ? <Chip>{total}</Chip> : null}>
+      {failed ? (
+        <p className="text-[12px] text-neutral-500">Could not read the clocks from JobTread.</p>
+      ) : !clocked ? (
+        <Skeleton className="h-40 w-full rounded-control" />
+      ) : (
+        <>
+          <div className="h-[220px] [&_svg]:min-h-0 [&_svg]:flex-1">
+            <LopezMap jobs={mapJobs} legend={false} pad={6} className="h-full" color="var(--accent, #c2410c)" />
+          </div>
+          {clocked.length === 0 ? (
+            <p className="text-[12px] text-neutral-500">Nobody is clocked in.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-line-soft">
+              {clocked.map((c) => (
+                <li key={c.jobId} className="py-1.5 text-[13px]">
+                  <span className="font-medium">{c.jobName}</span>
+                  <span className="text-neutral-500"> · {c.people.join(", ")}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
     </WidgetCard>
   );
 }

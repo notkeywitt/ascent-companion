@@ -582,7 +582,7 @@ function DayList({
 }
 
 /** One task or to-do, editable when the viewer has `home`. */
-function ItemForm({
+export function ItemForm({
   entry,
   editable,
   onClose,
