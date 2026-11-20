@@ -22,7 +22,10 @@ export type MonthAction =
   | "tracking-sync"
   /** The sheet's month block was written (scope = projectId). */
   | "finalize"
-  | "invoicing-email";
+  | "invoicing-email"
+  /** The job's month is closed after its invoice went out (scope = jtJobId).
+   *  Locks the month in the app; Unlock deletes the stamp. */
+  | "job-closed";
 
 /**
  * Stamp one run, replacing the last stamp for the same action, scope and month.
@@ -69,4 +72,12 @@ export async function getMonthAction(
     .from(monthActionRuns)
     .where(and(eq(monthActionRuns.action, action), eq(monthActionRuns.scope, scope), eq(monthActionRuns.ym, ym)));
   return row;
+}
+
+/** Remove one stamp. Unlock uses it to reopen a closed job month. */
+export async function deleteMonthAction(action: MonthAction, scope: string, ym: string): Promise<void> {
+  await ensureDb();
+  await db
+    .delete(monthActionRuns)
+    .where(and(eq(monthActionRuns.action, action), eq(monthActionRuns.scope, scope), eq(monthActionRuns.ym, ym)));
 }

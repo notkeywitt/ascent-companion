@@ -5,11 +5,23 @@
  * Rules: src/lib/monthClose.ts.
  *
  * Every Apps Script call here is a read or a dry run, except `advanceSheets`,
- * which stores the sheets' month (op `setTrackingPeriod`). That writes no sheet.
+ * which stores the sheets' month (op `setTrackingPeriod`), and the per-job
+ * close and unlock at the end (`closeJobMonth`, `unlockJobMonth`), which write
+ * one sheet and never JobTread.
  */
 import { callAppsScript } from "@/lib/appsScript";
-import { listMonthActions, recordMonthAction } from "@/lib/monthActions";
-import { checkLaborMonth, nextMonth, planSheet, type FinalizeDryRun, type LaborMonthCheck, type SheetPlan } from "@/lib/monthClose";
+import { fileLaborReport } from "@/lib/laborReport";
+import { deleteMonthAction, getMonthAction, listMonthActions, recordMonthAction } from "@/lib/monthActions";
+import {
+  checkLaborMonth,
+  nextMonth,
+  planSheet,
+  sheetWriteBlocked,
+  shortMonth,
+  type FinalizeDryRun,
+  type LaborMonthCheck,
+  type SheetPlan,
+} from "@/lib/monthClose";
 import type { Grid } from "@/lib/invoiceReview/sheetCompare";
 
 export interface SheetJob {
@@ -127,4 +139,113 @@ export async function advanceSheets(ym: string, opts: { force?: boolean } = {}):
   if (res.error) throw new Error(res.error);
   if (res.data?.ok !== true) throw new Error(String(res.data?.error ?? "The sheets' month did not move."));
   return next;
+}
+
+// ---------------------------------------------------------------- one job, after the invoice went out
+
+export interface JobCloseStep {
+  label: string;
+  state: "done" | "skipped";
+  note: string;
+}
+
+const FILE_STEP = "File CURRENT INVOICE into the record block";
+const ROLL_STEP = "Clear the sub/vendor bill list and point Labor at next month";
+
+/** Apps Script's answer, or throw its transport error. */
+async function sheetAction(payload: Record<string, unknown>, timeoutMs = 110_000): Promise<Record<string, unknown>> {
+  const r = await callAppsScript<Record<string, unknown>>(payload, { timeoutMs });
+  if (r.error) throw new Error(r.error);
+  return r.data ?? {};
+}
+
+/**
+ * Close one job's billing month after its invoice went out (Invoice Status,
+ * "Close month"). Writes the tracking sheet and the companion DB, never
+ * JobTread:
+ *   1. file CURRENT INVOICE into the next record block (Apps Script finalize),
+ *      unless the block already holds the month;
+ *   2. while `ym` is the sheets' month: clear the sheet's sub/vendor bill list,
+ *      point Labor A1 at next month's Labor Report (filed first when missing),
+ *      and hold the 30-minute sync off the sheet;
+ *   3. move the sheets' month when every sheet is filed;
+ *   4. stamp `job-closed`, which locks the month in the app.
+ * A broken sheet throws with its reasons, and nothing is locked.
+ */
+export async function closeJobMonth(
+  jtJobId: string,
+  ym: string,
+  by: string,
+): Promise<{ steps: JobCloseStep[]; advanced: string }> {
+  const steps: JobCloseStep[] = [];
+  let advanced = "";
+  const list = await readSheetList();
+  const job = list.jobs.find((j) => j.jtJobId === jtJobId);
+  if (!job) {
+    steps.push({ label: FILE_STEP, state: "skipped", note: "No tracking sheet on this job." });
+  } else {
+    const [year, month] = ym.split("-").map(Number);
+    const filedAt = (await filedStamps(ym)).get(job.id);
+    const one = await planOneSheet(job, ym, list.shared.has(job.id));
+    if (one.plan.action === "skip") throw new Error(one.plan.reasons.join(" ") || "The sheet could not be filed.");
+    if (one.plan.action === "filed") {
+      if (!filedAt) await markFiled(job.id, ym, by, String(one.dry?.monthLabel ?? ""));
+      steps.push({ label: FILE_STEP, state: "skipped", note: one.plan.reasons.join(" ") });
+    } else {
+      const why = sheetWriteBlocked(ym, list.sheetsYm, Boolean(filedAt));
+      if (why) throw new Error(why);
+      // ponytail: no sync first; the 30-minute push keeps CURRENT INVOICE current in the sheets' month.
+      const f = await sheetAction({ action: "finalizeTrackingSheet", projectId: job.id, month, year, dryRun: false });
+      if (f.ok !== true) throw new Error(String(f.error || "The sheet was not filed."));
+      await recordMonthAction("finalize", job.id, ym, by, String(f.monthLabel ?? ""));
+      steps.push({ label: FILE_STEP, state: "done", note: `Filed as "${f.monthLabel ?? ""}" at ${f.targetRange ?? ""}.` });
+    }
+
+    if (ym === list.sheetsYm) {
+      const roll = () => sheetAction({ action: "rolloverTrackingSheet", projectId: job.id, month, year });
+      let r = await roll();
+      if (r.missingLabor === true) {
+        const [ny, nm] = nextMonth(ym).split("-").map(Number);
+        await fileLaborReport(ny, nm, by);
+        r = await roll();
+      }
+      if (r.ok !== true) throw new Error(String(r.error || "The sheet did not move to the next month."));
+      steps.push({
+        label: ROLL_STEP,
+        state: "done",
+        note: `${r.clearedRows ?? 0} bill rows cleared. Labor A1 now reads "${r.laborNow || r.laborTitle}".`,
+      });
+    } else {
+      steps.push({ label: ROLL_STEP, state: "skipped", note: `The sheets are already on ${shortMonth(list.sheetsYm)}.` });
+    }
+    advanced = await advanceSheets(ym);
+  }
+  await recordMonthAction("job-closed", jtJobId, ym, by);
+  steps.push({ label: "Lock the month in the app", state: "done", note: "" });
+  return { steps, advanced };
+}
+
+/**
+ * Unlock: the app may edit the month again, and the 30-minute sync may write
+ * the sheet again. The record block stays filed; the bill list and Labor A1
+ * are not put back.
+ */
+export async function unlockJobMonth(jtJobId: string, ym: string): Promise<void> {
+  await deleteMonthAction("job-closed", jtJobId, ym);
+  const job = (await readSheetList()).jobs.find((j) => j.jtJobId === jtJobId);
+  if (!job) return;
+  const r = await sheetAction({ action: "reopenTrackingSheet", projectId: job.id }, 30_000);
+  if (r.ok !== true) throw new Error(String(r.error || "The sheet sync was not resumed."));
+}
+
+/** Jobs closed for `ym`: jtJobId → when and by whom. */
+export async function closedJobs(ym: string): Promise<Record<string, { at: string; by: string }>> {
+  const out: Record<string, { at: string; by: string }> = {};
+  for (const r of await listMonthActions(ym)) if (r.action === "job-closed") out[r.scope] = { at: r.at, by: r.by };
+  return out;
+}
+
+/** Is this job's month locked? */
+export async function jobMonthClosed(jtJobId: string, ym: string): Promise<boolean> {
+  return (await getMonthAction("job-closed", jtJobId, ym)) !== undefined;
 }
