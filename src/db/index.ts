@@ -1139,6 +1139,36 @@ async function applySchema() {
     )
   `);
   await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS vehicles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      plate TEXT NOT NULL DEFAULT '',
+      vin TEXT NOT NULL DEFAULT '',
+      insurance_carrier TEXT NOT NULL DEFAULT '',
+      insurance_policy TEXT NOT NULL DEFAULT '',
+      insurance_expiry TEXT NOT NULL DEFAULT '',
+      notes TEXT NOT NULL DEFAULT '',
+      photo BLOB,
+      photo_mime TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT '',
+      updated_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS vehicle_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      vehicle_id INTEGER NOT NULL,
+      name TEXT NOT NULL,
+      file_name TEXT NOT NULL DEFAULT '',
+      mime TEXT NOT NULL DEFAULT 'application/pdf',
+      size INTEGER NOT NULL DEFAULT 0,
+      bytes BLOB NOT NULL,
+      uploaded_at TEXT NOT NULL,
+      uploaded_by TEXT NOT NULL DEFAULT ''
+    )
+  `);
+  await getClient().execute(`CREATE INDEX IF NOT EXISTS vehicle_files_vehicle ON vehicle_files (vehicle_id)`);
+  await getClient().execute(`
     CREATE TABLE IF NOT EXISTS financial_events (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       at TEXT NOT NULL,
