@@ -1,5 +1,11 @@
 [
  {
+  "sha": "659ef2f9",
+  "date": "2026-11-20T16:53:37Z",
+  "title": "unpaid bills widget on home, november on",
+  "plain": "Home has a new Unpaid bills card, on desktop and phone, listing every unpaid bill from November 1 on, newest first."
+ },
+ {
   "sha": "3321ff2f",
   "date": "2026-11-20T07:04:46-08:00",
   "title": "add close route to the page map",
