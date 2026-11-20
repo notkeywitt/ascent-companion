@@ -1,5 +1,11 @@
 [
  {
+  "sha": "f7cd01d9",
+  "date": "2026-11-20T17:38:03Z",
+  "title": "bill sheet action bar docks to the bottom, padding, visible due date",
+  "plain": "On a phone, the bill sheet's Save bar now sits at the very bottom, the bill has a little side padding, and the due date box is easy to see."
+ },
+ {
   "sha": "fda0b0bb",
   "date": "2026-11-20T17:32:42Z",
   "title": "due date under the bill date on the unpaid bills widget",
