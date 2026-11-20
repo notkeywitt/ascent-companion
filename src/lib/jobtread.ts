@@ -308,10 +308,12 @@ export type {
   DocAccessRow,
 } from "./jobtread/documentAccess";
 export {
+  getAllJobDepositLines,
   getJobDepositInputs,
 } from "./jobtread/jobDeposits";
 export type {
   ClientPaymentRow,
+  JobDepositLines,
   JobDepositRead,
 } from "./jobtread/jobDeposits";
 export {
@@ -349,3 +351,5 @@ export { getResearchSubject } from "./jobtread/leadResearch";
 export type { ResearchSubject } from "./jobtread/leadResearch";
 export { getArtRows } from "./jobtread/artCloud";
 export { getVendorMonthDocs, cloneVendorDocument } from "./jobtread/billClone";
+export { getClientBudgetInputs } from "./jobtread/clientBudget";
+export type { ClientBudgetRead } from "./jobtread/clientBudget";

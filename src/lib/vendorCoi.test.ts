@@ -4,10 +4,12 @@ import {
   coiByVendor,
   coiKey,
   coiNeeded,
+  coiRegister,
   coiRequestList,
   coiState,
   gmailComposeUrl,
   type CoiVendorInput,
+  type VendorCoiRow,
 } from "@/lib/vendorCoi";
 
 describe("coiByVendor", () => {
@@ -76,6 +78,10 @@ describe("coiRequestList", () => {
     ).map((x) => x.name);
     expect(out).toEqual(["Expired", "Undated"]);
   });
+  it("includes a COI expiring within 30 days", () => {
+    const out = coiRequestList([v({ name: "Soon", coiExpires: "2026-12-01" })], today);
+    expect(out.map((x) => x.name)).toEqual(["Soon"]);
+  });
   it("counts a bill exactly 365 days back", () => {
     expect(billedSince(today)).toBe("2025-11-09");
     expect(coiRequestList([v({ name: "Edge", lastBillOn: "2025-11-09" })], today)).toHaveLength(1);
@@ -88,5 +94,36 @@ describe("gmailComposeUrl", () => {
     expect(u.searchParams.get("authuser")).toBe("office@ascentbuildingco.com");
     expect(u.searchParams.get("bcc")).toBe("a@x.com,b@y.com");
     expect(u.searchParams.get("to")).toBe("office@ascentbuildingco.com");
+  });
+});
+
+describe("coiRegister", () => {
+  const today = "2026-11-09";
+  const r = (name: string, coiExpires: string, over: Partial<VendorCoiRow> = {}): VendorCoiRow => ({
+    id: name,
+    name,
+    vendorType: "",
+    coiExpires,
+    override: null,
+    lastBillOn: "2026-10-01",
+    emails: [],
+    lastRequestedOn: "",
+    needed: true,
+    state: coiState(coiExpires, today),
+    ...over,
+  });
+  it("lists needed subs worst first and drops the rest", () => {
+    const out = coiRegister(
+      [
+        r("Good", "2027-06-01"),
+        r("Soon", "2026-11-20"),
+        r("None", ""),
+        r("Gone", "2026-01-01"),
+        r("NotNeeded", "", { needed: false }),
+        r("Stale", "", { lastBillOn: "2024-01-01" }),
+      ],
+      today,
+    ).map((x) => x.name);
+    expect(out).toEqual(["Gone", "None", "Soon", "Good"]);
   });
 });

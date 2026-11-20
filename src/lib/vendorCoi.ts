@@ -34,7 +34,7 @@ export function coiByVendor(fileNames: string[]): Record<string, number> {
  * BCC'd to every vendor that needs a new certificate.
  *
  * Who is asked: a vendor billed in the past 365 days (a void bill does not
- * count) whose COI has expired or has no expiry recorded — unless the vendor
+ * count) whose COI has expired or is within 30 days of expiry, or has no expiry recorded — unless the vendor
  * does not need a COI. A vendor needs none when the office set it to "No", or,
  * left on "Auto", when JobTread's Type field says Supplier, Rentals or Other,
  * or its name is on `COI_EXEMPT_NAMES`. "Yes" overrides both.
@@ -174,7 +174,8 @@ export function billedSince(todayIso: string): string {
 
 /**
  * The vendors a COI request goes to: billed in the past year, needing a COI,
- * and expired or with no expiry recorded. A–Z.
+ * and expired, expiring within `COI_EXPIRING_DAYS`, or with no expiry
+ * recorded. A–Z.
  */
 export function coiRequestList(vendors: CoiVendorInput[], todayIso: string): CoiVendorInput[] {
   const since = billedSince(todayIso);
@@ -183,9 +184,28 @@ export function coiRequestList(vendors: CoiVendorInput[], todayIso: string): Coi
     .filter((v) => coiNeeded(v.name, v.vendorType, v.override))
     .filter((v) => {
       const s = coiState(v.coiExpires, todayIso);
-      return s === "expired" || s === "unknown";
+      return s !== "current";
     })
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const REGISTER_ORDER: Record<CoiState, number> = { expired: 0, unknown: 1, expiring: 2, current: 3 };
+
+/**
+ * The COI register: every vendor that needs a COI and was billed in the past
+ * year or has an expiry on record. Worst first (expired, none on file,
+ * expiring, current), then by expiry date, then A–Z.
+ */
+export function coiRegister(vendors: VendorCoiRow[], todayIso: string): VendorCoiRow[] {
+  const since = billedSince(todayIso);
+  return vendors
+    .filter((v) => v.needed && (v.coiExpires !== "" || (v.lastBillOn !== "" && v.lastBillOn >= since)))
+    .sort(
+      (a, b) =>
+        REGISTER_ORDER[a.state] - REGISTER_ORDER[b.state] ||
+        a.coiExpires.localeCompare(b.coiExpires) ||
+        a.name.localeCompare(b.name),
+    );
 }
 
 export const COI_REQUEST_SUBJECT = "Certificate of Insurance Request - Ascent Building Co.";

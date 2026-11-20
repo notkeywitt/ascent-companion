@@ -25,7 +25,7 @@ import {
 } from "@/components/ui";
 import { money } from "@/lib/money";
 import { setUrlParam } from "@/lib/urlParam";
-import { coiKey, gmailComposeUrl, type VendorCoiRow } from "@/lib/vendorCoi";
+import { coiKey, coiRegister, gmailComposeUrl, type VendorCoiRow } from "@/lib/vendorCoi";
 import { CoiDot } from "@/components/CoiDot";
 
 /**
@@ -385,6 +385,47 @@ function CoiRequestRow({
   );
 }
 
+const STATE_LABEL = { expired: "Expired", unknown: "None on file", expiring: "Expiring", current: "OK" } as const;
+const STATE_TONE = { expired: "danger", unknown: "neutral", expiring: "warning", current: "success" } as const;
+
+/**
+ * The COI register: every sub that needs a COI, worst first. W-9 and
+ * hold-harmless are not shown: /api/vendor-details cannot write them yet.
+ */
+function CoiRegisterDialog({ status, onClose }: { status: CoiStatus; onClose: () => void }) {
+  const rows = coiRegister(Object.values(status.byId), status.today);
+  const th = "px-3 py-2 text-left text-[11px] uppercase tracking-wide text-neutral-500 font-medium";
+  return (
+    <Dialog onClose={onClose} size="lg" title="COI register" description="Every vendor that needs a COI and was billed in the past year. Worst first.">
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-line-soft">
+              <th className={th}>Vendor</th>
+              <th className={th}>Status</th>
+              <th className={th}>Expires</th>
+              <th className={th}>Last asked</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-b border-line-soft last:border-b-0">
+                <td className="px-3 py-2">{r.name}</td>
+                <td className="px-3 py-2">
+                  <Chip tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Chip>
+                </td>
+                <td className="px-3 py-2 tabular-nums">{isoLabel(r.coiExpires) || "—"}</td>
+                <td className="px-3 py-2 tabular-nums">{isoLabel(r.lastRequestedOn) || "never"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {rows.length === 0 && <EmptyState>No vendors need a COI.</EmptyState>}
+      </div>
+    </Dialog>
+  );
+}
+
 /**
  * "Request COIs" — every vendor billed in the past year whose COI has expired
  * or has no expiry recorded, minus vendors that need none (lib/vendorCoi.ts).
@@ -444,7 +485,9 @@ function RequestCoisDialog({
 
   const why = (r: VendorCoiRow) =>
     [
-      r.coiExpires ? `Expired ${isoLabel(r.coiExpires)}` : "No expiry on record",
+      r.coiExpires
+        ? `${r.state === "expiring" ? "Expires" : "Expired"} ${isoLabel(r.coiExpires)}`
+        : "No expiry on record",
       r.lastRequestedOn ? `asked ${isoLabel(r.lastRequestedOn)}` : "never asked",
       `last bill ${isoLabel(r.lastBillOn)}`,
     ].join(" · ");
@@ -455,7 +498,7 @@ function RequestCoisDialog({
       busy={busy}
       size="lg"
       title="Request COIs"
-      description="Vendors billed in the past year whose COI has expired or has no expiry date. Stores, software and utilities are left out."
+      description="Vendors billed in the past year whose COI has expired, expires within 30 days or has no expiry date. Stores, software and utilities are left out."
       footer={
         <>
           <button type="button" className={btn("secondary", "md")} onClick={onClose} disabled={busy}>
@@ -489,7 +532,7 @@ function RequestCoisDialog({
       }
     >
       <div className="space-y-4">
-        {rows.length === 0 && <EmptyState>Every vendor billed this year has a current COI.</EmptyState>}
+        {rows.length === 0 && <EmptyState>Every vendor billed this year has a COI good for 30 days or more.</EmptyState>}
         {opened && !marked && (
           <Banner tone="info">
             Gmail opened in a new tab. Send it from there, then mark these vendors as asked.
@@ -832,6 +875,7 @@ function Vendors() {
   const [coiStatus, setCoiStatus] = useState<CoiStatus | null>(null);
   const [coiStatusError, setCoiStatusError] = useState("");
   const [requesting, setRequesting] = useState(false);
+  const [register, setRegister] = useState(false);
   const [coiOnly, setCoiOnly] = useState(false);
 
   const [numberQuery, setNumberQuery] = useState(initialNumber);
@@ -1030,9 +1074,17 @@ function Vendors() {
               className={btn("secondary", "md")}
               onClick={() => setRequesting(true)}
               disabled={!coiStatus}
-              title="Draft one email asking every vendor with an expired COI for a new one"
+              title="Draft one email asking every vendor with an expired or expiring COI for a new one"
             >
               {coiStatus ? `Request COIs (${coiStatus.request.length})` : "Request COIs"}
+            </button>
+            <button
+              type="button"
+              className={btn("secondary", "md")}
+              onClick={() => setRegister(true)}
+              disabled={!coiStatus}
+            >
+              COI register
             </button>
             <button type="button" className={btn("secondary", "md")} onClick={() => setAdding(true)}>
               Add vendor
@@ -1045,6 +1097,7 @@ function Vendors() {
           COI status: {coiStatusError}
         </Banner>
       )}
+      {register && coiStatus && <CoiRegisterDialog status={coiStatus} onClose={() => setRegister(false)} />}
       {requesting && coiStatus && (
         <RequestCoisDialog
           status={coiStatus}

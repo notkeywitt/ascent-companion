@@ -51,6 +51,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "One list of company renewals with due dates and a warning before each: bond, general liability, Progressive auto, reseller permit, business licence, contractor registration, AWB, APP review.",
     was: "Loose PDFs in Office Management (CBIC, Progressive, Business Licenses). No register of dates.",
     size: "S",
+    built: "2026-11-20",
   },
   {
     id: "tax-reports",
@@ -91,6 +92,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "A printable report sent with each invoice: billed to date, budget remaining, % invoiced and cost to complete, by cost code.",
     was: "The 11×17 tracking-sheet PDF emailed with each invoice. Berger's sheet still edited Nov 2026.",
     size: "M",
+    built: "2026-11-20",
   },
   {
     id: "deposit-balance",
@@ -99,6 +101,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "Finish the deposits plan: deposit applied each month and the balance left, per job.",
     was: "The Deposit row on each tracking sheet, drawn down monthly.",
     size: "M",
+    built: "2026-11-20",
   },
   {
     id: "overhead-bills",

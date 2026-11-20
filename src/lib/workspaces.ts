@@ -52,6 +52,7 @@ export const WORKSPACES: Workspace[] = [
       // Checks holds Bill Corrections and Taxable Flags as sections since
       // 2026-10-18 (CONSOLIDATION_PLAN.md stage 2); their routes redirect.
       tab("invoice-review", "/invoice-review", "Checks", "Findings, flagged bills and non-taxable lines for the month"),
+      tab("client-budget", "/client-budget", "Client Budget", "The printable budget report sent with each invoice"),
     ],
   },
   {
@@ -127,6 +128,7 @@ export const WORKSPACES: Workspace[] = [
     desc: "The Office job, its warnings and notices, and the script jobs.",
     tabs: [
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
+      tab("renewals", "/renewals", "Renewals", "Bond, insurance, permits and licences — due dates with a warning"),
       tab("roadmap", "/roadmap", "Roadmap", "Features the old Drive and sheets did that the app does not yet — rank them"),
     ],
   },

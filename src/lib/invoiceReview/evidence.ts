@@ -69,6 +69,7 @@ import {
 
 import { isSalesTaxLine, SALES_TAX_CSI } from "@/lib/salesTax";
 import { cents, isNeverInvoiced } from "./types";
+import { isDepositLine } from "./checks/shared";
 import { loadSheetEvidence, type SheetEvidence } from "./sheetEvidence";
 import { buildAddressIndex } from "@/lib/vendorMail";
 import type {
@@ -1055,6 +1056,19 @@ export async function loadMonthEvidence(
         );
       }
     });
+    // The deposit ledger, only for a job whose month draws or bills a deposit.
+    // A dynamic import keeps the companion database out of this module's load.
+    if (shell.invoices.some((inv) => inv.lines.some(isDepositLine))) {
+      try {
+        const { readDeposits } = await import("@/lib/depositRead");
+        shell.deposit = (await readDeposits(row.jobId)).ledger;
+      } catch (e) {
+        fail(
+          `${row.jobName || row.jobId}: could not read the deposit (deposit check skipped) — ` +
+            `${e instanceof Error ? e.message : "unknown error"}`,
+        );
+      }
+    }
     // Was this time captured on ANYTHING, draft included — bill.invoiced's
     // exact semantics, applied to time. See the comment where sentIds/liveIds
     // are built above for why this isn't recon.uninvoicedTimeCost.

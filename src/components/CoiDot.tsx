@@ -20,6 +20,16 @@ function loadYears() {
   return years;
 }
 
+/** Expiry state by vendor key; only vendors with a recorded expiry appear. */
+let states: Promise<Record<string, string> | null> | null = null;
+function loadStates() {
+  states ??= fetch("/api/vendor-coi/status?dots=1")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => (j && !j.error ? (j.states as Record<string, string>) : null))
+    .catch(() => null);
+  return states;
+}
+
 export function useCoiYears(): Record<string, number> | null {
   const [y, setY] = useState<Record<string, number> | null>(null);
   useEffect(() => {
@@ -34,8 +44,27 @@ export function useCoiYears(): Record<string, number> | null {
 
 export function CoiDot({ vendor, className = "" }: { vendor: string | null | undefined; className?: string }) {
   const y = useCoiYears();
+  const [st, setSt] = useState<Record<string, string> | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void loadStates().then((v) => alive && setSt(v));
+    return () => {
+      alive = false;
+    };
+  }, []);
   const year = vendor && y ? y[coiKey(vendor)] : undefined;
   if (!year) return null;
+  const expiring = vendor && st?.[coiKey(vendor)] === "expiring";
+  if (expiring) {
+    return (
+      <span
+        role="img"
+        aria-label="COI expires within 30 days"
+        title="COI expires within 30 days"
+        className={`ml-1.5 inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 align-middle ${className}`}
+      />
+    );
+  }
   return (
     <span
       role="img"

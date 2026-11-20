@@ -29,6 +29,19 @@ export async function readEnteredDeposit(jobId: string): Promise<StoredDeposit> 
   };
 }
 
+/** Every job's deposit entered by hand, by job id. */
+export async function readAllEnteredDeposits(): Promise<Map<string, EnteredDeposit>> {
+  await ensureDb();
+  const rows = await db.select().from(depositLinks);
+  const out = new Map<string, EnteredDeposit>();
+  for (const r of rows) {
+    if (typeof r.depositAmount === "number") {
+      out.set(r.jobId, { amount: r.depositAmount, previouslyApplied: r.previouslyApplied ?? 0 });
+    }
+  }
+  return out;
+}
+
 /** Set (or, with null, clear) the deposit entered by hand. */
 export async function setEnteredDeposit(
   jobId: string,

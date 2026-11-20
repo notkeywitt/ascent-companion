@@ -11,6 +11,7 @@ import {
 } from "@/lib/jobtread";
 import {
   billedSince,
+  coiKey,
   coiNeeded,
   coiRequestList,
   coiState,
@@ -41,10 +42,25 @@ function todayPacific(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   if (!hasGrant()) return NextResponse.json({ error: "JT_GRANT_KEY is not set." }, { status: 400 });
   const cfg = getPaveConfig();
   const today = todayPacific();
+  // ?dots=1 — the light read CoiDot uses: expiry state by `coiKey(name)`.
+  // Two cached reads, no bill scan, no DB.
+  if (req.nextUrl.searchParams.get("dots") === "1") {
+    try {
+      const [emails, fields] = await Promise.all([getVendorEmails(cfg), getVendorCoiFields(cfg)]);
+      const states: Record<string, string> = {};
+      for (const v of emails) {
+        const f = fields[v.id];
+        if (f?.coiExpires) states[coiKey(v.name)] = coiState(f.coiExpires, today);
+      }
+      return NextResponse.json({ states });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 502 });
+    }
+  }
   try {
     await ensureDb();
     const [emails, fields, bills, rows] = await Promise.all([

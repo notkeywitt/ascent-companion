@@ -1970,6 +1970,13 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             routes refile the month on their own after a write, so this is the
             stamp and a retry, not a button. */}
         <LaborReportStatus ym={ym} className="text-center" />
+        <Link
+          href={`/client-budget?jobId=${encodeURIComponent(jobId)}&month=${ym}`}
+          target="_blank"
+          className="text-center text-sm text-accent underline"
+        >
+          Client budget report
+        </Link>
       </div>
       {/* Document Access has no button here: approval gives it to a job's one
           contact, Close month covers what is left, and the all-jobs card keeps
