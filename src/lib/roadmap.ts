@@ -43,6 +43,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "Each sub's liability expiry date, hold-harmless and W-9 on file, with a reminder email before expiry. Extends the COI dot on bill lists.",
     was: "Subcontractor Info and Vendor Insurance Certificate Audit sheets. 13 COIs filed by hand Oct 26 – Nov 6, 2026.",
     size: "M",
+    built: "2026-11-20",
   },
   {
     id: "renewals",
@@ -206,6 +207,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "Find out why Safety Meetings has two or three folders for one meeting date, and stop it.",
     was: "Two 2026-11-03 folders and three 2026-07-20 folders in Safety Meetings.",
     size: "S",
+    built: "2026-11-20",
   },
 ];
 
