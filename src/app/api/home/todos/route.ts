@@ -8,7 +8,7 @@ import { resolveJtUserLink } from "@/lib/jtUserLink";
 import { orgDay } from "@/lib/orgTime";
 
 /**
- * GET /api/home/todos[?fresh=1] → { ok, linked, todos } — Home's one to-do list
+ * GET /api/home/todos[?fresh=1][&scope=all] → { ok, linked, todos } — Home's one to-do list
  * (lib/homeTodos decides what is on it and the order). READ-ONLY.
  *
  * "Who am I": the session's JobTread user id, else the signed-in email against
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const cfg = getPaveConfig();
     const open = req.nextUrl.searchParams.get("fresh") === "1" ? await getOpenToDos(cfg) : await getOpenToDosCached(cfg);
     const today = orgDay(new Date().toISOString());
-    return NextResponse.json({ ok: true, linked: Boolean(me), todos: rankTodos(open, me, OFFICE_JOB_ID, today) });
+    return NextResponse.json({ ok: true, linked: Boolean(me), todos: rankTodos(open, me, OFFICE_JOB_ID, today, req.nextUrl.searchParams.get("scope") === "all") });
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : "Unknown error" }, { status: 502 });
   }

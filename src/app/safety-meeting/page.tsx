@@ -52,6 +52,11 @@ export default function SafetyMeetingPage() {
   const [result, setResult] = useState<SaveResult | null>(null);
   const [saveErr, setSaveErr] = useState("");
 
+  // One id per meeting draft. A repeat send carries the same id, so the server
+  // (and later Apps Script) can spot it. Reset by "Start another meeting".
+  const submitIdRef = useRef(crypto.randomUUID());
+  const inFlightRef = useRef(false);
+
   const padRef = useRef<SignaturePadHandle>(null);
 
   useEffect(() => {
@@ -106,6 +111,8 @@ export default function SafetyMeetingPage() {
     if (!admin.trim()) return setSaveErr("Choose who ran the meeting.");
     if (attendees.length === 0) return setSaveErr("Add at least one signed attendee.");
 
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setSaving(true);
     try {
       const res = await fetch("/api/safety-meeting", {
@@ -120,6 +127,7 @@ export default function SafetyMeetingPage() {
           admin: admin.trim(),
           points: pickedTopic?.points ?? [],
           attendees,
+          submitId: submitIdRef.current,
         }),
       });
       const json: SaveResult = await res.json();
@@ -129,13 +137,18 @@ export default function SafetyMeetingPage() {
       }
       setResult(json);
     } catch (e) {
-      setSaveErr(e instanceof Error ? e.message : "Save failed.");
+      // No reply: the save may have gone through. Never resend on its own.
+      setSaveErr(
+        "No answer from the server. The meeting may have saved. Check the Safety Meetings folder in Drive before you save again.",
+      );
     } finally {
+      inFlightRef.current = false;
       setSaving(false);
     }
   }
 
   function startAnother() {
+    submitIdRef.current = crypto.randomUUID();
     setResult(null);
     setTopic("");
     setBrowsing(false);
