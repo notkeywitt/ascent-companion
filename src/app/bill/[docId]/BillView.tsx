@@ -1782,7 +1782,7 @@ export function BillView({
             // is the quiet strip it always was.
             drawerOpen
               ? "rounded-t-card border border-b-0 border-line-strong bg-page/70 shadow-lg backdrop-blur-xl dark:bg-ink/70"
-              : "border-t border-line bg-page/95 backdrop-blur dark:border-white/10 dark:bg-ink/95"
+              : "border-t border-line-strong bg-page shadow-[0_-4px_12px_rgba(0,0,0,0.06)] dark:border-white/10 dark:bg-ink"
           }`}
         >
           <div className={embedded ? "px-3" : "max-w-2xl px-4 pad:px-7 lg:max-w-6xl"}>
@@ -1795,7 +1795,7 @@ export function BillView({
               onClick={() => setDrawerOpen((v) => !v)}
               aria-expanded={drawerOpen}
               aria-controls="bill-actions"
-              className="flex min-h-9 w-full items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+              className="flex min-h-7 w-full items-center justify-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 transition hover:text-accent dark:text-neutral-400"
             >
               <span
                 aria-hidden
@@ -1825,8 +1825,8 @@ export function BillView({
             </div>
 
             <div
-              className={`flex items-center justify-between gap-3 py-2.5 ${
-                drawerOpen ? "" : "border-t border-line dark:border-white/10"
+              className={`flex items-center justify-between gap-3 ${
+                drawerOpen ? "border-t border-line py-2.5 dark:border-white/10" : "pb-2"
               }`}
             >
               {/* Unsaved work is stated in amber — the same "something is
