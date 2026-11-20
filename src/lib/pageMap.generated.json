@@ -241,6 +241,10 @@
    "file": "src/app/privacy/page.tsx"
   },
   {
+   "route": "/punch-list",
+   "file": "src/app/punch-list/page.tsx"
+  },
+  {
    "route": "/renewals",
    "file": "src/app/renewals/page.tsx"
   },
@@ -1545,6 +1549,10 @@
   {
    "from": "/payroll",
    "to": "/time-off"
+  },
+  {
+   "from": "/punch-list",
+   "to": "/jobs-hub"
   },
   {
    "from": "/tool-schedule/edit",
