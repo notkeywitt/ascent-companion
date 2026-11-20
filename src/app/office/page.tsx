@@ -27,7 +27,9 @@ import {
 import { jtJobUrl } from "@/lib/jtLinks";
 import { orgDay } from "@/lib/orgTime";
 import { shortDay } from "@/lib/timeEntryDates";
+import { listVehicles } from "@/lib/vehicles";
 import { AscentDetails } from "./AscentDetails";
+import { Vehicles } from "./Vehicles";
 import { OfficeImages } from "./OfficeImages";
 import { OfficeFeeds } from "./OfficeFeeds";
 import { CoiDot } from "@/components/CoiDot";
@@ -82,6 +84,13 @@ export default async function OfficePage({
               </section>
 
               <section className="mb-6">
+                <SectionHeading>Vehicles</SectionHeading>
+                <Suspense fallback={<Loading label="Loading vehicles…" />}>
+                  <VehiclesSection />
+                </Suspense>
+              </section>
+
+              <section className="mb-6">
                 <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
                 <Suspense fallback={<Loading label="Loading bills…" />}>
                   <Bills year={billingYear} month={billingMonthNum} />
@@ -109,6 +118,15 @@ async function AscentDetailsSection() {
     return <AscentDetails values={state.values} documents={documents} />;
   } catch (e) {
     return <Banner tone="error">{e instanceof Error ? e.message : "Could not read details."}</Banner>;
+  }
+}
+
+/** The company vehicles, read from the companion database. */
+async function VehiclesSection() {
+  try {
+    return <Vehicles vehicles={await listVehicles()} />;
+  } catch (e) {
+    return <Banner tone="error">{e instanceof Error ? e.message : "Could not read vehicles."}</Banner>;
   }
 }
 

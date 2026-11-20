@@ -1554,6 +1554,39 @@ export const companyDocuments = sqliteTable("company_documents", {
 });
 
 /**
+ * COMPANY VEHICLES — the Office Dashboard's Vehicles card (src/lib/vehicles.ts).
+ * One row per vehicle, its photo in the row as a BLOB. `vehicle_files` holds
+ * its documents (registration, insurance card…), the same way as
+ * `company_documents`. Companion-only; nothing here is JobTread data.
+ */
+export const vehicles = sqliteTable("vehicles", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(), // "2019 F-250 (white)"
+  plate: text("plate").notNull().default(""),
+  vin: text("vin").notNull().default(""),
+  insuranceCarrier: text("insurance_carrier").notNull().default(""),
+  insurancePolicy: text("insurance_policy").notNull().default(""),
+  insuranceExpiry: text("insurance_expiry").notNull().default(""), // YYYY-MM-DD
+  notes: text("notes").notNull().default(""),
+  photo: blob("photo", { mode: "buffer" }),
+  photoMime: text("photo_mime").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+  updatedBy: text("updated_by").notNull().default(""),
+});
+
+export const vehicleFiles = sqliteTable("vehicle_files", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  vehicleId: integer("vehicle_id").notNull(),
+  name: text("name").notNull(),
+  fileName: text("file_name").notNull().default(""),
+  mime: text("mime").notNull().default("application/pdf"),
+  size: integer("size").notNull().default(0),
+  bytes: blob("bytes", { mode: "buffer" }).notNull(),
+  uploadedAt: text("uploaded_at").notNull(),
+  uploadedBy: text("uploaded_by").notNull().default(""),
+});
+
+/**
  * The PAGE GUIDES — per-element help an admin writes from inside the app.
  *
  * One row per page (`path` = the folded pathname, see src/lib/pageGuide.ts),
