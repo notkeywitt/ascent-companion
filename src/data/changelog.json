@@ -1,5 +1,11 @@
 [
  {
+  "sha": "443f0644",
+  "date": "2026-11-20T17:08:35Z",
+  "title": "home note button floats, needs attention moves to bottom",
+  "plain": "On the phone, the note button is a round speech bubble at the bottom right, and Needs attention sits at the bottom of Home."
+ },
+ {
   "sha": "df2345ef",
   "date": "2026-11-20T17:03:00Z",
   "title": "bottom bar stays put when swiped in the installed app",
