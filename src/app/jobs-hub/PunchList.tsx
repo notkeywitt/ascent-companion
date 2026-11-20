@@ -286,7 +286,7 @@ export function PunchList({ jobId }: { jobId: string }) {
         {state.signoff ? (
           <Card className="space-y-2">
             {/* The ink is dark on a clear ground: a white panel keeps it legible in dark mode. */}
-            <div className="rounded-lg bg-white p-2">
+            <div className="rounded-control bg-white p-2">
               <img src={state.signoff.signature} alt="Signature" className="mx-auto max-h-32" />
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">

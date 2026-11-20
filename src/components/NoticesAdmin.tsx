@@ -232,7 +232,7 @@ function NoticeForm({
         if (!d.title.trim() || targetsNobody) return;
         onSubmit(payloadFrom(d));
       }}
-      className="space-y-3.5 rounded-xl border border-line p-4"
+      className="space-y-3.5 rounded-card border border-line p-4"
     >
       <div>
         <Label htmlFor="notice-title">Title</Label>
@@ -276,7 +276,7 @@ function NoticeForm({
           </Select>
         </div>
         {hasNoticeLink(d.body, typeof window === "undefined" ? "" : window.location.origin) && (
-          <div className="mt-2 rounded-lg border border-line px-3 py-2 text-sm">
+          <div className="mt-2 rounded-control border border-line px-3 py-2 text-sm">
             <p className="mb-0.5 text-xs text-neutral-500 dark:text-neutral-400">Preview</p>
             <p className="whitespace-pre-wrap">
               <NoticeText body={d.body} />
@@ -387,7 +387,7 @@ function NoticeForm({
                       >
                         <span
                           aria-hidden
-                          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] leading-none ${
+                          className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-chip border text-[10px] leading-none ${
                             on
                               ? "border-accent bg-accent text-accent-fg"
                               : "border-line-strong text-transparent"

@@ -88,7 +88,7 @@ function LeadBoardCard({ c, thresholds }: { c: LeadCard; thresholds: LeadQuietTh
       href={`/leads#${encodeURIComponent(c.id)}`}
       // `w-72` is the SCROLLER's card; from `pad` up the row is a grid and the
       // cell sets the width. See the row itself, below.
-      className="w-72 shrink-0 rounded-xl transition hover:opacity-80 pad:w-auto"
+      className="w-72 shrink-0 rounded-card transition hover:opacity-80 pad:w-auto"
     >
       <Card className="flex h-full flex-col gap-2">
         <div className="flex items-start justify-between gap-2">
@@ -222,7 +222,7 @@ export function HomeLeadBoard({ storeAs = "home" }: { storeAs?: string } = {}) {
   if (leads === null) {
     return (
       <div className="mb-6">
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-card" />
       </div>
     );
   }

@@ -195,7 +195,7 @@ function AssignPicker({ e, target }: { e: Editing; target: Target }) {
     } else await e.saveRule(o.match, o.key, o.label, [...now, target]);
   }
   return (
-    <div className="grid gap-2 rounded-lg border border-line p-2">
+    <div className="grid gap-2 rounded-control border border-line p-2">
       <Input id={`assign-${target}`} placeholder="Search phases and task names…" aria-label="Search phases and task names" value={q} onChange={(ev) => setQ(ev.target.value)} />
       <div className="grid max-h-72 gap-3 overflow-y-auto">
         {groups.map((g) => {
@@ -244,7 +244,7 @@ export function AssignedTasks({ e, target, extra }: { e: Editing; target: Target
       {assigned.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {assigned.map((r) => (
-            <span key={`${r.match}:${r.key}`} className="inline-flex items-center gap-1 rounded-full border border-line-strong py-0.5 pl-2.5 text-[12px]">
+            <span key={`${r.match}:${r.key}`} className="inline-flex items-center gap-1 rounded-pill border border-line-strong py-0.5 pl-2.5 text-[12px]">
               <span className="text-neutral-500">{MATCH_LABEL[r.match]}:</span> {r.label || r.key}
               <button
                 type="button"

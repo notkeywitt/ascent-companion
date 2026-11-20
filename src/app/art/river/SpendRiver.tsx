@@ -304,7 +304,7 @@ export function SpendRiver() {
                   type="button"
                   onClick={() => setFocus((c) => (c === l.key ? null : l.key))}
                   aria-pressed={focus === l.key}
-                  className={`flex min-h-9 w-full items-center gap-2 rounded-md px-1.5 text-left text-sm transition ${
+                  className={`flex min-h-9 w-full items-center gap-2 rounded-inner px-1.5 text-left text-sm transition ${
                     focus === l.key ? "bg-neutral-100 dark:bg-white/[0.07]" : ""
                   } ${focus !== null && focus !== l.key ? "opacity-50" : ""}`}
                 >

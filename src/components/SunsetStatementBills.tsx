@@ -238,7 +238,7 @@ export function SunsetStatementBills() {
                 />
                 <MetaLine items={[`${chosen.length} of ${statements.length} picked`, moneyN(pickedNet)]} />
               </div>
-              <ul className="mt-2 max-h-80 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
+              <ul className="mt-2 max-h-80 divide-y divide-line-soft overflow-y-auto rounded-control border border-line">
                 {statements.map((s) => (
                   <li key={s.expId} className="flex items-center justify-between gap-3 px-2.5 py-2 text-xs tabular-nums">
                     <span className="flex min-w-0 items-center gap-2">

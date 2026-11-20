@@ -72,7 +72,7 @@ export function RailWidgetButton() {
         onClick={open}
         aria-label="Open desktop widget"
         title="Open desktop widget"
-        className="flex items-center justify-center rounded-xl px-3 py-2 text-neutral-500 hover:text-accent dark:text-neutral-400 [@media(pointer:coarse)]:hidden"
+        className="flex items-center justify-center rounded-card px-3 py-2 text-neutral-500 hover:text-accent dark:text-neutral-400 [@media(pointer:coarse)]:hidden"
       >
         <svg aria-hidden viewBox="0 0 24 24" className="h-[18px] w-[18px] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="3" width="16" height="18" rx="2.5" />
@@ -84,7 +84,7 @@ export function RailWidgetButton() {
         <div
           role="dialog"
           aria-label="Install the desktop widget"
-          className="fixed bottom-4 z-40 w-[22rem] max-w-[calc(100vw-6rem)] rounded-xl border border-line bg-white p-3 text-sm shadow-lg dark:bg-ink-raised print:hidden"
+          className="fixed bottom-4 z-40 w-[22rem] max-w-[calc(100vw-6rem)] rounded-card border border-line bg-white p-3 text-sm shadow-lg dark:bg-ink-raised print:hidden"
           style={{ left: "calc(var(--rail-w) + 0.5rem)" }}
         >
           <div className="flex items-start justify-between gap-2">
@@ -100,7 +100,7 @@ export function RailWidgetButton() {
             </li>
             <li>Sign in with Google in the panel that opens.</li>
           </ol>
-          <code className="mt-2 block select-all break-all rounded-lg bg-neutral-100 px-2 py-1.5 text-xs dark:bg-black/30">
+          <code className="mt-2 block select-all break-all rounded-control bg-neutral-100 px-2 py-1.5 text-xs dark:bg-black/30">
             {INSTALL}
           </code>
           <div className="mt-2 flex gap-3 text-xs">

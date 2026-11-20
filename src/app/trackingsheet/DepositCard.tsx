@@ -191,7 +191,7 @@ export function DepositCard({
 
   const enterForm = form && (
     <form
-      className="mt-3 grid gap-2 rounded-lg border border-line-soft p-2.5 pad:grid-cols-[1fr_1fr_2fr_auto]"
+      className="mt-3 grid gap-2 rounded-control border border-line-soft p-2.5 pad:grid-cols-[1fr_1fr_2fr_auto]"
       onSubmit={(ev) => {
         ev.preventDefault();
         post({
@@ -320,7 +320,7 @@ export function DepositCard({
                 const value = drawInput[i.id] ?? String(suggestDraw(ledger, inv));
                 const amount = parseDollars(value);
                 return (
-                  <div key={i.id} className="mt-3 rounded-lg border border-line-soft p-2.5">
+                  <div key={i.id} className="mt-3 rounded-control border border-line-soft p-2.5">
                     <MetaLine
                       items={[
                         `Draft #${i.number}`,

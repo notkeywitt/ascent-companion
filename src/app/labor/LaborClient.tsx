@@ -464,7 +464,7 @@ export function LaborClient({ calendar = null }: { calendar?: LaborCalendarData 
               unapproved ? <span className="text-warn">{unapproved} not approved</span> : "all approved",
             ]}
           />
-          <div className="mb-3 overflow-hidden rounded-xl border border-line">
+          <div className="mb-3 overflow-hidden rounded-card border border-line">
             <div className="flex flex-wrap items-center gap-2 bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
               <span className="text-[10px] uppercase tracking-wide text-neutral-400">Group</span>
               <TimeGroupSwitch filters={filters} withJob />

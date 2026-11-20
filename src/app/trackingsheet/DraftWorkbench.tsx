@@ -1400,7 +1400,7 @@ export function DraftCodingPanel({
   };
 
   const stepBtn =
-    "inline-flex min-h-8 items-center rounded-lg border border-line px-2 text-xs font-semibold transition hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-inherit";
+    "inline-flex min-h-8 items-center rounded-control border border-line px-2 text-xs font-semibold transition hover:border-accent hover:text-accent disabled:opacity-40 disabled:hover:border-line disabled:hover:text-inherit";
 
   return (
     <>

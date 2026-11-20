@@ -294,7 +294,7 @@ export function HistoricalCost({
             </Banner>
           )}
 
-          <div className="grid grid-cols-3 gap-3 rounded-lg bg-neutral-50 p-3 text-sm dark:bg-white/5">
+          <div className="grid grid-cols-3 gap-3 rounded-control bg-neutral-50 p-3 text-sm dark:bg-white/5">
             <div>
               <div className="text-[11px] uppercase tracking-wide text-neutral-500">Tracking Sheet</div>
               <div className="font-semibold">{money(gap.sheetTotalSum)}</div>

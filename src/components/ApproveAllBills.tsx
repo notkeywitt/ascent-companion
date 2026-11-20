@@ -107,7 +107,7 @@ export function ApproveAllBills({ ym }: { ym: string }) {
             {drafts.map((b) => (
               <li
                 key={b.id}
-                className="flex items-baseline justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm dark:border-neutral-700"
+                className="flex items-baseline justify-between gap-3 rounded-control border border-line px-3 py-2 text-sm dark:border-neutral-700"
               >
                 <span className="min-w-0 truncate">
                   <span className="font-medium">{b.vendor}</span>

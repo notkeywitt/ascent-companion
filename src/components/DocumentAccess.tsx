@@ -124,7 +124,7 @@ export function DocumentAccess({
           return (
             <li
               key={c.membershipId}
-              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
+              className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-control border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
             >
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{c.name}</span>

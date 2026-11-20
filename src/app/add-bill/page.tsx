@@ -99,7 +99,7 @@ function BillPreview({
   const isPdf = file.type === "application/pdf";
   return (
     <div
-      className={`overflow-hidden rounded-lg border border-line bg-white dark:border-neutral-800 ${className}`}
+      className={`overflow-hidden rounded-control border border-line bg-white dark:border-neutral-800 ${className}`}
     >
       {isPdf ? (
         <iframe src={url} title="Uploaded invoice" className="h-full w-full" />
@@ -457,7 +457,7 @@ function AddBill() {
               else router.push(jobId ? hubHref(jobId) : "/");
             }}
             title="Close without logging a bill"
-            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-lg px-2 text-sm font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-control px-2 text-sm font-semibold text-neutral-500 transition hover:text-accent dark:text-neutral-400"
           >
             <span aria-hidden className="text-lg leading-none">
               ✕
@@ -483,7 +483,7 @@ function AddBill() {
             /* NO INVOICE — the office types what the document would have said.
                Vendor comes from the picker below, which stops being optional
                here: there is nothing to match a name against. */
-            <div className="space-y-4 rounded-xl border border-line bg-neutral-50 p-3 dark:bg-ink-raised/60">
+            <div className="space-y-4 rounded-card border border-line bg-neutral-50 p-3 dark:bg-ink-raised/60">
               <div>
                 <Label htmlFor="ab-amount">Total</Label>
                 <input
@@ -493,7 +493,7 @@ function AddBill() {
                   disabled={busy}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0.00"
-                  className="block w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm tabular-nums outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
+                  className="block w-full rounded-control border border-line-strong bg-white px-3 py-2 text-sm tabular-nums outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
                 />
                 <p className="mt-1 text-xs text-neutral-500">
                   What the vendor charged. It lands as one line, coded in the queue.
@@ -508,7 +508,7 @@ function AddBill() {
                   disabled={busy}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="e.g. Counter charge — 40 sheets 5/8 drywall, picked up by Miguel"
-                  className="block w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
+                  className="block w-full rounded-control border border-line-strong bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
                 />
                 <p className="mt-1 text-xs text-neutral-500">
                   This is the record. With no invoice behind it, what you write here is the only
@@ -523,7 +523,7 @@ function AddBill() {
                   disabled={busy}
                   onChange={(e) => setBillNumber(e.target.value)}
                   placeholder="Leave blank if there isn't one"
-                  className="block w-full rounded-lg border border-line-strong bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
+                  className="block w-full rounded-control border border-line-strong bg-white px-3 py-2 text-sm outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25 dark:bg-ink-raised"
                 />
               </div>
             </div>
@@ -601,7 +601,7 @@ function AddBill() {
             </Select>
             {needVendor && <p className="mt-1 text-sm text-warn">{needVendor}</p>}
             {newVendor ? (
-              <div className="mt-2 space-y-2 rounded-lg border border-line p-3">
+              <div className="mt-2 space-y-2 rounded-control border border-line p-3">
                 <div>
                   <Label htmlFor="ab-vname">New vendor name</Label>
                   <Input

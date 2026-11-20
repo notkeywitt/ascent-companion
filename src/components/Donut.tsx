@@ -245,7 +245,7 @@ export function Donut({
               it honest: the card can never sit between the pointer and the arc
               that opened it, so it cannot flicker itself shut. */}
           {detail && hoverSlice && (
-            <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-72 max-w-[85vw] -translate-x-1/2 overflow-hidden rounded-xl border border-line bg-white p-3 text-sm shadow-xl dark:bg-ink-raised">
+            <div className="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-72 max-w-[85vw] -translate-x-1/2 overflow-hidden rounded-card border border-line bg-white p-3 text-sm shadow-xl dark:bg-ink-raised">
               <div className="mb-1.5 flex items-baseline justify-between gap-3">
                 <span className="min-w-0 truncate font-semibold">{hoverSlice.label}</span>
                 <span className="shrink-0 tabular-nums text-neutral-500">

@@ -285,7 +285,7 @@ export function ItemView({ item, siteUrl }: { item: LrItem; siteUrl: string }) {
                 alt={img.caption ?? ""}
                 loading="lazy"
                 referrerPolicy="no-referrer"
-                className="w-full rounded-xl border border-line bg-white dark:bg-ink-raised"
+                className="w-full rounded-card border border-line bg-white dark:bg-ink-raised"
               />
               {img.caption && (
                 <figcaption className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">{img.caption}</figcaption>
@@ -462,7 +462,7 @@ export function BlocksView({ blocks }: { blocks: LrBlock[] }) {
                 alt=""
                 loading="lazy"
                 referrerPolicy="no-referrer"
-                className="mt-3 w-full rounded-xl border border-line"
+                className="mt-3 w-full rounded-card border border-line"
               />
             );
         }
@@ -505,7 +505,7 @@ export function HomeView({
                       alt=""
                       loading="lazy"
                       referrerPolicy="no-referrer"
-                      className="aspect-square w-full rounded-lg border border-line bg-white object-contain p-1.5"
+                      className="aspect-square w-full rounded-control border border-line bg-white object-contain p-1.5"
                     />
                   ) : null}
                   <span className="mt-1 block text-center text-[11px] leading-tight text-neutral-500 dark:text-neutral-400">

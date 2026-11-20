@@ -19,7 +19,7 @@ export function BackLink({ href, className = "" }: { href: string; className?: s
           router.back();
         }
       }}
-      className={`-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft ${className}`}
+      className={`-ml-2 inline-flex min-h-11 items-center rounded-control px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft ${className}`}
     >
       ‹ Back
     </Link>

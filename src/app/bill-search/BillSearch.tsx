@@ -96,7 +96,7 @@ function Highlight({ text, terms }: { text: string; terms: string[] }) {
     <>
       {parts.map((p, i) =>
         terms.some((t) => t.toLowerCase() === p.toLowerCase()) ? (
-          <mark key={i} className="rounded bg-accent/20 px-0.5 text-inherit">
+          <mark key={i} className="rounded-chip bg-accent/20 px-0.5 text-inherit">
             {p}
           </mark>
         ) : (
@@ -294,7 +294,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
             {results.length === 200 ? "+" : ""} match{results.length === 1 ? "" : "es"}
           </p>
           {/* One hairline list, not a box per hit (CONSOLIDATION_PLAN look rule 1). */}
-          <div className="divide-y divide-line-soft lg:grid lg:grid-cols-2 lg:divide-y-0 lg:[&>*]:border-b lg:[&>*]:border-line-soft lg:[&>*:nth-child(odd)]:border-r overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+          <div className="divide-y divide-line-soft lg:grid lg:grid-cols-2 lg:divide-y-0 lg:[&>*]:border-b lg:[&>*]:border-line-soft lg:[&>*:nth-child(odd)]:border-r overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
             {results.map((r) => (
               <ResultCard key={r.id} r={r} terms={terms} />
             ))}

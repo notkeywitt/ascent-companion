@@ -106,7 +106,7 @@ export const SignaturePad = forwardRef<
       ref={canvasRef}
       style={{ height, touchAction: "none" }}
       className={
-        "w-full rounded-lg border border-neutral-300 bg-white dark:border-neutral-700 " +
+        "w-full rounded-control border border-neutral-300 bg-white dark:border-neutral-700 " +
         className
       }
       onPointerDown={down}

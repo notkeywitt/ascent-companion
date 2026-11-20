@@ -277,7 +277,7 @@ function NeedsEditor({ e, match, k, label, suggestions = [] }: { e: Editing; mat
       {draft.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
           {draft.map((t) => (
-            <span key={t} className="inline-flex items-center gap-1 rounded-full border border-accent bg-accent/10 py-0.5 pl-2.5 text-[12px] font-medium">
+            <span key={t} className="inline-flex items-center gap-1 rounded-pill border border-accent bg-accent/10 py-0.5 pl-2.5 text-[12px] font-medium">
               {e.label(t)}
               <button type="button" aria-label={`Remove ${e.label(t)}`} onClick={() => setDraft(draft.filter((x) => x !== t))} className="min-h-7 min-w-7 text-neutral-500">
                 ✕
@@ -350,7 +350,7 @@ function TasksView({ e }: { e: Editing }) {
                     {open ? "Hide" : "Show"} its {p.names.length} task {p.names.length === 1 ? "name" : "names"}
                   </button>
                   {open && (
-                    <ul className="grid gap-1 rounded-lg border border-line p-2">
+                    <ul className="grid gap-1 rounded-control border border-line p-2">
                       {p.names.map((n) => (
                         <li key={n.key} className="grid gap-2 py-1">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -432,7 +432,7 @@ function TasksView({ e }: { e: Editing }) {
         {data.rules.length === 0 ? (
           <EmptyState>Nothing set yet.</EmptyState>
         ) : (
-          <div className="relative overflow-x-auto rounded-xl border border-line">
+          <div className="relative overflow-x-auto rounded-card border border-line">
             <table className={tableCls.root}>
               <thead>
                 <tr>

@@ -132,7 +132,7 @@ export function BudgetRail({
                   aria-expanded={!railCollapsed}
                   className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-2.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
                 >
-                  <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
+                  <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-pill bg-accent" />
                   <SectionLabel>Budget</SectionLabel>
                 </button>
                 <span className="-my-2 flex shrink-0 items-center gap-3 lg:my-0">
@@ -198,7 +198,7 @@ export function BudgetRail({
                           key={h.code}
                           type="button"
                           onClick={() => openCodeDrill(h.code)}
-                          className="w-[170px] shrink-0 rounded-xl border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
+                          className="w-[170px] shrink-0 rounded-card border border-line bg-white p-2.5 text-left transition hover:border-accent dark:bg-ink-raised"
                         >
                           <div className="text-[11px] tabular-nums text-neutral-500 dark:text-neutral-400">
                             {h.code}

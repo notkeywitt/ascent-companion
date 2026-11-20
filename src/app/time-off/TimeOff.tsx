@@ -279,7 +279,7 @@ function SelfServiceSection() {
             {(["sick", "pto"] as const).map((t) => {
               const b = balances.find((x) => x.leaveType === t);
               return (
-                <div key={t} className="rounded-lg border border-line p-3 ">
+                <div key={t} className="rounded-control border border-line p-3 ">
                   <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{LEAVE_LABEL[t]}</div>
                   <div className="mt-0.5 text-2xl font-bold tabular-nums">{b ? fmtHM(b.balance) : "0h"}</div>
                   <div className="text-[11px] text-neutral-500">available</div>
@@ -345,7 +345,7 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
     );
   }
   return (
-    <div className="mt-3 rounded-lg border border-line p-3 ">
+    <div className="mt-3 rounded-control border border-line p-3 ">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="req-type">Type</Label>
@@ -388,7 +388,7 @@ function RequestForm({ policies, onDone }: { policies: Policy[]; onDone: () => v
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span className={`rounded px-1.5 py-0.5 text-[11px] font-medium uppercase ${STATUS_CLS[status] ?? STATUS_CLS.denied}`}>
+    <span className={`rounded-chip px-1.5 py-0.5 text-[11px] font-medium uppercase ${STATUS_CLS[status] ?? STATUS_CLS.denied}`}>
       {status}
     </span>
   );
@@ -401,7 +401,7 @@ function MyRequests({ requests }: { requests: Request[] }) {
       <SectionLabel className="mb-1">My requests</SectionLabel>
       <ul className="space-y-1.5">
         {requests.map((r) => (
-          <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm ">
+          <li key={r.id} className="flex items-center justify-between gap-3 rounded-control border border-line px-3 py-2 text-sm ">
             <div className="min-w-0">
               <span className="font-medium">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
               <span className="tabular-nums">{fmtHM(r.hours)}</span>{" "}
@@ -548,7 +548,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
       ) : (
         <ul className="mt-3 space-y-2">
           {pending.map((r) => (
-            <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm ">
+            <li key={r.id} className="flex items-center justify-between gap-3 rounded-control border border-line px-3 py-2 text-sm ">
               <div className="min-w-0">
                 <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
                 <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
@@ -570,7 +570,7 @@ function RequestsQueueCard({ onChanged }: { onChanged: () => void }) {
           <div className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Approved</div>
           <ul className="mt-2 space-y-2">
             {approved.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-3 rounded-lg border border-line px-3 py-2 text-sm ">
+              <li key={r.id} className="flex items-center justify-between gap-3 rounded-control border border-line px-3 py-2 text-sm ">
                 <div className="min-w-0">
                   <span className="font-medium">{names[r.employeeId ?? ""] ?? "—"}</span>{" "}
                   <span className="uppercase text-neutral-500">{LEAVE_LABEL[r.leaveType] ?? r.leaveType}</span>{" "}
@@ -852,7 +852,7 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
 
           {plan && (
             <>
-              <div className="rounded-lg border border-line p-3 text-sm">
+              <div className="rounded-control border border-line p-3 text-sm">
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   <span>{plan.counts.rows} rows in file</span>
                   <span>{plan.counts.matched} matched</span>
@@ -873,7 +873,7 @@ function ImportBalancesCard({ roster, onChanged }: { roster: RosterEmp[]; onChan
               </div>
 
               {unmatched.length > 0 && (
-                <div className="rounded-lg border border-line p-3">
+                <div className="rounded-control border border-line p-3">
                   <div className="text-sm font-medium">Who are these people?</div>
                   <p className="mb-2 text-xs text-neutral-500">
                     These lines did not match a roster employee. Pick the right one (or Skip). Your
@@ -1089,7 +1089,7 @@ function AdjustForm({ roster, onDone }: { roster: RosterEmp[]; onDone: () => voi
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-line p-3 ">
+    <div className="mt-3 rounded-control border border-line p-3 ">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="adj-emp">Employee</Label>
@@ -1153,7 +1153,7 @@ function LedgerView({ employeeId }: { employeeId: string }) {
   if (!rows) return <Loading label="Loading ledger…" />;
   if (rows.length === 0) return <p className="px-1 py-2 text-xs text-neutral-500">No ledger entries.</p>;
   return (
-    <div className="overflow-x-auto rounded-lg bg-neutral-50 p-2 dark:bg-white/5">
+    <div className="overflow-x-auto rounded-control bg-neutral-50 p-2 dark:bg-white/5">
       <table className="w-full border-collapse text-xs">
         <thead>
           <tr>
@@ -1241,7 +1241,7 @@ function PolicyRow({ policy, onSaved }: { policy: Policy; onSaved: () => void })
   }
 
   return (
-    <div className="rounded-lg border border-line p-3 ">
+    <div className="rounded-control border border-line p-3 ">
       <div className="flex items-center justify-between">
         <div className="font-medium">{policy.label || policy.leaveType}</div>
         <Toggle checked={active} onChange={setActive} label={active ? "Active" : "Off"} />

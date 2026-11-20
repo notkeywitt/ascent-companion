@@ -325,7 +325,7 @@ export function JobPicker({
           aria-haspopup="listbox"
           aria-expanded={open}
           onClick={toggle}
-          className="flex min-w-0 items-center gap-1.5 rounded text-left transition hover:text-accent"
+          className="flex min-w-0 items-center gap-1.5 rounded-chip text-left transition hover:text-accent"
         >
           {/* No grey-out for the empty state here: with no job picked the label
               is the PAGE'S NAME, which is not placeholder text. */}
@@ -340,7 +340,7 @@ export function JobPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={toggle}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-left text-sm transition hover:border-accent dark:border-neutral-600 dark:bg-ink-raised"
+        className="flex w-full items-center justify-between gap-2 rounded-control border border-neutral-300 bg-white px-3 py-2 text-left text-sm transition hover:border-accent dark:border-neutral-600 dark:bg-ink-raised"
       >
         <span className={"truncate " + (selected ? "font-medium" : "text-neutral-400")}>
           {label}
@@ -369,7 +369,7 @@ export function JobPicker({
           20rem is the floor when the page is scrolled and the trigger sits low. */}
       {open && (
         <div
-          className={`absolute z-30 mt-1 flex w-full flex-col overflow-hidden rounded-lg border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay ${
+          className={`absolute z-30 mt-1 flex w-full flex-col overflow-hidden rounded-control border border-neutral-300 bg-white shadow-lg dark:border-neutral-700 dark:bg-ink-overlay ${
             variant === "title" ? "min-w-[min(24rem,calc(100vw-2rem))]" : "max-h-80"
           }`}
           style={

@@ -286,7 +286,7 @@ export function Breakdown({
       </Link>
       <BillStatusBadge status={status} className="ml-2" />
       {invoiced && (
-        <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+        <span className="ml-2 rounded-chip bg-neutral-200 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
           invoiced
         </span>
       )}
@@ -313,7 +313,7 @@ export function Breakdown({
     ));
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
+    <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
       <table className="w-full text-sm">
         <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500 dark:bg-white/5">
           <tr>

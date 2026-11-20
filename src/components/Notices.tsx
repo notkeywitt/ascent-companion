@@ -206,7 +206,7 @@ function NoticeBanners({
                 title="Dismiss"
                 // Inherits the banner's own tone colour rather than the icon
                 // button's neutral/accent hover, which would fight the tint.
-                className="-my-1.5 -mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-base leading-none opacity-60 transition hover:bg-black/5 hover:opacity-100 active:scale-95 dark:hover:bg-white/10"
+                className="-my-1.5 -mr-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-base leading-none opacity-60 transition hover:bg-black/5 hover:opacity-100 active:scale-95 dark:hover:bg-white/10"
               >
                 ✕
               </button>
@@ -257,7 +257,7 @@ function NoticePopup({
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${badge}`}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-card ${badge}`}
           >
             <ToneMark tone={current.tone} />
           </span>

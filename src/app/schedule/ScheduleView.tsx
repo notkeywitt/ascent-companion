@@ -126,7 +126,7 @@ export function ScheduleView({ jobId, links = null, onPick, highlightTaskId, ini
       {data && jobs.length === 0 && <EmptyState>No open tasks in these weeks.</EmptyState>}
 
       {data && jobs.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
+        <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
           <div style={{ minWidth: `${LABEL_REM + gridW}rem` }}>
             {/* Month and day headings. */}
             <div className="flex border-b border-line-soft">
@@ -211,8 +211,8 @@ export function ScheduleView({ jobId, links = null, onPick, highlightTaskId, ini
                           type="button"
                           onClick={() => onPick({ bar, hue, label: job.label })}
                           className={`absolute top-1 h-5 overflow-hidden border text-left ${bar.task.id === highlightTaskId ? "border-2 border-accent" : "border-black/10"} text-[11px] font-medium leading-5 text-neutral-900 transition hover:brightness-95 ${
-                            bar.clipStart ? "rounded-l-none" : "rounded-l-md"
-                          } ${bar.clipEnd ? "rounded-r-none" : "rounded-r-md"}`}
+                            bar.clipStart ? "rounded-l-none" : "rounded-l-inner"
+                          } ${bar.clipEnd ? "rounded-r-none" : "rounded-r-inner"}`}
                           style={{
                             left: `${(bar.left / 100) * gridW}rem`,
                             width: `${(bar.width / 100) * gridW}rem`,
@@ -231,7 +231,7 @@ export function ScheduleView({ jobId, links = null, onPick, highlightTaskId, ini
                           {(links?.[bar.task.id]?.length ?? 0) > 0 && (
                             <span
                               aria-label={`${links![bar.task.id].length} bills or estimates attached`}
-                              className="absolute right-0.5 top-0.5 h-4 min-w-4 rounded-full bg-white/80 px-1 text-center text-[10px] font-semibold leading-4 tabular-nums text-neutral-900"
+                              className="absolute right-0.5 top-0.5 h-4 min-w-4 rounded-pill bg-white/80 px-1 text-center text-[10px] font-semibold leading-4 tabular-nums text-neutral-900"
                             >
                               {links![bar.task.id].length}
                             </span>

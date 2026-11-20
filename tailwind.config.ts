@@ -130,6 +130,7 @@ export default {
       // component change. The `:root` values reproduce the original look.
       borderRadius: {
         chip: "var(--radius-chip)", // status chips, checkboxes
+        inner: "var(--radius-inner)", // a control inside a control (Segmented option)
         control: "var(--radius-control)", // buttons, fields, banners
         card: "var(--radius-card)", // cards, menus, toasts
         sheet: "var(--radius-sheet)", // dialogs and bottom sheets

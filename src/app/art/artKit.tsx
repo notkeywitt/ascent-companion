@@ -276,7 +276,7 @@ export function ArtCanvas({
       className={
         fill
           ? "absolute inset-0 overflow-hidden text-neutral-900 dark:text-neutral-100"
-          : "relative overflow-hidden rounded-xl border border-line bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
+          : "relative overflow-hidden rounded-card border border-line bg-white text-neutral-900 dark:bg-ink-raised dark:text-neutral-100"
       }
     >
       <canvas
@@ -308,7 +308,7 @@ export function CanvasNote({ children }: { children: React.ReactNode }) {
 export function Tip({ x, y, w, children }: { x: number; y: number; w: number; children: React.ReactNode }) {
   return (
     <div
-      className="pointer-events-none absolute z-10 max-w-[16rem] rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs shadow-md dark:bg-ink"
+      className="pointer-events-none absolute z-10 max-w-[16rem] rounded-control border border-line bg-white px-2.5 py-1.5 text-xs shadow-md dark:bg-ink"
       style={{ left: Math.max(4, Math.min(x + 12, w - 260)), top: Math.max(y - 64, 4) }}
     >
       {children}

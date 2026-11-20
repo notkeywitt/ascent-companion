@@ -215,7 +215,7 @@ export function CostCodeSelect({
           setOpen((o) => !o);
           setQuery("");
         }}
-        className={`flex w-full items-center justify-between gap-2 rounded-lg border border-line bg-transparent px-2.5 py-2 text-left ${textCls} transition hover:border-line-strong hover:bg-neutral-50 dark:hover:bg-white/[0.03]`}
+        className={`flex w-full items-center justify-between gap-2 rounded-control border border-line bg-transparent px-2.5 py-2 text-left ${textCls} transition hover:border-line-strong hover:bg-neutral-50 dark:hover:bg-white/[0.03]`}
       >
         <span className={"truncate " + (selected ? "" : "text-neutral-400")}>
           {selected ? (
@@ -233,7 +233,7 @@ export function CostCodeSelect({
       </button>
 
       {open && (
-        <div className={`${inline ? "relative" : "absolute z-20"} mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-xl shadow-black/10 dark:bg-ink-overlay dark:shadow-black/40`}>
+        <div className={`${inline ? "relative" : "absolute z-20"} mt-1 flex max-h-72 w-full flex-col overflow-hidden rounded-card border border-line bg-white shadow-xl shadow-black/10 dark:bg-ink-overlay dark:shadow-black/40`}>
           <input
             autoFocus
             value={query}

@@ -25,7 +25,7 @@ export function BillStatusBadge({ status, className = "" }: { status?: string; c
   const style = (status && STATUS_STYLES[status]) || "bg-neutral-200 text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300";
   return (
     <span
-      className={`inline-block shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${style} ${className}`}
+      className={`inline-block shrink-0 rounded-chip px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${style} ${className}`}
     >
       {billStatusLabel(status)}
     </span>

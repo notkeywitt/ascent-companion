@@ -165,7 +165,7 @@ function TitleStyleEditor({
   onReset: () => void;
 }) {
   return (
-    <details className="rounded-lg border border-line px-3 py-2">
+    <details className="rounded-control border border-line px-3 py-2">
       <summary className="cursor-pointer text-sm font-semibold">Title style</summary>
       <div className="mt-3 space-y-3">
         <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
@@ -279,7 +279,7 @@ function GalleryEditor({
             src={photoUrl(p.id, 200)}
             alt={p.name}
             loading="lazy"
-            className={`h-16 w-20 shrink-0 rounded object-cover ${p.shared ? "" : "opacity-40"}`}
+            className={`h-16 w-20 shrink-0 rounded-chip object-cover ${p.shared ? "" : "opacity-40"}`}
           />
         ))}
       </div>
@@ -562,7 +562,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
       row;
     row.scrollIntoView({ behavior: "smooth", block: "center" });
     target.focus({ preventScroll: true });
-    const flash = ["ring-2", "ring-accent", "rounded-lg"];
+    const flash = ["ring-2", "ring-accent", "rounded-control"];
     row.classList.add(...flash);
     window.setTimeout(() => row.classList.remove(...flash), 1200);
   }, []);
@@ -1112,7 +1112,7 @@ export function HouseManualPage({ embedJobId }: { embedJobId?: string } = {}) {
                   jumpTo(el.getAttribute("data-at") ?? "");
                 });
               }}
-              className="h-[70vh] w-full rounded-lg border border-line bg-white"
+              className="h-[70vh] w-full rounded-control border border-line bg-white"
             />
             {published && (
               <details>

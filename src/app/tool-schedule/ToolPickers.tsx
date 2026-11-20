@@ -106,7 +106,7 @@ export function TargetPicker({
           setOpen((o) => !o);
           setQ("");
         }}
-        className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border border-line px-2.5 text-left text-[13px] text-neutral-500 hover:border-line-strong sm:w-80"
+        className="flex min-h-9 w-full items-center justify-between gap-2 rounded-control border border-line px-2.5 text-left text-[13px] text-neutral-500 hover:border-line-strong sm:w-80"
       >
         {label}
         <span aria-hidden className="text-[10px]">
@@ -114,7 +114,7 @@ export function TargetPicker({
         </span>
       </button>
       {open && (
-        <div className="flex max-h-80 w-full flex-col overflow-hidden rounded-xl border border-line bg-white shadow-lg dark:bg-ink-overlay sm:w-96">
+        <div className="flex max-h-80 w-full flex-col overflow-hidden rounded-card border border-line bg-white shadow-lg dark:bg-ink-overlay sm:w-96">
           <input
             autoFocus
             value={q}

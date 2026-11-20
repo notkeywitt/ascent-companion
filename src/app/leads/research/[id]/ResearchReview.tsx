@@ -524,7 +524,7 @@ function ProposalRow({
 function FileTile({ f, on, onToggle }: { f: FileView; on: boolean; onToggle: (on: boolean) => void }) {
   const staged = f.status === "staged" && f.complete;
   return (
-    <div className={`overflow-hidden rounded-lg border ${on ? "border-accent" : "border-line"} bg-white dark:bg-ink-raised`}>
+    <div className={`overflow-hidden rounded-control border ${on ? "border-accent" : "border-line"} bg-white dark:bg-ink-raised`}>
       {staged ? (
         <a href={`/api/leads/research/file?id=${f.id}`} target="_blank" rel="noreferrer">
           {/* eslint-disable-next-line @next/next/no-img-element -- a staged file served by our own route */}

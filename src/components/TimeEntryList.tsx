@@ -539,7 +539,7 @@ export function TimeFilterStrip({
                 f.pickDate(CUSTOM_RANGE);
                 f.setFrom(e.target.value);
               }}
-              className="rounded-md border border-line-strong bg-white px-2 py-1 text-xs dark:bg-ink-raised"
+              className="rounded-inner border border-line-strong bg-white px-2 py-1 text-xs dark:bg-ink-raised"
             />
           </div>
           <div>
@@ -552,7 +552,7 @@ export function TimeFilterStrip({
                 f.pickDate(CUSTOM_RANGE);
                 f.setTo(e.target.value);
               }}
-              className="rounded-md border border-line-strong bg-white px-2 py-1 text-xs dark:bg-ink-raised"
+              className="rounded-inner border border-line-strong bg-white px-2 py-1 text-xs dark:bg-ink-raised"
             />
           </div>
           {/* A backwards range matches nothing and looks like a bug in the list
@@ -663,7 +663,7 @@ function TimeCalendar({
               return (
                 <div
                   key={day}
-                  className={`min-h-[5.5rem] rounded-md border p-1 ${
+                  className={`min-h-[5.5rem] rounded-inner border p-1 ${
                     list.length > 0
                       ? "border-line bg-white dark:bg-ink-raised"
                       : "border-line-soft bg-neutral-50/60 dark:bg-white/[0.02]"
@@ -686,7 +686,7 @@ function TimeCalendar({
                     {byEmployee(list).map(([employee, rows]) => (
                       <div
                         key={employee}
-                        className="rounded bg-neutral-100 px-1 py-0.5 text-[11px] leading-tight dark:bg-white/[0.06]"
+                        className="rounded-chip bg-neutral-100 px-1 py-0.5 text-[11px] leading-tight dark:bg-white/[0.06]"
                       >
                         <span className="flex items-baseline justify-between gap-1 font-semibold">
                           <span className="min-w-0 truncate">{employee}</span>
@@ -703,7 +703,7 @@ function TimeCalendar({
                               <span className="shrink-0 tabular-nums">{hrs(t.hours)}</span>
                             </>
                           );
-                          const cls = `flex w-full items-baseline justify-between gap-1 rounded px-0.5 text-left text-neutral-500 transition dark:text-neutral-400 ${
+                          const cls = `flex w-full items-baseline justify-between gap-1 rounded-chip px-0.5 text-left text-neutral-500 transition dark:text-neutral-400 ${
                             isMoved(t) ? "bg-amber-50 dark:bg-amber-950/30" : ""
                           } ${editingId === t.id ? "ring-1 ring-accent" : ""} ${
                             onEdit ? "hover:bg-accent/10" : ""
@@ -1120,7 +1120,7 @@ export function TimeEntryList({
                                 move TO, with the old one struck through. */}
                                 <span className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px]">
                                   <span
-                                    className={`inline-flex items-baseline gap-1.5 rounded-md px-2 py-1 ${
+                                    className={`inline-flex items-baseline gap-1.5 rounded-inner px-2 py-1 ${
                                       over
                                         ? "bg-red-50 text-danger dark:bg-red-950/40"
                                         : "bg-neutral-100 text-neutral-600 dark:bg-white/10 dark:text-neutral-300"

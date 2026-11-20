@@ -227,7 +227,7 @@ function ProgressBar({ actual, budget, pct }: { actual: number; budget: number; 
         )}
       </div>
       <div
-        className="h-2.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800"
+        className="h-2.5 w-full overflow-hidden rounded-pill bg-neutral-200 dark:bg-neutral-800"
         role="progressbar"
         aria-valuenow={budget > 0 ? rounded : undefined}
         aria-valuemin={0}
@@ -235,7 +235,7 @@ function ProgressBar({ actual, budget, pct }: { actual: number; budget: number; 
         aria-label="Budget used"
       >
         <div
-          className={`h-full rounded-full transition-all ${over ? "bg-red-500" : "bg-accent"}`}
+          className={`h-full rounded-pill transition-all ${over ? "bg-red-500" : "bg-accent"}`}
           style={{ width: `${budget > 0 ? fill : 0}%` }}
         />
       </div>
@@ -725,7 +725,7 @@ export function JobsBrowser() {
                                                   <span className="truncate">
                                                     {l.name || "(unnamed line)"}
                                                     {l.isAllowance && (
-                                                      <span className="ml-1.5 rounded bg-neutral-200 px-1 py-px text-[10px] uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
+                                                      <span className="ml-1.5 rounded-chip bg-neutral-200 px-1 py-px text-[10px] uppercase tracking-wide text-neutral-600 dark:bg-neutral-700 dark:text-neutral-300">
                                                         allowance
                                                       </span>
                                                     )}

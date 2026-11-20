@@ -180,7 +180,7 @@ export function AppMenu({
           type="button"
           onClick={() => setOpen(true)}
           aria-expanded={open}
-          className="flex w-full flex-col items-center gap-1 rounded-xl px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px]"
+          className="flex w-full flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px]"
         >
           <AccountIcon />
           <span className="rail-label min-w-0">Account</span>
@@ -191,7 +191,7 @@ export function AppMenu({
           onClick={() => setOpen(true)}
           aria-label="Menu"
           aria-expanded={open}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-neutral-500 transition hover:text-accent active:bg-accent/10"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-control text-neutral-500 transition hover:text-accent active:bg-accent/10"
         >
           <MenuIcon />
         </button>

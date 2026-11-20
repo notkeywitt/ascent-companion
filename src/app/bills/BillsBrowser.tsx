@@ -356,7 +356,7 @@ export function BillsBrowser() {
                 onClick={() => setReverse((r) => !r)}
                 aria-pressed={reverse}
                 title="Reverse the sort order"
-                className="min-h-11 rounded-lg border border-neutral-200 px-3 text-sm font-semibold dark:border-white/10"
+                className="min-h-11 rounded-control border border-neutral-200 px-3 text-sm font-semibold dark:border-white/10"
               >
                 {reverse ? "Reversed ↑" : "Normal ↓"}
               </button>
@@ -530,7 +530,7 @@ export function BillsBrowser() {
         >
           <ul className="space-y-2">
             {targets.map((b) => (
-              <li key={b.id} className="flex items-baseline justify-between gap-3 rounded-lg border border-line px-3 py-2.5 text-sm dark:border-neutral-700">
+              <li key={b.id} className="flex items-baseline justify-between gap-3 rounded-control border border-line px-3 py-2.5 text-sm dark:border-neutral-700">
                 <span className="min-w-0 truncate font-medium">{b.fromName || "Unknown vendor"}</span>
                 <span className="shrink-0 tabular-nums">{typeof b.cost === "number" ? money(b.cost) : ""}</span>
               </li>

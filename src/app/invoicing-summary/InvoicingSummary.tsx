@@ -520,7 +520,7 @@ function SideBySide({ job, run }: { job: JobRow; run: JobRun | undefined }) {
 
 function Figure({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-line-soft px-2 py-1">
+    <div className="rounded-inner border border-line-soft px-2 py-1">
       <p className="text-[11px] text-neutral-500">{label}</p>
       <p className="font-semibold tabular-nums">{money(value)}</p>
     </div>
@@ -741,7 +741,7 @@ function InvoiceCard({ jobId, fallbackHref, inv }: { jobId: string; fallbackHref
       target="_blank"
       rel="noreferrer"
       title={inv.description || (inv.warranty ? "Every line 88 90 00, billed at $0" : undefined)}
-      className="block rounded-md border border-line-soft px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
+      className="block rounded-inner border border-line-soft px-3 py-2 hover:bg-neutral-50 dark:hover:bg-neutral-800/40"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

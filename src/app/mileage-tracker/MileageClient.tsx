@@ -320,7 +320,7 @@ function TripMap({
   if (failed) {
     return (
       <div
-        className={`rounded-lg border border-dashed border-neutral-300 px-4 py-5 text-center text-xs text-neutral-500 dark:border-neutral-700 ${className}`}
+        className={`rounded-control border border-dashed border-neutral-300 px-4 py-5 text-center text-xs text-neutral-500 dark:border-neutral-700 ${className}`}
       >
         Map unavailable.{" "}
         <a href={src} target="_blank" rel="noopener noreferrer" className="font-semibold underline">
@@ -1324,7 +1324,7 @@ export function MileageClient({
             type="button"
             onClick={() => setMapFull(true)}
             aria-label="Open the map full screen"
-            className="absolute right-4 top-2 min-h-9 rounded-full border border-line bg-white/90 px-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:border-accent dark:bg-ink-raised/90 dark:text-neutral-200 pad:right-2"
+            className="absolute right-4 top-2 min-h-9 rounded-pill border border-line bg-white/90 px-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:border-accent dark:bg-ink-raised/90 dark:text-neutral-200 pad:right-2"
           >
             Full screen
           </button>
@@ -1439,7 +1439,7 @@ export function MileageClient({
             type="button"
             onClick={startTrip}
             disabled={busy || !driver}
-            className="sticky bottom-[calc(var(--tabbar-h)+0.75rem)] z-10 w-full rounded-2xl bg-accent px-4 py-4 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="sticky bottom-[calc(var(--tabbar-h)+0.75rem)] z-10 w-full rounded-sheet bg-accent px-4 py-4 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Getting your location…" : "Start trip"}
           </button>
@@ -1453,7 +1453,7 @@ export function MileageClient({
           <button
             type="button"
             onClick={resetManual}
-            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
+            className="w-full rounded-sheet bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
           >
             Add more miles
           </button>
@@ -1580,7 +1580,7 @@ export function MileageClient({
             type="button"
             onClick={saveManual}
             disabled={busy || !driver}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-sheet bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy ? "Saving…" : "Save miles"}
           </button>
@@ -1673,7 +1673,7 @@ export function MileageClient({
             type="button"
             onClick={addWaypoint}
             disabled={busy}
-            className="w-full rounded-2xl border border-accent px-4 py-4 text-base font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
+            className="w-full rounded-sheet border border-accent px-4 py-4 text-base font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
           >
             {addingStop ? "Marking stop…" : waypoints.length ? "Add another stop" : "Add a stop"}
           </button>
@@ -1682,7 +1682,7 @@ export function MileageClient({
             type="button"
             onClick={endTrip}
             disabled={busy}
-            className="w-full rounded-2xl bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="w-full rounded-sheet bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {busy && !addingStop ? "Saving trip…" : "End trip"}
           </button>
@@ -1761,7 +1761,7 @@ export function MileageClient({
           <button
             type="button"
             onClick={logAnother}
-            className="w-full rounded-2xl bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
+            className="w-full rounded-sheet bg-accent px-4 py-5 text-base font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover"
           >
             Log another trip
           </button>
@@ -1836,7 +1836,7 @@ export function MileageClient({
                 type="button"
                 onClick={createPdf}
                 disabled={pdfBusy || !filterMonth}
-                className="w-full rounded-xl border border-accent px-4 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
+                className="w-full rounded-card border border-accent px-4 py-3 text-sm font-semibold text-accent transition hover:bg-accent/10 disabled:cursor-not-allowed disabled:opacity-40 dark:text-accent-soft"
               >
                 {pdfBusy ? "Creating PDF…" : "Create PDF — all drivers, this month"}
               </button>
@@ -1997,7 +1997,7 @@ function TripSummary({ summary }: { summary: Summary }) {
           start={summary.startLatLng}
           end={summary.endLatLng}
           polyline={summary.polyline}
-          className="w-full rounded-xl border border-line"
+          className="w-full rounded-card border border-line"
         />
       )}
 
@@ -2195,7 +2195,7 @@ function TripRow({
   const end = `${t["End Lat"]},${t["End Lng"]}`;
   const hasRoute = isLatLng(start) && isLatLng(end);
   return (
-    <li className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+    <li className="rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="text-sm font-semibold">
@@ -2244,7 +2244,7 @@ function TripRow({
           start={start}
           end={end}
           polyline={t["Polyline"]}
-          className="mt-3 w-full rounded-lg border border-line"
+          className="mt-3 w-full rounded-control border border-line"
         />
       )}
     </li>

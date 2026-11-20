@@ -89,7 +89,7 @@ export function ToolLinks({
           ) : (
             <ul className="flex flex-wrap gap-1.5">
               {riding.map((t) => (
-                <li key={t.id} className="inline-flex items-center gap-1 rounded-full border border-line-strong py-0.5 pl-2.5 text-[12px]">
+                <li key={t.id} className="inline-flex items-center gap-1 rounded-pill border border-line-strong py-0.5 pl-2.5 text-[12px]">
                   {name(t)}
                   <button type="button" aria-label={`Take ${name(t)} out`} disabled={busy} onClick={() => void setTrailer(t.id, "")} className="min-h-7 min-w-7 text-neutral-500">
                     ✕

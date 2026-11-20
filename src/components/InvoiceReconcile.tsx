@@ -128,7 +128,7 @@ export function InvoiceReconcile({
   // No live (non-denied) invoice pulls this month's work yet.
   if (invoices.length === 0) {
     return (
-      <div className="rounded-lg border border-line bg-neutral-50 px-2.5 py-2 text-xs text-neutral-600 dark:bg-white/5 dark:text-neutral-300">
+      <div className="rounded-control border border-line bg-neutral-50 px-2.5 py-2 text-xs text-neutral-600 dark:bg-white/5 dark:text-neutral-300">
         <span className="font-semibold">No invoice in JobTread yet.</span>
         {remaining > 0.01 ? ` ${money(remaining)} invoiceable now.` : ""} Create it in JobTread,
         then reopen to reconcile.
@@ -182,7 +182,7 @@ export function InvoiceReconcile({
               Invoice #{inv.number || "—"} ↗
             </JtLink>
             <span className="flex items-center gap-2">
-              <span className="rounded bg-current/10 px-1 text-[10px] font-semibold uppercase tracking-wide">
+              <span className="rounded-chip bg-current/10 px-1 text-[10px] font-semibold uppercase tracking-wide">
                 {inv.status}
               </span>
               {money(inv.total)}

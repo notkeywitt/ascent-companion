@@ -57,7 +57,7 @@ function StatusBadge({ status }: { status: string }) {
   }
   const cls = statusClass[status] ?? statusClass.Requested;
   return (
-    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
+    <span className={`shrink-0 rounded-pill px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
       {status || "Requested"}
     </span>
   );

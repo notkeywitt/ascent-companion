@@ -319,7 +319,7 @@ function LiveRun({ run, onChanged }: { run: RunView & { events: EventView[] }; o
       {mins(run.lastEventAt) > STALL_MINUTES && (
         <Banner tone="warning">No new step for {Math.round(mins(run.lastEventAt))} minutes. The Mac may be asleep, or Claude is on a long step.</Banner>
       )}
-      <ol className="max-h-72 space-y-0.5 overflow-y-auto rounded-lg bg-neutral-50 p-2 font-mono text-[11px] leading-relaxed dark:bg-white/5">
+      <ol className="max-h-72 space-y-0.5 overflow-y-auto rounded-control bg-neutral-50 p-2 font-mono text-[11px] leading-relaxed dark:bg-white/5">
         {shown.map((e) => (
           <li key={e.id} className={e.kind === "error" ? "text-danger" : e.kind === "note" ? "text-neutral-500" : ""}>
             <span className="text-neutral-400">{clock(e.at)}</span> {e.text}
@@ -365,7 +365,7 @@ function PastRun({ run }: { run: RunView }) {
       {open && (
         <div className="space-y-2 px-3 pb-3">
           {run.result && <p className="whitespace-pre-wrap text-xs text-neutral-700 dark:text-neutral-300">{run.result}</p>}
-          <ol className="max-h-80 space-y-0.5 overflow-y-auto rounded-lg bg-neutral-50 p-2 font-mono text-[11px] leading-relaxed dark:bg-white/5">
+          <ol className="max-h-80 space-y-0.5 overflow-y-auto rounded-control bg-neutral-50 p-2 font-mono text-[11px] leading-relaxed dark:bg-white/5">
             {(events ?? []).map((e) => (
               <li key={e.id} className={e.kind === "error" ? "text-danger" : e.kind === "note" ? "text-neutral-500" : ""}>
                 <span className="text-neutral-400">{clock(e.at)}</span> {e.text}

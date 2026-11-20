@@ -355,7 +355,7 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
             <li
               key={row.messageId}
               className={
-                "rounded-xl border p-4 transition " +
+                "rounded-card border p-4 transition " +
                 (done
                   ? "border-emerald-300 bg-emerald-50/50 dark:border-emerald-900 dark:bg-emerald-950/20"
                   : "border-line bg-white  dark:bg-ink-raised")
@@ -364,7 +364,7 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
               <div className="flex items-baseline justify-between gap-3">
                 <p className="min-w-0 truncate text-sm font-semibold">
                   {row.tagged && (
-                    <span className="mr-1.5 rounded bg-accent/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">
+                    <span className="mr-1.5 rounded-chip bg-accent/10 px-1.5 py-0.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-accent">
                       Tagged
                     </span>
                   )}
@@ -415,7 +415,7 @@ export function EmailInvoices({ embedded = false }: { embedded?: boolean } = {})
                       return (
                         <div
                           key={k}
-                          className="rounded-lg border border-line p-2.5 "
+                          className="rounded-control border border-line p-2.5 "
                         >
                           <p className="mb-1.5 truncate text-xs font-medium text-neutral-600 dark:text-neutral-300">
                             {a.name}

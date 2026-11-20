@@ -143,7 +143,7 @@ export function ResearchCard({ lead }: { lead: { id: string; name: string; addre
           </div>
 
           {asking && (
-            <div className="space-y-2 rounded-lg bg-neutral-50 p-2.5 dark:bg-white/5">
+            <div className="space-y-2 rounded-control bg-neutral-50 p-2.5 dark:bg-white/5">
               <p className="text-neutral-600 dark:text-neutral-400">
                 Claude reads the county&apos;s property, permit and inspection records and other sources for{" "}
                 {lead.address || "this lead's address"}, downloads the photos and documents, and pencils in the

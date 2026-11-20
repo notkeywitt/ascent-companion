@@ -99,7 +99,7 @@ export function SunsetDuplicateScan() {
   const clean = state === "done" && data && data.jobsFlagged === 0;
 
   return (
-    <section className="mb-4 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+    <section className="mb-4 rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="font-semibold">Duplicate bill check</div>
@@ -130,7 +130,7 @@ export function SunsetDuplicateScan() {
       )}
 
       {clean && (
-        <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <div className="mt-3 rounded-control border border-emerald-300 bg-emerald-50 px-2.5 py-2 text-xs font-semibold text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
           ✓ No duplicate Sunset bills found — scanned {data!.scanned} bill{data!.scanned === 1 ? "" : "s"} since {data!.cutoff}.
         </div>
       )}
@@ -147,7 +147,7 @@ export function SunsetDuplicateScan() {
           {data.jobs.map((job) => (
             <div
               key={job.jobId}
-              className="rounded-lg border border-line p-2.5 "
+              className="rounded-control border border-line p-2.5 "
             >
               <div className="text-sm font-semibold">
                 {job.jobName}

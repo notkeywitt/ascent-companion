@@ -189,7 +189,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       aria-label="Month"
       value={ym}
       onChange={(e) => setPickedYm(e.target.value)}
-      className="cursor-pointer rounded-md bg-transparent py-1 text-right text-[13px] font-semibold text-neutral-600 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/25 dark:text-neutral-300"
+      className="cursor-pointer rounded-inner bg-transparent py-1 text-right text-[13px] font-semibold text-neutral-600 hover:text-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/25 dark:text-neutral-300"
     >
       {months.map((m) => (
         <option key={m.value} value={m.value}>
@@ -514,7 +514,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                             onMouseEnter={() => setHoverId(j.id)}
                             onMouseLeave={() => setHoverId(null)}
                             aria-pressed={j.id === selectedId}
-                            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-accent/10 font-semibold shadow-[inset_3px_0_0_rgb(var(--accent))]" : j.id === hoverId ? "bg-line-soft" : ""}`}
+                            className={`flex w-full items-center gap-2 rounded-inner px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-accent/10 font-semibold shadow-[inset_3px_0_0_rgb(var(--accent))]" : j.id === hoverId ? "bg-line-soft" : ""}`}
                           >
                             <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
                             <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
@@ -567,7 +567,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
               ) : details ? (
                 <Card />
               ) : (
-                <Skeleton className="h-40 w-full rounded-xl" />
+                <Skeleton className="h-40 w-full rounded-card" />
               )
             ) : (
               // The list's height, with the tabs on their own row at the foot.
@@ -591,7 +591,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                       />
                     </div>
                   ) : (
-                    <Skeleton className="h-48 w-full rounded-xl" />
+                    <Skeleton className="h-48 w-full rounded-card" />
                   )}
                 </div>
                 {/* The month's actions, for the month picked above: the status

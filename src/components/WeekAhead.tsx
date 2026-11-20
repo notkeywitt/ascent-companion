@@ -273,7 +273,7 @@ export function WeekAhead() {
     <button
       type="button"
       onClick={() => setPick(next.pick)}
-      className="w-full rounded-xl border border-accent bg-accent/10 p-3 text-left transition-colors hover:bg-accent/15"
+      className="w-full rounded-card border border-accent bg-accent/10 p-3 text-left transition-colors hover:bg-accent/15"
     >
       <span className="block text-[10px] font-medium uppercase tracking-widest text-accent">
         Next
@@ -289,7 +289,7 @@ export function WeekAhead() {
       </span>
     </button>
   ) : (
-    <p className="rounded-xl border border-line-soft p-3 text-[12px] text-neutral-500">
+    <p className="rounded-card border border-line-soft p-3 text-[12px] text-neutral-500">
       Nothing timed ahead.
     </p>
   );
@@ -325,7 +325,7 @@ export function WeekAhead() {
         {shown.map((d, i) => (
           <div
             key={d}
-            className="absolute inset-y-0 rounded-md bg-line-soft/40"
+            className="absolute inset-y-0 rounded-inner bg-line-soft/40"
             style={{ left: `${x(i, OPEN)}%`, width: `${seg}%` }}
           >
             <span className="absolute inset-y-0 left-1/2 w-px bg-line-soft" />
@@ -342,7 +342,7 @@ export function WeekAhead() {
                   type="button"
                   title={`${t.e.title} · ${t.e.when}`}
                   onClick={() => setPick({ kind: "event", e: t.e })}
-                  className={`absolute h-9 overflow-hidden rounded-md border border-line bg-neutral-100 px-1.5 dark:bg-ink-overlay text-left text-[11px] font-medium leading-tight hover:border-accent ${
+                  className={`absolute h-9 overflow-hidden rounded-inner border border-line bg-neutral-100 px-1.5 dark:bg-ink-overlay text-left text-[11px] font-medium leading-tight hover:border-accent ${
                     past ? "opacity-40" : ""
                   }`}
                   style={{
@@ -387,7 +387,7 @@ export function WeekAhead() {
                     onClick={() =>
                       setPick({ kind: "item", row: { job: r.job, item: r.item, day: r.first } })
                     }
-                    className="absolute inset-y-0 overflow-hidden rounded-md px-2 text-left text-[12px] font-medium text-[#14130F] hover:brightness-110"
+                    className="absolute inset-y-0 overflow-hidden rounded-inner px-2 text-left text-[12px] font-medium text-[#14130F] hover:brightness-110"
                     style={{
                       left: `${left}%`,
                       width: `${Math.max(2, x(r.last, f) - left)}%`,
@@ -428,7 +428,7 @@ export function WeekAhead() {
         {todayIn && (
         <>
         <div
-          className="pointer-events-none absolute inset-y-0 left-0 rounded-l-md bg-white/50 dark:bg-ink/50"
+          className="pointer-events-none absolute inset-y-0 left-0 rounded-l-inner bg-white/50 dark:bg-ink/50"
           style={{ width: `${nowX}%` }}
         />
         <div

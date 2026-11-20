@@ -100,7 +100,7 @@ export function CodeDrillSheet({
                             {drillBills.map((b) => (
                               <li
                                 key={b.key}
-                                className="flex items-center gap-2 rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
+                                className="flex items-center gap-2 rounded-control border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <span className="min-w-0 flex-1 truncate">
                                   <span className="font-medium">{b.vendor}</span><CoiDot vendor={b.vendor} />
@@ -144,7 +144,7 @@ export function CodeDrillSheet({
                             {drillTime.map((t) => (
                               <li
                                 key={t.id}
-                                className="rounded-lg border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
+                                className="rounded-control border border-line px-2.5 py-2 text-xs dark:border-neutral-800"
                               >
                                 <div className="flex items-center gap-2">
                                   <span className="min-w-0 flex-1 truncate">

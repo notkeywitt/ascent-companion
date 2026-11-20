@@ -170,7 +170,7 @@ export function OfficeTodos({
         <button
           type="button"
           onClick={() => setEditing("new")}
-          className="w-full rounded-xl border border-dashed border-line px-3 py-2.5 text-left text-[13px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
+          className="w-full rounded-card border border-dashed border-line px-3 py-2.5 text-left text-[13px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
         >
           + New to-do
         </button>

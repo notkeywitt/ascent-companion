@@ -604,7 +604,7 @@ export function TimeCodingCard({
                 /labor-rates makes. The entry then has to be saved onto it. */}
             {writes && membershipId ? (
               newRate ? (
-                <div className="mt-2 space-y-2 rounded-lg border border-line-soft p-2">
+                <div className="mt-2 space-y-2 rounded-control border border-line-soft p-2">
                   <Input
                     value={newRate.name}
                     placeholder="Rate name — e.g. Ruhmann-Warren - PM"
@@ -747,7 +747,7 @@ export function TimeCodingCard({
         {entry.notes && (
           <div>
             <Label>Note</Label>
-            <p className="whitespace-pre-line rounded-lg bg-neutral-50 p-2.5 text-sm leading-snug text-neutral-900 dark:bg-ink-raised/60 dark:text-neutral-100">
+            <p className="whitespace-pre-line rounded-control bg-neutral-50 p-2.5 text-sm leading-snug text-neutral-900 dark:bg-ink-raised/60 dark:text-neutral-100">
               {entry.notes}
             </p>
           </div>

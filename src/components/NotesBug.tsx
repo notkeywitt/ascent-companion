@@ -179,7 +179,7 @@ export function NotesBug() {
     <aside
       ref={card}
       aria-label="Notes"
-      className="fixed z-40 w-80 rounded-xl border border-line bg-white shadow-lg dark:bg-ink-raised print:hidden"
+      className="fixed z-40 w-80 rounded-card border border-line bg-white shadow-lg dark:bg-ink-raised print:hidden"
       style={{
         opacity: op,
         ...(pos
@@ -222,7 +222,7 @@ export function NotesBug() {
           type="button"
           onClick={() => set({ open: false })}
           aria-label="Close notes"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 hover:bg-accent/10 hover:text-accent dark:text-neutral-400"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-control text-neutral-500 hover:bg-accent/10 hover:text-accent dark:text-neutral-400"
         >
           ×
         </button>

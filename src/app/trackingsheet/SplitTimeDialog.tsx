@@ -73,7 +73,7 @@ function SideForm({
   }, [side.job, jobId]);
 
   return (
-    <div className="min-w-0 space-y-3 rounded-lg border border-line-soft p-3">
+    <div className="min-w-0 space-y-3 rounded-control border border-line-soft p-3">
       <p className="text-sm font-semibold">{title}</p>
       <div>
         <Label>Job</Label>

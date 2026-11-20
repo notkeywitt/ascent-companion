@@ -374,7 +374,7 @@ function BillImage({ fileId }: { fileId: string }) {
           referrerPolicy="no-referrer"
           loading="lazy"
           onError={() => setFailed(true)}
-          className="w-full rounded-lg border border-line bg-white"
+          className="w-full rounded-control border border-line bg-white"
         />
       )}
       {failed && (
@@ -468,7 +468,7 @@ function BillRow({
               </p>
             )}
             {!linesLoading && lines && lines.length > 0 && (
-              <ul className="divide-y divide-line-soft rounded-lg border border-line">
+              <ul className="divide-y divide-line-soft rounded-control border border-line">
                 {lines.map((l, i) => (
                   <li key={l.id || i} className="flex items-start gap-2 px-2.5 py-2">
                     <span className="min-w-0 flex-1">
@@ -891,7 +891,7 @@ export default function ExpenditureBrowser() {
             {grouped.length === 0 ? (
               <EmptyState>Nothing matches those filters.</EmptyState>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+              <div className="overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
                 {grouped.map((job) => {
                   const jobOpen = openJobs.has(job.key);
                   return (

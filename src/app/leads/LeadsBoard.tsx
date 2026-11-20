@@ -1195,7 +1195,7 @@ function LeadCard({
         </div>
 
         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-          <span className="rounded bg-neutral-100 px-1.5 py-0.5 font-semibold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
+          <span className="rounded-chip bg-neutral-100 px-1.5 py-0.5 font-semibold text-neutral-600 dark:bg-neutral-800 dark:text-neutral-300">
             {stageLabel(lead.tracking.stage)}
           </span>
           <span className="text-neutral-500">
@@ -1405,7 +1405,7 @@ function LeadDetail({
       {/* ---------------------------------------------------------- next steps */}
       <section className="space-y-2">
         <SectionHeading>Next steps</SectionHeading>
-        <div className="rounded-lg bg-neutral-50 px-3 py-2.5 text-xs dark:bg-white/5">
+        <div className="rounded-control bg-neutral-50 px-3 py-2.5 text-xs dark:bg-white/5">
           {lead.tracking.nextAction ? (
             <details className="group">
               <summary className="cursor-pointer list-none">
@@ -1623,7 +1623,7 @@ function LeadDetail({
         {contacts.length > 0 && (
           <ul className="space-y-1">
             {contacts.map((c) => (
-              <li key={c.id} className="rounded-lg bg-neutral-50 px-2.5 py-2 text-xs dark:bg-white/5">
+              <li key={c.id} className="rounded-control bg-neutral-50 px-2.5 py-2 text-xs dark:bg-white/5">
                 <div className="font-semibold">
                   {c.name}
                   {c.title && <span className="ml-1 font-normal text-neutral-500">{c.title}</span>}
@@ -2172,7 +2172,7 @@ function LocalLeadPanel({
                       setPicked(h);
                       setStep("connect");
                     }}
-                    className="w-full rounded-lg bg-neutral-50 px-2.5 py-2 text-left text-xs hover:bg-neutral-100 dark:bg-white/5 dark:hover:bg-white/10"
+                    className="w-full rounded-control bg-neutral-50 px-2.5 py-2 text-left text-xs hover:bg-neutral-100 dark:bg-white/5 dark:hover:bg-white/10"
                   >
                     <div className="font-semibold">{h.name}</div>
                     {h.address && <div className="text-neutral-500">{h.address}</div>}

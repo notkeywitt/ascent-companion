@@ -116,7 +116,7 @@ export function CodeLanesView({
                                     }
                                   }}
                                   title={s.lines.map((l) => l.name).join("\n")}
-                                  className={`rounded-md border px-2 py-1.5 text-[11px] transition lg:py-1 ${
+                                  className={`rounded-inner border px-2 py-1.5 text-[11px] transition lg:py-1 ${
                                     s.invoiced ? "" : "cursor-grab active:cursor-grabbing"
                                   } ${
                                     moved
@@ -128,7 +128,7 @@ export function CodeLanesView({
                                     {s.label}
                                     {/* Several lines of ONE bill in one lane stack into a single chip. */}
                                     {s.lines.length > 1 && (
-                                      <span className="ml-1 rounded bg-neutral-200 px-1 text-[10px] tabular-nums dark:bg-neutral-700">
+                                      <span className="ml-1 rounded-chip bg-neutral-200 px-1 text-[10px] tabular-nums dark:bg-neutral-700">
                                         ×{s.lines.length}
                                       </span>
                                     )}

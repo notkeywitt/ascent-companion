@@ -358,7 +358,7 @@ export function CostDonuts({
           aria-expanded={!collapsed}
           className="-ml-1 -my-2 flex min-h-11 min-w-0 items-center gap-2.5 px-1 text-left lg:pointer-events-none lg:my-0 lg:ml-0 lg:min-h-0 lg:px-0"
         >
-          <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-full bg-accent" />
+          <span aria-hidden className="h-0.5 w-5 shrink-0 rounded-pill bg-accent" />
           <SectionLabel>Cost by cost code</SectionLabel>
         </button>
         {scopeSwitch}

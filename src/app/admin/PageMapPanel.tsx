@@ -306,7 +306,7 @@ export function PageMapPanel() {
                               {ROLES.map((x) => (
                                 <span
                                   key={x}
-                                  className={`mr-0.5 inline-block w-4 rounded text-center font-semibold ${
+                                  className={`mr-0.5 inline-block w-4 rounded-chip text-center font-semibold ${
                                     r.roles.includes(x) ? "bg-ok/15 text-ok" : "text-neutral-400 line-through"
                                   }`}
                                 >
@@ -358,7 +358,7 @@ function Chipish({ color, label, extra, onClick, dashed }: { color: string; labe
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
+      className="inline-flex min-h-8 items-center gap-1.5 rounded-pill border px-2.5 text-xs font-medium hover:bg-black/5 dark:hover:bg-white/10"
       style={{ borderColor: color, borderStyle: dashed ? "dashed" : "solid" }}
     >
       <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: color }} />

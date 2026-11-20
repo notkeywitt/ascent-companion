@@ -174,7 +174,7 @@ export function NotInJobTread({ embedded = false }: { embedded?: boolean } = {})
       {!!draftBillCount && (
         <Link
           href="/trackingsheet"
-          className="mb-4 flex items-center justify-between gap-3 rounded-lg bg-accent/10 px-4 py-2.5 text-sm text-accent transition hover:bg-accent/15 dark:text-accent-soft"
+          className="mb-4 flex items-center justify-between gap-3 rounded-control bg-accent/10 px-4 py-2.5 text-sm text-accent transition hover:bg-accent/15 dark:text-accent-soft"
         >
           <span>
             <b className="font-semibold">{draftBillCount}</b> vendor bill
@@ -204,7 +204,7 @@ export function NotInJobTread({ embedded = false }: { embedded?: boolean } = {})
         {items.map((it) => (
           <li
             key={it.expId}
-            className={`rounded-xl border border-line bg-white p-4 transition-opacity dark:bg-ink-raised ${
+            className={`rounded-card border border-line bg-white p-4 transition-opacity dark:bg-ink-raised ${
               busy[it.expId] ? "opacity-60" : ""
             }`}
           >

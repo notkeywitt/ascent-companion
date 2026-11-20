@@ -532,7 +532,7 @@ export function TimeCard({
       {loadErr && <Banner tone="error">{loadErr}</Banner>}
       {msg && <Banner tone={msg.tone}>{msg.text}</Banner>}
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
+      <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
         {loading ? (
           <div className="p-4">
             <Loading />
@@ -568,7 +568,7 @@ export function TimeCard({
                           aria-label={`Remove the ${r.label} row`}
                           title="Remove this row"
                           onClick={() => removeRow(r.id)}
-                          className="inline-flex h-7 w-7 items-center justify-center rounded text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-chip text-danger hover:bg-red-50 dark:hover:bg-red-950/40"
                         >
                           ×
                         </button>
@@ -717,7 +717,7 @@ export function TimeCard({
               Notes: {picked.label} · {shortDay(sel.day)}
             </Label>
             {pickedList.length > 1 ? (
-              <div className="space-y-2 rounded-lg border border-dashed border-line-strong p-3 text-sm">
+              <div className="space-y-2 rounded-control border border-dashed border-line-strong p-3 text-sm">
                 <p className="text-xs text-neutral-500">{pickedLock}</p>
                 {pickedList.map((e) => (
                   <div key={e.id}>

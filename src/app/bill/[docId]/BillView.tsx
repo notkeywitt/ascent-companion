@@ -1465,7 +1465,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
           <Link
             href={backHref}
             onClick={goBack}
-            className="-ml-2 inline-flex min-h-11 items-center rounded-lg px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft"
+            className="-ml-2 inline-flex min-h-11 items-center rounded-control px-2 text-sm font-semibold text-accent transition hover:bg-accent/10 dark:text-accent-soft"
           >
             ‹ Back
           </Link>
@@ -1502,7 +1502,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
               href={billLink(prevId)}
               onClick={() => driveMainWindowToDoc(jobId, prevId)}
               aria-label="Previous bill"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-xl leading-none text-accent transition hover:bg-accent/10 dark:text-accent-soft"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-control text-xl leading-none text-accent transition hover:bg-accent/10 dark:text-accent-soft"
             >
               ‹
             </Link>
@@ -1519,7 +1519,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
               href={billLink(nextId)}
               onClick={() => driveMainWindowToDoc(jobId, nextId)}
               aria-label="Next bill"
-              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-xl leading-none text-accent transition hover:bg-accent/10 dark:text-accent-soft"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-control text-xl leading-none text-accent transition hover:bg-accent/10 dark:text-accent-soft"
             >
               ›
             </Link>
@@ -1589,7 +1589,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             <div className="pb-1">
               <div className="flex items-center gap-2">
                 <span className="text-[10px] uppercase tracking-wide text-neutral-400">Type</span>
-                <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
+                <div className="inline-flex overflow-hidden rounded-control border border-line-strong">
                   {(["Bill", "Expense"] as const).map((t) => {
                     const on = (isExpense ? "Expense" : "Bill") === t;
                     const qbo = t === "Expense" ? "purchase" : "bill";
@@ -1666,7 +1666,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
         <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] uppercase tracking-wide text-neutral-400">Push to QB</span>
-            <div className="inline-flex overflow-hidden rounded-lg border border-line-strong">
+            <div className="inline-flex overflow-hidden rounded-control border border-line-strong">
               {([["Yes", false], ["No", true]] as const).map(([lbl, ignored]) => {
                 const on = pushToQb === (lbl === "Yes");
                 return (
@@ -1695,22 +1695,22 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
         {/*
         <div className="mt-4">
           {header?.status === "approved" ? (
-            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-ok dark:bg-emerald-950/40">
+            <div className="inline-flex items-center gap-2 rounded-control bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-ok dark:bg-emerald-950/40">
               ✓ Payment recorded
             </div>
           ) : header?.status === "pending" ? (
-            <div className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-ok dark:bg-emerald-950/40">
+            <div className="inline-flex items-center gap-2 rounded-control bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-ok dark:bg-emerald-950/40">
               ✓ Approved for payment
             </div>
           ) : header?.status === "denied" ? (
-            <div className="inline-flex items-center gap-2 rounded-lg bg-red-50 px-3 py-1.5 text-sm font-semibold text-danger dark:bg-red-950/40">
+            <div className="inline-flex items-center gap-2 rounded-control bg-red-50 px-3 py-1.5 text-sm font-semibold text-danger dark:bg-red-950/40">
               ✕ Denied
             </div>
           ) : (
             <button
               onClick={approveBill}
               disabled={approving || !header}
-              className="w-full rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+              className="w-full rounded-card bg-accent px-4 py-3 text-sm font-semibold text-accent-fg hover:bg-accent-hover disabled:opacity-50"
             >
               {approving ? "Saving…" : isExpense ? "Record payment" : "Approve for payment"}
             </button>
@@ -1770,7 +1770,7 @@ export function BillView({ docId, embedded = false }: { docId: string; embedded?
             // and a see-through ground blurring what is behind it. Closed, it
             // is the quiet strip it always was.
             drawerOpen
-              ? "rounded-t-xl border border-b-0 border-line-strong bg-cream/70 shadow-lg backdrop-blur-xl dark:bg-ink/70"
+              ? "rounded-t-card border border-b-0 border-line-strong bg-cream/70 shadow-lg backdrop-blur-xl dark:bg-ink/70"
               : "border-t border-line bg-cream/95 backdrop-blur dark:border-white/10 dark:bg-ink/95"
           }`}
         >

@@ -452,7 +452,7 @@ export function WeekCalendar({
                 {draft?.day === d && (
                   <div
                     aria-hidden
-                    className="pointer-events-none absolute rounded border-2 border-dashed border-accent"
+                    className="pointer-events-none absolute rounded-chip border-2 border-dashed border-accent"
                     style={{
                       top: ((toMin(ctx.startHint(d)) - range.from * 60) / 60) * HOUR_PX,
                       height: HOUR_PX,
@@ -484,7 +484,7 @@ export function WeekCalendar({
                           setSel(on ? null : { who: p.id, id: b.e.id });
                         }}
                         title={`${nameOf(p.id)} · ${label} · ${b.e.startTime}–${b.e.endTime || "now"} · ${fmtClock(b.e.minutes) || "open"}`}
-                        className={`absolute overflow-hidden rounded border-l-[3px] px-1 py-0.5 text-left text-[10px] leading-tight ${
+                        className={`absolute overflow-hidden rounded-chip border-l-[3px] px-1 py-0.5 text-left text-[10px] leading-tight ${
                           hueOf(p.id).block
                         } ${on ? "z-10 ring-2 ring-accent" : "hover:brightness-95"}`}
                         style={{

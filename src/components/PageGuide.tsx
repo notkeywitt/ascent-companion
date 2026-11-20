@@ -267,7 +267,7 @@ export function PageGuide() {
           ref={(n) => {
             rowRefs.current[t.id] = n;
           }}
-          className={`flex items-center gap-2 rounded-lg border px-2.5 py-2 text-sm ${
+          className={`flex items-center gap-2 rounded-control border px-2.5 py-2 text-sm ${
             t.id === selected
               ? "border-accent bg-accent/10 text-accent"
               : "border-line-soft text-neutral-700 dark:text-neutral-300"
@@ -421,7 +421,7 @@ export function PageGuide() {
       </div>
 
       {picking && (
-        <div className="fixed left-1/2 top-[52px] z-50 -translate-x-1/2 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-accent-fg">
+        <div className="fixed left-1/2 top-[52px] z-50 -translate-x-1/2 rounded-control bg-brand px-3 py-1.5 text-xs font-medium text-accent-fg">
           Tap the element on the page. Esc cancels.
         </div>
       )}
@@ -431,13 +431,13 @@ export function PageGuide() {
       {wide ? (
         <>
           <div
-            className="fixed z-50 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+            className="fixed z-50 rounded-card border border-line bg-white p-3 dark:bg-ink-raised"
             style={{ left: PAD, top: TOP, width: LIST_W, bottom: DETAIL_H + PAD * 2 }}
           >
             {list}
           </div>
           <div
-            className="fixed z-50 rounded-xl border border-line bg-white p-3 dark:bg-ink-raised"
+            className="fixed z-50 rounded-card border border-line bg-white p-3 dark:bg-ink-raised"
             style={{ left: PAD, right: PAD, bottom: PAD, height: DETAIL_H }}
           >
             {detail}
@@ -445,7 +445,7 @@ export function PageGuide() {
         </>
       ) : (
         <div
-          className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-3 rounded-t-xl border-t border-line bg-white p-3 dark:bg-ink-raised"
+          className="fixed inset-x-0 bottom-0 z-50 flex flex-col gap-3 rounded-t-card border-t border-line bg-white p-3 dark:bg-ink-raised"
           style={{ top: TOP }}
         >
           <div className="max-h-[45%] shrink-0 overflow-y-auto">{list}</div>

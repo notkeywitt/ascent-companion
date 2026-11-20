@@ -498,7 +498,7 @@ export function CreateTodo({ onCreated }: { onCreated: () => void }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="w-full rounded-xl border border-dashed border-line px-3 py-2.5 text-left text-[13px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
+        className="w-full rounded-card border border-dashed border-line px-3 py-2.5 text-left text-[13px] font-semibold text-neutral-500 transition hover:border-accent hover:text-accent dark:text-neutral-400"
       >
         + New to-do
       </button>
@@ -665,7 +665,7 @@ function CheckBlock({
                       type="button"
                       onClick={() => expandable && toggleItem(key)}
                       aria-expanded={expandable ? isOpen : undefined}
-                      className={`flex min-w-0 flex-1 items-start gap-2 rounded py-1 text-left text-[13px] leading-snug ${
+                      className={`flex min-w-0 flex-1 items-start gap-2 rounded-chip py-1 text-left text-[13px] leading-snug ${
                         expandable ? "hover:text-accent dark:hover:text-accent-soft" : "cursor-default"
                       }`}
                     >
@@ -685,7 +685,7 @@ function CheckBlock({
                         onClick={() => onDismiss(item)}
                         disabled={!!busy[dismissKey]}
                         aria-label={`Dismiss: ${item.title}`}
-                        className="shrink-0 rounded px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:text-danger disabled:opacity-50"
+                        className="shrink-0 rounded-chip px-1.5 py-1 text-[11px] font-semibold text-neutral-400 transition hover:text-danger disabled:opacity-50"
                       >
                         {busy[dismissKey] ? "…" : "Dismiss"}
                       </button>

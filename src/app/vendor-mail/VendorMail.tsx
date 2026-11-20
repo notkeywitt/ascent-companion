@@ -185,8 +185,8 @@ export default function VendorMail({ embedded = false }: { embedded?: boolean } 
               {data.coverage.pct}%
             </span>
           </div>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">
-            <div className="h-full rounded-full bg-brand" style={{ width: `${data.coverage.pct}%` }} />
+          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-pill bg-neutral-200 dark:bg-neutral-700">
+            <div className="h-full rounded-pill bg-brand" style={{ width: `${data.coverage.pct}%` }} />
           </div>
           <p className="mt-2 text-[12px] text-neutral-500 dark:text-neutral-400">
             Read {data.swept.messages} email{data.swept.messages === 1 ? "" : "s"} from{" "}

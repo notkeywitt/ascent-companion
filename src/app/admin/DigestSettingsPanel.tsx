@@ -166,7 +166,7 @@ function CheckRow({
   }
 
   return (
-    <li className="rounded-lg border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
+    <li className="rounded-control border border-line bg-white px-3 py-2 text-sm dark:bg-ink-raised">
       <div className="flex items-center justify-between gap-2">
         <Toggle checked={check.effective.enabled} onChange={onToggle} label={check.title} />
         <div className="flex shrink-0 items-center gap-3">

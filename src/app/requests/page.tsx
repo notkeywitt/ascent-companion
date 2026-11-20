@@ -106,7 +106,7 @@ function Requests() {
             setShowNew(false);
             load();
           }}
-          className="mb-5 rounded-xl border border-line bg-white p-3 lg:sticky lg:top-4 lg:mb-0 dark:bg-ink-raised"
+          className="mb-5 rounded-card border border-line bg-white p-3 lg:sticky lg:top-4 lg:mb-0 dark:bg-ink-raised"
         />
       )}
 
@@ -131,7 +131,7 @@ function Requests() {
 
       {/* One hairline list, one column, not a box per request (CONSOLIDATION_PLAN look rule 1). */}
       {shown.length > 0 && (
-      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line bg-white dark:bg-ink-raised">
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
         {shown.map((r) => (
           <li key={r.id} className="bg-white p-3 dark:bg-ink-raised">
             <div className="flex items-start justify-between gap-3">
@@ -152,7 +152,7 @@ function Requests() {
                 )}
               </div>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass[r.status] ?? ""}`}
+                className={`shrink-0 rounded-pill px-2 py-0.5 text-[11px] font-semibold ${statusClass[r.status] ?? ""}`}
               >
                 {r.status}
               </span>
@@ -164,7 +164,7 @@ function Requests() {
                     key={s}
                     onClick={() => patch(r.id, { status: s })}
                     className={
-                      "rounded-full px-2.5 py-1 text-xs font-semibold transition " +
+                      "rounded-pill px-2.5 py-1 text-xs font-semibold transition " +
                       (r.status === s
                         ? statusClass[s]
                         : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
@@ -178,7 +178,7 @@ function Requests() {
                   onClick={() => patch(r.id, { pushThrough: !r.pushThrough })}
                   aria-pressed={r.pushThrough}
                   className={
-                    "ml-auto rounded-full px-2.5 py-1 text-xs font-semibold transition " +
+                    "ml-auto rounded-pill px-2.5 py-1 text-xs font-semibold transition " +
                     (r.pushThrough
                       ? "text-accent-fg bg-accent"
                       : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10")
@@ -188,7 +188,7 @@ function Requests() {
                 </button>
                 <button
                   onClick={() => remove(r)}
-                  className="rounded-full px-2.5 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-red-50 hover:text-danger dark:hover:bg-red-950/40"
+                  className="rounded-pill px-2.5 py-1 text-xs font-semibold text-neutral-500 transition hover:bg-red-50 hover:text-danger dark:hover:bg-red-950/40"
                 >
                   Delete
                 </button>

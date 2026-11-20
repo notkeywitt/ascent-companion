@@ -154,7 +154,7 @@ export default function PageTextEditor() {
       {groups.map((g) => (
         <section key={g.group} className="mb-8 break-inside-avoid-column">
           <SectionHeading>{g.group}</SectionHeading>
-          <div className="rounded-lg border border-line">
+          <div className="rounded-control border border-line">
             {g.entries.map((e, i) => {
               const mode = modes[e.key] ?? "default";
               const value = mode === "default" ? e.text : (draft[e.key] ?? "");

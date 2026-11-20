@@ -93,7 +93,7 @@ export function Sheet({
           >
             {!wide && (
               <div className="flex shrink-0 touch-none justify-center pb-1 pt-2.5" aria-hidden>
-                <div className="h-1 w-10 rounded-full bg-neutral-300 dark:bg-neutral-600" />
+                <div className="h-1 w-10 rounded-pill bg-neutral-300 dark:bg-neutral-600" />
               </div>
             )}
             {title && (

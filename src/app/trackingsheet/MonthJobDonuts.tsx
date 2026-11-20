@@ -48,7 +48,7 @@ export function MonthJobDonuts({
   }, []);
 
   if (error) return <Banner tone="error" className="mb-6">Job rings: {error}</Banner>;
-  if (jobs === null || open === null) return <Skeleton className="mb-6 h-40 w-full rounded-xl" />;
+  if (jobs === null || open === null) return <Skeleton className="mb-6 h-40 w-full rounded-card" />;
 
   const seen = new Set(jobs.map((j) => j.jobId));
   const idle: MonthJobCost[] = open
@@ -230,7 +230,7 @@ function JobCard({
     <Card className="flex h-full w-80 shrink-0 flex-col gap-2 pad:w-auto">
       <Link
         href={hubHref(j.jobId, ym)}
-        className="flex flex-1 flex-col gap-3 rounded-lg transition hover:opacity-80"
+        className="flex flex-1 flex-col gap-3 rounded-control transition hover:opacity-80"
       >
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">

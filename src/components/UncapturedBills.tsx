@@ -332,7 +332,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
               return (
                 <li
                   key={it.expId}
-                  className="rounded-lg border border-line bg-white dark:bg-ink-raised"
+                  className="rounded-control border border-line bg-white dark:bg-ink-raised"
                 >
                   <button
                     type="button"
@@ -474,7 +474,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
                               onClick={() =>
                                 setDraft(it.expId, { lines: d.lines.filter((_, j) => j !== i) })
                               }
-                              className="shrink-0 rounded px-2 py-1.5 text-xs text-neutral-400 transition hover:bg-red-50 hover:text-danger dark:hover:bg-red-950/40"
+                              className="shrink-0 rounded-chip px-2 py-1.5 text-xs text-neutral-400 transition hover:bg-red-50 hover:text-danger dark:hover:bg-red-950/40"
                             >
                               ✕
                             </button>
@@ -546,7 +546,7 @@ export function UncapturedBills({ jobId }: { jobId?: string } = {}) {
                           type="button"
                           onClick={() => remove(it)}
                           disabled={busy[it.expId]}
-                          className="ml-auto rounded-lg px-2.5 py-2 text-sm font-semibold text-danger transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/40"
+                          className="ml-auto rounded-control px-2.5 py-2 text-sm font-semibold text-danger transition hover:bg-red-50 disabled:opacity-50 dark:hover:bg-red-950/40"
                         >
                           Delete
                         </button>

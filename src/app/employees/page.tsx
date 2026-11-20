@@ -356,7 +356,7 @@ export default function EmployeesPage() {
           className={
             live || !jtUsers.length
               ? "text-[12px] text-neutral-600 dark:text-neutral-400"
-              : "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-warn bg-amber-100 dark:bg-amber-950/50"
+              : "inline-flex items-center gap-1 rounded-pill px-2 py-0.5 text-[11px] font-semibold text-warn bg-amber-100 dark:bg-amber-950/50"
           }
         >
           ✓ {name}
@@ -370,7 +370,7 @@ export default function EmployeesPage() {
           onClick={() => quickLink(e, sug)}
           disabled={linkingId === e.id}
           title={`Link to JobTread user "${sug.name}"`}
-          className="inline-flex items-center gap-1 rounded-full border border-amber-400 px-2 py-0.5 text-[11px] font-semibold text-warn hover:bg-amber-50 disabled:opacity-40 dark:hover:bg-amber-950/40"
+          className="inline-flex items-center gap-1 rounded-pill border border-amber-400 px-2 py-0.5 text-[11px] font-semibold text-warn hover:bg-amber-50 disabled:opacity-40 dark:hover:bg-amber-950/40"
         >
           {linkingId === e.id ? "Linking…" : `Link: ${sug.name}`}
         </button>
@@ -441,7 +441,7 @@ export default function EmployeesPage() {
             </span>
             <span>{linkedCount} linked to JobTread</span>
           </div>
-          <div className="overflow-x-auto rounded-xl border border-line bg-white dark:bg-ink-raised">
+          <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
             <table className={`${tableCls.root} min-w-[52rem]`}>
               <thead>
                 <tr>
@@ -474,7 +474,7 @@ export default function EmployeesPage() {
                           className={
                             /^active$/i.test(e.status)
                               ? "text-[12px] text-neutral-600 dark:text-neutral-400"
-                              : `rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusClass(e.status)}`
+                              : `rounded-pill px-2 py-0.5 text-[11px] font-semibold ${statusClass(e.status)}`
                           }
                         >
                           {e.status}
@@ -552,7 +552,7 @@ export default function EmployeesPage() {
         >
 
             {/* JobTread link */}
-            <div className="mb-4 rounded-lg border border-line p-3 ">
+            <div className="mb-4 rounded-control border border-line p-3 ">
               <Label>JobTread user</Label>
               {jtErr ? (
                 <p className="text-sm text-neutral-500">Unavailable — JobTread users didn&apos;t load.</p>
@@ -595,7 +595,7 @@ export default function EmployeesPage() {
               const linked = jtById.get(form.jtUserId);
               if (!form.jtUserId || jtErr || !linked?.membershipId) {
                 return (
-                  <p className="mb-4 rounded-lg border border-line p-3 text-sm text-neutral-500">
+                  <p className="mb-4 rounded-control border border-line p-3 text-sm text-neutral-500">
                     {jtErr
                       ? "Pay types and jobs are unavailable — JobTread users didn't load."
                       : "Link a JobTread user above to set their pay types and jobs."}
@@ -768,18 +768,18 @@ export default function EmployeesPage() {
                       Recipients — {recipientCount} selected
                     </Label>
                     <div className="flex gap-1 text-[11px] font-semibold">
-                      <button onClick={selectAllActive} className="rounded px-1.5 py-0.5 text-accent hover:bg-accent/10">
+                      <button onClick={selectAllActive} className="rounded-chip px-1.5 py-0.5 text-accent hover:bg-accent/10">
                         All active
                       </button>
-                      <button onClick={selectAllEmailable} className="rounded px-1.5 py-0.5 text-accent hover:bg-accent/10">
+                      <button onClick={selectAllEmailable} className="rounded-chip px-1.5 py-0.5 text-accent hover:bg-accent/10">
                         All
                       </button>
-                      <button onClick={selectNone} className="rounded px-1.5 py-0.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10">
+                      <button onClick={selectNone} className="rounded-chip px-1.5 py-0.5 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-white/10">
                         None
                       </button>
                     </div>
                   </div>
-                  <div className="max-h-44 overflow-y-auto rounded-lg border border-line">
+                  <div className="max-h-44 overflow-y-auto rounded-control border border-line">
                     {employees.map((e) => {
                       const emailable = hasEmail(e);
                       return (
@@ -798,7 +798,7 @@ export default function EmployeesPage() {
                           <span className="font-medium">
                             {e.firstName} {e.lastName}
                           </span>
-                          <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(e.status)}`}>
+                          <span className={`rounded-pill px-1.5 py-0.5 text-[10px] font-semibold ${statusClass(e.status)}`}>
                             {e.status || "—"}
                           </span>
                           <span className="ml-auto truncate text-xs text-neutral-500">

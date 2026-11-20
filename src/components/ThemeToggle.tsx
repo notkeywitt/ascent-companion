@@ -14,7 +14,7 @@ import { useEffect, useState } from "react";
  */
 export function ThemeToggle({
   children,
-  className = "shrink-0 rounded-md px-2 py-1 text-sm text-neutral-500 transition hover:text-accent dark:hover:text-accent-soft",
+  className = "shrink-0 rounded-inner px-2 py-1 text-sm text-neutral-500 transition hover:text-accent dark:hover:text-accent-soft",
 }: {
   children?: React.ReactNode;
   className?: string;

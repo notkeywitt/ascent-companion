@@ -85,7 +85,7 @@ function CrewHome({ month }: { month: MastheadMonth }) {
           session carries no identity/role (e.g. signed in with the temporary
           shared password rather than Google). Offer a way back to Google. */}
       {access.views.size === 0 && (
-        <div className="rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
+        <div className="rounded-card border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700">
           <p className="text-sm font-semibold">No views are available for your account yet.</p>
           <p className="mx-auto mt-2 max-w-sm text-xs text-neutral-500">
             If you signed in with the temporary password, sign in with Google to load your access.
