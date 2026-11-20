@@ -1,5 +1,11 @@
 [
  {
+  "sha": "bcb9c08b",
+  "date": "2026-11-20T17:03:23Z",
+  "title": "leave expenses out of the unpaid bills widget",
+  "plain": "The Unpaid bills card on Home lists Bills only; Expenses no longer show."
+ },
+ {
   "sha": "8ed17f6b",
   "date": "2026-11-20T16:58:25Z",
   "title": "leave sunset out of the unpaid bills widget",
