@@ -38,6 +38,7 @@ import type { ReviewScheduleSettings } from "./schedule";
 
 import type { BackupConfig } from "./checks/backup";
 import type { CostBasisConfig } from "./checks/costBasis";
+import type { DepositLineConfig, DepositOverdrawnConfig } from "./checks/deposits";
 import type { DraftBillsConfig } from "./checks/draftBills";
 import type { DuplicateBillConfig } from "./checks/duplicateBill";
 import type { DuplicateDraftConfig } from "./checks/duplicateDraft";
@@ -94,6 +95,9 @@ export interface InvoiceReviewSettings {
     "tracking-sheet": SettingsBlock<TrackingSheetConfig>;
     "invoice-lines": SettingsBlock<InvoiceLinesConfig>;
     "line-code-mismatch": SettingsBlock<LineCodeMismatchConfig>;
+    "deposit-overdrawn": SettingsBlock<DepositOverdrawnConfig>;
+    "deposit-line-taxable": SettingsBlock<DepositLineConfig>;
+    "deposit-line-uncoded": SettingsBlock<DepositLineConfig>;
   };
 }
 
@@ -244,6 +248,11 @@ export const DEFAULT_SETTINGS: InvoiceReviewSettings = {
       },
     },
     "line-code-mismatch": { enabled: true, config: {} },
+    // ── Deposits (DEPOSITS_PLAN.md, Stage 5) — no thresholds: each is wrong at
+    // any amount above a cent.
+    "deposit-overdrawn": { enabled: true, config: {} },
+    "deposit-line-taxable": { enabled: true, config: {} },
+    "deposit-line-uncoded": { enabled: true, config: {} },
     // ── Labor rates ───────────────────────────────────────────────────────
     // JobTread snapshots the hourly rate onto a time entry and never re-costs
     // it, so a rate changed today leaves every entry already logged behind.

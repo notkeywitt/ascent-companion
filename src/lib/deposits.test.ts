@@ -8,7 +8,9 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDepositLedger,
+  depositByMonth,
   parseDollars,
+  summarizeDeposit,
   planDepositDraw,
   suggestDraw,
   type DepositInputs,
@@ -101,6 +103,44 @@ describe("buildDepositLedger", () => {
 
   it("a job with nothing deposit-shaped has no deposit, so the card collapses", () => {
     expect(buildDepositLedger({ entered: null, lines: [] }).hasDeposit).toBe(false);
+  });
+});
+
+describe("depositByMonth — applied per billing month, and the balance left", () => {
+  it("Berger: opens at deposit − previously applied, one draw per month, drafts not counted", () => {
+    const input = berger();
+    input.lines.push({ id: "l386", price: -20000, isTaxable: false, invoice: inv({ id: "iSep", number: 386, issueDate: "2026-09-30" }) });
+    input.lines.push({ id: "lD", price: -15000, isTaxable: false, invoice: inv({ id: "iD", number: 400, status: "draft", issueDate: "2026-10-31" }) });
+    const ledger = buildDepositLedger(input);
+    expect(depositByMonth(ledger)).toEqual([
+      { ym: "2026-08", added: 0, drawn: 20000, onDraft: 0, left: 36842 },
+      { ym: "2026-09", added: 0, drawn: 20000, onDraft: 0, left: 16842 },
+      { ym: "2026-10", added: 0, drawn: 0, onDraft: 15000, left: 16842 },
+    ]);
+    expect(depositByMonth(ledger).at(-1)?.left).toBe(ledger.left);
+  });
+
+  it("Studio: a JobTread deposit opens at 0 and grows when its invoice is paid", () => {
+    expect(depositByMonth(buildDepositLedger(studio()))).toEqual([
+      { ym: "2026-10", added: 270975, drawn: 0, onDraft: 0, left: 270975 },
+    ]);
+  });
+
+  it("Ferron: no deposit recorded, so no balance — the draw still shows", () => {
+    expect(depositByMonth(buildDepositLedger(ferron()))).toEqual([
+      { ym: "2026-08", added: 0, drawn: 20000, onDraft: 0, left: null },
+    ]);
+  });
+});
+
+describe("summarizeDeposit — the all-jobs line", () => {
+  it("applied to date is previously applied plus JobTread draws", () => {
+    expect(summarizeDeposit("j", "Bunkhouse", buildDepositLedger(berger()))).toMatchObject({
+      deposit: 128842,
+      applied: 92000,
+      left: 36842,
+      lastDrawYm: "2026-08",
+    });
   });
 });
 

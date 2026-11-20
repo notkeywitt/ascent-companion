@@ -158,3 +158,64 @@ export async function getJobDepositInputs(cfg: PaveConfig, jobId: string): Promi
     invoicedTotal: Number(job.documents?.sum) || 0,
   };
 }
+
+/** One job's CD lines, from the org-wide read. */
+export interface JobDepositLines {
+  jobId: string;
+  jobName: string;
+  lines: DepositInputs["lines"];
+}
+
+/**
+ * Every job's CD lines on customer invoices, org-wide, plus the names of the
+ * `extraJobIds` (jobs with a deposit entered by hand and no CD line yet). The
+ * all-jobs deposit list. Two reads, both paged.
+ */
+export async function getAllJobDepositLines(cfg: PaveConfig, extraJobIds: string[] = []): Promise<JobDepositLines[]> {
+  const items = await pageAll<any>(cfg, {
+    label: "organization.costItems (CD, all jobs)",
+    query: (args) => ({
+      organization: {
+        $: { id: cfg.orgId },
+        costItems: {
+          $: {
+            ...args,
+            where: { and: [pEq(["costCode", "number"], DEPOSIT_CSI), pEq(["document", "type"], "customerInvoice")] },
+          },
+          nextPage: {},
+          nodes: { id: {}, price: {}, isTaxable: {}, document: { ...DEPOSIT_INVOICE_FIELDS, job: { id: {}, name: {} } } },
+        },
+      },
+    }),
+    pick: (a) => a?.organization?.costItems,
+  });
+  const byJob = new Map<string, JobDepositLines>();
+  for (const c of items) {
+    const job = c?.document?.job;
+    if (!job?.id) continue;
+    const id = String(job.id);
+    const row = byJob.get(id) ?? { jobId: id, jobName: String(job.name ?? ""), lines: [] };
+    row.lines.push({
+      id: String(c.id),
+      price: Number(c.price) || 0,
+      isTaxable: Boolean(c.isTaxable),
+      invoice: toDepositInvoice(c.document, id),
+    });
+    byJob.set(id, row);
+  }
+  const missing = extraJobIds.filter((id) => !byJob.has(id));
+  if (missing.length) {
+    const jobs = await pageAll<any>(cfg, {
+      label: "organization.jobs (deposit names)",
+      query: (args) => ({
+        organization: {
+          $: { id: cfg.orgId },
+          jobs: { $: { ...args, where: ["id", "in", missing] }, nextPage: {}, nodes: { id: {}, name: {} } },
+        },
+      }),
+      pick: (a) => a?.organization?.jobs,
+    });
+    for (const j of jobs) byJob.set(String(j.id), { jobId: String(j.id), jobName: String(j.name ?? ""), lines: [] });
+  }
+  return [...byJob.values()];
+}

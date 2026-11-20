@@ -1,6 +1,6 @@
 # DEPOSITS_PLAN.md — job deposits and client payments
 
-Status: in progress — 2026-11-08
+Status: in progress — 2026-11-20
 
 The staged plan for showing each job's deposit and client payments in the
 Assistant, and for applying part of a deposit to a client invoice.
@@ -27,7 +27,10 @@ Read `CODEBASE_MAP.md` first.
 | 2 — the board card | **Built 2026-10-05.** `src/app/trackingsheet/DepositCard.tsx`, beside the invoice panel. Shows client payments on every job that has them |
 | 3 — the tracking sheet's Deposit row | Not started (appscript; `WebApp.js` needs the owner's ok) |
 | 4 — apply a deposit (the JobTread write) | **Shipped 2026-10-05** on the owner's go: `planDepositDraw`/`suggestDraw` (+11 tests), `getInvoiceForDraw`, `resolveDepositLeaf`, `writeDepositDraw`, `POST /api/deposits/apply`, and the card's "Draw from the deposit" control (draft invoices only, a confirm first, hidden when the app's writes are off). The live probe could NOT run from the cloud session: it holds no app key, and the JobTread connector's grant lacks `createCustomerInvoice` and `updateJob`. So the FIRST real draw is the probe: it must drop the invoice price by exactly the draw and leave the tax alone, or it is undone and reported. `scripts/probe-deposit-line.mjs --live` still runs on any machine with `.env.local` |
-| 5 — review checks | Not started |
+| 2b — per month and all jobs | **Built 2026-11-20.** The card's "By billing month" table (`depositByMonth`: applied each month and the balance left after it) and its "All jobs' deposits" list (`summarizeDeposit`, `GET /api/deposits/all`, `getAllJobDepositLines`, `AllDeposits.tsx`): deposit, applied to date, on a draft, left |
+| 5 — review checks | **Built 2026-11-20.** `invoiceReview/checks/deposits.ts`: `deposit-overdrawn` (draws, drafts included, past the deposit; or draws with no deposit recorded), `deposit-line-taxable`, `deposit-line-uncoded` (a line named "Deposit" not coded CD). The review reads the job's ledger only when a month invoice carries a CD line (`JobEvidence.deposit`). Not built: `deposit-double-draw` and `deposit-payment-unlinked` — the 2026-10-11 model no longer reads payment applications; the CD-line-with-no-budget-leaf half of `deposit-line-uncoded` — the review does not read budget leaves |
+
+Every stage except 3 is done.
 
 Built as planned, with two refinements: Left reads "—" (null) when money was
 drawn with nothing recorded to draw from (Ferron until its opening balance is
