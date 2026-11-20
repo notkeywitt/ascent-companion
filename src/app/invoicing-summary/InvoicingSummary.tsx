@@ -42,6 +42,7 @@ import {
 } from "./summary";
 import { checkedAtLabel, clearedCount, openFindings, tally } from "@/app/trackingsheet/preSendMemory";
 import { FixSheet } from "./FixSheet";
+import { CloseMonth, type ClosedMark } from "@/app/trackingsheet/CloseMonth";
 import type { Finding } from "@/lib/invoiceReview/types";
 import { useJobChecks, type JobRun } from "@/app/trackingsheet/usePreSendCheck";
 
@@ -254,6 +255,19 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
   // device, so the marks are there when the page opens.
   const checkIds = useMemo(() => included.map((j) => j.jtJobId), [included]);
   const jc = useJobChecks(ym, checkIds);
+  // Jobs whose month is closed (CloseMonth): jtJobId → when and by whom.
+  const [closedJobs, setClosedJobs] = useState<Record<string, ClosedMark>>({});
+  useEffect(() => {
+    if (!ym) return;
+    let live = true;
+    fetch(`/api/invoicing-summary/close?ym=${ym}`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((b) => live && setClosedJobs(b?.closed ?? {}))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [ym]);
   const count = (f: Filter) => included.filter(FILTERS.find((x) => x.key === f)!.test).length;
 
   return (
@@ -367,6 +381,9 @@ export function InvoicingSummary({ embedYm, focusJobId }: { embedYm?: string; fo
                     onUnclear={() => jc.unclear(j.jtJobId)}
                     focus={focusJobId === j.jtJobId}
                     ym={embedYm ? "" : ym}
+                    monthYm={data.periodKey}
+                    closed={closedJobs[j.jtJobId] ?? null}
+                    onClosed={(next) => setClosedJobs((m) => ({ ...m, [j.jtJobId]: next }))}
                     saving={savingField.startsWith(j.jtJobId)}
                     onPatch={(patch) => patchJob(j.jtJobId, patch)}
                     onSave={(field, patch) =>
@@ -797,6 +814,9 @@ function JobItem({
   onUnclear,
   focus,
   ym,
+  monthYm,
+  closed,
+  onClosed,
   saving,
   onPatch,
   onSave,
@@ -809,6 +829,10 @@ function JobItem({
   focus: boolean;
   /** Set on the standalone page only: it adds a link into the Jobs Hub. */
   ym: string;
+  /** The billing month on screen, always set. */
+  monthYm: string;
+  closed: ClosedMark;
+  onClosed: (next: ClosedMark) => void;
   saving: boolean;
   onPatch: (patch: Partial<JobRow>) => void;
   onSave: (field: string, patch: Record<string, unknown>) => void;
@@ -895,6 +919,14 @@ function JobItem({
           <span className="text-xs text-neutral-500">No billing folder</span>
         )}
         <LinkButton href={job.links.appLabor}>Labor Review</LinkButton>
+        <CloseMonth
+          jobId={job.jtJobId}
+          ym={monthYm}
+          month={monthLabel(monthYm)}
+          jobTitle={job.jobLabel}
+          closed={closed}
+          onChange={onClosed}
+        />
         {job.include ? null : <Chip tone="neutral">Left out</Chip>}
         {saving ? <span className="text-xs text-neutral-500">saving…</span> : null}
       </div>

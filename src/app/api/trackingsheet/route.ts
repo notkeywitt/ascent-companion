@@ -12,6 +12,7 @@ import {
   getJobTimeEntriesForMonth,
 } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { getMonthAction } from "@/lib/monthActions";
 
 /**
  * Read-only: everything the Invoicing coding board needs for ONE job in ONE
@@ -139,6 +140,8 @@ export async function GET(req: NextRequest) {
       budget,
       costDetail,
       writesEnabled: writesEnabled(),
+      // Closed on Invoice Status: the board shows the month read-only.
+      closed: (await getMonthAction("job-closed", jobId, `${y}-${String(m).padStart(2, "0")}`).catch(() => undefined)) ?? null,
     });
   } catch (e) {
     return NextResponse.json(

@@ -27,7 +27,7 @@ import type { Option } from "@/components/CostCodeSelect";
 import { JobPicker, WORKING_PHASES, jobAddress } from "@/components/JobPicker";
 import { useBillMove } from "@/components/BillMove";
 import { JtLink } from "@/components/JtLink";
-import { CloseMonth } from "./CloseMonth";
+import { InvoiceDraftButton } from "./InvoiceDraftButton";
 import { sheetWriteBlocked } from "@/lib/monthClose";
 import { SplitGrid } from "@/components/SplitGrid";
 import { CostDonuts, type CostDonutRow } from "./CostDonuts";
@@ -247,6 +247,8 @@ export interface BoardPayload {
   budget: BudgetItem[];
   costDetail: { divisions: CostDivisionRow[]; budgetBasis: string };
   writesEnabled: boolean;
+  /** The month is closed for this job on Invoice Status: read-only here. */
+  closed?: { at: string; by: string } | null;
   error?: string;
 }
 
@@ -424,6 +426,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
    *  the month's actual work, not the noise either of its neighbours is. */
   const [billBlockOpen, setBillBlockOpen] = useState(true);
   const [data, setData] = useState<BoardPayload | null>(null);
+  /** Closed on Invoice Status: every edit on the board is off for the month. */
+  const closed = data?.closed ?? null;
+  const canWrite = Boolean(data?.writesEnabled) && !closed;
   const [loading, setLoading] = useState(true);
   /** A reload over a board that's already on screen. Unlike `loading` it does
       NOT unmount the page — every write here (approve, sync, delete, combine)
@@ -1048,7 +1053,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
   const allApproved = (data?.bills?.length ?? 0) > 0 && draftBills.length === 0;
   /** Does the bottom action row carry an Approve button? It needs the role AND a
    *  loaded month — the check button beside it needs neither. */
-  const showApprove = canApprove && !!data && !loading;
+  const showApprove = canApprove && !!data && !loading && !closed;
   /** The reconcile banner reads green: an invoice already holds the whole
    *  month, so "Create Invoice in JobTread" would only raise a duplicate. */
   const reconReady = !!recon && reconStatus(recon).good;
@@ -1284,7 +1289,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     math: openMath,
     jobId,
     c,
-    writes: Boolean(data?.writesEnabled),
+    writes: canWrite,
     codeOptions,
     leafOf,
     codeOf,
@@ -1874,8 +1879,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           every="every 30 min"
           // A sheet write runs only in the sheets' month (src/lib/monthClose.ts);
           // any other month says why and offers no retry.
-          quiet={sheetWriteBlocked(ym, pinnedYm) || undefined}
-          retry={sheetWriteBlocked(ym, pinnedYm) ? "" : "Sync now"}
+          quiet={(closed ? "Month closed: the sheet stays as filed." : sheetWriteBlocked(ym, pinnedYm)) || undefined}
+          retry={closed || sheetWriteBlocked(ym, pinnedYm) ? "" : "Sync now"}
           busy={trackingBusy}
           busyLabel="Syncing sheet…"
           detail={
@@ -1889,7 +1894,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             runTrackingSync(trackingTarget.projectId, m, y, setTrackingSync);
           }}
         />
-        {/* Finalize is a step of Close month (./CloseMonth) now. */}
+        {/* Finalize is a step of Close month on Invoice Status (./CloseMonth). */}
         </>
       );
     }
@@ -1991,31 +1996,29 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
       {embed?.actions}
       {showApprove &&
         (allApproved ? (
-          /* Every bill is approved, so the month closes in ONE step — sheet
-             push, finalize, client access, draft invoice (./CloseMonth). Staged
-             coding still blocks it: an invoice built now would carry the OLD
-             cost codes, so save first. Hidden once the reconcile banner above
-             is already green — an invoice exists and holds the whole month, so
-             this would only raise a duplicate one; the banner's own "Open
-             invoice" link is the way in from here. */
+          /* Every bill is approved: the next step is the month's draft
+             invoice. Staged coding still blocks it: an invoice built now would
+             carry the OLD cost codes, so save first. Hidden once the reconcile
+             banner above is already green — an invoice exists and holds the
+             whole month, so this would only raise a duplicate one. The month
+             CLOSES on Invoice Status, after the invoice is sent
+             (./CloseMonth). */
           reconReady ? null : dirty ? (
             <Button
               disabled
               title="Save staged coding changes to JobTread first"
               className="min-h-11"
             >
-              Close month
+              Create draft invoice
             </Button>
           ) : (
-            <CloseMonth
+            <InvoiceDraftButton
               jobId={jobId}
               ym={ym}
               month={monthLabel(ym)}
               jobTitle={jobTitle}
-              target={canTrack && trackingChecked ? trackingTarget : null}
-              pinnedYm={pinnedYm}
-              writes={Boolean(data?.writesEnabled)}
-              onClosed={() => void load({ preserveStaged: true })}
+              writes={canWrite}
+              onCreated={() => void load({ preserveStaged: true })}
             />
           )
         ) : (
@@ -2378,7 +2381,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                     isStaged={(t) => timeStaged.has(t.id)}
                     onUndo={undoTimeStage}
                     onApproved={markTimeApproved}
-                    writes={Boolean(data?.writesEnabled)}
+                    writes={canWrite}
                   />
                 </div>
               )}
@@ -2475,7 +2478,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             entry={openTime}
             jobId={jobId}
             codeOptions={timeCodeOptions}
-            writes={Boolean(data?.writesEnabled)}
+            writes={canWrite}
             staged={timeEdits[openTime.id]}
             stagedLeafId={timeStaged.get(openTime.id)}
             onStage={(patch) => stageTimeEdit(openTime.id, patch)}
@@ -2512,7 +2515,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             isStaged={(t) => timeStaged.has(t.id)}
             onUndo={undoTimeStage}
             onApproved={markTimeApproved}
-            writes={Boolean(data?.writesEnabled)}
+            writes={canWrite}
           />
         </>
       ) : (
@@ -2651,8 +2654,8 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           <Button
             size="sm"
             onClick={save}
-            disabled={!dirty || syncing}
-            title="Write staged coding to JobTread"
+            disabled={!dirty || syncing || !!closed}
+            title={closed ? "This month is closed" : "Write staged coding to JobTread"}
             className="min-h-11"
           >
             {syncing ? "Saving…" : "Save Changes"}
@@ -2673,7 +2676,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             entry={openTime}
             jobId={jobId}
             codeOptions={timeCodeOptions}
-            writes={Boolean(data?.writesEnabled)}
+            writes={canWrite}
             staged={timeEdits[openTime.id]}
             stagedLeafId={timeStaged.get(openTime.id)}
             onStage={(patch) => stageTimeEdit(openTime.id, patch)}
@@ -2695,7 +2698,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
             jobId={jobId}
             jobLabel={jobTitle}
             codeOptions={timeCodeOptions}
-            writes={Boolean(data?.writesEnabled)}
+            writes={canWrite}
             onSaved={() => {
               setAddTimeOpen(false);
               // The write already landed in JobTread — a re-read, not a sync,
@@ -2959,6 +2962,18 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
         </p>
       )}
 
+      {closed && (
+        <Banner tone="info" className="mb-4">
+          {monthLabel(ym)} is closed for this job
+          {closed.at ? ` (${new Date(closed.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}${closed.by ? `, ${closed.by}` : ""})` : ""}.
+          Edits are off. Unlock it on{" "}
+          <Link className="underline" href={`/invoicing-summary?ym=${ym}`}>
+            Invoice Status
+          </Link>
+          .
+        </Banner>
+      )}
+
       {/* Unsynced work came back. Said out loud rather than restored silently:
           the figures on this page now include coding JobTread doesn't have yet,
           and that has to be visible the moment you land. Revert is one tap
@@ -3154,7 +3169,7 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
           the last thing in the column. */}
       {jobId && !loading && (
         <div className="order-last">
-          <DepositCard jobId={jobId} recon={recon} writes={Boolean(data?.writesEnabled)} />
+          <DepositCard jobId={jobId} recon={recon} writes={canWrite} />
         </div>
       )}
 

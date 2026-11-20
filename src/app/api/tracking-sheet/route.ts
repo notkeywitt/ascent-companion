@@ -7,8 +7,8 @@ import { writeDepositSheet, type DepositSheetResult } from "@/lib/depositRead";
 import { report, type FindingInput } from "@/lib/findings";
 import { money } from "@/lib/money";
 import { getMonthAction, recordMonthAction } from "@/lib/monthActions";
-import { sheetWriteBlocked } from "@/lib/monthClose";
-import { advanceSheets, planOneSheet, SHEET_JOBS_TAG, type SheetJob } from "@/lib/monthCloseServer";
+import { sheetWriteBlocked, shortMonth } from "@/lib/monthClose";
+import { advanceSheets, jobMonthClosed, planOneSheet, SHEET_JOBS_TAG, type SheetJob } from "@/lib/monthCloseServer";
 
 // Proxy to the Apps Script web app's per-project tracking-sheet actions
 // (TrackingSheets.js). Apps Script holds the Sheets grants — the Assistant is UI
@@ -154,6 +154,14 @@ export async function POST(req: NextRequest) {
     const filed = (await getMonthAction("finalize", projectId, ym).catch(() => undefined)) !== undefined;
     const why = sheetWriteBlocked(ym, sheetsYm, filed);
     if (why) return NextResponse.json({ error: why }, { status: 409 });
+    // A month closed on Invoice Status is locked: its sheet stays as filed.
+    const wired = ((list.jobs as SheetJob[]) ?? []).find((j) => j.id === projectId);
+    if (wired?.jtJobId && (await jobMonthClosed(wired.jtJobId, ym))) {
+      return NextResponse.json(
+        { error: `${shortMonth(ym)} is closed for this job. Unlock it on Invoice Status first.` },
+        { status: 409 },
+      );
+    }
     if (op === "sync") {
       const job = ((list.jobs as SheetJob[]) ?? []).find((j) => j.id === projectId);
       if (job?.jtJobId) depositSheet = writeDepositSheet({ jtJobId: job.jtJobId, projectId, ym });
