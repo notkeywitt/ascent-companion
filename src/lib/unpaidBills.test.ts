@@ -37,6 +37,14 @@ describe("buildUnpaidBills", () => {
     expect(r.owed).toBe(160);
   });
 
+  it("leaves out Sunset Builders Supply", () => {
+    const r = buildUnpaidBills([
+      bill({ id: "sun", vendor: "Sunset Builders Supply" }),
+      bill({ id: "lumber" }),
+    ]);
+    expect(r.bills.map((b) => b.id)).toEqual(["lumber"]);
+  });
+
   it("sorts newest to oldest", () => {
     const r = buildUnpaidBills([
       bill({ id: "a", issueDate: "2026-11-02" }),
