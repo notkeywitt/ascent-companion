@@ -15,6 +15,11 @@ import { callAppsScriptResponse } from "@/lib/appsScript";
 // still depends on the Vercel plan — 60s Hobby / up to 300s Pro).
 export const maxDuration = 120;
 
+// Recently seen submitIds → time. Per-instance memory only: another serverless
+// instance does not see it. The real dedupe belongs in Apps Script (submitId).
+const SEEN_TTL_MS = 10 * 60_000;
+const seen = new Map<string, number>();
+
 export async function POST(req: NextRequest) {
   let body: Record<string, unknown> = {};
   try {
@@ -23,7 +28,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
   }
 
+  const submitId = typeof body.submitId === "string" ? body.submitId.slice(0, 80) : "";
+  if (submitId) {
+    const now = Date.now();
+    for (const [k, t] of seen) if (now - t > SEEN_TTL_MS) seen.delete(k);
+    if (seen.has(submitId)) {
+      return NextResponse.json(
+        { ok: false, error: "This meeting was already sent. Check the Safety Meetings folder." },
+        { status: 409 },
+      );
+    }
+    seen.set(submitId, now);
+  }
+
   // Writes the sign-in rows, the Drive roster PDF and the meeting record; stay
   // just under this route's maxDuration (120s). A write, so never retried.
-  return callAppsScriptResponse({ ...body, action: "saveSafetyMeeting" }, { timeoutMs: 110_000 });
+  const res = await callAppsScriptResponse(
+    { ...body, action: "saveSafetyMeeting" },
+    { timeoutMs: 110_000 },
+  );
+  // A clean failure may be resent; an unknown outcome (timeout throw) stays blocked.
+  if (submitId && !res.ok) seen.delete(submitId);
+  return res;
 }
