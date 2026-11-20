@@ -658,7 +658,7 @@ function InvoicingWidget() {
 /* ---------------------------------------------------------- unpaid bills */
 
 /**
- * Every unpaid or part-paid vendor bill from November 2026 on, newest first
+ * Every unpaid or part-paid Bill from November 2026 on, newest first
  * (rules in `src/lib/unpaidBills.ts`). A tap opens the bill in a pop-up.
  */
 function UnpaidBillsWidget() {
@@ -728,10 +728,9 @@ function UnpaidBillsWidget() {
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5">
                       <span className="tabular-nums">{money(b.owed)}</span>
-                      {(b.paid === "partial" || b.isExpense || b.status === "draft") && (
+                      {(b.paid === "partial" || b.status === "draft") && (
                         <span className="flex gap-1">
                           {b.status === "draft" && <Chip>Draft</Chip>}
-                          {b.isExpense && <Chip>Expense</Chip>}
                           {b.paid === "partial" && <Chip tone="warning">Part paid</Chip>}
                         </span>
                       )}

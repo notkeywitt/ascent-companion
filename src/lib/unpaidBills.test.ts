@@ -19,7 +19,7 @@ const bill = (o: Partial<UnpaidBillInput>): UnpaidBillInput => ({
 describe("buildUnpaidBills", () => {
   it("leaves out bills dated before November", () => {
     const r = buildUnpaidBills([
-      bill({ id: "oct", issueDate: "2026-10-31", isExpense: true }),
+      bill({ id: "oct", issueDate: "2026-10-31" }),
       bill({ id: "nov", issueDate: "2026-11-01" }),
     ]);
     expect(r.bills.map((b) => b.id)).toEqual(["nov"]);
@@ -43,6 +43,11 @@ describe("buildUnpaidBills", () => {
       bill({ id: "lumber" }),
     ]);
     expect(r.bills.map((b) => b.id)).toEqual(["lumber"]);
+  });
+
+  it("leaves out Expenses", () => {
+    const r = buildUnpaidBills([bill({ id: "exp", isExpense: true }), bill({ id: "bill" })]);
+    expect(r.bills.map((b) => b.id)).toEqual(["bill"]);
   });
 
   it("sorts newest to oldest", () => {

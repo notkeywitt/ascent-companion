@@ -8,7 +8,7 @@ import type { UnpaidBillInput } from "@/lib/unpaidBills";
 /**
  * READ — every vendor bill (Bills and Expenses) issued on or after `from`
  * (YYYY-MM-DD), draft, pending or approved. Voided bills (`denied`) are left
- * out. Paid or not is decided by `buildUnpaidBills`: Pave cannot filter on
+ * out. `buildUnpaidBills` drops the Expenses. Paid or not is decided by `buildUnpaidBills`: Pave cannot filter on
  * amountPaid. Same query shape and fallback as `getAllBillsForMonth`.
  */
 export async function getUnpaidBillsSince(cfg: PaveConfig, from: string): Promise<UnpaidBillInput[]> {
