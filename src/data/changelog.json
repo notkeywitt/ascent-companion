@@ -1,5 +1,11 @@
 [
  {
+  "sha": "db5d3b66",
+  "date": "2026-11-20T19:59:32Z",
+  "title": "bill action bar is solid and shorter when closed",
+  "plain": "The closed Actions bar on a bill is now solid, so the bill no longer shows through it, and it is shorter."
+ },
+ {
   "sha": "2ce98344",
   "date": "2026-11-20T11:29:48-08:00",
   "title": "bills list status filter, see approved and pending bills",
