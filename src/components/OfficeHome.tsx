@@ -36,21 +36,25 @@ import {
 } from "@/lib/homeTodos";
 import { orgDay } from "@/lib/orgTime";
 import { fmtDate } from "@/lib/leadBoard";
-import { money0 } from "@/lib/money";
+import { money, money0 } from "@/lib/money";
+import type { UnpaidBills } from "@/lib/unpaidBills";
 
 /**
  * Home for ADMIN and OFFICE (OVERHAUL_PLAN Phase 4, 2026-11-13). Field and lead
  * keep their own Home (HomeClient.tsx).
  *
  *   Both:    one "Needs attention" count, the This week widget, one to-do list.
- *   Phone:   four big action buttons (HomeActions), under the count.
- *   Desktop: widgets — This week, To-dos, Monthly invoicing, Newest leads —
+ *   Phone:   four big action buttons (HomeActions), under the count, then
+ *            This week, To-dos and Unpaid bills.
+ *   Desktop: widgets — This week, To-dos, Clocked in, Monthly invoicing,
+ *            Newest leads, Unpaid bills —
  *            that each person shows, hides, orders and sizes (saved per user
  *            in `home_layouts`, read on the server and passed in). This week
  *            is always full width (owner, 2026-11-14: it replaced Today).
  *
  * Requests on load: /api/attention, /api/home/week (+ /week/events), /api/home/todos, and on a
- * desktop /api/invoicing-summary and /api/leads when those widgets show. A
+ * desktop /api/invoicing-summary and /api/leads when those widgets show, and
+ * /api/accounts-payable/unpaid when Unpaid bills shows. A
  * phone never fetches the desktop widgets: the screen width is read before any
  * widget mounts.
  */
@@ -71,6 +75,9 @@ const FeatureRequestForm = dynamic(
   () => import("@/components/FeatureRequestForm").then((m) => m.FeatureRequestForm),
   { ssr: false },
 );
+const BillView = dynamic(() => import("@/app/bill/[docId]/BillView").then((m) => m.BillView), {
+  ssr: false,
+});
 const CreateTodo = dynamic(() => import("@/components/DigestFindings").then((m) => m.CreateTodo), {
   ssr: false,
 });
@@ -135,6 +142,7 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
         <>
           {allowed("week") && <WeekWidget />}
           {allowed("todos") && <TodosWidget />}
+          {allowed("bills") && <UnpaidBillsWidget />}
         </>
       )}
 
@@ -152,6 +160,8 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
                   <CrewWidget />
                 ) : id === "invoicing" ? (
                   <InvoicingWidget />
+                ) : id === "bills" ? (
+                  <UnpaidBillsWidget />
                 ) : (
                   <HubLeadsCard className="h-full max-h-[420px]" />
                 )}
@@ -645,6 +655,121 @@ function InvoicingWidget() {
   );
 }
 
+/* ---------------------------------------------------------- unpaid bills */
+
+/**
+ * Every unpaid or part-paid vendor bill from November 2026 on, newest first
+ * (rules in `src/lib/unpaidBills.ts`). A tap opens the bill in a pop-up.
+ */
+function UnpaidBillsWidget() {
+  const [data, setData] = useState<UnpaidBills | null>(null);
+  const [error, setError] = useState("");
+  const [openId, setOpenId] = useState("");
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    fetch("/api/accounts-payable/unpaid", { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "Could not read the bills.");
+        setData(j);
+        setError("");
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not read the bills."));
+  }, [reload]);
+
+  return (
+    <WidgetCard
+      title="Unpaid bills"
+      trailing={
+        <Link
+          href="/accounts-payable"
+          className="text-[11px] font-semibold text-accent hover:underline"
+        >
+          Accounts Payable
+        </Link>
+      }
+    >
+      {error ? (
+        <p className="text-[12px] text-neutral-500">{error}</p>
+      ) : !data ? (
+        <Skeleton className="h-32 w-full rounded-control" />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+            <span className="text-[26px] font-bold tabular-nums tracking-tight">
+              {money0(data.owed)}
+            </span>
+            <MetaLine
+              items={[
+                `${data.bills.length} ${data.bills.length === 1 ? "bill" : "bills"} owed`,
+                `from ${fmtDate(data.from)}`,
+              ]}
+            />
+          </div>
+          {data.bills.length === 0 ? (
+            <p className="text-[12px] text-neutral-500">Every bill is paid.</p>
+          ) : (
+            <ul className="mt-2 max-h-[360px] divide-y divide-line-soft overflow-y-auto">
+              {data.bills.map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(b.id)}
+                    className="flex min-h-11 w-full items-center gap-3 rounded-inner px-1 py-1.5 text-left text-[13px] hover:bg-line-soft"
+                  >
+                    <span className="w-14 shrink-0 tabular-nums text-neutral-500">
+                      {shortDate(b.issueDate)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">{b.vendor}</span>
+                      <span className="block truncate text-[12px] text-neutral-500">
+                        {[b.jobName, b.customerName].filter(Boolean).join(" · ") || "No job"}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-0.5">
+                      <span className="tabular-nums">{money(b.owed)}</span>
+                      {(b.paid === "partial" || b.isExpense || b.status === "draft") && (
+                        <span className="flex gap-1">
+                          {b.status === "draft" && <Chip>Draft</Chip>}
+                          {b.isExpense && <Chip>Expense</Chip>}
+                          {b.paid === "partial" && <Chip tone="warning">Part paid</Chip>}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      {openId && (
+        <Dialog
+          size="xl"
+          pad={false}
+          label="Bill"
+          onClose={() => {
+            setOpenId("");
+            setReload((n) => n + 1);
+          }}
+        >
+          <BillView key={openId} docId={openId} embedded />
+        </Dialog>
+      )}
+    </WidgetCard>
+  );
+}
+
+/** "Nov 18" — the year is plain from the list's start date. */
+const shortDate = (d: string) =>
+  d
+    ? new Date(`${d.slice(0, 10)}T00:00:00Z`).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      })
+    : "—";
+
 /* --------------------------------------------------------------- settings */
 
 function WidgetSettings({
@@ -688,7 +813,7 @@ function WidgetSettings({
   return (
     <Sheet open={open} onClose={onClose} title="Arrange Home">
       <p className="mb-3 text-[12px] text-neutral-500">
-        Saved for your account. A phone always shows This week and To-dos. This week is always full
+        Saved for your account. A phone always shows This week, To-dos and Unpaid bills. This week is always full
         width.
       </p>
       <ul className="divide-y divide-line-soft">

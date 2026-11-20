@@ -386,6 +386,11 @@
  "links": [
   {
    "from": "/",
+   "to": "/accounts-payable",
+   "kind": "link"
+  },
+  {
+   "from": "/",
    "to": "/add-bill",
    "kind": "link"
   },
@@ -944,11 +949,6 @@
   },
   {
    "from": "/jobs-hub",
-   "to": "/trackingsheet",
-   "kind": "link"
-  },
-  {
-   "from": "/jobs-hub",
    "to": "/unbilled",
    "kind": "link"
   },
@@ -1313,6 +1313,11 @@
   },
   {
    "from": "/widget",
+   "to": "/accounts-payable",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
    "to": "/bill/[docId]",
    "kind": "link"
   },
@@ -1374,6 +1379,10 @@
   {
    "from": "/",
    "to": "/art/flock"
+  },
+  {
+   "from": "/",
+   "to": "/bill/[docId]"
   },
   {
    "from": "/",
@@ -1574,6 +1583,10 @@
   {
    "from": "/trackingsheet",
    "to": "/schedule"
+  },
+  {
+   "from": "/widget",
+   "to": "/bill/[docId]"
   },
   {
    "from": "/widget",
