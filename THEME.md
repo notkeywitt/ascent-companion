@@ -164,6 +164,49 @@ effect would run one frame late and flash the wrong ground.
 sibling) in `globals.css`, add the id to `PALETTES` in `src/lib/palette.ts`,
 match it in the layout.tsx script, and record it here. No component changes.
 
+## Skins — palette plus type, corners and paper
+
+A **skin** is a palette plus everything that is not colour. The user picks
+one under **Skin** in Appearance. In code a skin is still a palette: the
+attribute stays `data-palette` and the storage key stays `palette`, so no
+device loses its stored choice.
+
+The non-colour tokens live in the "Skin tokens" block of `globals.css`. The
+`:root` values reproduce the look from before skins existed.
+
+| Token | Default | Read by |
+|---|---|---|
+| `--font-body` | `var(--font-roboto)` | Tailwind `font-sans` (all text) |
+| `--font-display` | `var(--font-body)` | `.ui-display` (`PageTitle`, `HeaderTitle`), Tailwind `font-display` |
+| `--display-weight` | `700` | `.ui-display` |
+| `--display-tracking` | `-0.025em` | `.ui-display` |
+| `--display-case` | `none` | `.ui-display` (`uppercase` for caps titles) |
+| `--caption-tracking` | `0.025em` (Website: `0.1em`) | `SectionLabel`, `Label`, `Chip`, `tableCls` heads |
+| `--radius-chip` | `0.25rem` | `rounded-chip`: `Chip`, `Checkbox` |
+| `--radius-control` | `0.5rem` | `rounded-control`: `Button`, fields, `Banner`, `Segmented` |
+| `--radius-card` | `0.75rem` | `rounded-card`: `Card`, `EmptyState`, `Menu`, `Popover`, `Toast`, `StickyActionBar` |
+| `--radius-sheet` | `1rem` | `rounded-sheet`: `Dialog`, `Sheet` |
+| `--radius-pill` | `9999px` | `rounded-pill`: `FilterChip`, `Toggle`, `Meter`, `CountBadge` |
+| `--page-texture` | `none` | `body` background image, over `--page` |
+
+Rules when you write UI:
+
+- A primitive in `ui.tsx` uses `rounded-chip|control|card|sheet|pill`, never
+  `rounded-lg` or `rounded-xl`. Pages still carry hard-coded `rounded-*`; the
+  radius sweep (stage 2) moves them onto the tokens.
+- A title uses `ui-display`, never `font-bold tracking-tight`.
+- A caption uses `tracking-[var(--caption-tracking)]`, never `tracking-wide`.
+
+**To add a skin:** do the palette steps below, then set only the skin tokens
+that change in the same `[data-palette="<id>"]` block. A new font is an
+SIL-licensed `.woff2` in `src/app/fonts`, loaded in `layout.tsx` with
+`localFont({ …, preload: false })` and its `variable` added to `<html>`. The
+skin block points `--font-body` or `--font-display` at that variable. A
+texture is a faint CSS gradient or a small tiled file in `/public`.
+
+The `/theme` editor tunes colour tokens only. Skin tokens are edited in
+`globals.css`.
+
 ## Editing a palette — `/theme`
 
 **Tune it with the editor, then paste the result into `globals.css`.** The

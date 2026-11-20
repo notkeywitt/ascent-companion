@@ -39,7 +39,7 @@ function List() {
     <Toast.Root
       key={t.id}
       toast={t}
-      className="pointer-events-auto flex items-center gap-3 rounded-xl border border-line bg-neutral-900 px-4 py-3 text-sm text-white shadow-lg transition-[opacity,transform] duration-200 [transform:translateY(var(--toast-swipe-movement-y,0px))] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 dark:bg-neutral-100 dark:text-neutral-900"
+      className="pointer-events-auto flex items-center gap-3 rounded-card border border-line bg-neutral-900 px-4 py-3 text-sm text-white shadow-lg transition-[opacity,transform] duration-200 [transform:translateY(var(--toast-swipe-movement-y,0px))] data-[ending-style]:opacity-0 data-[starting-style]:opacity-0 dark:bg-neutral-100 dark:text-neutral-900"
     >
       <span aria-hidden className={t.type === "error" ? "text-red-300 dark:text-danger" : ""}>
         {t.type === "error" ? "⚠" : "✓"}

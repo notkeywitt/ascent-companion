@@ -22,7 +22,7 @@ type Side = "top" | "bottom" | "left" | "right";
 type Align = "start" | "center" | "end";
 
 const PANEL =
-  "z-50 max-h-[var(--available-height)] min-w-[12rem] overflow-y-auto overscroll-contain rounded-xl border border-line bg-white text-sm text-neutral-900 shadow-lg outline-none origin-[var(--transform-origin)] transition-[opacity,transform] duration-100 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 dark:bg-ink-overlay dark:text-neutral-100 print:hidden";
+  "z-50 max-h-[var(--available-height)] min-w-[12rem] overflow-y-auto overscroll-contain rounded-card border border-line bg-white text-sm text-neutral-900 shadow-lg outline-none origin-[var(--transform-origin)] transition-[opacity,transform] duration-100 data-[ending-style]:scale-95 data-[ending-style]:opacity-0 data-[starting-style]:scale-95 data-[starting-style]:opacity-0 dark:bg-ink-overlay dark:text-neutral-100 print:hidden";
 
 // 44px tall on a touch screen, denser under a mouse. The highlight fill marks
 // the focused item, so the global :focus-visible ring is turned off here.

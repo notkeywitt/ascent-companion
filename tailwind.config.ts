@@ -125,10 +125,23 @@ export default {
           strong: "rgb(var(--line-strong) / <alpha-value>)",
         },
       },
+      // SKIN tokens (THEME.md, "Skins"). Each reads a variable in globals.css,
+      // so a skin block can swap the typeface or the corner shape without a
+      // component change. The `:root` values reproduce the original look.
+      borderRadius: {
+        chip: "var(--radius-chip)", // status chips, checkboxes
+        control: "var(--radius-control)", // buttons, fields, banners
+        card: "var(--radius-card)", // cards, menus, toasts
+        sheet: "var(--radius-sheet)", // dialogs and bottom sheets
+        pill: "var(--radius-pill)", // filter pills, toggles, meters
+      },
       fontFamily: {
         // Brand web typeface (p.22). LL Medium is the print primary; Roboto is
         // the sanctioned web/Google-docs alternative and what the app renders in.
-        sans: ["var(--font-roboto)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Reached through `--font-body` so a skin can swap it.
+        sans: ["var(--font-body)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Page titles. Same as body unless a skin sets `--font-display`.
+        display: ["var(--font-display)", "ui-sans-serif", "system-ui", "sans-serif"],
         // `font-mono` otherwise falls through to the browser default (Courier),
         // which is a different typeface from everything around it. Roboto Mono
         // keeps column alignment where it's genuinely needed (log output, CSV

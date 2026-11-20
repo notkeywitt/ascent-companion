@@ -41,7 +41,7 @@ export type BtnSize = "xs" | "sm" | "md" | "lg";
 // a palette reaches for to restyle every button at once (globals.css gives the
 // Website palette its wider tracking through it). Keep it on the base string.
 const BTN_BASE =
-  "ui-btn inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
+  "ui-btn inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-control font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100";
 
 const BTN_VARIANT: Record<BtnVariant, string> = {
   // Disabled primary: an outline, not a faded fill. A 40%-opacity solid button
@@ -109,7 +109,7 @@ export function IconButton({
       {...props}
       aria-label={label}
       title={title ?? label}
-      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
+      className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-control transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ${
         tone === "danger"
           ? "text-neutral-500 hover:bg-red-50 hover:text-danger dark:text-neutral-400 dark:hover:bg-red-950/40"
           : "text-neutral-500 hover:bg-accent/10 hover:text-accent dark:text-neutral-400 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
@@ -150,12 +150,12 @@ export function Toggle({
       className={`inline-flex cursor-pointer items-center gap-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-40 ${className}`}
     >
       <span
-        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition ${
+        className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-pill transition ${
           checked ? "bg-accent" : "bg-neutral-300 dark:bg-neutral-600"
         }`}
       >
         <span
-          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition ${
+          className={`inline-block h-5 w-5 transform rounded-pill bg-white shadow-sm transition ${
             checked ? "translate-x-[1.375rem]" : "translate-x-0.5"
           }`}
         />
@@ -169,7 +169,7 @@ export function Toggle({
 
 /** Shared text-input / select / textarea classes. */
 export const inputCls =
-  "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm transition placeholder:text-neutral-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600 dark:bg-ink-raised";
+  "w-full rounded-control border border-neutral-300 bg-white px-3 py-2 text-sm transition placeholder:text-neutral-400 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600 dark:bg-ink-raised";
 
 export function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${inputCls} ${className}`} />;
@@ -205,7 +205,7 @@ export function Select({
  * full-width case; a sized caller states its own.
  */
 export const quietInputCls =
-  "rounded-lg border border-transparent bg-neutral-100 px-2.5 py-2 text-sm transition placeholder:text-neutral-400 focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:focus:bg-ink";
+  "rounded-control border border-transparent bg-neutral-100 px-2.5 py-2 text-sm transition placeholder:text-neutral-400 focus:border-accent focus:bg-white focus:outline-none focus:ring-2 focus:ring-accent/25 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white/10 dark:focus:bg-ink";
 
 export function QuietInput({
   className = "",
@@ -234,7 +234,7 @@ export function Label({
   return (
     <label
       htmlFor={htmlFor}
-      className={`ui-caption mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
+      className={`ui-caption mb-1 block text-[11px] font-semibold uppercase tracking-[var(--caption-tracking)] text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </label>
@@ -251,7 +251,7 @@ export function SectionLabel({
 }) {
   return (
     <div
-      className={`ui-caption text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400 ${className}`}
+      className={`ui-caption text-[11px] font-semibold uppercase tracking-[var(--caption-tracking)] text-neutral-500 dark:text-neutral-400 ${className}`}
     >
       {children}
     </div>
@@ -269,7 +269,7 @@ export function Card({
   return (
     <div
       {...props}
-      className={`rounded-xl border border-line bg-white dark:bg-ink-raised ${
+      className={`rounded-card border border-line bg-white dark:bg-ink-raised ${
         pad ? "p-3 " : ""
       }${className}`}
     />
@@ -591,7 +591,7 @@ export function Chip({
   return (
     <span
       title={title}
-      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${CHIP_TONE[tone]} ${className}`}
+      className={`inline-flex items-center gap-1 rounded-chip px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-[var(--caption-tracking)] ${CHIP_TONE[tone]} ${className}`}
     >
       {children}
     </span>
@@ -603,7 +603,7 @@ export function CountBadge({ n, className = "" }: { n: number; className?: strin
   return (
     <span
       aria-label={`${n} waiting`}
-      className={`shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold tabular-nums text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 ${className}`}
+      className={`shrink-0 rounded-pill bg-amber-100 px-2 py-0.5 text-xs font-bold tabular-nums text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 ${className}`}
     >
       {n}
     </span>
@@ -697,7 +697,7 @@ export function FilterChip({
       onClick={onClick}
       aria-pressed={on}
       title={title}
-      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-semibold transition ${
+      className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill border px-3.5 text-[13px] font-semibold transition ${
         on
           ? "border-accent bg-accent text-accent-fg"
           : "border-line bg-white text-neutral-500 hover:border-accent dark:bg-ink-raised dark:text-neutral-400"
@@ -740,7 +740,7 @@ export function Meter({
   const near = !over && pct >= 0.9;
   return (
     <div
-      className={`w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-white/10 ${className}`}
+      className={`w-full overflow-hidden rounded-pill bg-neutral-200 dark:bg-white/10 ${className}`}
       role="progressbar"
       aria-valuenow={Math.round(pct * 100)}
       aria-valuemin={0}
@@ -748,7 +748,7 @@ export function Meter({
       aria-label={`${label} budget used`}
     >
       <div
-        className={`h-full rounded-full transition-all ${
+        className={`h-full rounded-pill transition-all ${
           over
             ? "bg-red-500 dark:bg-[#8c544e]"
             : near
@@ -787,7 +787,7 @@ export function Banner({
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      className={`rounded-lg px-4 py-3 text-sm ${BANNER_TONE[tone]} ${className}`}
+      className={`rounded-control px-4 py-3 text-sm ${BANNER_TONE[tone]} ${className}`}
     >
       {children}
     </div>
@@ -874,7 +874,7 @@ export function EmptyState({
 }) {
   return (
     <div
-      className={`rounded-xl border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700 ${className}`}
+      className={`rounded-card border border-dashed border-neutral-300 px-6 py-8 text-center dark:border-neutral-700 ${className}`}
     >
       <p className="text-sm text-neutral-500">{children}</p>
     </div>
@@ -906,7 +906,7 @@ export function CardSkeletonList({ rows = 3 }: { rows?: number }) {
   return (
     <ul className="space-y-2" aria-hidden>
       {Array.from({ length: rows }).map((_, i) => (
-        <li key={i} className="rounded-xl border border-line bg-white p-3 dark:bg-ink-raised">
+        <li key={i} className="rounded-card border border-line bg-white p-3 dark:bg-ink-raised">
           <div className="flex items-start justify-between gap-3">
             <Skeleton className="h-4 w-2/3" />
             <Skeleton className="h-4 w-16" />
@@ -1056,7 +1056,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className={`${fill ? "flex w-full" : "inline-flex"} shrink-0 gap-0.5 rounded-lg bg-neutral-100 p-0.5 dark:bg-white/[0.07] ${className}`}
+      className={`${fill ? "flex w-full" : "inline-flex"} shrink-0 gap-0.5 rounded-control bg-neutral-100 p-0.5 dark:bg-white/[0.07] ${className}`}
     >
       {options.map((o) => {
         const on = o.value === value;
@@ -1067,7 +1067,7 @@ export function Segmented<T extends string>({
             role="radio"
             aria-checked={on}
             onClick={() => onChange(o.value)}
-            className={`ui-seg inline-flex items-center justify-center whitespace-nowrap rounded-md transition ${seg} ${fill ? "flex-1" : ""} ${
+            className={`ui-seg inline-flex items-center justify-center whitespace-nowrap rounded-[calc(var(--radius-control)*0.75)] transition ${seg} ${fill ? "flex-1" : ""} ${
               on
                 ? "bg-white font-semibold text-neutral-900 shadow-sm dark:bg-ink-raised dark:text-neutral-100"
                 : "text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-neutral-100"
@@ -1105,7 +1105,7 @@ export function Checkbox({
         {...input}
         ref={ref}
         type="checkbox"
-        className="peer h-4 w-4 cursor-pointer appearance-none rounded border border-line-strong bg-transparent transition checked:border-accent checked:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
+        className="peer h-4 w-4 cursor-pointer appearance-none rounded-chip border border-line-strong bg-transparent transition checked:border-accent checked:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40"
       />
       <svg
         aria-hidden
@@ -1137,8 +1137,8 @@ export function Checkbox({
 export const tableCls = {
   /** Put on the <table>. Wrap it in `overflow-x-auto` when it can outgrow a phone. */
   root: "w-full border-collapse text-sm",
-  th: "border-b border-line px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400",
-  thNum: "border-b border-line px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400",
+  th: "border-b border-line px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[var(--caption-tracking)] text-neutral-500 dark:text-neutral-400",
+  thNum: "border-b border-line px-3 py-2 text-right text-[11px] font-semibold uppercase tracking-[var(--caption-tracking)] text-neutral-500 dark:text-neutral-400",
   /** Put on each body <tr>: the hairline between rows. */
   tr: "border-b border-line-soft last:border-0",
   td: "px-3 py-2 align-top",

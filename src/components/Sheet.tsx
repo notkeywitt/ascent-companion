@@ -88,7 +88,7 @@ export function Sheet({
                 ? "h-full max-w-md border-l [transform:translateX(var(--drawer-swipe-movement-x,0px))] data-[ending-style]:[transform:translateX(100%)] data-[starting-style]:[transform:translateX(100%)]"
                 : // With snap points the popup is full height, pushed down by the
                   // offset; the bottom padding lifts the footer back into view.
-                  `${snaps ? "h-[calc(100dvh-1rem)] [padding-bottom:max(0px,calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))]" : live ? "max-h-[55dvh]" : "max-h-[90dvh]"} rounded-t-2xl border-t [transform:translateY(calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))] data-[ending-style]:[transform:translateY(100%)] data-[starting-style]:[transform:translateY(100%)]`
+                  `${snaps ? "h-[calc(100dvh-1rem)] [padding-bottom:max(0px,calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))]" : live ? "max-h-[55dvh]" : "max-h-[90dvh]"} rounded-t-sheet border-t [transform:translateY(calc(var(--drawer-snap-point-offset,0px)+var(--drawer-swipe-movement-y,0px)))] data-[ending-style]:[transform:translateY(100%)] data-[starting-style]:[transform:translateY(100%)]`
             } ${className}`}
           >
             {!wide && (
