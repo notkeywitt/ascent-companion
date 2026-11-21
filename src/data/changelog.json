@@ -1,5 +1,11 @@
 [
  {
+  "sha": "0c6f3ad7",
+  "date": "2026-11-21T04:55:25Z",
+  "title": "transparent header and ribbon band, map colours per skin",
+  "plain": "The top bar and the month ribbon are see-through in every skin, and the job map takes each skin's colours."
+ },
+ {
   "sha": "00a98076",
   "date": "2026-11-21T04:49:42Z",
   "title": "every map gets the miles map look Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_016EPPrJw1aif1mR4aKPszdR",
