@@ -33,6 +33,7 @@ import {
   type SaveReply,
 } from "@/lib/mileageOutbox";
 import { tripMiles } from "@/lib/mileageRoute";
+import { nearestSite } from "@/lib/nearestSite";
 import { setUrlParam } from "@/lib/urlParam";
 import { placeLabel, resolvePlace, type PlaceMatch } from "@/lib/mileagePlace";
 import { PlaceInput } from "./PlaceInput";
@@ -140,28 +141,8 @@ interface TripResult {
   error?: string;
 }
 
-// The last job a trip was logged against on this device. It is the job field's
-// default on the next trip — a driver on the same job all week picks nothing.
-// The picker's LIST is location-aware (nearest job first); the field is not.
-const LS_LAST_JOB = "mileage.lastJob";
-
-function readLastJob(): { id: string; label: string } | null {
-  try {
-    const raw = localStorage.getItem(LS_LAST_JOB);
-    if (!raw) return null;
-    const j = JSON.parse(raw) as { id?: string; label?: string };
-    return j?.id ? { id: j.id, label: j.label ?? "" } : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveLastJob(id: string, label: string) {
-  if (!id) return;
-  try {
-    localStorage.setItem(LS_LAST_JOB, JSON.stringify({ id, label }));
-  } catch {}
-}
+// A job site farther from the GPS fix than this is not "nearest".
+const MAX_SITE_KM = 1;
 
 // Where this device's last hand-entered trip started. It is the From field's
 // default next time — most drives start at the shop or at home.
@@ -428,11 +409,15 @@ export function MileageClient({
   // Optional From/To: Google figures the miles from them (/api/mileage/route-miles).
   const [fromPlace, setFromPlace] = useState("");
   const [toPlace, setToPlace] = useState("");
-  const [roundTrip, setRoundTrip] = useState(false);
+  const [roundTrip, setRoundTrip] = useState(true);
   // The one-way route miles from the last lookup. Null once the driver types
   // the miles or changes a place, so the round-trip switch never overwrites them.
   const [oneWay, setOneWay] = useState<number | null>(null);
   const [routeBusy, setRouteBusy] = useState(false);
+  const [hereBusy, setHereBusy] = useState(false);
+  const jobByHandRef = useRef(false); // the person picked the Job themselves
+  const lookupSeq = useRef(0);
+  const lookedKeyRef = useRef("");
   const [routeErr, setRouteErr] = useState("");
   // The To that a job pick filled in, so a later job pick may replace it but
   // never replaces an address the driver typed.
@@ -531,22 +516,6 @@ export function MileageClient({
       .then((j) => setProjects(j.projects ?? []))
       .catch(() => {});
   }, [phase]);
-
-  // Default the job to the last one this device logged a trip against. It waits
-  // for the job list, so a job JobTread has since closed simply doesn't come
-  // back — and it never overrides a job a restored in-progress trip carries.
-  const lastJobApplied = useRef(false);
-  useEffect(() => {
-    if (lastJobApplied.current || !jobs.length) return;
-    lastJobApplied.current = true;
-    if (jobId) return;
-    const last = readLastJob();
-    const j = last && jobs.find((x) => x.id === last.id);
-    if (j) {
-      setJobId(j.id);
-      setJobLabel(jobRefLabel(j));
-    }
-  }, [jobs, jobId]);
 
   // The driver is ALWAYS the signed-in person (owner, 2026-09-30 — the picker
   // is gone). Matched to the roster by email, then name, so the trip carries
@@ -683,6 +652,7 @@ export function MileageClient({
   const elapsed = start ? fmtDuration(Math.max(0, Math.round((nowMs - new Date(start.startTime).getTime()) / 60000))) : "";
 
   function onPickJob(id: string) {
+    jobByHandRef.current = true;
     setJobId(id);
     const j = jobs.find((x) => x.id === id);
     setJobLabel(j ? jobRefLabel(j) : "");
@@ -764,7 +734,6 @@ export function MileageClient({
       if (!ev || ev.key !== tripKey) return;
       if (ev.outcome === "ok") {
         setSummary(summaryFrom(ev.body, ev.reply));
-        saveLastJob(String(ev.body.jobId ?? ""), String(ev.body.jobLabel ?? ""));
         setRestoredElsewhere(false);
         setStart(null);
         setSaveErr("");
@@ -906,6 +875,7 @@ export function MileageClient({
     setErr("");
     actedRef.current = true;
     setManualKey(genKey());
+    lookedKeyRef.current = "";
     if (!fromPlace) setFromPlace(readLastFrom());
     if (!toPlace) {
       const addr = jobAddr(jobs.find((j) => j.id === jobId));
@@ -944,6 +914,7 @@ export function MileageClient({
   // "Add more miles" after a hand-entered save: a clean form, From back on the
   // last start. Purpose stays when a trip is under way — it is that trip's too.
   function resetManual() {
+    lookedKeyRef.current = "";
     setManualSummary(null);
     setMiles("");
     setManualDate(today());
@@ -951,7 +922,7 @@ export function MileageClient({
     const addr = jobAddr(jobs.find((j) => j.id === jobId));
     setToPlace(addr);
     autoToRef.current = addr;
-    setRoundTrip(false);
+    setRoundTrip(true);
     setOneWay(null);
     setRouteErr("");
     if (!start) setPurpose("");
@@ -969,24 +940,34 @@ export function MileageClient({
 
   async function useHereAsFrom() {
     setRouteErr("");
-    setRouteBusy(true);
+    setHereBusy(true);
     try {
       const pos = await getTripFix();
-      setFromPlace(`${pos.coords.latitude.toFixed(5)},${pos.coords.longitude.toFixed(5)}`);
+      const fix = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      setFromPlace(`${fix.lat.toFixed(5)},${fix.lng.toFixed(5)}`);
       setOneWay(null);
+      // The nearest job site (the Office and Shop are jobs). A Job picked by
+      // hand stays. A saved place is not a job, so it cannot fill the Job.
+      if (!jobByHandRef.current) {
+        const sites = [
+          ...jobs.map((j) => ({ id: j.id, label: jobRefLabel(j), lat: j.lat ?? null, lng: j.lng ?? null })),
+          ...knownPlaces.map((k) => ({ id: `place:${k.label}`, label: k.label, lat: k.lat, lng: k.lng })),
+        ];
+        const hit = nearestSite(sites, fix, MAX_SITE_KM);
+        if (hit && !hit.site.id.startsWith("place:")) {
+          setJobId(hit.site.id);
+          setJobLabel(hit.site.label);
+        }
+      }
     } catch (e) {
       setRouteErr(geoError(e));
     } finally {
-      setRouteBusy(false);
+      setHereBusy(false);
     }
   }
 
   async function lookUpMiles() {
-    setRouteErr("");
-    if (!fromPlace.trim() || !toPlace.trim()) {
-      setRouteErr("Fill in both From and To.");
-      return;
-    }
+    if (!fromPlace.trim() || !toPlace.trim()) return;
     // "Office", "shop" or a job name becomes that job's address before Google
     // sees it. The field keeps the words the driver typed.
     const from = routeTarget("From", fromPlace, fromMatch);
@@ -995,6 +976,8 @@ export function MileageClient({
       setRouteErr(from.error || to.error);
       return;
     }
+    const seq = ++lookupSeq.current;
+    setRouteErr("");
     setRouteBusy(true);
     try {
       const res = await fetch("/api/mileage/route-miles", {
@@ -1009,29 +992,58 @@ export function MileageClient({
         endAddress?: string;
         error?: string;
       };
+      if (seq !== lookupSeq.current) return; // From or To changed meanwhile
       if (!res.ok || !json.ok || json.oneWayMiles == null) {
         setRouteErr(json.error || "Could not get the miles. Type them instead.");
         return;
       }
       // "Here" comes back as a street address; a typed one stays as typed, and
       // so does a job name.
-      if (json.startAddress && fromMatch.kind !== "named") setFromPlace(json.startAddress);
+      let nextFrom = fromPlace;
+      let nextTo = toPlace;
+      if (json.startAddress && fromMatch.kind !== "named") {
+        nextFrom = json.startAddress;
+        setFromPlace(nextFrom);
+      }
       if (json.endAddress && toMatch.kind !== "named") {
         if (toPlace === autoToRef.current) autoToRef.current = json.endAddress;
-        setToPlace(json.endAddress);
+        nextTo = json.endAddress;
+        setToPlace(nextTo);
       }
+      lookedKeyRef.current = `${nextFrom.trim()}|${nextTo.trim()}`; // no second lookup for the tidy-up
       setOneWay(json.oneWayMiles);
       setMiles(String(tripMiles(json.oneWayMiles, roundTrip)));
     } catch (e) {
+      if (seq !== lookupSeq.current) return;
       setRouteErr(e instanceof Error ? e.message : "Could not get the miles. Type them instead.");
     } finally {
-      setRouteBusy(false);
+      if (seq === lookupSeq.current) setRouteBusy(false);
     }
   }
 
   // What a From/To text names: a job (Office and Shop are jobs), or an address.
   const fromMatch = useMemo(() => resolvePlace(fromPlace, jobs), [fromPlace, jobs]);
   const toMatch = useMemo(() => resolvePlace(toPlace, jobs), [toPlace, jobs]);
+
+  // Miles work themselves out once From and To are both set (600 ms after the
+  // last keystroke). A hand-typed Miles stays until From or To changes.
+  useEffect(() => {
+    if (tab !== "manual") return;
+    const key = `${fromPlace.trim()}|${toPlace.trim()}`;
+    if (!fromPlace.trim() || !toPlace.trim()) {
+      lookupSeq.current++;
+      setRouteBusy(false);
+      return;
+    }
+    if (key === lookedKeyRef.current) return;
+    const t = window.setTimeout(() => {
+      lookedKeyRef.current = key;
+      void lookUpMiles();
+    }, 600);
+    return () => window.clearTimeout(t);
+    // lookUpMiles reads the current From/To/matches; the deps below are its triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, fromPlace, toPlace]);
 
   const loopMatch = useMemo(() => resolvePlace(loopDest, jobs), [loopDest, jobs]);
 
@@ -1173,7 +1185,6 @@ export function MileageClient({
         setErr(json.error || "Could not save the trip.");
         return;
       }
-      saveLastJob(jobId, jobLabel);
       saveLastFrom(fromPlace.trim());
       const from = savedPlace(fromPlace, fromMatch);
       const to = savedPlace(toPlace, toMatch);
@@ -1201,17 +1212,16 @@ export function MileageClient({
   function logAnother() {
     setSummary(null);
     setPurpose("");
-    // The next trip starts on the job the last one was logged against — the same
-    // default a fresh load gets.
-    const last = readLastJob();
-    setJobId(last?.id ?? "");
-    setJobLabel(last?.label ?? "");
+    // The next trip starts on No job.
+    setJobId("");
+    setJobLabel("");
+    jobByHandRef.current = false;
     setMiles("");
     setManualDate(today());
     setFromPlace("");
     setToPlace("");
     autoToRef.current = "";
-    setRoundTrip(false);
+    setRoundTrip(true);
     setOneWay(null);
     setRouteErr("");
     setWaypoints([]);
@@ -1468,16 +1478,81 @@ export function MileageClient({
       {tab === "manual" && !manualSummary && (
         <div className="space-y-4">
           <Card className="space-y-3">
-            <div>
-              <Label htmlFor="mlg-date">Date</Label>
-              <Input
-                id="mlg-date"
-                type="date"
-                value={manualDate}
-                max={today()}
-                onChange={(e) => setManualDate(e.target.value)}
-              />
+            <div className="flex justify-end">
+              <Button type="button" size="sm" onClick={saveManual} disabled={busy || !driver} className="w-full sm:w-auto sm:min-w-32">
+                {busy ? "Saving…" : "Save miles"}
+              </Button>
             </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <div className="flex items-baseline justify-between">
+                  <Label htmlFor="mlg-from">From</Label>
+                  <button
+                    type="button"
+                    onClick={useHereAsFrom}
+                    disabled={hereBusy}
+                    className="text-xs font-semibold text-accent underline-offset-2 hover:underline disabled:opacity-40 dark:text-accent-soft"
+                  >
+                    {hereBusy ? "Finding you…" : "Use where I am"}
+                  </button>
+                </div>
+                <PlaceInput
+                  id="mlg-from"
+                  value={fromPlace}
+                  onChange={(v) => {
+                    setFromPlace(v);
+                    setOneWay(null);
+                  }}
+                  jobs={jobs}
+                  placeholder="Office, Shop, Sunset, a job, or an address"
+                />
+                <PlaceHint match={fromMatch} />
+              </div>
+
+              <div>
+                <Label htmlFor="mlg-to">To</Label>
+                <PlaceInput
+                  id="mlg-to"
+                  value={toPlace}
+                  onChange={(v) => {
+                    setToPlace(v);
+                    setOneWay(null);
+                  }}
+                  jobs={jobs}
+                  placeholder="Office, Shop, Sunset, a job, or an address"
+                />
+                <PlaceHint match={toMatch} />
+              </div>
+            </div>
+
+            <div className="flex items-end gap-4">
+              <div className="min-w-0 flex-1 sm:max-w-48">
+                <Label htmlFor="mlg-miles">{routeBusy ? "Miles (calculating…)" : "Miles"}</Label>
+                <Input
+                  id="mlg-miles"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.1"
+                  value={miles}
+                  onChange={(e) => {
+                    setMiles(e.target.value);
+                    setOneWay(null);
+                  }}
+                  placeholder="e.g. 24.5"
+                />
+              </div>
+              <div className="flex min-h-11 items-center">
+                <Toggle checked={roundTrip} onChange={onRoundTrip} label="Round trip" />
+              </div>
+            </div>
+            {routeErr && <Banner tone="error">{routeErr}</Banner>}
+            {oneWay != null && (
+              <p className="text-xs text-neutral-500">
+                Google route: {oneWay} mi one way{roundTrip ? `, ${tripMiles(oneWay, true)} mi there and back` : ""}.
+              </p>
+            )}
 
             <div>
               <Label>Job (optional)</Label>
@@ -1495,82 +1570,7 @@ export function MileageClient({
             </div>
 
             <div>
-              <div className="flex items-baseline justify-between">
-                <Label htmlFor="mlg-from">From</Label>
-                <button
-                  type="button"
-                  onClick={useHereAsFrom}
-                  disabled={routeBusy}
-                  className="text-xs font-semibold text-accent underline-offset-2 hover:underline disabled:opacity-40 dark:text-accent-soft"
-                >
-                  Use where I am
-                </button>
-              </div>
-              <PlaceInput
-                id="mlg-from"
-                value={fromPlace}
-                onChange={(v) => {
-                  setFromPlace(v);
-                  setOneWay(null);
-                }}
-                jobs={jobs}
-                placeholder="Office, Shop, Sunset, a job, or an address"
-              />
-              <PlaceHint match={fromMatch} />
-            </div>
-
-            <div>
-              <Label htmlFor="mlg-to">To</Label>
-              <PlaceInput
-                id="mlg-to"
-                value={toPlace}
-                onChange={(v) => {
-                  setToPlace(v);
-                  setOneWay(null);
-                }}
-                jobs={jobs}
-                placeholder="Office, Shop, Sunset, a job, or an address"
-              />
-              <PlaceHint match={toMatch} />
-            </div>
-
-            <div className="flex items-center justify-between gap-3">
-              <Toggle checked={roundTrip} onChange={onRoundTrip} label="Round trip" />
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={lookUpMiles}
-                disabled={routeBusy || !fromPlace.trim() || !toPlace.trim()}
-              >
-                {routeBusy ? "Working…" : "Get miles"}
-              </Button>
-            </div>
-            {routeErr && <Banner tone="error">{routeErr}</Banner>}
-            {oneWay != null && (
-              <p className="text-xs text-neutral-500">
-                Google route: {oneWay} mi one way{roundTrip ? `, ${tripMiles(oneWay, true)} mi there and back` : ""}.
-              </p>
-            )}
-
-            <div>
-              <Label htmlFor="mlg-miles">Miles</Label>
-              <Input
-                id="mlg-miles"
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.1"
-                value={miles}
-                onChange={(e) => {
-                  setMiles(e.target.value);
-                  setOneWay(null);
-                }}
-                placeholder="e.g. 24.5"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="mlg-purpose-m">Purpose (optional)</Label>
+              <Label htmlFor="mlg-purpose-m">Note (optional)</Label>
               <Textarea
                 id="mlg-purpose-m"
                 rows={2}
@@ -1579,16 +1579,18 @@ export function MileageClient({
                 placeholder="e.g. material pickup, client meeting"
               />
             </div>
-          </Card>
 
-          <button
-            type="button"
-            onClick={saveManual}
-            disabled={busy || !driver}
-            className="w-full rounded-sheet bg-accent px-4 py-6 text-lg font-bold text-accent-fg shadow-sm transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {busy ? "Saving…" : "Save miles"}
-          </button>
+            <div>
+              <Label htmlFor="mlg-date">Date</Label>
+              <Input
+                id="mlg-date"
+                type="date"
+                value={manualDate}
+                max={today()}
+                onChange={(e) => setManualDate(e.target.value)}
+              />
+            </div>
+          </Card>
         </div>
       )}
 

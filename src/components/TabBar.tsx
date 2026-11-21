@@ -68,6 +68,7 @@ const IconBase = ({ children }: { children: React.ReactNode }) => (
   </svg>
 );
 
+/** A house — the Jobs page. */
 const HomeIcon = () => (
   <IconBase>
     <path d="M3 10.5 12 3l9 7.5" />
@@ -142,10 +143,16 @@ const SearchIcon = () => (
     <path d="m20 20-3.5-3.5" />
   </IconBase>
 );
-const HelpIcon = () => (
+/** The Ascent mark: the notched double peak, drawn as a line. Home. */
+const MountainIcon = () => (
   <IconBase>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.8M12 17h.01" />
+    <path d="M3 18 8.7 7.6l1.8.9L14.1 6 21 18z" />
+  </IconBase>
+);
+const ToolCalendarIcon = () => (
+  <IconBase>
+    <path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h6M8 2v4M16 2v4M4 10h16" />
+    <path d="m21.7 16.3-3.1 3.1a1.4 1.4 0 0 1-2-2l3.1-3.1a3 3 0 0 0-3.5 3.5l-3 3a1.4 1.4 0 0 0 2 2l3-3" />
   </IconBase>
 );
 const ShieldIcon = () => (
@@ -268,7 +275,8 @@ const HardHatIcon = () => (
 
 /** A slot's icon, by its key (a workspace id, a view id, or "today"). */
 const ICONS: Record<string, () => React.ReactNode> = {
-  today: HomeIcon,
+  today: MountainIcon,
+  "jobs-hub": HomeIcon,
   close: BanknoteIcon,
   incoming: InboxIcon,
   office: ComputerIcon,
@@ -277,12 +285,12 @@ const ICONS: Record<string, () => React.ReactNode> = {
   people: BadgeIcon,
   employees: UserIcon,
   search: SearchIcon,
-  help: HelpIcon,
   admin: ShieldIcon,
   time: ClockIcon,
   "employee-time": ClockIcon,
   mileage: RouteIcon,
   tools: WrenchIcon,
+  "tool-schedule": ToolCalendarIcon,
   requisitions: ClipboardIcon,
   "job-board": HalfHouseIcon,
   vendors: StoreIcon,
@@ -557,6 +565,8 @@ export function TabBar() {
               </button>
               </div>
             ) : null;
+          if (access.role === "field")
+            return <AppMenu themeOnly open={open} onOpenChange={setOpen} />;
           return access.role === "office" ? (
             <AppMenu account pages qs={qs} top={top} open={open} onOpenChange={setOpen} />
           ) : (

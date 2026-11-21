@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+import { toolScheduleUser } from "@/lib/toolScheduleAccess";
 import { ToolCatalogEditor, type EditorTab } from "./ToolCatalogEditor";
 
 /**
@@ -8,6 +10,9 @@ import { ToolCatalogEditor, type EditorTab } from "./ToolCatalogEditor";
 const TABS: EditorTab[] = ["tools", "tasks", "bookings", "jobs"];
 
 export default async function ToolScheduleEditPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  // Field users, and anyone without the edit view, only look at the schedule.
+  const { canEdit } = await toolScheduleUser();
+  if (!canEdit) redirect("/tool-schedule");
   const { tab } = await searchParams;
   const initialTab = TABS.includes(tab as EditorTab) ? (tab as EditorTab) : "tools";
   return <ToolCatalogEditor initialTab={initialTab} />;
