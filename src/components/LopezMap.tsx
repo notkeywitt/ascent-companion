@@ -58,7 +58,7 @@ export function LopezMap({
   topo = false,
   glow = false,
 }: {
-  /** Elevation contours every 50 ft, heavier every 200 ft. */
+  /** Elevation contours every 50 ft, all one light weight. */
   topo?: boolean;
   /** A soft light behind the island, to lift it off the page. */
   glow?: boolean;
@@ -181,7 +181,7 @@ export function LopezMap({
         {topo && (
           <g fill="none" strokeLinejoin="round" className="stroke-amber-800/25 dark:stroke-amber-200/20" aria-hidden>
             <path d={LOPEZ_TOPO_MINOR} strokeWidth={0.8 * s} />
-            <path d={LOPEZ_TOPO_INDEX} strokeWidth={1.6 * s} className="stroke-amber-800/40 dark:stroke-amber-200/35" />
+            <path d={LOPEZ_TOPO_INDEX} strokeWidth={0.8 * s} />
           </g>
         )}
         {routeD && (
