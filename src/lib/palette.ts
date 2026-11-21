@@ -64,8 +64,9 @@ export const PALETTE_DESC: Record<Palette, string> = {
 };
 
 /**
- * Set on <html> by layout.tsx when an admin set this person's skin. The
- * pre-paint script paints it, and AppearanceCard locks the Skin picker.
+ * Set on <html> by layout.tsx when an admin set this person's skin, as
+ * "<palette>@<stamp>". The pre-paint script applies each new stamp once per
+ * device (localStorage `skinPushed`); after that the person picks freely.
  */
 export const SKIN_SET_ATTR = "data-skin-set";
 

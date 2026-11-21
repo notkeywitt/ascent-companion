@@ -10,7 +10,6 @@ import {
   PALETTES,
   PALETTE_DESC,
   PALETTE_LABEL,
-  SKIN_SET_ATTR,
   applyPalette,
   readPalette,
   type Palette,
@@ -62,12 +61,9 @@ export function AppearanceCard() {
   const [palette, setPalette] = useState<Palette>(DEFAULT_PALETTE);
   const [dark, setDark] = useState(false);
   const [open, setOpen] = useState(false);
-  // An admin set this person's skin (/admin → Skins): the picker is locked.
-  const [locked, setLocked] = useState(false);
 
   useEffect(() => {
     setPalette(readPalette());
-    setLocked(document.documentElement.hasAttribute(SKIN_SET_ATTR));
     setDark(document.documentElement.classList.contains("dark"));
     try {
       if (localStorage.getItem("appearance.expanded") === "1") setOpen(true);
@@ -118,23 +114,17 @@ export function AppearanceCard() {
         <Card className="mt-3" pad={false}>
           <div className="border-b border-line-soft p-4">
             <SectionLabel>Skin</SectionLabel>
-            {locked && (
-              <p className="mt-0.5 text-xs text-neutral-500 dark:text-neutral-400">
-                An admin set your skin.
-              </p>
-            )}
             <div className="mt-2.5 grid grid-cols-2 gap-2">
               {PALETTES.map((p) => (
                 <button
                   key={p}
                   type="button"
                   onClick={() => pickPalette(p)}
-                  disabled={locked}
                   aria-pressed={palette === p}
-                  className={`rounded-card border p-3 text-left transition disabled:cursor-not-allowed ${
+                  className={`rounded-card border p-3 text-left transition ${
                     palette === p
                       ? "border-accent ring-2 ring-accent/25"
-                      : `border-line ${locked ? "opacity-50" : "hover:border-line-strong"}`
+                      : "border-line hover:border-line-strong"
                   }`}
                 >
                   {/* Two squares: the palette's ground, then the colour a filled
