@@ -35,6 +35,8 @@ import { AppScrollKeeper } from "@/components/AppScrollKeeper";
 import { SwipeBack } from "@/components/SwipeBack";
 import { RouteLoadingScreen } from "@/components/RouteLoadingScreen";
 import { noAuthConfigured } from "@/lib/authMode";
+import { loadUserSkin } from "@/lib/userSkin";
+import { SKIN_SET_ATTR } from "@/lib/palette";
 
 // Brand web typeface (Brand Guidelines p.22 — Roboto is the sanctioned web
 // alternative to the print primary, LL Medium). Exposed as a CSS var wired into
@@ -112,6 +114,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // Falls back to {} (i.e. the shipped English) if the DB is unreachable.
   // The two reads do not depend on each other, so they run together.
   const [session, copyOverrides] = await Promise.all([auth(), loadCopyOverrides()]);
+  // The skin an admin set for this person (/admin → Skins), or null. The REAL
+  // signed-in email, so a role preview does not change it.
+  const setSkin = await loadUserSkin(session?.user?.email);
   const devOpen = noAuthConfigured();
   let role: Role = "field";
   let views: string[] = [];
@@ -149,7 +154,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const menu = await loadRoleMenu(role);
 
   return (
-    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} ${jost.variable} ${anton.variable}`}>
+    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} ${jost.variable} ${anton.variable}`}
+      {...(setSkin ? { [SKIN_SET_ATTR]: setSkin } : {})}
+    >
       <head>
         {/* Theme, palette and any theme-editor draft, set on <html> BEFORE the
             first paint. All three are per-device choices held in localStorage,
@@ -171,7 +178,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p!=='guidelines'&&p!=='shopmanual'&&p!=='vice')p='website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')!=='0')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=e.getAttribute('" + SKIN_SET_ATTR + "')||localStorage.getItem('palette');if(p!=='guidelines'&&p!=='shopmanual'&&p!=='vice')p='website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')!=='0')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>
