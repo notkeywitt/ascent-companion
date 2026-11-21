@@ -1,5 +1,23 @@
 [
  {
+  "sha": "7e29cc64",
+  "date": "2026-11-21T06:30:09Z",
+  "title": "batch — miles map info cards and calm path, jobs hub for field with no dollars, bottom bar follows the swipe",
+  "plain": "Miles map dots open a card with the place's name, address and picture, and the route is one calm colour; field staff get a Jobs button with no dollar figures; the bottom bar lifts under your finger so the swipe-up menu is easier to find."
+ },
+ {
+  "sha": "51718ee8",
+  "date": "2026-11-21T06:26:49Z",
+  "title": "add jobs to the field bar, with no dollars",
+  "plain": "add jobs to the field bar, with no dollars"
+ },
+ {
+  "sha": "65b0ee7f",
+  "date": "2026-11-21T06:19:15Z",
+  "title": "tappable dots with info card and a calm solid route on the full screen Miles map",
+  "plain": "tappable dots with info card and a calm solid route on the full screen Miles map"
+ },
+ {
   "sha": "da13079b",
   "date": "2026-11-21T06:15:18Z",
   "title": "batch — new nav icons, field bar and drawer, no help marks, tool schedule view-only for field with sort/filter icons, miles form rework",
