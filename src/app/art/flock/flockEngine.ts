@@ -173,6 +173,11 @@ export class FlockEngine {
   private hy = new Float32Array(0);
   private sc = new Float32Array(0);
   private fade = new Float32Array(0);
+  /** Per bird: wingbeat phase, last screen heading, and bank (lean into a turn). */
+  private flap = new Float32Array(0);
+  private px = new Float32Array(0);
+  private py = new Float32Array(0);
+  private bank = new Float32Array(0);
   private gsx = new Float32Array(0);
   private gsy = new Float32Array(0);
 
@@ -447,6 +452,31 @@ export class FlockEngine {
       }
     }
 
+    // Wingbeats and banking. A bird flaps faster the faster it flies, glides
+    // through a hard turn, and leans into the turn.
+    if (this.flap.length !== n) {
+      this.flap = new Float32Array(n);
+      for (let i = 0; i < n; i++) this.flap[i] = i * 2.399;
+      this.px = Float32Array.from(this.hx);
+      this.py = Float32Array.from(this.hy);
+      this.bank = new Float32Array(n);
+    }
+    {
+      const base = sim instanceof Flock3D ? 2.6 : 1.6;
+      const vz = sim instanceof Flock3D ? sim.vz : null;
+      for (let i = 0; i < n; i++) {
+        const turn = this.px[i] * this.hy[i] - this.py[i] * this.hx[i];
+        this.px[i] = this.hx[i];
+        this.py[i] = this.hy[i];
+        const want = Math.max(-0.9, Math.min(0.9, turn * 12));
+        this.bank[i] += (want - this.bank[i]) * 0.12;
+        if (!reduced) {
+          const sp = Math.hypot(sim.vx[i], sim.vy[i], vz ? vz[i] : 0) / base;
+          this.flap[i] = (this.flap[i] + dt * (0.006 + 0.018 * sp)) % (Math.PI * 2);
+        }
+      }
+    }
+
     // The cube's twelve edges, faint (dashed when the faces wrap). The tank
     // draws no box (owner, 2026-11-17): depth reads from size and fog alone.
     if (sim instanceof Flock3D && !inTank) {
@@ -500,8 +530,11 @@ export class FlockEngine {
             const flip = ux < 0 ? -1 : 1;
             ctx.save();
             ctx.translate(this.sx[i], this.sy[i]);
-            ctx.rotate(Math.atan2(uy, ux * flip) * flip);
-            ctx.scale(flip, 1);
+            // Lean into the turn, and fold the wings: a hard turn glides.
+            const bk = this.bank[i];
+            ctx.rotate(Math.atan2(uy, ux * flip) * flip + bk * 0.35);
+            const beat = reduced ? 1 : 0.7 + 0.3 * Math.sin(this.flap[i]) * (1 - Math.abs(bk));
+            ctx.scale(flip, beat * Math.cos(bk * 0.8));
             ctx.fillText("\u{131E2}", 0, 0);
             ctx.restore();
           }
