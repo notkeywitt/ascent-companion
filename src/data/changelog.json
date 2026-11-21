@@ -1,5 +1,17 @@
 [
  {
+  "sha": "1a7cfb6b",
+  "date": "2026-11-21T06:37:25Z",
+  "title": "boid birds flap and bank into turns",
+  "plain": "On the Boids page, birds now flap their wings, faster when they fly fast, and lean into their turns."
+ },
+ {
+  "sha": "9ba223ca",
+  "date": "2026-11-21T06:36:20Z",
+  "title": "tools list grouped by tool group, tappable rows, no claude batch for field and lead, no delete for field",
+  "plain": "Tools are grouped by tool group and a tap on a row opens it; field and lead no longer see the Claude batch card or buttons, and field can no longer delete a tool."
+ },
+ {
   "sha": "7e29cc64",
   "date": "2026-11-21T06:30:09Z",
   "title": "batch — miles map info cards and calm path, jobs hub for field with no dollars, bottom bar follows the swipe",
