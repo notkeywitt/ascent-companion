@@ -146,11 +146,10 @@ export const WORKSPACES: Workspace[] = [
     ],
   },
   {
-    id: "help",
-    title: "Help",
-    desc: "How the app works, what changed, and where to ask for more.",
+    id: "requests",
+    title: "Feature Requests",
+    desc: "Ask for fixes and new features.",
     tabs: [
-      tab("help", "/help", "Help", "How to do the things this app does, step by step"),
       tab("requests", "/requests", "Feature Requests", "Ask for fixes and new features"),
     ],
   },
@@ -206,6 +205,7 @@ export const OUTSIDE_WORKSPACES: Record<string, string> = {
   "bill-clone": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   attention: "a section of the Office Dashboard (/office); /attention redirects",
   notices: "a section of the Office Dashboard (/office); /notices redirects",
+  help: "the Help page (/help) has no nav entry (owner, 2026-11-21: no help icons); it opens from a link and the header search",
   changelog: "Help's What's new tab (PageTabs on /help)",
   "theme-editor": "Look & Text's Theme tab (PageTabs on /admin/copy), and Appearance",
   journal: "Audit's Financial Journal tab (PageTabs on /logs), and a bill's History link",
@@ -296,7 +296,6 @@ export const BARS: Record<Role, BarSlot[]> = {
     { kind: "tab", view: "employee-time" },
     { kind: "tab", view: "mileage" },
     { kind: "tab", view: "tools" },
-    { kind: "tab", view: "requisitions" },
   ],
   lead: [
     { kind: "today" },
@@ -414,7 +413,7 @@ export function barFor(role: Role, can: (view: string) => boolean, pin = ""): Ba
 /** Pages and workspaces the desktop rail leaves out (owner, 2026-11-14). They stay in the ☰ menu, search and links. */
 export const RAIL_OFF_VIEWS = new Set(["invoice-review", "invoicing-summary", "time-sync"]);
 /** A page that gets its own rail entry right under its workspace's. */
-const OWN_ENTRY_UNDER: Record<string, string> = { help: "requests", admin: "ai-scripts" };
+const OWN_ENTRY_UNDER: Record<string, string> = { admin: "ai-scripts" };
 const RAIL_OFF_WORKSPACES = new Set(["mywork"]);
 
 const DESK_TOP: BarSlot[] = [

@@ -63,7 +63,6 @@ describe("the bottom bar", () => {
       "Time",
       "Miles",
       "Tools",
-      "Requisitions",
     ]);
   });
 
@@ -127,14 +126,14 @@ describe("the iPad rail", () => {
     expect(rail.slice(0, 10)).toEqual(["today", "close", "employees", "clients", "leads", "vendors", "time", "labor", "tools", "roadmap"]);
     expect(items[10].gap).toBe(true);
     expect(items.filter((i) => i.gap)).toHaveLength(1);
-    expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "help", "office"]));
+    expect(rail).toEqual(expect.arrayContaining(["incoming", "search", "requests", "office"]));
     expect(rail).not.toContain("mywork");
     expect(rail).not.toContain("admin");
     expect(new Set(rail).size).toBe(rail.length);
   });
   it("keeps field staff's rail on their bar, with no second Time", () => {
     const rail = railFor("field", can("field"));
-    expect(rail.slice(0, 5).map((i) => i.key)).toEqual(barFor("field", can("field")).map((i) => i.key));
+    expect(rail.slice(0, 4).map((i) => i.key)).toEqual(barFor("field", can("field")).map((i) => i.key));
     expect(rail.map((i) => i.key)).not.toContain("time");
   });
   it("does not repeat a pinned page that is already a top item", () => {
@@ -150,12 +149,12 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/tools")).toBe("tools");
     expect(activeBarKey(rail, "/labor")).toBe("labor");
   });
-  it("lists Feature Requests right under Help, on the rail and in the drawer", () => {
+  it("lists Feature Requests on the rail and in the drawer, and no Help", () => {
     for (const role of ["office", "field"] as const) {
-      const rail = railFor(role, can(role)).map((i) => i.key);
-      expect(rail.indexOf("requests")).toBe(rail.indexOf("help") + 1);
-      const drawer = drawerFor(role, can(role)).map((i) => i.key);
-      expect(drawer.indexOf("requests")).toBe(drawer.indexOf("help") + 1);
+      expect(railFor(role, can(role)).map((i) => i.key)).toContain("requests");
+      expect(railFor(role, can(role)).map((i) => i.key)).not.toContain("help");
+      expect(drawerFor(role, can(role)).map((i) => i.key)).toContain("requests");
+      expect(drawerFor(role, can(role)).map((i) => i.key)).not.toContain("help");
     }
     expect(activeBarKey(railFor("office", can("office")), "/requests")).toBe("requests");
   });
@@ -175,9 +174,9 @@ describe("a role's side-menu edit", () => {
     return (v: string) => views.has(v);
   };
   it("takes a hidden item off the top group and the rest", () => {
-    const keys = railFor("office", can("office"), "", { add: [], hide: ["page:vendors", "ws:help"] }).map((i) => i.key);
+    const keys = railFor("office", can("office"), "", { add: [], hide: ["page:vendors", "ws:requests"] }).map((i) => i.key);
     expect(keys).not.toContain("vendors");
-    expect(keys).not.toContain("help");
+    expect(keys).not.toContain("requests");
     expect(keys.slice(0, 8)).toEqual(["today", "close", "employees", "clients", "leads", "time", "labor", "tools"]);
   });
   it("puts an added item at the end of the top group, before the space", () => {

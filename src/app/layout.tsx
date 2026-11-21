@@ -26,7 +26,6 @@ import { loadRoleMenu } from "@/lib/roleMenuService";
 import { PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { PreviewBanner } from "@/components/PreviewBanner";
 import { SplashScreen } from "@/components/SplashScreen";
-import { PageGuide } from "@/components/PageGuide";
 import { TimeBug } from "@/components/TimeBug";
 import { NotesBug } from "@/components/NotesBug";
 import { FeatureRequestFab } from "@/components/FeatureRequestFab";
@@ -251,11 +250,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {/* "Pay LSWDD by <day>" — see LswddPayReminder. */}
               {session?.user && <LswddPayReminder />}
               </div>
-              {/* The help mark, bottom-left of every page, and the overlay it
-                  opens. Outside #app-shell on purpose. */}
-              <PageGuide />
               {/* The floating time clock — desktop only, while you are on the
-                  clock. Outside #app-shell like the help mark. */}
+                  clock. Outside #app-shell. */}
               {(session?.user || devOpen) && <TimeBug />}
               {/* The floating Notes card — desktop only, opened by the rail's Notes button. */}
               {(session?.user || devOpen) && <NotesBug />}
