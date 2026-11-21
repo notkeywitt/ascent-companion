@@ -1,5 +1,11 @@
 [
  {
+  "sha": "c9b29fd8",
+  "date": "2026-11-21T04:45:12Z",
+  "title": "topo lines on the lopez map all draw at the light weight",
+  "plain": "Every elevation line on the Miles map is now the same thin, light line."
+ },
+ {
   "sha": "02e81fa6",
   "date": "2026-11-21T04:38:37Z",
   "title": "add vice skin, a gta vi style sunset theme",
