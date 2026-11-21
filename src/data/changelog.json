@@ -1,5 +1,11 @@
 [
  {
+  "sha": "dce29db2",
+  "date": "2026-11-21T05:39:30Z",
+  "title": "boid birds turn to face where they fly",
+  "plain": "On the Boids page, each bird now turns to face the way it flies."
+ },
+ {
   "sha": "01be9a70",
   "date": "2026-11-21T05:32:05Z",
   "title": "jobs hub ribbon shows the date",
