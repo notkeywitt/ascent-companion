@@ -1,5 +1,11 @@
 [
  {
+  "sha": "415061d8",
+  "date": "2026-11-21T05:23:24Z",
+  "title": "schedule tab shows the bars again",
+  "plain": "The Schedule tab shows the schedule bars again, still without budget."
+ },
+ {
   "sha": "e437e5b0",
   "date": "2026-11-21T05:07:25Z",
   "title": "jobs hub tabs trimmed, schedule bars on own row, no budget on schedule",
