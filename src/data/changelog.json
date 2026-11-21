@@ -1,5 +1,17 @@
 [
  {
+  "sha": "7712266f",
+  "date": "2026-11-21T16:25:24Z",
+  "title": "field users see only their own notes",
+  "plain": "Field staff now see only the notes they wrote on the Jobs hub. Office and admin still see every note."
+ },
+ {
+  "sha": "477596d9",
+  "date": "2026-11-21T16:20:59Z",
+  "title": "sign out button in field mobile drawer",
+  "plain": "Field staff now see a Sign out button in the phone menu, under Appearance."
+ },
+ {
   "sha": "8d9a3959",
   "date": "2026-11-21T15:04:28Z",
   "title": "weekly summary draft 2026-11-21",
