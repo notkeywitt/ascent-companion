@@ -55,12 +55,12 @@ export function LopezMap({
   focusId = null,
   zoom = 3,
   marks = [],
-  topo = false,
-  glow = false,
+  topo = true,
+  glow = true,
 }: {
-  /** Elevation contours every 50 ft, all one light weight. */
+  /** Elevation contours every 50 ft, all one light weight. On by default; pass false to hide. */
   topo?: boolean;
-  /** A soft light behind the island, to lift it off the page. */
+  /** A soft light behind the island, to lift it off the page. On by default. */
   glow?: boolean;
   /** Start, end and "you are here", drawn on top of the job dots. */
   marks?: MapMark[];
