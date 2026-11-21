@@ -15,15 +15,26 @@ import { TaskDialog, useTaskLinks, type TaskPick } from "./TaskDialog";
 export function JobSchedule({ jobId }: { jobId: string }) {
   const [pick, setPick] = useState<TaskPick | null>(null);
   const { links, refresh } = useTaskLinks();
+  const [reload, setReload] = useState(0);
   return (
     <>
       <ScheduleView
         jobId={jobId}
         links={links}
         onPick={setPick}
+        canMove
+        reloadKey={reload}
         fallback={<JobGantt jobId={jobId} />}
       />
-      {pick && <TaskDialog pick={pick} links={links} onChanged={refresh} onClose={() => setPick(null)} />}
+      {pick && (
+        <TaskDialog
+          pick={pick}
+          links={links}
+          onChanged={refresh}
+          onClose={() => setPick(null)}
+          onSaved={() => setReload((n) => n + 1)}
+        />
+      )}
     </>
   );
 }
