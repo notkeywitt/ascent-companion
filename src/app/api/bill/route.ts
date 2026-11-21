@@ -2,11 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { getBillDetail, getJobBudget, getCostToComplete, getJobPhaseMap } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant, writesEnabled } from "@/lib/config";
+import { FORBIDDEN, holdsAnyView } from "@/lib/apiAuth";
 import { db, ensureDb } from "@/db";
 import { savedBills } from "@/db/schema";
 
 // Read-only: a draft bill's header + lines + attached files + the job's budget.
 export async function GET(req: NextRequest) {
+  // A bill is money. The path stays off the view gates (the office's pages
+  // read it), so the handler keeps it from a caller with no bill view: field
+  // holds the Jobs page, not its bills (2026-11-21).
+  if (!(await holdsAnyView(["recode", "bills", "home"]))) return FORBIDDEN();
   if (!hasGrant()) {
     return NextResponse.json(
       { error: "JT_GRANT_KEY is not set. Add it to .env.local and restart." },
