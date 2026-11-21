@@ -395,6 +395,9 @@ export function TabBar() {
   }, []);
   // A swipe up on the bar opens the drawer, like a sheet's handle.
   const touchY = useRef<number | null>(null);
+  // How far the finger has pulled the bar up (px). The bar follows it, with a
+  // rubber-band ease, so the swipe reads as a handle, then springs back.
+  const [lift, setLift] = useState(0);
 
   // The bar is chrome for the signed-in app; these two pages have none.
   if (pathname === "/login" || pathname === "/privacy") return null;
@@ -464,15 +467,38 @@ export function TabBar() {
         // The bar sits outside #app-shell, so iOS scrolls the window instead
         // and the whole app, bar included, slides up. Taps and this swipe still work.
         onTouchStart={(e) => (touchY.current = e.touches[0].clientY)}
+        onTouchMove={(e) => {
+          const start = touchY.current;
+          if (start === null) return;
+          const up = Math.max(0, start - e.touches[0].clientY);
+          setLift(Math.min(28, up * 0.45));
+        }}
         onTouchEnd={(e) => {
           const start = touchY.current;
           touchY.current = null;
+          setLift(0);
           if (start !== null && start - e.changedTouches[0].clientY > 30)
             setOpen(true);
         }}
+        onTouchCancel={() => {
+          touchY.current = null;
+          setLift(0);
+        }}
+        style={{
+          transform: lift ? `translateY(${-lift}px)` : undefined,
+          transition: lift ? "none" : "transform 220ms cubic-bezier(.2,.9,.3,1.2)",
+        }}
       >
+        {/* The grabber: wider and darker while a finger pulls, so the bar
+            reads as something that slides up. */}
         <div className="flex justify-center pt-1.5" aria-hidden>
-          <div className="h-1 w-10 rounded-pill bg-neutral-300 dark:bg-neutral-600" />
+          <div
+            className={`h-1 rounded-pill transition-all duration-150 ${
+              lift > 0
+                ? "w-14 bg-neutral-500 dark:bg-neutral-300"
+                : "w-10 bg-neutral-300 dark:bg-neutral-600"
+            }`}
+          />
         </div>
         <div
           className="relative grid"
