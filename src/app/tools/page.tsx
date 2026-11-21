@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useAccess } from "@/components/AccessProvider";
 import { LopezMap } from "@/components/LopezMap";
 import { ToolsTabs, toolsTitle } from "@/components/ToolsTabs";
 import { Banner, Button, Checkbox, Dialog, Label, Loading, PageHeader, inputCls, Select } from "@/components/ui";
@@ -368,6 +369,10 @@ function ToolPhoto({
 }
 
 export default function ToolsPage() {
+  // Field and lead see no Claude batch tools; field cannot delete a tool.
+  const { role } = useAccess();
+  const crew = role === "field" || role === "lead";
+  const canDelete = role !== "field";
   const [tools, setTools] = useState<Tool[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [conditionOpts, setConditionOpts] = useState<string[]>([]);
@@ -600,11 +605,11 @@ export default function ToolsPage() {
     return { sites, unassigned };
   }, [tools, projects, q, conditionFilter]);
 
-  // Group the filtered tools by ToolType, sorted; tools within a group by name.
+  // Group the filtered tools by ToolGroup, sorted; tools within a group by name.
   const groups = useMemo(() => {
     const m = new Map<string, Tool[]>();
     view.forEach((t) => {
-      const key = t.type || "Uncategorized";
+      const key = t.toolGroup.trim() || "No group";
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(t);
     });
@@ -1127,7 +1132,7 @@ export default function ToolsPage() {
           onClose={(n) => {
             setBatchOpen(false);
             setBatchKey((k) => k + 1);
-            if (n) setBatchDone(`${n} tool${n === 1 ? "" : "s"} captured. Claude fills in the details later.`);
+            if (n) setBatchDone(`${n} tool${n === 1 ? "" : "s"} captured.${crew ? "" : " Claude fills in the details later."}`);
           }}
         />
       )}
@@ -1136,7 +1141,7 @@ export default function ToolsPage() {
           {batchDone}
         </Banner>
       )}
-      <BatchCard reloadKey={batchKey} />
+      {!crew && <BatchCard reloadKey={batchKey} />}
 
       {loadErr && (
         <Banner tone="error" className="mb-4">
@@ -1173,7 +1178,7 @@ export default function ToolsPage() {
                   Cancel
                 </button>
               </>
-            ) : (
+            ) : crew ? null : (
               <button type="button" className="font-semibold text-accent" onClick={() => setPicking(true)}>
                 Ask Claude to update…
               </button>
@@ -1221,11 +1226,18 @@ export default function ToolsPage() {
                                 else next.add(t.id);
                                 return next;
                               })
-                          : undefined
+                          : () => openEdit(t)
                       }
+                      role="button"
+                      tabIndex={0}
+                      aria-label={picking ? undefined : `Open ${t.name || t.id}`}
+                      onKeyDown={(e) => {
+                        if (picking || (e.key !== "Enter" && e.key !== " ")) return;
+                        e.preventDefault();
+                        openEdit(t);
+                      }}
                       className={
-                        "flex items-center gap-3 px-3 py-2.5 " +
-                        (picking ? "cursor-pointer " : "") +
+                        "flex min-h-[3.5rem] cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-neutral-50 active:bg-neutral-100 dark:hover:bg-white/5 dark:active:bg-white/10 " +
                         (i > 0 ? "border-t border-line-soft/70" : "")
                       }
                     >
@@ -1258,14 +1270,6 @@ export default function ToolsPage() {
                         >
                           {t.condition}
                         </span>
-                      )}
-                      {!picking && (
-                        <button
-                          onClick={() => openEdit(t)}
-                          className="rounded-control border border-line-strong px-3 py-1 text-xs font-semibold transition hover:border-accent hover:text-accent"
-                        >
-                          Edit
-                        </button>
                       )}
                     </div>
                   ))}
@@ -1621,21 +1625,25 @@ export default function ToolsPage() {
           description={`ID: ${editing.id}`}
           footer={
             <>
-              <Button variant="danger" className="mr-auto" onClick={deleteTool} disabled={saving}>
-                Delete
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={saving || askBusy}
-                title="Claude reads this tool's photo and fills in what is missing"
-                onClick={() => {
-                  const id = editing.id;
-                  closeEdit();
-                  void askClaude([id]);
-                }}
-              >
-                Ask Claude
-              </Button>
+              {canDelete && (
+                <Button variant="danger" className="mr-auto" onClick={deleteTool} disabled={saving}>
+                  Delete
+                </Button>
+              )}
+              {!crew && (
+                <Button
+                  variant="secondary"
+                  disabled={saving || askBusy}
+                  title="Claude reads this tool's photo and fills in what is missing"
+                  onClick={() => {
+                    const id = editing.id;
+                    closeEdit();
+                    void askClaude([id]);
+                  }}
+                >
+                  Ask Claude
+                </Button>
+              )}
               <Button variant="secondary" onClick={closeEdit} disabled={saving}>
                 Cancel
               </Button>
