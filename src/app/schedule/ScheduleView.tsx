@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { Banner, Button, EmptyState, Loading, Segmented } from "@/components/ui";
 import { orgDay } from "@/lib/orgTime";
@@ -50,6 +50,8 @@ export interface ScheduleViewProps {
   highlightTaskId?: string;
   /** The window the view opens on. */
   initialMode?: WindowKey;
+  /** Drawn instead of the error banner when the read fails (a role without the view). */
+  fallback?: ReactNode;
 }
 
 /**
@@ -58,7 +60,7 @@ export interface ScheduleViewProps {
  * bill (src/app/schedule/BillTaskLink.tsx). It owns only the window and the
  * read; what a tap does is the caller's.
  */
-export function ScheduleView({ jobId, links = null, onPick, highlightTaskId, initialMode = "4w" }: ScheduleViewProps) {
+export function ScheduleView({ jobId, links = null, onPick, highlightTaskId, initialMode = "4w", fallback }: ScheduleViewProps) {
   const today = useMemo(() => orgDay(new Date().toISOString()), []);
   const [mode, setMode] = useState<WindowKey>(initialMode);
   const [start, setStart] = useState(() => mondayOf(today));
@@ -96,6 +98,8 @@ export function ScheduleView({ jobId, links = null, onPick, highlightTaskId, ini
   const months = monthSpans(days);
 
   const step = (dir: 1 | -1) => setStart((s) => addDays(s, dir * (count === 28 ? 28 : 56)));
+
+  if (error && fallback) return <>{fallback}</>;
 
   return (
     <div>
