@@ -7,7 +7,7 @@ import dynamic from "next/dynamic";
 import { Dialog } from "@/components/ui";
 import { JobPicker } from "@/components/JobPicker";
 import type { MapJob } from "@/lib/lopezMap";
-import type { MapMark } from "@/components/LopezMap";
+import type { MapMark, MapPick } from "@/components/LopezMap";
 import type { KnownPlacePoint } from "@/lib/knownPlacePoints";
 import {
   clearLocalTrip,
@@ -323,6 +323,22 @@ function TripMap({
   );
 }
 
+// The picture on the full screen map's info card: a close view of the spot.
+// Drops out (no empty box) when the image cannot load.
+function MapCardPicture({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt="Close view of this spot"
+      onError={() => setFailed(true)}
+      className="h-32 w-full bg-neutral-100 object-cover dark:bg-neutral-800"
+    />
+  );
+}
+
 // Local date as YYYY-MM-DD for the manual-entry <input type="date"> default.
 function today(d: Date = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -361,6 +377,8 @@ export function MileageClient({
   // state, so a trip under way keeps tracking while another tab is open.
   const [tab, setTab] = useState<MileageTab>("record");
   const [mapFull, setMapFull] = useState(false);
+  // The dot tapped on the full screen map (its info card).
+  const [picked, setPicked] = useState<MapPick | null>(null);
   // "saving": End was tapped and the save sits in the outbox until confirmed.
   const [phase, setPhase] = useState<"idle" | "active" | "saving" | "done">("idle");
   // Why the save has not landed yet ("" while it is simply in flight).
@@ -1100,6 +1118,29 @@ export function MileageClient({
     [knownPlaces, jobs],
   );
 
+  // What the info card says about a tapped dot: names, and the address from the
+  // job or the saved place behind it.
+  const pickedInfo = useMemo(() => {
+    if (!picked) return null;
+    const addrs: string[] = [];
+    for (const id of picked.ids) {
+      const a = id.startsWith("place:")
+        ? knownPlaces.find((k) => `place:${k.label}` === id)?.address
+        : jobAddr(jobs.find((j) => j.id === id));
+      if (a && !addrs.includes(a)) addrs.push(a);
+    }
+    const kindName = picked.kind === "start" ? "Trip start" : picked.kind === "end" ? "Trip end" : null;
+    const text = picked.names[0] ?? "";
+    // A trip end's text is an address when it is not a name; show it as the address then.
+    const looksAddr = /\d/.test(text) && text.includes(",");
+    return {
+      name: picked.kind === "place" ? picked.names.join("; ") : kindName,
+      sub: picked.kind === "place" ? null : looksAddr ? null : text || null,
+      address: picked.kind === "place" ? addrs.join("; ") : looksAddr ? text : "",
+      src: `/api/mileage/map?point=${picked.lat.toFixed(6)},${picked.lng.toFixed(6)}&size=400x200`,
+    };
+  }, [picked, jobs, knownPlaces]);
+
   // A From/To text as a map point: "lat,lng", a job, a saved place, or an
   // address that is a job's or a saved place's. A typed address has no point.
   const pointOf = useCallback(
@@ -1342,10 +1383,22 @@ export function MileageClient({
       </div>
 
       {mapFull && (
-        <Dialog onClose={() => setMapFull(false)} size="full" label="Map" pad={false} bare>
+        <Dialog
+          onClose={() => {
+            setMapFull(false);
+            setPicked(null);
+          }}
+          size="full"
+          label="Map"
+          pad={false}
+          bare
+        >
           {/* The whole screen: the map, with Close and the key floating over it. */}
           <div className="relative flex h-dvh flex-col bg-neutral-50 text-neutral-900 dark:bg-ink dark:text-neutral-100">
-            <div className="min-h-0 flex-1 px-2 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-[calc(env(safe-area-inset-top)+3.75rem)] [&_figure]:h-full [&_svg]:min-h-0 [&_svg]:flex-1">
+            <div
+              onClick={() => setPicked(null)}
+              className="min-h-0 flex-1 px-2 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-[calc(env(safe-area-inset-top)+3.75rem)] [&_figure]:h-full [&_svg]:min-h-0 [&_svg]:flex-1"
+            >
               <LopezMap
                 jobs={savedPlaces}
                 marks={marks}
@@ -1353,10 +1406,38 @@ export function MileageClient({
                 topo
                 glow
                 pad={12}
+                onPick={setPicked}
+                selectedId={picked?.ids[0] ?? null}
                 className="h-full"
                 label="Full screen map of Lopez Island with jobs, saved places, contour lines and the trip's start and end"
               />
             </div>
+            {picked && pickedInfo && (
+              <div
+                role="dialog"
+                aria-label="About this spot"
+                className="absolute inset-x-3 bottom-[calc(max(1rem,env(safe-area-inset-bottom))+2.25rem)] z-10 mx-auto max-w-sm overflow-hidden rounded-control border border-line bg-white shadow-lg dark:bg-ink-raised"
+              >
+                <MapCardPicture key={pickedInfo.src} src={pickedInfo.src} />
+                <div className="flex items-start gap-3 p-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold">{pickedInfo.name || "Spot"}</p>
+                    {pickedInfo.sub && <p className="text-xs text-neutral-600 dark:text-neutral-300">{pickedInfo.sub}</p>}
+                    {pickedInfo.address && (
+                      <p className="mt-0.5 text-xs text-neutral-600 dark:text-neutral-300">{pickedInfo.address}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPicked(null)}
+                    aria-label="Close"
+                    className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-lg text-neutral-600 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-white/10"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
               <h2 className="text-base font-semibold">Map</h2>
               <Button variant="secondary" onClick={() => setMapFull(false)}>

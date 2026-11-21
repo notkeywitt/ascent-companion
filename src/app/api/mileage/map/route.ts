@@ -9,6 +9,9 @@ import { NextRequest, NextResponse } from "next/server";
 //
 //   GET /api/mileage/map?start=lat,lng&end=lat,lng&path=<encodedPolyline>&size=WxH
 //   → image/png  (a route line + S/E markers)
+//   GET /api/mileage/map?point=lat,lng&size=WxH
+//   → image/png  (one place: a close satellite view with one pin; the info
+//     card on the Miles full-screen map)
 export const dynamic = "force-dynamic";
 
 const LATLNG = /^-?\d{1,3}(\.\d+)?,-?\d{1,3}(\.\d+)?$/;
@@ -26,15 +29,26 @@ export async function GET(req: NextRequest) {
   if (!key) return new NextResponse("GOOGLE_MAPS_API_KEY is not set.", { status: 400 });
 
   const sp = req.nextUrl.searchParams;
+  const point = sp.get("point") ?? ""; // one place instead of a route (optional)
   const start = sp.get("start") ?? "";
   const end = sp.get("end") ?? "";
   const path = sp.get("path") ?? ""; // encoded polyline (optional)
-  if (!LATLNG.test(start) || !LATLNG.test(end)) {
+  if (point ? !LATLNG.test(point) : !LATLNG.test(start) || !LATLNG.test(end)) {
     return new NextResponse("Valid start/end coordinates are required.", { status: 400 });
   }
 
   // Build the Static Maps URL server-side from whitelisted params only.
   const u = new URLSearchParams();
+  if (point) {
+    u.set("size", safeSize(sp.get("size")));
+    u.set("scale", "2");
+    u.set("maptype", "hybrid");
+    u.set("zoom", "17");
+    u.set("center", point);
+    u.append("markers", `color:0xcf9803|${point}`);
+    u.set("key", key);
+    return relay(u);
+  }
   u.set("size", safeSize(sp.get("size")));
   u.set("scale", "2");
   // The Miles map's look: dark ground, quiet roads, terrain relief.
@@ -54,7 +68,10 @@ export async function GET(req: NextRequest) {
   u.append("markers", `color:0xc62828|label:E|${end}`);
   u.append("path", path ? `color:0xe8a33dee|weight:5|enc:${path}` : `color:0xe8a33dee|weight:5|${start}|${end}`);
   u.set("key", key);
+  return relay(u);
+}
 
+async function relay(u: URLSearchParams) {
   try {
     const g = await fetch(`https://maps.googleapis.com/maps/api/staticmap?${u.toString()}`);
     if (!g.ok) {
