@@ -199,6 +199,14 @@ each table row into one bullet. The Doc keeps the Field Binder look.
 A rule that contradicts an older rule replaces it. Keep `preferences.md` under
 80 lines; merge rules that overlap.
 
+## The app page
+
+`/weekly-summary` in the app (Office menu) shows every file in `drafts/`: the
+newest week in full, earlier weeks listed under it. It uses `-final.md` when
+that exists, else `-claude.md`. The page reads the files when the app builds,
+so a week shows up after `npm run ship` lands. Keep the Markdown to the set
+`render.mjs` reads; the page reads the same set.
+
 ## Saving
 
 These files are docs, not app code. `npm run ship` puts the commit in the

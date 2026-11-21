@@ -313,6 +313,10 @@
    "file": "src/app/vendors/page.tsx"
   },
   {
+   "route": "/weekly-summary",
+   "file": "src/app/weekly-summary/page.tsx"
+  },
+  {
    "route": "/widget",
    "file": "src/app/widget/page.tsx"
   }
