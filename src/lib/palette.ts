@@ -10,6 +10,8 @@
  *                all: the accent and the mark alike.
  *   shopmanual — from Wagner's "Modern Woodworking" (1970s). Burnt orange on
  *                paper, Jost caps titles, square corners, a faint paper grain.
+ *   vice       — a nod to GTA VI's Vice City sunset. Hot pink on peach / night
+ *                purple, Anton caps titles, a faint sunset glow up top.
  *
  * The values themselves live in `src/app/globals.css` as token blocks, and
  * THEME.md records both palettes with their reasoning. Nothing here knows a
@@ -20,7 +22,7 @@
  * 2026-09-05), so the office desktop and a phone in the field can differ.
  */
 
-export const PALETTES = ["guidelines", "website", "shopmanual"] as const;
+export const PALETTES = ["guidelines", "website", "shopmanual", "vice"] as const;
 export type Palette = (typeof PALETTES)[number];
 
 /**
@@ -51,12 +53,14 @@ export const PALETTE_LABEL: Record<Palette, string> = {
   guidelines: "Guidelines",
   website: "Website",
   shopmanual: "Shop Manual",
+  vice: "Vice",
 };
 
 export const PALETTE_DESC: Record<Palette, string> = {
   guidelines: "Ochre accents on cream — the 2024 brand deck.",
   website: "Black and white, no colour — ascentbuildingco.com.",
   shopmanual: "Burnt orange on paper, Futura caps — a 1970s shop textbook.",
+  vice: "Sunset pink on night purple, big caps titles — GTA VI style.",
 };
 
 function isPalette(v: string | null): v is Palette {

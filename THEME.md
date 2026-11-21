@@ -550,3 +550,29 @@ The skin is FLAT: it is on the `:is()` list of the flat-skin rule in
 `globals.css`, which zeroes every Tailwind drop shadow and keeps focus rings.
 
 Cards and the phone tab bar stay white on the paper, like a pasted label.
+
+## Skin 4 — "Vice" (shipped 2026-11-21)
+
+A nod to the GTA VI key art: a Vice City sunset. Hot pink on peach sand in
+light, neon pink on night purple in dark. It is opt-in; the default stays
+Website · Dark.
+
+| Role | Light | Dark |
+|---|---|---|
+| Page | `#FFF4EE` peach, pink-orange glow at top | `#120A21` night purple, pink-orange-teal glow at top |
+| Raised card | `#FFFFFF` | `#1D1233` (overlay `#291A45`) |
+| Body text | `#1D1029` (16.77:1) | `#F6ECF7` (16.74:1 page, 15.39:1 card) |
+| Accent fill | `#D6246E` (4.48:1 on page: fills only) | `#FF5FA2` (6.79:1 page, 6.25:1 card) |
+| Accent text | `#B8195A` (5.84:1 page, 6.32:1 white) | `#FF7AB3` (7.32:1 card, 6.54:1 overlay) |
+| Label on a fill | `#FFFFFF` (4.84:1) | `#120A21` (6.79:1) |
+| `brand` | `#E62E7B` | `#FF5FA2` |
+| Hairlines | `#F2DCE0` / `#F8E9EC` / `#E3C3CB` | `#33234D` / `#271A3D` / `#4A3668` |
+
+Skin tokens: titles in Anton (SIL OFL, `src/app/fonts`, not preloaded),
+uppercase, weight 400, tracking 0.02em. Body stays Roboto: Anton is
+unreadable at body size. Captions 0.1em. Corners and shadows are the
+defaults. The glow is a `radial-gradient` in `--page-texture`, sized to the
+top 520–560px.
+
+Dark redirects `dark:border-neutral-600/700` to the skin's hairlines, the same
+as Website: the warm neutrals read brown on purple.
