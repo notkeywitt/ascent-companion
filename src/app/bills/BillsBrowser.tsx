@@ -115,6 +115,9 @@ export function BillsBrowser() {
       return n;
     });
   const canApprove = useAccess().can("bill-approve");
+  // The filter and sort panels start folded; the icons open them.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
   const [approving, setApproving] = useState(false);
   const [approveMsg, setApproveMsg] = useState("");
@@ -122,7 +125,9 @@ export function BillsBrowser() {
   // Re-read the list when a bill was written in the panel (saved, approved,
   // voided) — an approved bill is no longer a draft and leaves the list.
   const loadList = () =>
-    fetch(`/api/coding-queue${status === "draft" ? "" : `?status=${status}`}`, { cache: "no-store" })
+    fetch(`/api/coding-queue${status === "draft" ? "" : `?status=${status}`}`, {
+      cache: "no-store",
+    })
       .then((r) => r.json())
       .then((j) =>
         j.error ? setError(String(j.error)) : setBills(Array.isArray(j.bills) ? j.bills : []),
@@ -170,7 +175,19 @@ export function BillsBrowser() {
       ].sort((a, b) => b.localeCompare(a)),
     [bills, ym],
   );
-  const groups = useMemo(() => groupBills(shown, sort, groupBy, reverse), [shown, sort, groupBy, reverse]);
+  // Filters set away from their defaults, shown as a count on the Filter icon.
+  const filterCount =
+    (jobId ? 1 : 0) +
+    (ym !== (MONTH_OPTIONS[0]?.value ?? "") ? 1 : 0) +
+    (day ? 1 : 0) +
+    (status !== "draft" ? 1 : 0) +
+    (kind !== "bill" ? 1 : 0) +
+    (showReviewed ? 0 : 1) +
+    (showElectrical ? 0 : 1);
+  const groups = useMemo(
+    () => groupBills(shown, sort, groupBy, reverse),
+    [shown, sort, groupBy, reverse],
+  );
 
   // Ticked bills that are still on screen. With none ticked, a bulk change
   // applies to everything shown.
@@ -223,16 +240,22 @@ export function BillsBrowser() {
         const r = await fetch("/api/bill-status", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ docId: b.id, status: b.name === "Expense" ? "approved" : "pending" }),
+          body: JSON.stringify({
+            docId: b.id,
+            status: b.name === "Expense" ? "approved" : "pending",
+          }),
         });
         const j = await r.json();
-        if (!r.ok || j.error) failures.push(`${b.fromName || b.id}: ${j.error ?? "Approve failed"}`);
+        if (!r.ok || j.error)
+          failures.push(`${b.fromName || b.id}: ${j.error ?? "Approve failed"}`);
         else {
           ok++;
           if (j.previewed) previewed = true;
         }
       } catch (e) {
-        failures.push(`${b.fromName || b.id}: ${e instanceof Error ? e.message : "Request failed"}`);
+        failures.push(
+          `${b.fromName || b.id}: ${e instanceof Error ? e.message : "Request failed"}`,
+        );
       }
     }
     setApproving(false);
@@ -251,7 +274,9 @@ export function BillsBrowser() {
   // sits just under the header.
   useEffect(() => {
     if (!openId) return;
-    document.getElementById("bill-panel-top")?.scrollIntoView({ block: "start", behavior: "smooth" });
+    document
+      .getElementById("bill-panel-top")
+      ?.scrollIntoView({ block: "start", behavior: "smooth" });
   }, [openId]);
 
   // Going down the list: warm the next few bills (and the one above) in the
@@ -293,7 +318,6 @@ export function BillsBrowser() {
 
   return (
     <div className="w-full">
-
       <SplitView
         onClose={() => select("")}
         backLabel="Back to bills"
@@ -310,113 +334,184 @@ export function BillsBrowser() {
           // No page header: the open bill's title is the page's title.
           <div className="space-y-2">
             {!openId && <h1 className="sr-only">Bills</h1>}
-            <JobPicker
-              value={jobId}
-              onChange={setJobId}
-              allDescription="Draft bills across every job"
-              showPhaseFilter
-            />
-            <Select
-              value={ym}
-              onChange={(e) => {
-                setYm(e.target.value);
-                setDay("");
-              }}
-              aria-label="Billing month"
-            >
-              <option value="">All months (September 2026 on)</option>
-              {MONTH_OPTIONS.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </Select>
-            <Select value={day} onChange={(e) => setDay(e.target.value)} aria-label="Date">
-              <option value="">Any date</option>
-              {dayOptions.map((d) => (
-                <option key={d} value={d}>
-                  {dateLabel(d)}
-                </option>
-              ))}
-            </Select>
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Vendor, job or invoice #"
-              aria-label="Search bills"
-            />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Segmented<BillSort>
-                label="Sort bills"
-                value={sort}
-                onChange={setSort}
-                options={[
-                  { value: "date", label: "Date" },
-                  { value: "name", label: "Vendor" },
-                  { value: "job", label: "Job" },
-                  { value: "amount", label: "Amount" },
-                ]}
-              />
+            <div className="flex items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <Input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Vendor, job or invoice #"
+                  aria-label="Search bills"
+                />
+              </div>
               <button
                 type="button"
-                onClick={() => setReverse((r) => !r)}
-                aria-pressed={reverse}
-                title="Reverse the sort order"
-                className="min-h-11 rounded-control border border-neutral-200 px-3 text-sm font-semibold dark:border-white/10"
+                onClick={() => setFiltersOpen((o) => !o)}
+                aria-expanded={filtersOpen}
+                aria-label="Filter bills"
+                title="Filter bills"
+                className={`relative flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control border px-3 ${
+                  filtersOpen
+                    ? "border-neutral-900 dark:border-white"
+                    : "border-neutral-200 dark:border-white/10"
+                }`}
               >
-                {reverse ? "Reversed ↑" : "Normal ↓"}
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 5h18l-7 8v6l-4 2v-8z" />
+                </svg>
+                {filterCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-neutral-900 px-1 text-xs font-bold text-white dark:bg-white dark:text-neutral-900">
+                    {filterCount}
+                  </span>
+                )}
               </button>
-              <Segmented<BillGroupBy>
-                label="Group bills"
-                value={groupBy}
-                onChange={setGroupBy}
-                options={[
-                  { value: "none", label: "All" },
-                  { value: "job", label: "Job" },
-                  { value: "vendor", label: "Vendor" },
-                  { value: "month", label: "Month" },
-                  { value: "code", label: "To code" },
-                ]}
-              />
-              <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
-              <Toggle checked={showElectrical} onChange={setShowElectrical} label="Show Ascent - Electrical" />
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <SectionLabel className="shrink-0">Status</SectionLabel>
-              {(
-                [
-                  ["draft", "Draft"],
-                  ["pending", "Pending"],
-                  ["approved", "Approved"],
-                  ["all", "All"],
-                ] as const
-              ).map(([v, label]) => (
-                <FilterChip key={v} on={status === v} onClick={() => setStatus(v)}>
-                  {label}
-                </FilterChip>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <SectionLabel className="shrink-0">Show</SectionLabel>
-              <FilterChip on={kind === "all"} onClick={() => setKind("all")}>
-                All
-              </FilterChip>
-              <FilterChip
-                on={kind === "bill"}
-                onClick={() => setKind("bill")}
-                title="Filed as a Bill — money Ascent still owes the vendor"
+              <button
+                type="button"
+                onClick={() => setSortOpen((o) => !o)}
+                aria-expanded={sortOpen}
+                aria-label="Sort and group bills"
+                title="Sort and group bills"
+                className={`relative flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-control border px-3 ${
+                  sortOpen
+                    ? "border-neutral-900 dark:border-white"
+                    : "border-neutral-200 dark:border-white/10"
+                }`}
               >
-                Bills
-              </FilterChip>
-              <FilterChip
-                on={kind === "expense"}
-                onClick={() => setKind("expense")}
-                title="Filed as an Expense — already paid, on a card or out of pocket"
-              >
-                Expenses
-              </FilterChip>
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4" />
+                </svg>
+              </button>
             </div>
+            {filtersOpen && (
+              <div className="space-y-2 rounded-control border border-neutral-200 p-2 dark:border-white/10">
+                <JobPicker
+                  value={jobId}
+                  onChange={setJobId}
+                  allDescription="Draft bills across every job"
+                  showPhaseFilter
+                />
+                <Select
+                  value={ym}
+                  onChange={(e) => {
+                    setYm(e.target.value);
+                    setDay("");
+                  }}
+                  aria-label="Billing month"
+                >
+                  <option value="">All months (September 2026 on)</option>
+                  {MONTH_OPTIONS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </Select>
+                <Select value={day} onChange={(e) => setDay(e.target.value)} aria-label="Date">
+                  <option value="">Any date</option>
+                  {dayOptions.map((d) => (
+                    <option key={d} value={d}>
+                      {dateLabel(d)}
+                    </option>
+                  ))}
+                </Select>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SectionLabel className="shrink-0">Status</SectionLabel>
+                  {(
+                    [
+                      ["draft", "Draft"],
+                      ["pending", "Pending"],
+                      ["approved", "Approved"],
+                      ["all", "All"],
+                    ] as const
+                  ).map(([v, label]) => (
+                    <FilterChip key={v} on={status === v} onClick={() => setStatus(v)}>
+                      {label}
+                    </FilterChip>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <SectionLabel className="shrink-0">Show</SectionLabel>
+                  <FilterChip on={kind === "all"} onClick={() => setKind("all")}>
+                    All
+                  </FilterChip>
+                  <FilterChip
+                    on={kind === "bill"}
+                    onClick={() => setKind("bill")}
+                    title="Filed as a Bill — money Ascent still owes the vendor"
+                  >
+                    Bills
+                  </FilterChip>
+                  <FilterChip
+                    on={kind === "expense"}
+                    onClick={() => setKind("expense")}
+                    title="Filed as an Expense — already paid, on a card or out of pocket"
+                  >
+                    Expenses
+                  </FilterChip>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Toggle checked={showReviewed} onChange={setShowReviewed} label="Show reviewed" />
+                  <Toggle
+                    checked={showElectrical}
+                    onChange={setShowElectrical}
+                    label="Show Ascent - Electrical"
+                  />
+                </div>
+              </div>
+            )}
+            {sortOpen && (
+              <div className="flex flex-wrap items-center justify-between gap-2 rounded-control border border-neutral-200 p-2 dark:border-white/10">
+                <Segmented<BillSort>
+                  label="Sort bills"
+                  value={sort}
+                  onChange={setSort}
+                  options={[
+                    { value: "date", label: "Date" },
+                    { value: "name", label: "Vendor" },
+                    { value: "job", label: "Job" },
+                    { value: "amount", label: "Amount" },
+                  ]}
+                />
+                <button
+                  type="button"
+                  onClick={() => setReverse((r) => !r)}
+                  aria-pressed={reverse}
+                  title="Reverse the sort order"
+                  className="min-h-11 rounded-control border border-neutral-200 px-3 text-sm font-semibold dark:border-white/10"
+                >
+                  {reverse ? "Reversed ↑" : "Normal ↓"}
+                </button>
+                <Segmented<BillGroupBy>
+                  label="Group bills"
+                  value={groupBy}
+                  onChange={setGroupBy}
+                  options={[
+                    { value: "none", label: "All" },
+                    { value: "job", label: "Job" },
+                    { value: "vendor", label: "Vendor" },
+                    { value: "month", label: "Month" },
+                    { value: "code", label: "To code" },
+                  ]}
+                />
+              </div>
+            )}
             {shown.length > 0 && (
               <div className="flex min-h-11 items-center justify-between gap-2">
                 <Checkbox
@@ -427,7 +522,11 @@ export function BillsBrowser() {
                   }
                 />
                 {picked.size > 0 && (
-                  <Button variant="secondary" className="min-h-11" onClick={() => setPicked(new Set())}>
+                  <Button
+                    variant="secondary"
+                    className="min-h-11"
+                    onClick={() => setPicked(new Set())}
+                  >
                     Clear
                   </Button>
                 )}
@@ -479,53 +578,61 @@ export function BillsBrowser() {
                         {`${g.title} · ${g.bills.length}`}
                       </SectionHeading>
                       {!folded.has(g.key) && (
-                      <ListCard>
-                        {g.bills.map((b) => (
-                          <div key={b.id} className="flex items-center border-b border-line-soft last:border-b-0">
-                            <Checkbox
-                              aria-label={`Select ${b.fromName || "bill"}`}
-                              className="shrink-0 py-4 pl-3"
-                              checked={picked.has(b.id)}
-                              onChange={(e) => togglePick(b.id, e.target.checked)}
-                            />
-                            <div className="min-w-0 flex-1">
-                              <ListRow
-                                className="!border-b-0"
-                                onClick={() => select(b.id)}
-                                selected={b.id === openId}
-                                label={<>{b.fromName || "Unknown vendor"}<CoiDot vendor={b.fromName} /></>}
-                                desc={[
-                                  groupBy === "job" && g.title !== "Sunset"
-                                    ? ""
-                                    : b.jobName || "No job",
-                                  dateLabel(b.issueDate),
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                                trailing={
-                                  <span className="text-right">
-                                    {typeof b.cost === "number" && (
-                                      <span className="block text-sm font-semibold tabular-nums">
-                                        {money(b.cost)}
-                                      </span>
-                                    )}
-                                    {status === "all" && b.status && b.status !== "draft" && (
-                                      <span className="block text-[11px] font-semibold capitalize text-neutral-500">
-                                        {b.status}
-                                      </span>
-                                    )}
-                                    {b.reviewed && (
-                                      <span className="block text-[11px] font-semibold text-ok">
-                                        ✓ Reviewed
-                                      </span>
-                                    )}
-                                  </span>
-                                }
+                        <ListCard>
+                          {g.bills.map((b) => (
+                            <div
+                              key={b.id}
+                              className="flex items-center border-b border-line-soft last:border-b-0"
+                            >
+                              <Checkbox
+                                aria-label={`Select ${b.fromName || "bill"}`}
+                                className="shrink-0 py-4 pl-3"
+                                checked={picked.has(b.id)}
+                                onChange={(e) => togglePick(b.id, e.target.checked)}
                               />
+                              <div className="min-w-0 flex-1">
+                                <ListRow
+                                  className="!border-b-0"
+                                  onClick={() => select(b.id)}
+                                  selected={b.id === openId}
+                                  label={
+                                    <>
+                                      {b.fromName || "Unknown vendor"}
+                                      <CoiDot vendor={b.fromName} />
+                                    </>
+                                  }
+                                  desc={[
+                                    groupBy === "job" && g.title !== "Sunset"
+                                      ? ""
+                                      : b.jobName || "No job",
+                                    dateLabel(b.issueDate),
+                                  ]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                  trailing={
+                                    <span className="text-right">
+                                      {typeof b.cost === "number" && (
+                                        <span className="block text-sm font-semibold tabular-nums">
+                                          {money(b.cost)}
+                                        </span>
+                                      )}
+                                      {status === "all" && b.status && b.status !== "draft" && (
+                                        <span className="block text-[11px] font-semibold capitalize text-neutral-500">
+                                          {b.status}
+                                        </span>
+                                      )}
+                                      {b.reviewed && (
+                                        <span className="block text-[11px] font-semibold text-ok">
+                                          ✓ Reviewed
+                                        </span>
+                                      )}
+                                    </span>
+                                  }
+                                />
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </ListCard>
+                          ))}
+                        </ListCard>
                       )}
                     </div>
                   ))
@@ -551,17 +658,30 @@ export function BillsBrowser() {
               >
                 Cancel
               </Button>
-              <Button className="min-h-11 w-full" onClick={approveShown} disabled={approving || targets.length === 0}>
-                {approving ? "Approving…" : `Approve ${targets.length} bill${targets.length === 1 ? "" : "s"}`}
+              <Button
+                className="min-h-11 w-full"
+                onClick={approveShown}
+                disabled={approving || targets.length === 0}
+              >
+                {approving
+                  ? "Approving…"
+                  : `Approve ${targets.length} bill${targets.length === 1 ? "" : "s"}`}
               </Button>
             </div>
           }
         >
           <ul className="space-y-2">
             {targets.map((b) => (
-              <li key={b.id} className="flex items-baseline justify-between gap-3 rounded-control border border-line px-3 py-2.5 text-sm dark:border-neutral-700">
-                <span className="min-w-0 truncate font-medium">{b.fromName || "Unknown vendor"}</span>
-                <span className="shrink-0 tabular-nums">{typeof b.cost === "number" ? money(b.cost) : ""}</span>
+              <li
+                key={b.id}
+                className="flex items-baseline justify-between gap-3 rounded-control border border-line px-3 py-2.5 text-sm dark:border-neutral-700"
+              >
+                <span className="min-w-0 truncate font-medium">
+                  {b.fromName || "Unknown vendor"}
+                </span>
+                <span className="shrink-0 tabular-nums">
+                  {typeof b.cost === "number" ? money(b.cost) : ""}
+                </span>
               </li>
             ))}
           </ul>
