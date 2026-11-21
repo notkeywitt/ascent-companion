@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from "react";
 
-import { Banner, Card, Loading, Select } from "@/components/ui";
+import { Banner, Button, Card, Loading, Select } from "@/components/ui";
 import { toast } from "@/components/Toast";
 import { PALETTES, PALETTE_LABEL } from "@/lib/palette";
 
 /**
- * Admin → Skins — set the skin for one person. A set skin paints on every
- * device that person signs in on and locks their Skin picker in Appearance.
- * "Their choice" removes it, and each device goes back to its own pick.
+ * Admin → Skins — set the skin for one person. Each set switches every device
+ * that person signs in on, once; they can change it after in Appearance.
+ * Setting it again (even to the same skin) switches them back.
  *
  * People come from /api/team (founders + added members); skins from
  * /api/admin/skins.
@@ -61,14 +61,26 @@ export function SkinsPanel() {
   return (
     <div className="max-w-2xl">
       <p className="mb-3 text-sm text-neutral-500 dark:text-neutral-400">
-        A set skin shows on every device the person signs in on, and they cannot change it.
-        It applies the next time they open a page.
+        Setting a skin switches every device the person signs in on, the next time they open a
+        page. They can still change it themselves; set it again to switch them back.
       </p>
       {error && <Banner tone="error" className="mb-3">{error}</Banner>}
       <Card pad={false} className="divide-y divide-line-soft">
         {people.map((email) => (
           <div key={email} className="flex items-center justify-between gap-3 px-4 py-2.5">
-            <span className="min-w-0 truncate text-sm">{email}</span>
+            <span className="min-w-0 flex-1 truncate text-sm">{email}</span>
+            {/* A select fires no change for the value it already shows, so
+                re-pushing the same skin needs its own button. */}
+            {skins[email] && (
+              <Button
+                variant="secondary"
+                size="xs"
+                disabled={saving === email}
+                onClick={() => pick(email, skins[email])}
+              >
+                Again
+              </Button>
+            )}
             <Select
               aria-label={`Skin for ${email}`}
               className="!w-40 shrink-0"
@@ -76,7 +88,7 @@ export function SkinsPanel() {
               disabled={saving === email}
               onChange={(e) => pick(email, e.target.value)}
             >
-              <option value="">Their choice</option>
+              <option value="">Not set</option>
               {PALETTES.map((p) => (
                 <option key={p} value={p}>
                   {PALETTE_LABEL[p]}

@@ -65,9 +65,9 @@ export const allowedUsers = sqliteTable("allowed_users", {
 export type AllowedUser = typeof allowedUsers.$inferSelect;
 
 /**
- * The skin an admin set for one person (/admin → Skins). It overrides that
- * person's per-device choice on every device they sign in on, and locks the
- * Skin picker in Appearance. No row = the device chooses. `palette` is a
+ * The skin an admin set for one person (/admin → Skins). Each set (a new
+ * `updatedAt`) switches every device they sign in on ONCE; they can change it
+ * after in Appearance. No row = nothing pushed. `palette` is a
  * `Palette` id from src/lib/palette.ts.
  */
 export const userSkins = sqliteTable("user_skins", {

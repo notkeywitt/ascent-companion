@@ -234,9 +234,10 @@ The `/theme` editor tunes colour tokens only. Skin tokens are edited in
 `globals.css`.
 
 **An admin can set one person's skin** (/admin → Skins, table `user_skins`).
-It wins over the device's stored choice on every device that person signs in
-on, and the Skin picker in Appearance locks. The device's own choice is not
-overwritten, so "Their choice" brings it back. Light/dark stays per device.
+Each set is a PUSH: every device that person signs in on switches to it once
+(the `data-skin-set` stamp vs localStorage `skinPushed`). After that the person
+picks any skin they like. Setting it again, or "Again", switches them back.
+Light/dark stays per device.
 
 ## Editing a palette — `/theme`
 
