@@ -1,5 +1,17 @@
 [
  {
+  "sha": "cd514a81",
+  "date": "2026-11-21T03:11:25Z",
+  "title": "bills filters and sort move under icons",
+  "plain": "On Bills, filters and sorting now sit behind a Filter icon and a Sort icon next to search."
+ },
+ {
+  "sha": "0fad4f55",
+  "date": "2026-11-21T03:09:22Z",
+  "title": "bills list defaults to vendor groups, current month, bills only",
+  "plain": "The Bills list now opens grouped by vendor, on the current month, showing only bills."
+ },
+ {
   "sha": "c2c5b8c8",
   "date": "2026-11-21T02:31:12Z",
   "title": "show feature request circle on every page",
