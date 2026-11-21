@@ -147,6 +147,9 @@ export async function DELETE(req: NextRequest) {
   }
   // The page confirms before it calls; the audit names the signed-in user.
   const session = await auth();
+  if ((session?.user?.role ?? "field") === "field") {
+    return NextResponse.json({ error: "Field accounts cannot delete tools." }, { status: 403 });
+  }
   const email = session?.user?.email ?? "";
   const result = await callAppsScript(
     { toolId: body.toolId, confirm: true, email, action: "deleteTool" },
