@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { and, asc, desc, eq, like } from "drizzle-orm";
+import { and, asc, desc, eq, like, sql } from "drizzle-orm";
 import { auth } from "@/auth";
 import { holdsView } from "@/lib/apiAuth";
 import { db, ensureDb } from "@/db";
@@ -31,6 +31,10 @@ import {
  * The author comes from the session, never the body. Every PATCH appends one
  * row to job_note_edits holding the whole note before and after. Writes the
  * companion DB only; gated by the "jobs-hub" view.
+ *
+ * A field user sees only the notes they wrote (2026-11-21). Office, admin and
+ * lead notes stay hidden from them; office and admin see every note. The
+ * filter is on the author's email, so there is no schema change.
  *
  * A note's bill links carry each bill's cost in their label. Field holds this
  * view but no money (2026-11-21), so a caller without Tracking Sheets
@@ -75,6 +79,13 @@ const noBills = <T extends { bills?: NoteFields["bills"] }>(n: T): T => ({ ...n,
 const todayInOrg = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
 
+/** The signed-in email when the caller is field (sees only own notes), else null. */
+async function fieldEmail(): Promise<string | null> {
+  const session = await auth();
+  if (session?.user?.role !== "field") return null;
+  return (session.user.email ?? "").toLowerCase() || "-";
+}
+
 async function who(): Promise<{ email: string; name: string }> {
   const session = await auth();
   const email = (session?.user?.email ?? "").toLowerCase();
@@ -87,12 +98,17 @@ export async function GET(req: NextRequest) {
   await ensureDb();
   const q = req.nextUrl.searchParams;
   const seesBills = await holdsView("recode");
+  const ownOnly = await fieldEmail();
 
   const history = q.get("history");
   if (history !== null) {
     const noteId = Number(history);
     if (!Number.isInteger(noteId) || noteId < 1)
       return NextResponse.json({ error: "Pick a note." }, { status: 400 });
+    if (ownOnly !== null) {
+      const [n] = await db.select().from(jobNotes).where(eq(jobNotes.id, noteId)).limit(1);
+      if (!n || n.authorEmail.toLowerCase() !== ownOnly) return NextResponse.json({ edits: [] });
+    }
     const rows = await db
       .select()
       .from(jobNoteEdits)
@@ -121,13 +137,15 @@ export async function GET(req: NextRequest) {
   if (docId && !/^[A-Za-z0-9]{6,32}$/.test(docId))
     return NextResponse.json({ error: "Pick a bill." }, { status: 400 });
 
-  const where = docId
+  const base = docId
     ? like(jobNotes.bills, `%"docId":"${docId}"%`)
     : jobId
       ? eq(jobNotes.jobId, jobId)
       : ym
       ? eq(jobNotes.billingYm, ym)
       : undefined;
+  const where =
+    ownOnly === null ? base : and(base, eq(sql`lower(${jobNotes.authorEmail})`, ownOnly));
   const rows = await db
     .select()
     .from(jobNotes)
@@ -189,7 +207,9 @@ export async function PATCH(req: NextRequest) {
   const out = (n: Note) => (seesBills ? n : noBills(n));
   await ensureDb();
   const [row] = await db.select().from(jobNotes).where(eq(jobNotes.id, id)).limit(1);
-  if (!row) return NextResponse.json({ error: "That note does not exist." }, { status: 404 });
+  const ownOnly = await fieldEmail();
+  if (!row || (ownOnly !== null && row.authorEmail.toLowerCase() !== ownOnly))
+    return NextResponse.json({ error: "That note does not exist." }, { status: 404 });
   const current = toNote(row);
 
   if (String(body.updatedAt ?? "") !== current.updatedAt)
