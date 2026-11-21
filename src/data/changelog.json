@@ -1,5 +1,11 @@
 [
  {
+  "sha": "5c84638c",
+  "date": "2026-11-21T01:15:34Z",
+  "title": "job schedules use the Schedule page gantt and task dialog",
+  "plain": "A job's Schedule tab and Home job card now look and work like the Schedule page, with bills and estimates on each task."
+ },
+ {
   "sha": "db5d3b66",
   "date": "2026-11-20T19:59:32Z",
   "title": "bill action bar is solid and shorter when closed",
