@@ -758,7 +758,6 @@ export function HomeJobBoard() {
  */
 export function JobOverview({ jobId }: { jobId: string }) {
   const [cards, setCards] = useState<JobBoardCard[] | null>(null);
-  const detail = useCostDetail(jobId);
   useEffect(() => {
     let cancelled = false;
     fetch("/api/home/board")
@@ -779,6 +778,10 @@ export function JobOverview({ jobId }: { jobId: string }) {
           <ScheduleBlock c={c} />
         </Card>
       )}
+      {/* The chart only: the job's cost by division is not on the Schedule tab (owner, 2026-11-21). */}
+      <Card>
+        <JobSchedule jobId={jobId} />
+      </Card>
     </div>
   );
 }
