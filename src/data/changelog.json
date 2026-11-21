@@ -1,5 +1,11 @@
 [
  {
+  "sha": "fb5c2942",
+  "date": "2026-11-21T17:14:28Z",
+  "title": "weekly summary page under Office",
+  "plain": "There is a new Weekly Summary page in the Office menu. It shows the latest weekly email and lists every earlier week."
+ },
+ {
   "sha": "91a6b6a8",
   "date": "2026-11-21T17:00:32Z",
   "title": "skins page in the admin menu",
