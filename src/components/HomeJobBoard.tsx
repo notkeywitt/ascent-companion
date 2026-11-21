@@ -11,7 +11,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { Donut, type DonutSlice } from "@/components/Donut";
-import { JobGantt } from "@/components/JobGantt";
+import { JobSchedule } from "@/app/schedule/JobSchedule";
 import { jtBudgetUrl } from "@/lib/jtLinks";
 import { MonthTotalCard, useMonthJobs } from "@/app/trackingsheet/MonthJobDonuts";
 import { useAccess } from "@/components/AccessProvider";
@@ -376,13 +376,13 @@ function DivisionList({ jobId, detail }: { jobId: string; detail: CostDetail }) 
 
 /**
  * The drilldown body: the job's Gantt chart, then its cost by division. Two
- * independent fetches — the chart carries its own (JobGantt), so a slow cost
+ * independent fetches — the chart carries its own (JobSchedule), so a slow cost
  * tree never holds up the schedule or the other way round.
  */
 function DetailBody({ jobId, state }: { jobId: string; state: DetailState | undefined }) {
   return (
     <div className="space-y-3">
-      <JobGantt jobId={jobId} />
+      <JobSchedule jobId={jobId} />
       {!state || state.status === "loading" ? (
         <Loading label="Loading cost detail…" />
       ) : state.status === "error" ? (
