@@ -1,5 +1,29 @@
 [
  {
+  "sha": "da13079b",
+  "date": "2026-11-21T06:15:18Z",
+  "title": "batch — new nav icons, field bar and drawer, no help marks, tool schedule view-only for field with sort/filter icons, miles form rework",
+  "plain": "New Home, Jobs and Tool Schedule icons; field staff get a simpler bar and menu and a view-only Tool Schedule; help marks are gone; the Miles form picks the nearest job, defaults to round trip and works out miles by itself."
+ },
+ {
+  "sha": "23b95825",
+  "date": "2026-11-21T06:11:59Z",
+  "title": "nav icons, field drawer theme-only, remove help icons",
+  "plain": "nav icons, field drawer theme-only, remove help icons"
+ },
+ {
+  "sha": "b5da744e",
+  "date": "2026-11-21T06:11:53Z",
+  "title": "tool schedule view-only for field, sort and filter under icons",
+  "plain": "tool schedule view-only for field, sort and filter under icons"
+ },
+ {
+  "sha": "f414a6c9",
+  "date": "2026-11-21T06:11:35Z",
+  "title": "miles form defaults to no job, auto miles, nearest job, save on top",
+  "plain": "miles form defaults to no job, auto miles, nearest job, save on top"
+ },
+ {
   "sha": "45d529c5",
   "date": "2026-11-21T05:49:08Z",
   "title": "admin skin is a push, people can change their own skin after",
