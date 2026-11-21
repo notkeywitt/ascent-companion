@@ -425,6 +425,9 @@ export const VIEWS: ViewDef[] = [
   // Company renewals calendar — companion DB only (company_details key "renewals").
   { id: "renewals", label: "Renewals", group: "Office", paths: ["/renewals", "/api/renewals"] },
   { id: "roadmap", label: "Roadmap", group: "Office", paths: ["/roadmap", "/api/roadmap"] },
+  // Weekly Summary — the office's weekly email to Casey and Ty, read from the
+  // files the /weekly-summary skill commits. No API route; office + admin by default.
+  { id: "weekly-summary", label: "Weekly Summary", group: "Office", paths: ["/weekly-summary"] },
   // The email-blast API is listed here so it inherits the office/admin gate; the
   // page-less /api/employees (read/edit) stays ungated because /safety-meeting
   // (a field view) reads the Active roster through it.

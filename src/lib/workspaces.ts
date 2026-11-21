@@ -131,6 +131,7 @@ export const WORKSPACES: Workspace[] = [
       tab("office", "/office", "Office Dashboard", "The Office job's to-dos and files"),
       tab("renewals", "/renewals", "Renewals", "Bond, insurance, permits and licences — due dates with a warning"),
       tab("roadmap", "/roadmap", "Roadmap", "Features the old Drive and sheets did that the app does not yet — rank them"),
+      tab("weekly-summary", "/weekly-summary", "Weekly Summary", "The week's email to Casey and Ty, and every earlier week"),
     ],
   },
   {
