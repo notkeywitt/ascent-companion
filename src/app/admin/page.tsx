@@ -69,7 +69,7 @@ type AdminTab = "access" | "skins" | "activity" | "digest" | "ascentbot" | "look
 // the rest are the pages that used to be separate Admin menu rows.
 const ADMIN_TABS: { id: AdminTab; label: string; view: string }[] = [
   { id: "access", label: "Access", view: "admin" },
-  { id: "skins", label: "Skins", view: "admin" },
+  { id: "skins", label: "Skins", view: "skins" },
   { id: "activity", label: "Activity", view: "admin" },
   { id: "digest", label: "Digest", view: "admin" },
   { id: "map", label: "Page Map", view: "admin" },
