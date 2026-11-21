@@ -87,7 +87,7 @@ export function BillsBrowser() {
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<BillSort>("date");
-  const [groupBy, setGroupBy] = useState<BillGroupBy>("none");
+  const [groupBy, setGroupBy] = useState<BillGroupBy>("vendor");
   // Which bills to list. Drafts (the coding queue) is the default; the others
   // are read-only views of bills that were already approved.
   const [status, setStatus] = useState<"draft" | "pending" | "approved" | "all">("draft");
@@ -98,9 +98,9 @@ export function BillsBrowser() {
   const [reverse, setReverse] = useState(false);
   // The Tracking Sheet's filters: one job, and Bills vs Expenses.
   const [jobId, setJobId] = useState("");
-  const [kind, setKind] = useState<"all" | "bill" | "expense">("all");
+  const [kind, setKind] = useState<"all" | "bill" | "expense">("bill");
   // Billing month filter ("" = every month) and the bills ticked for a bulk change.
-  const [ym, setYm] = useState("");
+  const [ym, setYm] = useState(MONTH_OPTIONS[0]?.value ?? "");
   // One issue date ("" = any), picked from a drop-down of the dates on the list.
   const [day, setDay] = useState("");
   const [picked, setPicked] = useState<Set<string>>(new Set());
