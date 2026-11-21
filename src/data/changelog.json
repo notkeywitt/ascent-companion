@@ -1,5 +1,11 @@
 [
  {
+  "sha": "e437e5b0",
+  "date": "2026-11-21T05:07:25Z",
+  "title": "jobs hub tabs trimmed, schedule bars on own row, no budget on schedule",
+  "plain": "The Jobs Hub no longer shows Checks and Invoice Status tabs. On a phone each schedule bar sits on its own row. The Schedule tab no longer shows budget."
+ },
+ {
   "sha": "0c6f3ad7",
   "date": "2026-11-21T04:55:25Z",
   "title": "transparent header and ribbon band, map colours per skin",
