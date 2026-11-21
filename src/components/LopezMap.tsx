@@ -29,6 +29,17 @@ export interface MapMark {
   title?: string;
 }
 
+/** What a tap on the map hit: a dot (one or more jobs/places), or a trip end. */
+export interface MapPick {
+  kind: "place" | "start" | "end";
+  lat: number;
+  lng: number;
+  /** For a dot: the ids of the jobs/places at that spot. */
+  ids: string[];
+  /** For a dot: their names. For a trip end: its text, if any. */
+  names: string[];
+}
+
 const MARK_COLOR: Record<MapMark["kind"], string> = {
   start: "var(--viz-4)",
   end: "var(--viz-8)",
@@ -57,7 +68,11 @@ export function LopezMap({
   marks = [],
   topo = true,
   glow = true,
+  onPick,
 }: {
+  /** Makes every dot and the trip's start and end tappable (with a thumb-sized
+   *  hit area). Gets what was tapped; the caller draws the card. */
+  onPick?: (pick: MapPick) => void;
   /** Elevation contours every 50 ft, all one light weight. On by default; pass false to hide. */
   topo?: boolean;
   /** A soft light behind the island, to lift it off the page. On by default. */
@@ -124,6 +139,11 @@ export function LopezMap({
   );
   const routeD = route ? "M" + route.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("L") : "";
 
+  const pickPlace = (js: MapJob[]) =>
+    onPick?.({ kind: "place", lat: js[0].lat as number, lng: js[0].lng as number, ids: js.map((j) => j.id), names: js.map((j) => j.name) });
+  const pickEnd = (m: MapMark) =>
+    onPick?.({ kind: m.kind as "start" | "end", lat: m.lat, lng: m.lng, ids: [], names: m.title ? [m.title] : [] });
+
   const shownPhases = PHASE_COLORS.filter(
     (p, i) =>
       PHASE_COLORS.findIndex((q) => q.color === p.color) === i &&
@@ -142,15 +162,6 @@ export function LopezMap({
           <filter id={`glow-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
             <feGaussianBlur stdDeviation={18 * s} />
           </filter>
-          <filter id={`soft-${uid}`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation={5 * s} />
-          </filter>
-          {a && b && (
-            <linearGradient id={`route-${uid}`} gradientUnits="userSpaceOnUse" x1={a.x} y1={a.y} x2={b.x} y2={b.y}>
-              <stop offset="0" stopColor={MARK_COLOR.start} />
-              <stop offset="1" stopColor={MARK_COLOR.end} />
-            </linearGradient>
-          )}
         </defs>
         {glow && (
           <path
@@ -186,9 +197,7 @@ export function LopezMap({
         )}
         {routeD && (
           <g fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" aria-hidden>
-            <path d={routeD} stroke={`url(#route-${uid})`} strokeWidth={14 * s} opacity={0.35} filter={`url(#soft-${uid})`} />
-            <path d={routeD} stroke={`url(#route-${uid})`} strokeWidth={5 * s} />
-            <path d={routeD} className="map-route-flow stroke-white/70" strokeWidth={1.5 * s} strokeDasharray={`${4 * s} ${14 * s}`} />
+            <path d={routeD} className="stroke-[rgb(var(--accent))]" strokeWidth={4 * s} opacity={0.85} />
           </g>
         )}
         {selected && (
@@ -228,6 +237,28 @@ export function LopezMap({
               >
                 <title>{title}</title>
               </circle>
+              {onPick && (
+                <circle
+                  cx={p.x}
+                  cy={p.y}
+                  r={26 * s}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  tabIndex={0}
+                  role="button"
+                  aria-label={p.jobs.map((j) => j.name).join(", ")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickPlace(p.jobs);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      pickPlace(p.jobs);
+                    }
+                  }}
+                />
+              )}
               {counted && (
                 <text
                   x={p.x}
@@ -270,6 +301,28 @@ export function LopezMap({
               <circle cx={pt.x} cy={pt.y} r={12 * s} fill={c} className="stroke-white dark:stroke-ink-raised" strokeWidth={3 * s}>
                 <title>{m.title ?? (m.kind === "start" ? "Start" : "End")}</title>
               </circle>
+              {onPick && (
+                <circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={28 * s}
+                  fill="transparent"
+                  className="cursor-pointer"
+                  tabIndex={0}
+                  role="button"
+                  aria-label={m.title ?? (m.kind === "start" ? "Start" : "End")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    pickEnd(m);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      pickEnd(m);
+                    }
+                  }}
+                />
+              )}
               <text
                 x={left ? pt.x - 30 * s : pt.x + 30 * s}
                 y={pt.y}
