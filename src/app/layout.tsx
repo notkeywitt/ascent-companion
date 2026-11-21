@@ -29,6 +29,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 import { PageGuide } from "@/components/PageGuide";
 import { TimeBug } from "@/components/TimeBug";
 import { NotesBug } from "@/components/NotesBug";
+import { FeatureRequestFab } from "@/components/FeatureRequestFab";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { AppScrollKeeper } from "@/components/AppScrollKeeper";
 import { SwipeBack } from "@/components/SwipeBack";
@@ -240,6 +241,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               {(session?.user || devOpen) && <TimeBug />}
               {/* The floating Notes card — desktop only, opened by the rail's Notes button. */}
               {(session?.user || devOpen) && <NotesBug />}
+              {/* Admin's Feature Request circle, on every page. */}
+              {(session?.user || devOpen) && <FeatureRequestFab />}
               {/* Pull down from the top to reload — installed app only. Outside
                   #app-shell for the same reason as the help mark. */}
               <PullToRefresh />
