@@ -162,7 +162,7 @@ export function LopezMap({
         )}
         <path
           d={LOPEZ_COAST}
-          className="fill-neutral-100 stroke-line-strong dark:fill-neutral-800"
+          className="fill-[rgb(var(--map-land))] stroke-line-strong"
           strokeWidth={2 * s}
           strokeLinejoin="round"
         />
@@ -171,7 +171,7 @@ export function LopezMap({
           fill="none"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className="stroke-neutral-200 dark:stroke-neutral-700"
+          className="stroke-[rgb(var(--map-road))]"
           aria-hidden
         >
           <path d={LOPEZ_ROADS_MINOR} strokeWidth={1.25 * s} />
