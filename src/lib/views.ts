@@ -592,7 +592,10 @@ export const VIEWS: ViewDef[] = [
   // action bar — buttons on a page EVERY role loads — can't be driven by a
   // non-admin who POSTs /api/actions directly.
   { id: "actions", label: "Actions", group: "System", paths: ["/actions", "/api/actions"] },
-  { id: "admin", label: "Access", group: "System", paths: ["/admin", "/api/admin/skins"] },
+  // Skins — set a person's skin on all their devices (/admin/skins, also a tab
+  // of /admin). ADMIN-ONLY (ADMIN_MENU below); the route checks admin too.
+  { id: "skins", label: "Skins", group: "System", paths: ["/admin/skins", "/api/admin/skins"] },
+  { id: "admin", label: "Access", group: "System", paths: ["/admin"] },
   // AscentBot — who may ask the Google Chat bot and which areas (financials,
   // staff records, the office mailbox) each role's answers may draw on.
   // ADMIN-ONLY (ADMIN_MENU below): it hands out money and staff details. The
@@ -718,6 +721,7 @@ const LEAD_VIEWS: string[] = [
 // gets these by default (a per-user grant can still hand them to an individual).
 const ADMIN_MENU: string[] = [
   "admin",
+  "skins",
   "ascentbot",
   "logs",
   "journal",

@@ -21,6 +21,10 @@
    "file": "src/app/admin/copy/page.tsx"
   },
   {
+   "route": "/admin/skins",
+   "file": "src/app/admin/skins/page.tsx"
+  },
+  {
    "route": "/ai-cost",
    "file": "src/app/ai-cost/page.tsx"
   },
@@ -1384,6 +1388,10 @@
   {
    "from": "/add-bill",
    "to": "/trackingsheet"
+  },
+  {
+   "from": "/admin/skins",
+   "to": "/admin"
   },
   {
    "from": "/admin",
