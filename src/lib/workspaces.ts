@@ -291,11 +291,13 @@ export type BarSlot =
  */
 export const BARS: Record<Role, BarSlot[]> = {
   // Home took Time Off's slot (owner, 2026-11-15). Time Off stays in the menu.
+  // Jobs is the fifth slot (owner, 2026-11-21): the Jobs page with no dollars.
   field: [
     { kind: "today" },
     { kind: "tab", view: "employee-time" },
     { kind: "tab", view: "mileage" },
     { kind: "tab", view: "tools" },
+    { kind: "tab", view: "jobs-hub" },
   ],
   lead: [
     { kind: "today" },

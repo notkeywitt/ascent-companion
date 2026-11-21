@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from "react-dom";
 
 import { AllBills, type PickedBill } from "@/app/trackingsheet/AllBills";
+import { useAccess } from "@/components/AccessProvider";
 import { Banner, Button, Dialog, Input, Loading, MetaLine, Select, Textarea } from "@/components/ui";
 import { billingMonths, monthLabel } from "@/lib/billingMonths";
 import {
@@ -529,6 +530,7 @@ function NoteForm({
   const [ymTouched, setYmTouched] = useState(false);
   const [involves, setInvolves] = useState<string[]>(initial.involves);
   const [bills, setBills] = useState<NoteBill[]>(initial.bills ?? []);
+  const canLinkBills = useAccess().can("recode");
   const [draftName, setDraftName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -687,7 +689,8 @@ function NoteForm({
           ))}
         </datalist>
       </div>
-      <BillPicker jobId={jobId} ym={billingYm} bills={bills} onChange={setBills} />
+      {/* Bills carry their cost: the picker is a Tracking Sheets read (field has none). */}
+      {canLinkBills && <BillPicker jobId={jobId} ym={billingYm} bills={bills} onChange={setBills} />}
       {error && <Banner tone="error">{error}</Banner>}
       <div className="flex justify-end gap-2">
         <Button size="xs" variant="ghost" onClick={onCancel} disabled={busy}>
