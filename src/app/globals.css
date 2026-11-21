@@ -634,7 +634,16 @@ html[data-rail="hidden"] {
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: var(--tabbar-h);
+  }
+  /* The tab bar's clearance is a spacer at the END of the scroll box, not
+     padding on it. A scroll box's padding also pushes every `sticky bottom-*`
+     child up by that much, so the bill's Save drawer (bottom: --tabbar-h)
+     floated a tab bar's height above the tab bar, with the bill showing
+     through the gap. */
+  #app-shell::after {
+    content: "";
+    display: block;
+    height: var(--tabbar-h);
   }
   /* A sheet locks the page by setting `overflow: hidden` on body (Dialog,
      InvoiceViewer, the time-entry sheet). Body no longer scrolls here, so
