@@ -4,7 +4,7 @@
  * Pure, so the rules are tested rather than trusted.
  */
 import { laborFocusHref } from "@/app/trackingsheet/findingFocus";
-import { hubHref } from "@/lib/hubUrl";
+import { billsHref, hubHref } from "@/lib/hubUrl";
 import type { FindingInput, ReportKeep } from "@/lib/findings";
 
 import { laborRateCheck } from "./checks/laborRate";
@@ -41,7 +41,7 @@ export function unreadParts(e: MonthEvidence): ReportKeep {
 export function inboxRow(f: Finding, ym: string, hubFirst = false): FindingInput {
   const billId = f.target?.kind === "bill" ? f.target.billId : "";
   let link: string;
-  if (f.jobId && billId) link = hubHref(f.jobId, ym, { bill: billId });
+  if (f.jobId && billId) link = billsHref(billId, f.jobId);
   else if (f.jobId && f.target?.kind === "labor") link = laborFocusHref(f.jobId, ym, f.target);
   else if (f.sourceLink && !(hubFirst && f.jobId)) link = f.sourceLink;
   else if (f.jobId) link = hubHref(f.jobId, ym);

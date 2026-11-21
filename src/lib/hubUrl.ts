@@ -41,6 +41,12 @@ export function hubHref(jobId: string, ym?: string | null, extra?: Record<string
   return `/jobs-hub?${q.toString()}`;
 }
 
+/** A link to one bill on the Bills page: the list with the bill open beside it. */
+export function billsHref(docId: string, jobId?: string | null): string {
+  const q = new URLSearchParams({ docId, ...(jobId ? { jobId } : {}) });
+  return `/bills?${q.toString()}`;
+}
+
 /** The path's job id, ym and bill id; each undefined when absent or unknown. */
 export function parseHubPath(pathname: string, all: J[]) {
   const [, , jobSeg, monthSeg, docId] = pathname.split("/").map((s) => decodeURIComponent(s));

@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { Sheet } from "@/components/Sheet";
 import { Banner, Button, Chip, Loading, SectionLabel } from "@/components/ui";
 import { toast } from "@/components/Toast";
-import { hubHref } from "@/lib/hubUrl";
+import { billsHref, hubHref } from "@/lib/hubUrl";
 import { laborFocusHref } from "@/app/trackingsheet/findingFocus";
 import { money } from "@/lib/money";
 import type { Finding } from "@/lib/invoiceReview/types";
@@ -28,7 +28,7 @@ type Doc = { label: string; href: string };
 export function findingDocs(f: Finding, ym: string): Doc[] {
   const out: Doc[] = [];
   if (f.jobId && f.target?.kind === "bill") {
-    out.push({ label: "Open the bill", href: hubHref(f.jobId, ym, { bill: f.target.billId }) });
+    out.push({ label: "Open the bill", href: billsHref(f.target.billId, f.jobId) });
   }
   if (f.jobId && f.target?.kind === "labor") {
     out.push({ label: "Open the labor list", href: laborFocusHref(f.jobId, ym, f.target) });
@@ -197,7 +197,7 @@ function VoidCopies({
             ) : (
               <Chip tone="danger">Void</Chip>
             )}
-            <a href={hubHref(jobId, ym, { bill: b.id })} className="text-xs font-semibold text-accent hover:underline">
+            <a href={billsHref(b.id, jobId)} className="text-xs font-semibold text-accent hover:underline">
               Open
             </a>
           </li>
