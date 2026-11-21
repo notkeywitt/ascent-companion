@@ -1322,14 +1322,13 @@ export function MileageClient({
             className="h-full"
             label="Map of Lopez Island with jobs, saved places and the trip's start and end"
           />
+          {/* The whole map is the button: a tap opens it full screen. */}
           <button
             type="button"
             onClick={() => setMapFull(true)}
             aria-label="Open the map full screen"
-            className="absolute right-4 top-2 min-h-9 rounded-pill border border-line bg-white/90 px-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:border-accent dark:bg-ink-raised/90 dark:text-neutral-200 pad:right-2"
-          >
-            Full screen
-          </button>
+            className="absolute inset-0 cursor-zoom-in rounded-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          />
       </div>
 
       {mapFull && (
