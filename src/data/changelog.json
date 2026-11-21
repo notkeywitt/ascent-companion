@@ -1,5 +1,11 @@
 [
  {
+  "sha": "42812268",
+  "date": "2026-11-21T05:28:07Z",
+  "title": "boids drawn as hieroglyph birds, no tail",
+  "plain": "On the Boids page, the birds are now small bird symbols and no longer leave a tail."
+ },
+ {
   "sha": "415061d8",
   "date": "2026-11-21T05:23:24Z",
   "title": "schedule tab shows the bars again",
