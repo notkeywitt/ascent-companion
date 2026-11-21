@@ -1,5 +1,23 @@
 [
  {
+  "sha": "02e81fa6",
+  "date": "2026-11-21T04:38:37Z",
+  "title": "add vice skin, a gta vi style sunset theme",
+  "plain": "A new Vice skin in Appearance: sunset pink on night purple with big caps titles."
+ },
+ {
+  "sha": "43d40de7",
+  "date": "2026-11-21T04:38:16Z",
+  "title": "tap the miles map to open it full screen",
+  "plain": "Tap the Miles map to open it full screen; the Full screen button is gone."
+ },
+ {
+  "sha": "a29bb1f3",
+  "date": "2026-11-21T04:36:45Z",
+  "title": "miles map goes full screen with pulsing marks, road path, glow and topo lines",
+  "plain": "The Miles map opens edge to edge, with glowing start, end and you-are-here dots, the drive between them lit up, and elevation lines every 50 feet."
+ },
+ {
   "sha": "e409b9ac",
   "date": "2026-11-21T03:57:00Z",
   "title": "bill save drawer sits right on the tab bar in the installed app",
