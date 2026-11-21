@@ -1,5 +1,11 @@
 [
  {
+  "sha": "c2c5b8c8",
+  "date": "2026-11-21T02:31:12Z",
+  "title": "show feature request circle on every page",
+  "plain": "The feature request circle now shows on every page, not only Home."
+ },
+ {
   "sha": "5b9bac91",
   "date": "2026-11-21T02:17:02Z",
   "title": "schedule tasks edit in the dialog and drag to move",
