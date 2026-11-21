@@ -37,9 +37,22 @@ export async function GET(req: NextRequest) {
   const u = new URLSearchParams();
   u.set("size", safeSize(sp.get("size")));
   u.set("scale", "2");
+  // The Miles map's look: dark ground, quiet roads, terrain relief.
+  u.set("maptype", "terrain");
+  for (const st of [
+    "element:geometry|color:0x2b2926",
+    "element:labels.text.fill|color:0x9a968d",
+    "element:labels.text.stroke|color:0x1a1917",
+    "feature:water|element:geometry|color:0x15130f",
+    "feature:road|element:geometry|color:0x3a3733",
+    "feature:road|element:labels|visibility:off",
+    "feature:poi|visibility:off",
+    "feature:transit|visibility:off",
+    "feature:landscape.natural|element:geometry|color:0x34312c",
+  ]) u.append("style", st);
   u.append("markers", `color:0x2e7d32|label:S|${start}`);
   u.append("markers", `color:0xc62828|label:E|${end}`);
-  u.append("path", path ? `color:0x1a73e8cc|weight:4|enc:${path}` : `color:0x1a73e8cc|weight:4|${start}|${end}`);
+  u.append("path", path ? `color:0xe8a33dee|weight:5|enc:${path}` : `color:0xe8a33dee|weight:5|${start}|${end}`);
   u.set("key", key);
 
   try {
