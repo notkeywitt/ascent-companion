@@ -775,15 +775,10 @@ export function JobOverview({ jobId }: { jobId: string }) {
       {c && (
         <Card className="space-y-2">
           <div className="text-sm font-semibold tracking-tight">{c.name}</div>
-          <MetaLine
-            items={[c.customer, `${money0(spentOf(c))} of ${money0(c.budget)}`, `${usedPct(c)} of budget`, basisNote(c)]}
-          />
+          <MetaLine items={[c.customer]} />
           <ScheduleBlock c={c} />
         </Card>
       )}
-      <Card>
-        <DetailBody jobId={jobId} state={detail} />
-      </Card>
     </div>
   );
 }

@@ -219,12 +219,21 @@ export function ScheduleView({
 
       {data && jobs.length > 0 && (
         <div className="overflow-x-auto rounded-card border border-line bg-white dark:bg-ink-raised">
-          <div style={{ minWidth: `${LABEL_REM + gridW}rem` }}>
+          {/* Phone: each bar has its own row under its label, so the grid gets the whole width. */}
+          <div
+            className="min-w-[var(--gw)] pad:min-w-[var(--mw)]"
+            style={
+              {
+                "--gw": `${gridW}rem`,
+                "--mw": `${LABEL_REM + gridW}rem`,
+                "--lw": `${LABEL_REM}rem`,
+              } as React.CSSProperties
+            }
+          >
             {/* Month and day headings. */}
             <div className="flex border-b border-line-soft">
               <div
-                className="sticky left-0 z-20 shrink-0 bg-white dark:bg-ink-raised"
-                style={{ width: `${LABEL_REM}rem` }}
+                className="sticky left-0 z-20 hidden shrink-0 bg-white pad:block pad:w-[var(--lw)] dark:bg-ink-raised"
               />
               <div className="relative" style={{ width: `${gridW}rem` }}>
                 <div className="flex">
@@ -262,8 +271,7 @@ export function ScheduleView({
                 <section key={job.id} className="border-b border-line-soft last:border-b-0">
                   <div className="flex">
                     <div
-                      className="sticky left-0 z-10 shrink-0 truncate bg-neutral-50 px-2 py-1.5 text-[13px] font-semibold dark:bg-ink"
-                      style={{ width: `${LABEL_REM}rem` }}
+                      className="sticky left-0 z-10 shrink-0 truncate bg-neutral-50 px-2 py-1.5 text-[13px] font-semibold dark:bg-ink max-pad:w-[var(--gw)] pad:w-[var(--lw)]"
                       title={job.label}
                     >
                       <span
@@ -276,10 +284,9 @@ export function ScheduleView({
                     <div className="flex-1 bg-neutral-50 dark:bg-ink" />
                   </div>
                   {job.bars.map((bar) => (
-                    <div key={bar.task.id} className="flex">
+                    <div key={bar.task.id} className="flex flex-col pad:flex-row">
                       <div
-                        className="sticky left-0 z-10 shrink-0 truncate bg-white px-2 py-1 pl-5 text-[12px] dark:bg-ink-raised"
-                        style={{ width: `${LABEL_REM}rem` }}
+                        className="sticky left-0 z-10 shrink-0 truncate bg-white px-2 py-1 pl-5 text-[12px] max-pad:w-[var(--gw)] pad:w-[var(--lw)] dark:bg-ink-raised"
                         title={
                           bar.task.phase ? `${bar.task.phase}: ${bar.task.name}` : bar.task.name
                         }

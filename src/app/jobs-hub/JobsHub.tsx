@@ -406,10 +406,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   const canChecks = can("invoice-review");
   const canStatus = can("invoicing-summary");
   const shown: Tab = selected || tab === "checks" || tab === "status" ? tab : "month";
-  const monthTabs = [
-    ...(canChecks ? [{ value: "checks" as const, label: "Checks" }] : []),
-    ...(canStatus ? [{ value: "status" as const, label: "Invoice Status" }] : []),
-  ];
+  // Checks and Invoice Status have no tab here (owner, 2026-11-21). Check All
+  // Jobs and the invoicing pages still open them.
+  const monthTabs: { value: "checks" | "status"; label: string }[] = [];
   const tabs = (
     <Segmented
       label="Show"
