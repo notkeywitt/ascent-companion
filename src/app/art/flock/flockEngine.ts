@@ -494,7 +494,16 @@ export class FlockEngine {
             const k = this.sc[i] * sim.scale[i];
             const px = Math.max(6, (3 + sim.size[i] * 4) * k * 3);
             ctx.font = `${px.toFixed(1)}px "Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif`;
-            ctx.fillText("\u{131E2}", this.sx[i], this.sy[i]);
+            // Turn toward the heading; a bird heading left mirrors, so it never flies upside down.
+            const ux = this.hx[i];
+            const uy = this.hy[i];
+            const flip = ux < 0 ? -1 : 1;
+            ctx.save();
+            ctx.translate(this.sx[i], this.sy[i]);
+            ctx.rotate(Math.atan2(uy, ux * flip) * flip);
+            ctx.scale(flip, 1);
+            ctx.fillText("\u{131E2}", 0, 0);
+            ctx.restore();
           }
         }
       }
