@@ -18,7 +18,7 @@ import { Flock3D, SIDE } from "@/lib/art/flock3d";
 import type { DrawFrame } from "../artKit";
 
 /**
- * The Job Flock's engine: the simulation, its trails, the year clock and the
+ * The Job Flock's engine: the simulation, the year clock and the
  * drawing, in one object that lives across frames. The Job Flock page and the
  * desktop screen saver (src/components/FlockSaver.tsx) both drive one.
  * Not React: a page keeps it in a ref and calls `draw` from ArtCanvas.
@@ -74,8 +74,6 @@ export function flockItems(set: CloudSetId, rows: unknown[], by: FlockBy): Flock
   });
 }
 
-/** Screen positions kept per bird for its trail, newest last. */
-const TRAIL = 16;
 const SETTLE_STEPS = 500;
 /** Opacity steps a group's birds are drawn in, so each is one fill. */
 const BUCKETS = 4;
@@ -161,8 +159,6 @@ export class FlockEngine {
   private gen = 0;
   private flockGen = -1;
   private shownSetup: FlockSetup | null = null;
-  private trail: Float32Array | null = null;
-  private trailAt = 0;
   private hawk: { x: number; y: number; until: number } | null = null;
   private lastNow = 0;
   private targets: Float32Array<ArrayBuffer> | null = null;
@@ -278,7 +274,6 @@ export class FlockEngine {
         this.flock3 = fresh;
         this.flock = null;
         this.flockGen = this.gen;
-        this.trail = null;
         settle(fresh);
       } else {
         if (this.shownSetup !== setup) {
@@ -308,7 +303,6 @@ export class FlockEngine {
         this.flock = fresh;
         this.flock3 = null;
         this.flockGen = this.gen;
-        this.trail = null;
         settle(fresh);
       } else if (this.shownSetup !== setup) {
         this.flock.regroup(
@@ -478,29 +472,6 @@ export class FlockEngine {
       ctx.setLineDash([]);
     }
 
-    // Trails: a ring of the last TRAIL screen positions per bird.
-    if (!this.trail || this.trail.length !== n * TRAIL * 2) {
-      this.trail = new Float32Array(n * TRAIL * 2);
-      for (let k = 0; k < TRAIL; k++) {
-        for (let i = 0; i < n; i++) {
-          this.trail[(k * n + i) * 2] = this.sx[i];
-          this.trail[(k * n + i) * 2 + 1] = this.sy[i];
-        }
-      }
-    }
-    const tr = this.trail;
-    const slot = this.trailAt;
-    for (let i = 0; i < n; i++) {
-      // A bird just born starts with no trail, not a streak from where it died.
-      const from = sim.born[i] ? 0 : slot;
-      const to = sim.born[i] ? TRAIL - 1 : slot;
-      for (let k = from; k <= to; k++) {
-        tr[(k * n + i) * 2] = this.sx[i];
-        tr[(k * n + i) * 2 + 1] = this.sy[i];
-      }
-    }
-    this.trailAt = (slot + 1) % TRAIL;
-
     const colorOf = (g: number) => (setup.names[g] === OTHER ? quiet : colors[g % colors.length]);
     const shadeOf = (i: number) => Math.round(((sim.shade[i] + 1) / 2) * (SHADES - 1));
     const alphaOf = (g: number) => (this.focus === null || this.focus === g ? 1 : 0.12);
@@ -511,52 +482,20 @@ export class FlockEngine {
       const col = colorOf(g);
       for (let b = 0; b < BUCKETS; b++) {
         const a = alphaOf(g) * ((b + 1) / BUCKETS);
-        if (!reduced) {
-          // Trails fade out behind the bird: one stroke per segment age, the
-          // oldest faintest and thinnest.
-          ctx.strokeStyle = col;
-          for (let k = 1; k < TRAIL; k++) {
-            const fresh = k / (TRAIL - 1);
-            ctx.globalAlpha = 0.45 * a * fresh * fresh;
-            ctx.lineWidth = 0.4 + 1.2 * fresh;
-            ctx.beginPath();
-            const s0 = (slot + k) % TRAIL;
-            const s1 = (slot + k + 1) % TRAIL;
-            for (let i = 0; i < n; i++) {
-              if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b) continue;
-              const px = tr[(s0 * n + i) * 2];
-              const py = tr[(s0 * n + i) * 2 + 1];
-              const qx = tr[(s1 * n + i) * 2];
-              const qy = tr[(s1 * n + i) * 2 + 1];
-              // A bird that wrapped across an edge: no line across the screen.
-              if (Math.abs(px - qx) > w / 3 || Math.abs(py - qy) > h / 3) continue;
-              ctx.moveTo(px, py);
-              ctx.lineTo(qx, qy);
-            }
-            ctx.stroke();
-          }
-        }
         // Each bird in its own shade of the flock's colour, from its data.
         const shades = shadesOf(col);
         ctx.globalAlpha = 0.9 * a;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
         for (let sh = 0; sh < SHADES; sh++) {
           ctx.fillStyle = shades[sh];
-          ctx.beginPath();
           for (let i = 0; i < n; i++) {
             if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b || shadeOf(i) !== sh) continue;
-            const ux = this.hx[i];
-            const uy = this.hy[i];
             const k = this.sc[i] * sim.scale[i];
-            const L = (3 + sim.size[i] * 4) * k;
-            const W = (1.2 + sim.size[i] * 1.6) * k;
-            const x = this.sx[i];
-            const y = this.sy[i];
-            ctx.moveTo(x + ux * L, y + uy * L);
-            ctx.lineTo(x - ux * L * 0.6 - uy * W, y - uy * L * 0.6 + ux * W);
-            ctx.lineTo(x - ux * L * 0.6 + uy * W, y - uy * L * 0.6 - ux * W);
-            ctx.closePath();
+            const px = Math.max(6, (3 + sim.size[i] * 4) * k * 3);
+            ctx.font = `${px.toFixed(1)}px "Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif`;
+            ctx.fillText("\u{131E2}", this.sx[i], this.sy[i]);
           }
-          ctx.fill();
         }
       }
     }
