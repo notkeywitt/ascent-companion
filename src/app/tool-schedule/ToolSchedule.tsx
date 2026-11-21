@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { Popover } from "@/components/Menu";
+import { useAccess } from "@/components/AccessProvider";
 import { ToolsTabs, toolsTitle } from "@/components/ToolsTabs";
-import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
+import { Banner, btn, Button, Card, Checkbox, Chip, Dialog, EmptyState, IconButton, ListCard, Loading, MetaLine, PageHeader, SectionHeading, Segmented, tableCls } from "@/components/ui";
 import { matchesAllWords } from "@/lib/searchWords";
 import { addDays, calendarWeeks } from "@/lib/timeEntryDates";
 import { dayNum, normalizeTaskName } from "@/lib/toolSchedule";
@@ -74,7 +75,10 @@ function writePref(key: string, v: string) {
   }
 }
 
-export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
+export function ToolSchedule({ canEdit: canEditIn }: { canEdit: boolean }) {
+  // The Tool Schedule is view-only for field users, whatever views they were given.
+  const { role } = useAccess();
+  const canEdit = canEditIn && role !== "field";
   const [view, setView] = useState<View>("gantt");
   const [months, setMonths] = useState<Months>("6");
   const [data, setData] = useState<ToolSchedulePayload | null>(null);
@@ -87,6 +91,30 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   // The booking dialog: null closed, "" open with nothing chosen, else that target ("type:<key>").
   const [booking, setBooking] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
+  // Gantt: only tasks that have tools. List: only weeks with a shortfall.
+  const [toolsOnly, setToolsOnly] = useState(false);
+  const [problemsOnly, setProblemsOnly] = useState(false);
+  // Collapsed Gantt jobs and phases ("job:<id>", "phase:<jobId>:<phaseId>"), remembered on this device.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
+      if (Array.isArray(saved)) setCollapsed(new Set(saved.map(String)));
+    } catch {
+      /* nothing saved, or storage is blocked */
+    }
+  }, []);
+  const changeCollapsed = (next: Set<string>) => {
+    setCollapsed(next);
+    writePref(COLLAPSED_KEY, JSON.stringify([...next]));
+  };
+  const toggleCollapsed = (id: string) => {
+    const next = new Set(collapsed);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    changeCollapsed(next);
+  };
 
   useEffect(() => {
     // A link's ?view (from a notice, or a pasted address) wins over the device's last choice.
@@ -147,6 +175,12 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   const shortCount = shown?.rows.reduce((n, r) => n + (r.missing ? 0 : r.shortfalls.length), 0) ?? 0;
   const missingCount = shown?.rows.filter((r) => r.missing).length ?? 0;
   const kind = shown?.rows.find((r) => r.kindId === openKind) ?? null;
+  // Every phase on view, so "Collapse phases" can close them all.
+  const allPhases = useMemo(
+    () => (shown ? ganttRows(shown, toolsOnly, new Set(), conflictsBySource(shown.rows)).filter((r) => r.kind === "phase").map((r) => r.id) : []),
+    [shown, toolsOnly],
+  );
+
   const openTask = openItem?.startsWith("task:") ? (shown?.tasks.find((t) => `task:${t.id}` === openItem) ?? null) : null;
   const openPhase = openItem?.startsWith("phase:")
     ? (() => {
@@ -177,29 +211,43 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
       />
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Segmented
-            label="Show as"
-            value={view}
-            options={VIEW_OPTIONS}
-            onChange={(v) => {
-              setView(v);
-              writePref("toolSchedule.view", v);
-              setUrlParam("view", v);
-            }}
-          />
-          {data && allJobs.length > 0 && <JobFilter jobs={allJobs} hidden={hidden} onChange={changeHidden} />}
-        </div>
         <Segmented
-          label="How far ahead"
-          value={months}
-          options={RANGE_OPTIONS}
+          label="Show as"
+          value={view}
+          options={VIEW_OPTIONS}
           onChange={(v) => {
-            setMonths(v);
-            setData(null);
-            writePref("toolSchedule.months", v);
+            setView(v);
+            writePref("toolSchedule.view", v);
+            setUrlParam("view", v);
           }}
         />
+        <div className="flex items-center gap-1">
+          {view === "gantt" && (
+            <SortMenu
+              active={collapsed.size > 0}
+              canExpand={collapsed.size > 0}
+              canCollapse={allPhases.length > 0}
+              onExpand={() => changeCollapsed(new Set())}
+              onCollapse={() => changeCollapsed(new Set([...collapsed, ...allPhases]))}
+            />
+          )}
+          <FilterMenu
+            view={view}
+            jobs={data ? allJobs : []}
+            hidden={hidden}
+            onHidden={changeHidden}
+            toolsOnly={toolsOnly}
+            onToolsOnly={setToolsOnly}
+            problemsOnly={problemsOnly}
+            onProblemsOnly={setProblemsOnly}
+            months={months}
+            onMonths={(v) => {
+              setMonths(v);
+              setData(null);
+              writePref("toolSchedule.months", v);
+            }}
+          />
+        </div>
       </div>
 
       {error && <Banner tone="error" className="mb-3">Could not load the tool schedule: {error}</Banner>}
@@ -256,11 +304,11 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
               </button>
             </EmptyState>
           ) : view === "gantt" ? (
-            <Gantt data={shown} colours={colours} onOpen={setOpenItem} months={Number(months)} />
+            <Gantt data={shown} colours={colours} onOpen={setOpenItem} months={Number(months)} toolsOnly={toolsOnly} collapsed={collapsed} onToggle={toggleCollapsed} />
           ) : view === "calendar" ? (
             <Calendar data={shown} onOpen={setOpenKind} />
           ) : (
-            <List data={shown} colours={colours} onOpen={setOpenKind} />
+            <List data={shown} colours={colours} onOpen={setOpenKind} problemsOnly={problemsOnly} />
           )}
 
           {(data.rows.length > 0 || data.tasks.length > 0) && view !== "calendar" && (
@@ -325,66 +373,175 @@ export function ToolSchedule({ canEdit }: { canEdit: boolean }) {
   );
 }
 
-/* --------------------------------------------------------------- Job filter */
+/* ------------------------------------------------------- Sort and filter menus */
 
-/** Pick which jobs the schedule shows. A panel of checkboxes; a search box once the list is long. */
-function JobFilter({ jobs, hidden, onChange }: { jobs: { id: string; name: string }[]; hidden: Set<string>; onChange: (h: Set<string>) => void }) {
+const iconCls = "h-5 w-5";
+
+function SortIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className={iconCls} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7 4v16M7 20l-3-3M7 20l3-3M17 20V4M17 4l-3 3M17 4l3 3" />
+    </svg>
+  );
+}
+function FilterIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" className={iconCls} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 5h18l-7 8v6l-4-2v-4L3 5z" />
+    </svg>
+  );
+}
+
+/** An icon button with a small dot when something other than the default is on. */
+function IconTrigger({ label, active, children, ...props }: { label: string; active: boolean; children: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <IconButton {...props} label={label} className={`relative ${active ? "!text-accent dark:!text-accent-soft" : ""}`}>
+      {children}
+      {active && <span aria-hidden className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent" />}
+    </IconButton>
+  );
+}
+
+/** How the Gantt is laid out: open or close its jobs and phases. */
+function SortMenu({
+  active,
+  canExpand,
+  canCollapse,
+  onExpand,
+  onCollapse,
+}: {
+  active: boolean;
+  canExpand: boolean;
+  canCollapse: boolean;
+  onExpand: () => void;
+  onCollapse: () => void;
+}) {
+  return (
+    <Popover
+      align="end"
+      label="Sort"
+      className="w-56"
+      trigger={
+        <IconTrigger label={active ? "Sort (changed)" : "Sort"} active={active}>
+          <SortIcon />
+        </IconTrigger>
+      }
+    >
+      <SectionHeading>Sort</SectionHeading>
+      <div className="grid gap-1">
+        <Button variant="secondary" size="sm" disabled={!canExpand} onClick={onExpand}>
+          Expand all
+        </Button>
+        <Button variant="secondary" size="sm" disabled={!canCollapse} onClick={onCollapse}>
+          Collapse phases
+        </Button>
+      </div>
+    </Popover>
+  );
+}
+
+/** Everything that narrows what the page shows: jobs, which tasks or weeks, how far ahead. */
+function FilterMenu({
+  view,
+  jobs,
+  hidden,
+  onHidden,
+  toolsOnly,
+  onToolsOnly,
+  problemsOnly,
+  onProblemsOnly,
+  months,
+  onMonths,
+}: {
+  view: View;
+  jobs: { id: string; name: string }[];
+  hidden: Set<string>;
+  onHidden: (h: Set<string>) => void;
+  toolsOnly: boolean;
+  onToolsOnly: (v: boolean) => void;
+  problemsOnly: boolean;
+  onProblemsOnly: (v: boolean) => void;
+  months: Months;
+  onMonths: (m: Months) => void;
+}) {
   const [q, setQ] = useState("");
-
   const hiddenCount = jobs.filter((j) => hidden.has(j.id)).length;
-  const label = hiddenCount === 0 ? "All jobs" : `${jobs.length - hiddenCount} of ${jobs.length} jobs`;
+  const active = hiddenCount > 0 || months !== "6" || (view === "gantt" && toolsOnly) || (view === "list" && problemsOnly);
   const listed = jobs.filter((j) => matchesAllWords(j.name, q));
   const toggle = (id: string) => {
     const next = new Set(hidden);
     if (next.has(id)) next.delete(id);
     else next.add(id);
-    onChange(next);
+    onHidden(next);
   };
 
   return (
     <Popover
-      align="start"
-      label="Filter jobs"
-      className="w-64"
+      align="end"
+      label="Filter"
+      className="w-72"
       onOpenChange={() => setQ("")}
       trigger={
-        <button
-          type="button"
-          className={`inline-flex min-h-9 items-center gap-1.5 rounded-control px-3 text-xs font-semibold lg:min-h-7 ${hiddenCount ? "bg-accent/15 text-accent dark:text-accent-soft" : "bg-neutral-100 text-neutral-700 dark:bg-white/[0.07] dark:text-neutral-200"}`}
-        >
-          {label}
-          <span aria-hidden className="text-[10px]">
-            ▾
-          </span>
-        </button>
+        <IconTrigger label={active ? "Filter (on)" : "Filter"} active={active}>
+          <FilterIcon />
+        </IconTrigger>
       }
     >
-      {jobs.length > 8 && (
-        <input
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search jobs…"
-          aria-label="Search jobs"
-          className="mb-1 w-full rounded-control border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
-        />
-      )}
-      <div className="mb-1 flex gap-1">
-        <Button variant="ghost" size="xs" onClick={() => onChange(new Set())} disabled={hiddenCount === 0}>
-          All
-        </Button>
-        <Button variant="ghost" size="xs" onClick={() => onChange(new Set(jobs.map((j) => j.id)))} disabled={hiddenCount === jobs.length}>
-          None
-        </Button>
+      <div className="grid gap-3">
+        <Segmented label="How far ahead" value={months} options={RANGE_OPTIONS} onChange={onMonths} />
+        {view === "gantt" && (
+          <Segmented
+            label="Which tasks"
+            value={toolsOnly ? "tools" : "all"}
+            onChange={(v) => onToolsOnly(v === "tools")}
+            options={[
+              { value: "all", label: "Every task" },
+              { value: "tools", label: "Tasks with tools" },
+            ]}
+          />
+        )}
+        {view === "list" && (
+          <Segmented
+            label="Which weeks"
+            value={problemsOnly ? "short" : "all"}
+            onChange={(v) => onProblemsOnly(v === "short")}
+            options={[
+              { value: "all", label: "Every need" },
+              { value: "short", label: "Shortfalls only" },
+            ]}
+          />
+        )}
+        {jobs.length > 0 && (
+          <div>
+            <SectionHeading>{hiddenCount === 0 ? "Jobs" : `Jobs (${jobs.length - hiddenCount} of ${jobs.length})`}</SectionHeading>
+            {jobs.length > 8 && (
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search jobs…"
+                aria-label="Search jobs"
+                className="mb-1 w-full rounded-control border border-line bg-transparent px-2.5 py-1.5 text-sm outline-none"
+              />
+            )}
+            <div className="mb-1 flex gap-1">
+              <Button variant="ghost" size="xs" onClick={() => onHidden(new Set())} disabled={hiddenCount === 0}>
+                All
+              </Button>
+              <Button variant="ghost" size="xs" onClick={() => onHidden(new Set(jobs.map((j) => j.id)))} disabled={hiddenCount === jobs.length}>
+                None
+              </Button>
+            </div>
+            <ul className="max-h-64 overflow-auto">
+              {listed.map((j) => (
+                <li key={j.id} className="flex min-h-9 items-center">
+                  <Checkbox checked={!hidden.has(j.id)} onChange={() => toggle(j.id)} label={j.name} className="w-full" />
+                </li>
+              ))}
+              {listed.length === 0 && <li className="px-2 py-2 text-sm text-neutral-500">No job matches.</li>}
+            </ul>
+          </div>
+        )}
       </div>
-      <ul className="max-h-64 overflow-auto">
-        {listed.map((j) => (
-          <li key={j.id} className="flex min-h-9 items-center">
-            <Checkbox checked={!hidden.has(j.id)} onChange={() => toggle(j.id)} label={j.name} className="w-full" />
-          </li>
-        ))}
-        {listed.length === 0 && <li className="px-2 py-2 text-sm text-neutral-500">No job matches.</li>}
-      </ul>
     </Popover>
   );
 }
@@ -468,34 +625,18 @@ function Gantt({
   colours,
   months,
   onOpen,
+  toolsOnly,
+  collapsed,
+  onToggle: toggle,
 }: {
   data: ToolSchedulePayload;
   colours: Map<string, number>;
   months: number;
   onOpen: (id: string) => void;
+  toolsOnly: boolean;
+  collapsed: Set<string>;
+  onToggle: (id: string) => void;
 }) {
-  const [toolsOnly, setToolsOnly] = useState(false);
-  // Collapsed jobs and phases ("job:<id>", "phase:<jobId>:<phaseId>"), remembered on this device.
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
-  useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(COLLAPSED_KEY) ?? "[]");
-      if (Array.isArray(saved)) setCollapsed(new Set(saved.map(String)));
-    } catch {
-      /* nothing saved, or storage is blocked */
-    }
-  }, []);
-  const changeCollapsed = (next: Set<string>) => {
-    setCollapsed(next);
-    writePref(COLLAPSED_KEY, JSON.stringify([...next]));
-  };
-  const toggle = (id: string) => {
-    const next = new Set(collapsed);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    changeCollapsed(next);
-  };
-
   const f = dayNum(data.from);
   const days = dayNum(data.to) - f + 1;
   const ppd = months <= 1 ? 28 : months <= 3 ? 11 : 6.5; // pixels per day
@@ -504,12 +645,6 @@ function Gantt({
   const clampX = (iso: string) => Math.min(width, Math.max(0, x(iso)));
   const conflicts = useMemo(() => conflictsBySource(data.rows), [data.rows]);
   const rows = ganttRows(data, toolsOnly, collapsed, conflicts);
-  // Every phase on view, so "Collapse phases" can close them all.
-  const allPhases = useMemo(
-    () => ganttRows(data, toolsOnly, new Set(), conflicts).filter((r) => r.kind === "phase").map((r) => r.id),
-    [data, toolsOnly, conflicts],
-  );
-
   const monthTicks: { left: number; label: string }[] = [];
   const weekTicks: { left: number; label: string }[] = [];
   for (let d = 0; d < days; d++) {
@@ -532,23 +667,6 @@ function Gantt({
 
   return (
     <div className="grid gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Segmented
-          label="Which tasks"
-          value={toolsOnly ? "tools" : "all"}
-          onChange={(v) => setToolsOnly(v === "tools")}
-          options={[
-            { value: "all", label: "Every task" },
-            { value: "tools", label: "Tasks with tools" },
-          ]}
-        />
-        <Button variant="ghost" size="xs" disabled={collapsed.size === 0} onClick={() => changeCollapsed(new Set())}>
-          Expand all
-        </Button>
-        <Button variant="ghost" size="xs" disabled={allPhases.length === 0} onClick={() => changeCollapsed(new Set([...collapsed, ...allPhases]))}>
-          Collapse phases
-        </Button>
-      </div>
       {rows.length === 0 ? (
         <EmptyState>{toolsOnly ? "No task in this range has tools yet. Tap a bar under Every task to add some." : "No schedule tasks in this range."}</EmptyState>
       ) : (
@@ -789,22 +907,12 @@ function Calendar({ data, onOpen }: { data: ToolSchedulePayload; onOpen: (id: st
 
 /* -------------------------------------------------------------------- List */
 
-function List({ data, colours, onOpen }: { data: ToolSchedulePayload; colours: Map<string, number>; onOpen: (id: string) => void }) {
-  const [problemsOnly, setProblemsOnly] = useState(false);
+function List({ data, colours, onOpen, problemsOnly }: { data: ToolSchedulePayload; colours: Map<string, number>; onOpen: (id: string) => void; problemsOnly: boolean }) {
   const weeks = weeksOfNeed(data.rows, data.from, data.to)
     .map((w) => ({ ...w, needs: problemsOnly ? w.needs.filter((n) => n.short) : w.needs }))
     .filter((w) => w.needs.length);
   return (
     <div className="grid gap-5">
-      <Segmented
-        label="Which weeks"
-        value={problemsOnly ? "short" : "all"}
-        onChange={(v) => setProblemsOnly(v === "short")}
-        options={[
-          { value: "all", label: "Every need" },
-          { value: "short", label: "Shortfalls only" },
-        ]}
-      />
       {data.moves.length > 0 && !problemsOnly && (
         <section>
           <SectionHeading>Moves coming up</SectionHeading>

@@ -15,5 +15,6 @@ export async function toolScheduleUser(): Promise<{ email: string; canEdit: bool
   if (!session?.user) return { email: "", canEdit: noAuthConfigured() };
   const u = session.user;
   const views = resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny, u.roleBase);
-  return { email: u.email ?? "", canEdit: views.has(TOOL_SCHEDULE_EDIT_VIEW) };
+  // Field users only look: no view override gives them a write.
+  return { email: u.email ?? "", canEdit: u.role !== "field" && views.has(TOOL_SCHEDULE_EDIT_VIEW) };
 }
