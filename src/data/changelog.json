@@ -1,5 +1,11 @@
 [
  {
+  "sha": "e409b9ac",
+  "date": "2026-11-21T03:57:00Z",
+  "title": "bill save drawer sits right on the tab bar in the installed app",
+  "plain": "On the phone app, the bill's Actions and Save bar now sits directly on the bottom menu, with no gap showing the bill behind it."
+ },
+ {
   "sha": "cd514a81",
   "date": "2026-11-21T03:11:25Z",
   "title": "bills filters and sort move under icons",
