@@ -82,6 +82,7 @@ export function AppMenu({
   qs = "",
   account = false,
   pages = false,
+  themeOnly = false,
   top,
   open: openProp,
   onOpenChange,
@@ -96,6 +97,8 @@ export function AppMenu({
   /** Account drawer only: also list one row per workspace. The office phone has
    *  no ☰ (owner, 2026-10-18), so this is its way to an off-bar page. */
   pages?: boolean;
+  /** Phone drawer for field staff (owner, 2026-11-21): the theme selector and nothing else. */
+  themeOnly?: boolean;
 }) {
   const access = useAccess();
   const c = useCopy();
@@ -204,7 +207,7 @@ export function AppMenu({
         title={
           <div className="flex items-center gap-3">
             <span className="flex-1">{account ? "Account" : "Menu"}</span>
-            {!account && (
+            {!account && !themeOnly && (
               <button
                 type="button"
                 onClick={() => setPinning((was) => !was)}
@@ -224,6 +227,11 @@ export function AppMenu({
           </div>
         }
       >
+        {themeOnly ? (
+          <div className="py-1">
+            <AppearanceCard />
+          </div>
+        ) : (
         <div className="space-y-4 py-1">
           {pinning && (
             <p className="text-[12px] text-neutral-500 dark:text-neutral-400">
@@ -342,6 +350,7 @@ export function AppMenu({
             </button>
           </div>
         </div>
+        )}
       </Sheet>
     </>
   );
