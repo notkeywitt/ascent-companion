@@ -1,5 +1,11 @@
 [
  {
+  "sha": "91a6b6a8",
+  "date": "2026-11-21T17:00:32Z",
+  "title": "skins page in the admin menu",
+  "plain": "Skins now has its own row in the Admin menu."
+ },
+ {
   "sha": "7712266f",
   "date": "2026-11-21T16:25:24Z",
   "title": "field users see only their own notes",
