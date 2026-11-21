@@ -436,11 +436,6 @@
   },
   {
    "from": "/",
-   "to": "/jobs",
-   "kind": "link"
-  },
-  {
-   "from": "/",
    "to": "/leads",
    "kind": "link"
   },
@@ -462,10 +457,7 @@
   {
    "from": "/",
    "to": "/mileage-tracker",
-   "kind": "push",
-   "q": [
-    "tab=manual"
-   ]
+   "kind": "push"
   },
   {
    "from": "/",
@@ -704,11 +696,6 @@
   },
   {
    "from": "/bill/[docId]",
-   "to": "/jobs-hub",
-   "kind": "push"
-  },
-  {
-   "from": "/bill/[docId]",
    "to": "/payments",
    "kind": "link"
   },
@@ -928,11 +915,6 @@
    "kind": "strip"
   },
   {
-   "from": "/job-board/[id]",
-   "to": "/jobs",
-   "kind": "link"
-  },
-  {
    "from": "/job-board",
    "to": "/leads",
    "kind": "link"
@@ -941,11 +923,6 @@
    "from": "/jobs-hub",
    "to": "/bill/[docId]",
    "kind": "push"
-  },
-  {
-   "from": "/jobs-hub",
-   "to": "/jobs",
-   "kind": "link"
   },
   {
    "from": "/jobs-hub",
@@ -1120,6 +1097,11 @@
   {
    "from": "/requisitions",
    "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/schedule",
+   "to": "/jobs",
    "kind": "link"
   },
   {
@@ -1333,11 +1315,6 @@
   },
   {
    "from": "/widget",
-   "to": "/jobs",
-   "kind": "link"
-  },
-  {
-   "from": "/widget",
    "to": "/leads",
    "kind": "link"
   },
@@ -1349,19 +1326,11 @@
   {
    "from": "/widget",
    "to": "/mileage-tracker",
-   "kind": "push",
-   "q": [
-    "tab=manual"
-   ]
+   "kind": "push"
   },
   {
    "from": "/widget",
    "to": "/office",
-   "kind": "link"
-  },
-  {
-   "from": "/widget",
-   "to": "/requests",
    "kind": "link"
   },
   {
@@ -1391,6 +1360,10 @@
   {
    "from": "/",
    "to": "/office"
+  },
+  {
+   "from": "/",
+   "to": "/schedule"
   },
   {
    "from": "/",
@@ -1490,6 +1463,10 @@
   },
   {
    "from": "/job-board/[id]",
+   "to": "/schedule"
+  },
+  {
+   "from": "/job-board/[id]",
    "to": "/trackingsheet"
   },
   {
@@ -1515,6 +1492,10 @@
   {
    "from": "/jobs-hub",
    "to": "/job-board"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/schedule"
   },
   {
    "from": "/jobs-hub",
@@ -1591,6 +1572,10 @@
   {
    "from": "/widget",
    "to": "/invoicing-summary"
+  },
+  {
+   "from": "/widget",
+   "to": "/schedule"
   },
   {
    "from": "/widget",
