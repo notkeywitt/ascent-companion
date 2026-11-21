@@ -1316,59 +1316,64 @@ export function MileageClient({
             jobs={savedPlaces}
             marks={marks}
             legend={false}
+            topo
+            glow
             pad={0}
             className="h-full"
             label="Map of Lopez Island with jobs, saved places and the trip's start and end"
           />
+          {/* The whole map is the button: a tap opens it full screen. */}
           <button
             type="button"
             onClick={() => setMapFull(true)}
             aria-label="Open the map full screen"
-            className="absolute right-4 top-2 min-h-9 rounded-pill border border-line bg-white/90 px-3 text-xs font-semibold text-neutral-700 shadow-sm transition hover:border-accent dark:bg-ink-raised/90 dark:text-neutral-200 pad:right-2"
-          >
-            Full screen
-          </button>
+            className="absolute inset-0 cursor-zoom-in rounded-control focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+          />
       </div>
 
       {mapFull && (
-        <Dialog
-          onClose={() => setMapFull(false)}
-          size="xl"
-          title="Map"
-          className="sm:!max-w-none sm:h-[94dvh] sm:w-[96vw] h-[94dvh]"
-          footer={
-            <>
-              <div className="mr-auto flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600 dark:text-neutral-300">
-                {([
-                  ["var(--viz-4)", "Trip start"],
-                  ["var(--viz-8)", "Trip end"],
-                  ["var(--viz-1)", "You are here"],
-                ] as const).map(([c, t]) => (
-                  <span key={t} className="inline-flex items-center gap-1.5">
-                    <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
-                    {t}
-                  </span>
-                ))}
-                <span className="inline-flex items-center gap-1.5">
-                  <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-neutral-400" />
-                  Saved places and jobs
-                </span>
-              </div>
+        <Dialog onClose={() => setMapFull(false)} size="full" label="Map" pad={false} bare>
+          {/* The whole screen: the map, with Close and the key floating over it. */}
+          <div className="relative flex h-dvh flex-col bg-neutral-50 text-neutral-900 dark:bg-ink dark:text-neutral-100">
+            <div className="min-h-0 flex-1 px-2 pb-[calc(env(safe-area-inset-bottom)+5.5rem)] pt-[calc(env(safe-area-inset-top)+3.75rem)] [&_figure]:h-full [&_svg]:min-h-0 [&_svg]:flex-1">
+              <LopezMap
+                jobs={savedPlaces}
+                marks={marks}
+                legend={false}
+                topo
+                glow
+                pad={12}
+                className="h-full"
+                label="Full screen map of Lopez Island with jobs, saved places, contour lines and the trip's start and end"
+              />
+            </div>
+            <div className="absolute inset-x-0 top-0 flex items-center justify-between gap-3 px-4 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+              <h2 className="text-base font-semibold">Map</h2>
               <Button variant="secondary" onClick={() => setMapFull(false)}>
                 Close
               </Button>
-            </>
-          }
-        >
-          <div className="h-full min-h-[50dvh] [&_svg]:min-h-0 [&_svg]:flex-1">
-            <LopezMap
-              jobs={savedPlaces}
-              marks={marks}
-              legend
-              pad={0}
-              className="h-full"
-              label="Full screen map of Lopez Island with jobs, saved places and the trip's start and end"
-            />
+            </div>
+            <div className="absolute inset-x-0 bottom-0 flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-xs text-neutral-600 dark:text-neutral-300">
+              {([
+                ["var(--viz-4)", "Trip start"],
+                ["var(--viz-8)", "Trip end"],
+                ["var(--viz-1)", "You are here"],
+              ] as const).map(([c, t]) => (
+                <span key={t} className="inline-flex items-center gap-1.5">
+                  <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: c }} />
+                  {t}
+                </span>
+              ))}
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-2.5 w-2.5 rounded-full bg-neutral-400" />
+                Saved places and jobs
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="h-0 w-4 border-t-2 border-amber-800/40 dark:border-amber-200/40" />
+                Elevation, every 50 ft
+              </span>
+              <span className="ml-auto">Elevation: USGS</span>
+            </div>
           </div>
         </Dialog>
       )}

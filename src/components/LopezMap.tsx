@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
 import {
   LOPEZ_COAST,
@@ -14,6 +14,8 @@ import {
   project,
   type MapJob,
 } from "@/lib/lopezMap";
+import { roadPath } from "@/lib/lopezRoute";
+import { LOPEZ_TOPO_INDEX, LOPEZ_TOPO_MINOR } from "@/lib/lopezTopo";
 
 /**
  * A point drawn over the dots: the trip's start and end, and where the person
@@ -53,7 +55,13 @@ export function LopezMap({
   focusId = null,
   zoom = 3,
   marks = [],
+  topo = false,
+  glow = false,
 }: {
+  /** Elevation contours every 50 ft, heavier every 200 ft. */
+  topo?: boolean;
+  /** A soft light behind the island, to lift it off the page. */
+  glow?: boolean;
   /** Start, end and "you are here", drawn on top of the job dots. */
   marks?: MapMark[];
   /** The job to zoom in on, centred (the Jobs page's picked job). The dots,
@@ -102,6 +110,20 @@ export function LopezMap({
   const vh = (MAP_H + 2 * pad) / view.k;
   // Lengths in map units that should hold their size on screen.
   const s = 1 / view.k;
+  const uid = useId().replace(/:/g, "");
+
+  // Start and end: the road line between them, highlighted.
+  const startMark = marks.find((m) => m.kind === "start");
+  const endMark = marks.find((m) => m.kind === "end");
+  const a = startMark ? project(startMark.lat, startMark.lng) : null;
+  const b = endMark ? project(endMark.lat, endMark.lng) : null;
+  const route = useMemo(
+    () => (a && b ? roadPath(a, b) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the points, not the objects
+    [a?.x, a?.y, b?.x, b?.y],
+  );
+  const routeD = route ? "M" + route.map((p) => `${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join("L") : "";
+
   const shownPhases = PHASE_COLORS.filter(
     (p, i) =>
       PHASE_COLORS.findIndex((q) => q.color === p.color) === i &&
@@ -116,6 +138,28 @@ export function LopezMap({
         role="img"
         aria-label={label}
       >
+        <defs>
+          <filter id={`glow-${uid}`} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation={18 * s} />
+          </filter>
+          <filter id={`soft-${uid}`} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation={5 * s} />
+          </filter>
+          {a && b && (
+            <linearGradient id={`route-${uid}`} gradientUnits="userSpaceOnUse" x1={a.x} y1={a.y} x2={b.x} y2={b.y}>
+              <stop offset="0" stopColor={MARK_COLOR.start} />
+              <stop offset="1" stopColor={MARK_COLOR.end} />
+            </linearGradient>
+          )}
+        </defs>
+        {glow && (
+          <path
+            d={LOPEZ_COAST}
+            filter={`url(#glow-${uid})`}
+            className="fill-neutral-900/25 dark:fill-amber-100/20"
+            aria-hidden
+          />
+        )}
         <path
           d={LOPEZ_COAST}
           className="fill-neutral-100 stroke-line-strong dark:fill-neutral-800"
@@ -133,6 +177,20 @@ export function LopezMap({
           <path d={LOPEZ_ROADS_MINOR} strokeWidth={1.25 * s} />
           <path d={LOPEZ_ROADS_MAJOR} strokeWidth={2.5 * s} />
         </g>
+        {/* Topo lines over the roads but quieter: shape, not detail. */}
+        {topo && (
+          <g fill="none" strokeLinejoin="round" className="stroke-amber-800/25 dark:stroke-amber-200/20" aria-hidden>
+            <path d={LOPEZ_TOPO_MINOR} strokeWidth={0.8 * s} />
+            <path d={LOPEZ_TOPO_INDEX} strokeWidth={1.6 * s} className="stroke-amber-800/40 dark:stroke-amber-200/35" />
+          </g>
+        )}
+        {routeD && (
+          <g fill="none" strokeLinecap="round" strokeLinejoin="round" pointerEvents="none" aria-hidden>
+            <path d={routeD} stroke={`url(#route-${uid})`} strokeWidth={14 * s} opacity={0.35} filter={`url(#soft-${uid})`} />
+            <path d={routeD} stroke={`url(#route-${uid})`} strokeWidth={5 * s} />
+            <path d={routeD} className="map-route-flow stroke-white/70" strokeWidth={1.5 * s} strokeDasharray={`${4 * s} ${14 * s}`} />
+          </g>
+        )}
         {selected && (
           <circle
             cx={selected.x}
@@ -195,6 +253,7 @@ export function LopezMap({
             return (
               <g key="here" pointerEvents="none">
                 <circle cx={pt.x} cy={pt.y} r={22 * s} fill={MARK_COLOR.here} opacity={0.2} />
+                <circle cx={pt.x} cy={pt.y} r={12 * s} fill={MARK_COLOR.here} className="map-pulse" />
                 <circle cx={pt.x} cy={pt.y} r={9 * s} fill={MARK_COLOR.here} className="stroke-white dark:stroke-ink-raised" strokeWidth={3 * s}>
                   <title>{m.title ?? "You are here"}</title>
                 </circle>
@@ -206,6 +265,7 @@ export function LopezMap({
           const left = pt.x > MAP_W * 0.65;
           return (
             <g key={m.kind}>
+              <circle cx={pt.x} cy={pt.y} r={20 * s} fill={c} className="map-pulse" style={{ animationDelay: m.kind === "end" ? "1.2s" : undefined }} />
               <circle cx={pt.x} cy={pt.y} r={24 * s} fill="none" stroke={c} strokeWidth={5 * s} />
               <circle cx={pt.x} cy={pt.y} r={12 * s} fill={c} className="stroke-white dark:stroke-ink-raised" strokeWidth={3 * s}>
                 <title>{m.title ?? (m.kind === "start" ? "Start" : "End")}</title>

@@ -1010,3 +1010,24 @@ textarea:focus-visible {
     width: 100%;
   }
 }
+
+/* The Lopez map's start, end and "you are here": a light that swells and fades.
+   Reduced motion stops it at its last frame (faded out). */
+.map-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes map-pulse {
+  0% { transform: scale(0.6); opacity: 0.55; }
+  70% { opacity: 0.12; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+/* The trip line's light dashes drift from start to end. */
+.map-route-flow {
+  animation: map-route-flow 1.6s linear infinite;
+}
+@keyframes map-route-flow {
+  to { stroke-dashoffset: -18; }
+}

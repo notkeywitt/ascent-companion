@@ -28,6 +28,8 @@ const SIZES = {
   md: "sm:max-w-lg",
   lg: "sm:max-w-2xl",
   xl: "sm:max-w-4xl",
+  /** Edge to edge, the whole screen, on every width. */
+  full: "h-dvh !max-h-none sm:max-w-none",
 } as const;
 
 export function Dialog({
@@ -103,7 +105,9 @@ export function Dialog({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4 print:hidden"
+      className={`fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center print:hidden ${
+        size === "full" ? "" : "sm:p-4"
+      }`}
       onClick={() => !live.current.busy && onClose()}
     >
       <div
