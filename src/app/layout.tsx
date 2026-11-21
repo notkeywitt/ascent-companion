@@ -66,6 +66,16 @@ const jost = localFont({
   preload: false,
 });
 
+// Vice skin only (THEME.md, "Skin 4"). Anton is a free (SIL OFL) condensed
+// caps face for titles, close to the GTA VI title cards. Not preloaded.
+const anton = localFont({
+  src: "./fonts/anton-latin-400-normal.woff2",
+  weight: "400",
+  variable: "--font-anton",
+  display: "swap",
+  preload: false,
+});
+
 const robotoMono = localFont({
   src: "./fonts/roboto-mono-latin-wght-normal.woff2",
   weight: "100 700",
@@ -139,7 +149,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const menu = await loadRoleMenu(role);
 
   return (
-    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} ${jost.variable}`}>
+    <html lang="en" className={`${roboto.variable} ${robotoMono.variable} ${jost.variable} ${anton.variable}`}>
       <head>
         {/* Theme, palette and any theme-editor draft, set on <html> BEFORE the
             first paint. All three are per-device choices held in localStorage,
@@ -161,7 +171,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <script
           dangerouslySetInnerHTML={{
             __html:
-              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p!=='guidelines'&&p!=='shopmanual')p='website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')!=='0')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
+              "(function(){try{var e=document.documentElement;if(localStorage.getItem('appearanceReset')!=='2026-10-16'){localStorage.removeItem('theme');localStorage.removeItem('palette');localStorage.setItem('appearanceReset','2026-10-16');}var t=localStorage.getItem('theme');var d=t!=='light';if(d)e.classList.add('dark');var p=localStorage.getItem('palette');if(p!=='guidelines'&&p!=='shopmanual'&&p!=='vice')p='website';e.setAttribute('data-palette',p);if(localStorage.getItem('railHidden')!=='0')e.setAttribute('data-rail','hidden');var j=localStorage.getItem('paletteDraft');if(j){var s=JSON.parse(j)[p];if(s){var v=Object.assign({},s.shared,s[d?'dark':'light']);for(var k in v){var m=/^#?([0-9a-f]{6})$/i.exec(v[k]);if(m){var n=parseInt(m[1],16);e.style.setProperty('--'+k,(n>>16&255)+' '+(n>>8&255)+' '+(n&255));}}}}}catch(e){}})();",
           }}
         />
       </head>

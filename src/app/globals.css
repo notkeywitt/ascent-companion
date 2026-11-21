@@ -337,6 +337,73 @@
   --page-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .8 .12 0 0 0 -.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* --- Skin 4 — "Vice" (2026-11-21) -----------------------------------------
+   A nod to the GTA VI key art: a Vice City sunset. Hot pink on peach in light,
+   neon pink on night purple in dark, with a faint pink-to-orange glow at the
+   top of the page. Titles are Anton (SIL OFL), a tall condensed caps face like
+   the game's title cards. Body text stays Roboto: Anton is unreadable small.
+
+   Contrast (WCAG, measured 2026-11-21):
+     #D6246E fill on #FFF4EE page     4.48:1  fills, not words
+     #FFFFFF label on #D6246E         4.84:1
+     #B8195A text on page / white     5.84 / 6.32:1
+     #FF5FA2 fill on #120A21 / card   6.79 / 6.25:1
+     #120A21 label on #FF5FA2         6.79:1
+     #FF7AB3 text on card / overlay   7.32 / 6.54:1 */
+[data-palette="vice"] {
+  --accent: 214 36 110; /* #D6246E hot pink */
+  --accent-hover: 190 28 96; /* #BE1C60 */
+  --accent-soft: 214 36 110;
+  --accent-text: 184 25 90; /* #B8195A a step deeper, so a link reads */
+  --accent-fg: 255 255 255; /* white label on a pink fill */
+  --brand: 230 46 123; /* #E62E7B logo square, peak mark, heading rules */
+
+  --line: 242 220 224; /* #F2DCE0 */
+  --line-soft: 248 233 236; /* #F8E9EC */
+  --line-strong: 227 195 203; /* #E3C3CB */
+
+  --page: 255 244 238; /* #FFF4EE peach sand */
+  --page-fg: 29 16 41; /* #1D1029 purple-black ink */
+  --ink: 18 10 33; /* #120A21 night purple */
+  --ink-raised: 29 18 51; /* #1D1233 */
+  --ink-overlay: 41 26 69; /* #291A45 */
+
+  --font-display: var(--font-anton);
+  --display-weight: 400; /* Anton has one weight, already heavy */
+  --display-tracking: 0.02em;
+  --display-case: uppercase;
+  --caption-tracking: 0.1em;
+
+  /* The sunset: a pink-to-orange glow across the top of the page. */
+  --page-texture: radial-gradient(120% 100% at 50% 0%, rgb(255 138 76 / 0.16), rgb(230 46 123 / 0.1) 45%, transparent 75%) top center / 100% 520px no-repeat;
+}
+[data-palette="vice"].dark {
+  --accent: 255 95 162; /* #FF5FA2 neon pink */
+  --accent-hover: 255 122 179; /* #FF7AB3 */
+  --accent-soft: 255 141 190; /* #FF8DBE */
+  --accent-text: 255 122 179; /* #FF7AB3 */
+  --accent-fg: 18 10 33; /* #120A21 night label on a pink fill */
+  --brand: 255 95 162;
+
+  --line: 51 35 77; /* #33234D */
+  --line-soft: 39 26 61; /* #271A3D */
+  --line-strong: 74 54 104; /* #4A3668 */
+
+  --page: 18 10 33; /* #120A21 */
+  --page-fg: 246 236 247; /* #F6ECF7 */
+
+  /* Night version: the sunset sits lower and hotter, with a teal ocean edge. */
+  --page-texture: radial-gradient(120% 100% at 50% 0%, rgb(255 95 162 / 0.18), rgb(255 138 76 / 0.08) 40%, rgb(32 201 196 / 0.05) 65%, transparent 80%) top center / 100% 560px no-repeat;
+}
+/* Same redirect as the Website palette: the warm `neutral-600/700` borders
+   read brown on night purple, so point them at this skin's hairlines. */
+[data-palette="vice"].dark .dark\:border-neutral-600 {
+  border-color: rgb(var(--line-strong));
+}
+[data-palette="vice"].dark .dark\:border-neutral-700 {
+  border-color: rgb(var(--line));
+}
+
 /* FLAT SKINS. A printed page has no drop shadows. This zeroes Tailwind's
    `--tw-shadow` on every element that sets one, so menus, dialogs, toasts and
    sticky bars sit flat on their hairline. Focus rings survive: they ride

@@ -47,6 +47,10 @@ const SWATCH: Record<Palette, Record<"light" | "dark", { ground: string; fill: s
     light: { ground: "#F1EBDC", fill: "#B4532A" },
     dark: { ground: "#1C1A16", fill: "#D9774A" },
   },
+  vice: {
+    light: { ground: "#FFF4EE", fill: "#D6246E" },
+    dark: { ground: "#120A21", fill: "#FF5FA2" },
+  },
 };
 
 export function AppearanceCard() {
