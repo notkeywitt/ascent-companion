@@ -65,6 +65,19 @@ export const allowedUsers = sqliteTable("allowed_users", {
 export type AllowedUser = typeof allowedUsers.$inferSelect;
 
 /**
+ * The skin an admin set for one person (/admin → Skins). It overrides that
+ * person's per-device choice on every device they sign in on, and locks the
+ * Skin picker in Appearance. No row = the device chooses. `palette` is a
+ * `Palette` id from src/lib/palette.ts.
+ */
+export const userSkins = sqliteTable("user_skins", {
+  email: text("email").primaryKey(), // lower-cased login email
+  palette: text("palette").notNull(),
+  setBy: text("set_by").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+/**
  * The signed-in email → JobTread identity link, cached out of the Employee
  * roster (Apps Script `timeEntryBootstrap`).
  *

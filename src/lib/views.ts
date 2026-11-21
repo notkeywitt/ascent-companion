@@ -584,7 +584,7 @@ export const VIEWS: ViewDef[] = [
   // action bar — buttons on a page EVERY role loads — can't be driven by a
   // non-admin who POSTs /api/actions directly.
   { id: "actions", label: "Actions", group: "System", paths: ["/actions", "/api/actions"] },
-  { id: "admin", label: "Access", group: "System", paths: ["/admin"] },
+  { id: "admin", label: "Access", group: "System", paths: ["/admin", "/api/admin/skins"] },
   // AscentBot — who may ask the Google Chat bot and which areas (financials,
   // staff records, the office mailbox) each role's answers may draw on.
   // ADMIN-ONLY (ADMIN_MENU below): it hands out money and staff details. The

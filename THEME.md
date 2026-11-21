@@ -221,6 +221,11 @@ texture is a faint CSS gradient or a small tiled file in `/public`.
 The `/theme` editor tunes colour tokens only. Skin tokens are edited in
 `globals.css`.
 
+**An admin can set one person's skin** (/admin → Skins, table `user_skins`).
+It wins over the device's stored choice on every device that person signs in
+on, and the Skin picker in Appearance locks. The device's own choice is not
+overwritten, so "Their choice" brings it back. Light/dark stays per device.
+
 ## Editing a palette — `/theme`
 
 **Tune it with the editor, then paste the result into `globals.css`.** The

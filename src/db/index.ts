@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1h3p-hhifsg";
+export const SCHEMA_FINGERPRINT = "1he1-q7bye";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -256,6 +256,16 @@ async function applySchema() {
   } catch {
     /* column already exists */
   }
+  // Per-user skin an admin set (/admin → Skins). Keyed by email so env founders
+  // can have one too. No row = the device's own choice applies.
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS user_skins (
+      email TEXT PRIMARY KEY,
+      palette TEXT NOT NULL,
+      set_by TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    )
+  `);
   // Per-check overrides on top of the hardcoded DIGEST_SETTINGS defaults — lets
   // /admin tune the Daily Digest without a redeploy. Read fresh on every run.
   await getClient().execute(`

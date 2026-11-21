@@ -63,7 +63,13 @@ export const PALETTE_DESC: Record<Palette, string> = {
   vice: "Sunset pink on night purple, big caps titles — GTA VI style.",
 };
 
-function isPalette(v: string | null): v is Palette {
+/**
+ * Set on <html> by layout.tsx when an admin set this person's skin. The
+ * pre-paint script paints it, and AppearanceCard locks the Skin picker.
+ */
+export const SKIN_SET_ATTR = "data-skin-set";
+
+export function isPalette(v: string | null): v is Palette {
   return v !== null && (PALETTES as readonly string[]).includes(v);
 }
 
