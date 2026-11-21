@@ -1,5 +1,23 @@
 [
  {
+  "sha": "00a98076",
+  "date": "2026-11-21T04:49:42Z",
+  "title": "every map gets the miles map look Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com> Claude-Session: https://claude.ai/code/session_016EPPrJw1aif1mR4aKPszdR",
+  "plain": "Every map in the app now has the Miles map look: a soft glow, elevation lines and pulsing start and end dots."
+ },
+ {
+  "sha": "783f0c5a",
+  "date": "2026-11-21T04:46:52Z",
+  "title": "admin can set a person's skin",
+  "plain": "Admin has a new Skins tab to set each person's skin; a set skin shows on all their devices."
+ },
+ {
+  "sha": "b39b61c0",
+  "date": "2026-11-21T04:46:49Z",
+  "title": "admin can set a person's skin",
+  "plain": "Admin has a new Skins tab to set each person's skin; a set skin shows on all their devices."
+ },
+ {
   "sha": "c9b29fd8",
   "date": "2026-11-21T04:45:12Z",
   "title": "topo lines on the lopez map all draw at the light weight",
