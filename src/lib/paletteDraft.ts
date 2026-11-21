@@ -114,6 +114,18 @@ export const TOKENS: TokenDef[] = [
     hint: "Menus and bottom sheets in dark.",
     scope: "palette",
   },
+  {
+    name: "map-land",
+    label: "Map land",
+    hint: "The island on the job map. The coast is the control edge.",
+    scope: "theme",
+  },
+  {
+    name: "map-road",
+    label: "Map roads",
+    hint: "Roads on the job map. One step off the land: there to orient.",
+    scope: "theme",
+  },
 ];
 
 /** hex → the space-separated RGB triple the tokens are stored as. */

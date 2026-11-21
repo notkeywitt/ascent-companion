@@ -145,6 +145,13 @@
   /* A background-image layered over `--page`: a CSS gradient or a small
      tiled file in /public. Keep it faint; body text sits on it. */
   --page-texture: none;
+  --map-land: 245 245 244; /* #F5F5F4 neutral-100 */
+  --map-road: 229 229 228; /* #E5E5E4 neutral-200 */
+}
+.dark {
+  /* The job map (LopezMap): land and roads. Every skin sets both themes. */
+  --map-land: 39 38 36; /* #272624 neutral-800 */
+  --map-road: 65 64 61; /* #41403D neutral-700 */
 }
 
 /* Page titles. One hook, so a skin restyles every title at once. */
@@ -224,6 +231,8 @@
   --ink: 10 10 10; /* #0A0A0A — near-black ground */
   --ink-raised: 27 27 27; /* #1B1B1B — the site's own black */
   --ink-overlay: 38 38 38; /* #262626 — menus and bottom sheets only */
+  --map-land: 242 238 228; /* #F2EEE4 a step off the cream */
+  --map-road: 228 222 208; /* #E4DED0 */
 }
 
 /* The site has no dark mode, so this half is DERIVED — by inverting the rule
@@ -253,6 +262,10 @@
 
   --page: 10 10 10; /* #0A0A0A */
   --page-fg: 250 247 238; /* #FAF7EE */
+}
+[data-palette="website"].dark {
+  --map-land: 31 31 31; /* #1F1F1F neutral, like the site's black */
+  --map-road: 51 51 51; /* #333333 */
 }
 
 /* The other prominent grey was not a token at all: ~40 places spell a dark
@@ -300,6 +313,8 @@
   --ink: 28 26 22; /* #1C1A16 */
   --ink-raised: 38 35 30; /* #26231E */
   --ink-overlay: 48 44 37; /* #302C25 */
+  --map-land: 231 221 199; /* #E7DDC7 a printed tint on the paper */
+  --map-road: 216 203 174; /* #D8CBAE */
 
   --font-body: var(--font-jost);
   --font-display: var(--font-jost);
@@ -333,6 +348,8 @@
 
   --page: 28 26 22; /* #1C1A16 */
   --page-fg: 238 230 212; /* #EEE6D4 */
+  --map-land: 44 40 33; /* #2C2821 */
+  --map-road: 66 60 49; /* #423C31 */
 
   --page-texture: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .95 0 0 0 0 .9 0 0 0 0 .8 .12 0 0 0 -.03'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
@@ -367,6 +384,8 @@
   --ink: 18 10 33; /* #120A21 night purple */
   --ink-raised: 29 18 51; /* #1D1233 */
   --ink-overlay: 41 26 69; /* #291A45 */
+  --map-land: 251 225 230; /* #FBE1E6 pink sand */
+  --map-road: 240 201 211; /* #F0C9D3 */
 
   --font-display: var(--font-anton);
   --display-weight: 400; /* Anton has one weight, already heavy */
@@ -391,6 +410,8 @@
 
   --page: 18 10 33; /* #120A21 */
   --page-fg: 246 236 247; /* #F6ECF7 */
+  --map-land: 38 23 74; /* #26174A plum island */
+  --map-road: 58 39 102; /* #3A2766 */
 
   /* Night version: the sunset sits lower and hotter, with a teal ocean edge. */
   --page-texture: radial-gradient(120% 100% at 50% 0%, rgb(255 95 162 / 0.18), rgb(255 138 76 / 0.08) 40%, rgb(32 201 196 / 0.05) 65%, transparent 80%) top center / 100% 560px no-repeat;

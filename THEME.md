@@ -189,11 +189,23 @@ The non-colour tokens live in the "Skin tokens" block of `globals.css`. The
 | `--radius-sheet` | `1rem` | `rounded-sheet`: `Dialog`, `Sheet` |
 | `--radius-pill` | `9999px` | `rounded-pill`: `FilterChip`, `Toggle`, `Meter`, `CountBadge` |
 | `--page-texture` | `none` | `body` background image, over `--page` |
+| `--map-land` | `#F5F5F4` / dark `#272624` | the island on the job map (`LopezMap`); coast is `line-strong` |
+| `--map-road` | `#E5E5E4` / dark `#41403D` | roads on the job map, one step off the land |
+
+`--map-*` are per theme. A skin that sets them in its light block must also
+set them in its `.dark` block, or its light values win in dark.
+
+Skin values: Website `#F2EEE4`/`#E4DED0`, dark `#1F1F1F`/`#333333`. Shop
+Manual `#E7DDC7`/`#D8CBAE`, dark `#2C2821`/`#423C31`. Vice `#FBE1E6`/`#F0C9D3`,
+dark `#26174A`/`#3A2766`.
 
 Two more skin hooks, outside the token block:
 
-- **`bg-page`** paints the skin's page colour as a fill. The header, rail,
-  sticky bars and full-screen loaders use it. Never paint a surface
+- **`bg-page`** paints the skin's page colour as a fill. The rail, sticky
+  bars and full-screen loaders use it. The app header and the Home/Jobs
+  masthead (the ribbon band) have NO fill, in every skin (owner, 2026-11-21):
+  the page and its texture show through, and `backdrop-blur` keeps them
+  readable over scrolled content. Never paint a surface
   `bg-cream`: that is the fixed brand constant, and it is wrong in any skin
   whose paper is not `#FAF7EE`.
 - **Flat skins.** Add a skin's selector to the `:is()` list of the flat-skin

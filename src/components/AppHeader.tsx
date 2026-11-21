@@ -95,10 +95,12 @@ export function AppHeader() {
        web view below the status bar — newer iOS Home Screen apps and a
        rotation both draw under it. Without this pad the row slid under the
        clock and battery. The inset is 0 where nothing covers the top, and the
-       pad is inside the measured box, so --appheader-h includes it. */
+       pad is inside the measured box, so --appheader-h includes it.
+       No fill (owner, 2026-11-21): the skin's page and its texture show
+       through. The blur keeps the row readable over content scrolled under. */
     <div
       ref={measure}
-      className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 bg-page/95 backdrop-blur dark:border-white/10 dark:bg-ink/95 print:hidden"
+      className="sticky top-0 z-20 pt-[env(safe-area-inset-top,0px)] border-b border-black/10 backdrop-blur dark:border-white/10 print:hidden"
     >
       <div className="relative flex items-center gap-1.5 px-2 py-2 sm:gap-2 pad:gap-3 pad:px-6">
         {/* No back button: back is a swipe right from the screen's left
