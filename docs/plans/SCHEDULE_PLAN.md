@@ -11,7 +11,7 @@ Gantt functions, then links bills and estimates to tasks.
 | # | Stage | State |
 |---|---|---|
 | 1 | Schedule page, read-only: a Gantt by job, 4 or 12 weeks, a details dialog | built |
-| 2 | Edit: the existing task dialog on a bar; drag to move (a JobTread write) | not started |
+| 2 | Edit: the existing task dialog on a bar; drag to move (a JobTread write) | built (owner ok, 2026-11-21): Edit task form and bar drag, both through `PATCH /api/home/week/task`. Open: JobTread notifies assignees and shifts dependent tasks on a move (its `updateTask` defaults) |
 | 3 | One Gantt component for the Home card, the Tracking Sheet and the Jobs Hub Schedule tab | partly built: job overview (Jobs Hub tab, Home job card) uses `ScheduleView` and the shared task dialog. Open: Home's This week card (`WeekAhead`) keeps its own 7-day design |
 | 4 | Bills and estimates on a task | built (owner chose JobTread's own link, 2026-11-19) |
 
