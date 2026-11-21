@@ -1155,7 +1155,7 @@
   {
    "from": "/tool-schedule/edit",
    "to": "/tool-schedule",
-   "kind": "link"
+   "kind": "redirect"
   },
   {
    "from": "/tool-schedule/edit",
