@@ -1,5 +1,11 @@
 [
  {
+  "sha": "807c6f70",
+  "date": "2026-11-21T02:09:50Z",
+  "title": "bill links open on the bills page",
+  "plain": "Links to a bill now open it on the Bills page instead of the Jobs Hub."
+ },
+ {
   "sha": "5c84638c",
   "date": "2026-11-21T01:15:34Z",
   "title": "job schedules use the Schedule page gantt and task dialog",
