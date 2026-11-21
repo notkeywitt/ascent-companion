@@ -473,13 +473,10 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       className="w-full px-4 pb-10 pt-3 pad:px-7 pad:pt-5"
       style={{ minHeight: heldHeight }}
     >
-      {/* The picked job's name stays in view: in the header bar on a phone, and
-          in the ribbon head line, pinned from `pad` up (owner, 2026-11-15). */}
+      {/* The picked job's name stays in the header bar. */}
       {selected && <HeaderTitle>{jobLabel(selected)}</HeaderTitle>}
-      {/* Home's masthead and ribbon, with the picked job in place of the date
-          (owner, 2026-11-15). */}
+      {/* Home's masthead and ribbon: the date, as on Home (owner, 2026-11-21). */}
       <HomeMasthead
-        title={selected ? jobLabel(selected) : undefined}
         backdrop={<YearRibbon url="/api/jobs-hub/ribbon" focusId={selected?.id ?? null} />}
         pinned
       />
