@@ -1,5 +1,11 @@
 [
  {
+  "sha": "5b9bac91",
+  "date": "2026-11-21T02:17:02Z",
+  "title": "schedule tasks edit in the dialog and drag to move",
+  "plain": "On the Schedule page and each job's schedule, tap Edit task to change a task's name, dates and notes, or drag a bar to move it. Changes save to JobTread, and a move can be undone."
+ },
+ {
   "sha": "807c6f70",
   "date": "2026-11-21T02:09:50Z",
   "title": "bill links open on the bills page",
