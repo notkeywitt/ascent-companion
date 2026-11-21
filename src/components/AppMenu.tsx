@@ -175,6 +175,21 @@ export function AppMenu({
       />
     );
 
+  const signOutBlock = (
+    <div className="border-t border-line pt-4 text-center">
+      <p className="text-xs text-neutral-500">
+        Signed in — access level: <span className="font-semibold">{access.role}</span>
+      </p>
+      <button
+        type="button"
+        onClick={() => signOut({ callbackUrl: "/login" })}
+        className={btn("secondary", "md", "mt-3")}
+      >
+        Sign out
+      </button>
+    </div>
+  );
+
   return (
     <>
       {controlled ? null : account ? (
@@ -228,8 +243,9 @@ export function AppMenu({
         }
       >
         {themeOnly ? (
-          <div className="py-1">
+          <div className="space-y-4 py-1">
             <AppearanceCard />
+            {signOutBlock}
           </div>
         ) : (
         <div className="space-y-4 py-1">
@@ -337,18 +353,7 @@ export function AppMenu({
             <DesktopAlertsCard />
           </div>
 
-          <div className="border-t border-line pt-4 text-center">
-            <p className="text-xs text-neutral-500">
-              Signed in — access level: <span className="font-semibold">{access.role}</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-              className={btn("secondary", "md", "mt-3")}
-            >
-              Sign out
-            </button>
-          </div>
+          {signOutBlock}
         </div>
         )}
       </Sheet>
