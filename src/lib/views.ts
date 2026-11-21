@@ -66,6 +66,14 @@ export const VIEWS: ViewDef[] = [
       // rides the same gate as the page whose month it reports — and a longer
       // path wins, so the plain jobs list stays open.
       "/api/jobs/to-be-invoiced",
+      // The Jobs page's money subpaths (2026-11-21, field got the Jobs page):
+      // the year ribbon (every job's bills and invoices by week), Check for
+      // Bills (the Gmail bill scan) and Notes' bill picker (the month's bills
+      // with their cost). A longer path wins, so these leave the "jobs-hub"
+      // view, which field holds, for this one, which field does not.
+      "/api/jobs-hub/ribbon",
+      "/api/jobs-hub/scan-bills",
+      "/api/notes/month-bills",
       // EVERY purpose-built bill/invoice WRITE route. These were ungated until
       // 2026-09-09 — the pages that call them ride this gate, but the routes
       // themselves did not, so any signed-in role could POST one directly.
@@ -643,12 +651,17 @@ export const VIEWS: ViewDef[] = [
   // The desktop screen for every job at once: a compact job list, the month's
   // rings, one job's overview and the Lopez Island map. Its own routes: the
   // job's files, the Punch List tab (writes only the companion DB,
-  // punch_lists) and Notes (job_notes, kept forever; src/lib/notes.ts). Office, admin and lead (2026-11-03).
+  // punch_lists) and Notes (job_notes, kept forever; src/lib/notes.ts).
+  // EVERY role holds it since 2026-11-21 (owner: a Jobs icon on the field bar,
+  // with no dollars). So every path here must answer field without money:
+  // /api/jobs-hub/cards is the Job Board's cards (no budget), /api/home/gantt
+  // is the Schedule tab's phase chart, and /api/notes drops a note's bill links
+  // for a caller without Tracking Sheets. The money subpaths ride "recode".
   {
     id: "jobs-hub",
     label: "Jobs",
     group: "Office",
-    paths: ["/jobs-hub", "/api/jobs-hub", "/api/jobs/files", "/api/notes"],
+    paths: ["/jobs-hub", "/api/jobs-hub", "/api/jobs/files", "/api/notes", "/api/home/gantt"],
   },
 ];
 
@@ -682,16 +695,19 @@ const FIELD_VIEWS: string[] = [
   // already told field and leads to send it. Changing a request's status stays
   // office/admin, checked in /api/feature-requests/[id].
   "requests",
+  // The Jobs page, with no dollars (owner, 2026-11-21): the job list, the
+  // job's details, map, Schedule, Plans, Photos, Notes and Punch List. Its
+  // money reads ride "recode" and "job-board", which field does not hold.
+  "jobs-hub",
 ];
-// Leads additionally see Sunset statements, and the Jobs Hub with the tabs it
-// draws (owner, 2026-11-03): the job card's data ("job-board"), Tracking sheet
+// Leads additionally see Sunset statements, and the Jobs Hub's money and the
+// tabs it draws (owner, 2026-11-03; the hub itself is a field view now): the job card's data ("job-board"), Tracking sheet
 // ("recode" — it EDITS bills; this reverses the 2026-09-09 office+admin-only
 // rule for leads), Job Details ("clients"), Specifications ("specs") and House
 // Manual. Budget Import, the Leads board and the month's Sync stay off.
 const LEAD_VIEWS: string[] = [
   ...FIELD_VIEWS,
   "payments",
-  "jobs-hub",
   "job-board",
   "recode",
   "clients",

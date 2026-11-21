@@ -56,13 +56,14 @@ describe("the bottom bar", () => {
     }
   });
 
-  it("gives leads a Home slot, and field staff Home plus their four pages", () => {
+  it("gives leads a Home slot, and field staff Home plus their four pages and Jobs", () => {
     expect(barFor("lead", canFor("lead"))[0].key).toBe("today");
     expect(barFor("field", canFor("field")).map((i) => i.label)).toEqual([
       "Home",
       "Time",
       "Miles",
       "Tools",
+      "Jobs",
     ]);
   });
 
@@ -133,7 +134,7 @@ describe("the iPad rail", () => {
   });
   it("keeps field staff's rail on their bar, with no second Time", () => {
     const rail = railFor("field", can("field"));
-    expect(rail.slice(0, 4).map((i) => i.key)).toEqual(barFor("field", can("field")).map((i) => i.key));
+    expect(rail.slice(0, 5).map((i) => i.key)).toEqual(barFor("field", can("field")).map((i) => i.key));
     expect(rail.map((i) => i.key)).not.toContain("time");
   });
   it("does not repeat a pinned page that is already a top item", () => {

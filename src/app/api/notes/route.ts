@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { and, asc, desc, eq, like } from "drizzle-orm";
 import { auth } from "@/auth";
+import { holdsView } from "@/lib/apiAuth";
 import { db, ensureDb } from "@/db";
 import { jobNoteEdits, jobNotes } from "@/db/schema";
 import { readJtUserLink } from "@/lib/jtUserLink";
@@ -30,6 +31,11 @@ import {
  * The author comes from the session, never the body. Every PATCH appends one
  * row to job_note_edits holding the whole note before and after. Writes the
  * companion DB only; gated by the "jobs-hub" view.
+ *
+ * A note's bill links carry each bill's cost in their label. Field holds this
+ * view but no money (2026-11-21), so a caller without Tracking Sheets
+ * ("recode") gets every note and history row with no bill links, and the
+ * `bills` a write sends are ignored: a PATCH keeps the links the note has.
  */
 
 export const dynamic = "force-dynamic";
@@ -63,6 +69,9 @@ const fieldsOf = (n: Note): NoteFields => ({
   bills: n.bills,
 });
 
+/** A note with its bill links taken out, for a caller who may not see bills. */
+const noBills = <T extends { bills?: NoteFields["bills"] }>(n: T): T => ({ ...n, bills: [] });
+
 const todayInOrg = () =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "America/Los_Angeles" }).format(new Date());
 
@@ -77,6 +86,7 @@ async function who(): Promise<{ email: string; name: string }> {
 export async function GET(req: NextRequest) {
   await ensureDb();
   const q = req.nextUrl.searchParams;
+  const seesBills = await holdsView("recode");
 
   const history = q.get("history");
   if (history !== null) {
@@ -94,8 +104,8 @@ export async function GET(req: NextRequest) {
       editedAt: r.editedAt,
       editedByEmail: r.editedByEmail,
       editedByName: r.editedByName,
-      before: JSON.parse(r.before),
-      after: JSON.parse(r.after),
+      before: seesBills ? JSON.parse(r.before) : noBills(JSON.parse(r.before)),
+      after: seesBills ? JSON.parse(r.after) : noBills(JSON.parse(r.after)),
     }));
     return NextResponse.json({ edits });
   }
@@ -124,7 +134,7 @@ export async function GET(req: NextRequest) {
     .where(where)
     .orderBy(desc(jobNotes.noteDate), desc(jobNotes.id))
     .limit(LIMIT);
-  return NextResponse.json({ notes: rows.map(toNote) });
+  return NextResponse.json({ notes: rows.map((r) => (seesBills ? toNote(r) : noBills(toNote(r)))) });
 }
 
 async function json(req: NextRequest): Promise<Record<string, unknown> | null> {
@@ -139,6 +149,8 @@ async function json(req: NextRequest): Promise<Record<string, unknown> | null> {
 export async function POST(req: NextRequest) {
   const body = await json(req);
   if (!body) return NextResponse.json({ error: "Body must be JSON." }, { status: 400 });
+  const seesBills = await holdsView("recode");
+  if (!seesBills) delete body.bills;
   // A new note's date defaults to today; its billing month to that day's.
   const withDate = body.noteDate ? body : { ...body, noteDate: todayInOrg() };
   const read = readNoteFields(withDate);
@@ -164,7 +176,7 @@ export async function POST(req: NextRequest) {
       editCount: 0,
     })
     .returning();
-  return NextResponse.json({ note: toNote(row) });
+  return NextResponse.json({ note: seesBills ? toNote(row) : noBills(toNote(row)) });
 }
 
 export async function PATCH(req: NextRequest) {
@@ -172,6 +184,9 @@ export async function PATCH(req: NextRequest) {
   const id = Number(body?.id);
   if (!body || !Number.isInteger(id) || id < 1)
     return NextResponse.json({ error: "Send the note's id." }, { status: 400 });
+  const seesBills = await holdsView("recode");
+  if (!seesBills) delete body.bills;
+  const out = (n: Note) => (seesBills ? n : noBills(n));
   await ensureDb();
   const [row] = await db.select().from(jobNotes).where(eq(jobNotes.id, id)).limit(1);
   if (!row) return NextResponse.json({ error: "That note does not exist." }, { status: 404 });
@@ -179,7 +194,7 @@ export async function PATCH(req: NextRequest) {
 
   if (String(body.updatedAt ?? "") !== current.updatedAt)
     return NextResponse.json(
-      { error: "Someone changed this note. Review it, then save again.", note: current },
+      { error: "Someone changed this note. Review it, then save again.", note: out(current) },
       { status: 409 },
     );
 
@@ -187,7 +202,7 @@ export async function PATCH(req: NextRequest) {
   if (!read.ok) return NextResponse.json({ error: read.error }, { status: 400 });
   const next = read.fields;
   const before = fieldsOf(current);
-  if (changedFields(before, next).length === 0) return NextResponse.json({ note: current });
+  if (changedFields(before, next).length === 0) return NextResponse.json({ note: out(current) });
 
   const by = await who();
   const at = new Date().toISOString();
@@ -224,9 +239,9 @@ export async function PATCH(req: NextRequest) {
   if (!saved) {
     const [again] = await db.select().from(jobNotes).where(eq(jobNotes.id, id)).limit(1);
     return NextResponse.json(
-      { error: "Someone changed this note. Review it, then save again.", note: again && toNote(again) },
+      { error: "Someone changed this note. Review it, then save again.", note: again && out(toNote(again)) },
       { status: 409 },
     );
   }
-  return NextResponse.json({ note: toNote(saved) });
+  return NextResponse.json({ note: out(toNote(saved)) });
 }

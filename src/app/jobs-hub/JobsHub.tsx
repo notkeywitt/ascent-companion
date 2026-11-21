@@ -14,7 +14,7 @@ import type { Note, NoteBill } from "@/lib/notes";
 import { WORKING_PHASES } from "@/components/JobPicker";
 import { Donut } from "@/components/Donut";
 import { HeaderTitle } from "@/components/HeaderTitle";
-import { Button, Card, Loading, Segmented, Select, Skeleton } from "@/components/ui";
+import { Button, Card, EmptyState, Loading, Segmented, Select, Skeleton } from "@/components/ui";
 import { JobCard } from "@/app/job-board/JobBoardPage";
 import dynamic from "next/dynamic";
 import { DraftInvoicingEmail } from "@/components/PackageEmail";
@@ -66,6 +66,11 @@ const InvoicingSummary = dynamic(() => import("@/app/invoicing-summary/Invoicing
  *
  * Every write is an embedded page's own; the Punch List writes only the
  * companion DB.
+ *
+ * A caller without Tracking Sheets — field (owner, 2026-11-21: "No dollars")
+ * — gets the page with no money: no month totals, rings, ribbon, month picker,
+ * Tracking sheet or month actions, and no JobTread link. Each money read it
+ * would make is gated at the route too (src/lib/views.ts), not just hidden.
  */
 
 type HubJob = MapJob & { customer?: string | null };
@@ -99,6 +104,8 @@ const caption =
 export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   const { can } = useAccess();
   const canTrackingSheet = can("recode");
+  /** Every dollar on this page is a Tracking Sheets figure: no view, no money. */
+  const seesMoney = canTrackingSheet;
   const [jobs, setJobs] = useState<HubJob[] | null>(null);
   // The server page passes the billing month, so the month's figures fetch at
   // once instead of after a round trip that only learns it.
@@ -150,7 +157,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       .then((r) => r.json())
       .then((d) => !cancelled && setJobs(d.error ? [] : (d.jobs ?? [])))
       .catch(() => !cancelled && setJobs([]));
-    fetch("/api/job-board")
+    // The Job Board's cards under this page's own gate (field holds it, not "job-board").
+    fetch("/api/jobs-hub/cards")
       .then((r) => r.json())
       .then(
         (d: {
@@ -166,7 +174,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       )
       .catch(() => !cancelled && setDetails(new Map()));
     // Only for the billing month's name: the month the rings open on.
-    if (!billingYm)
+    if (!billingYm && seesMoney)
       fetch("/api/jobs/to-be-invoiced")
         .then((r) => r.json())
         .then((d) => !cancelled && !d?.error && setDefaultYm(d.ym ?? ""))
@@ -174,7 +182,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
     return () => {
       cancelled = true;
     };
-  }, [billingYm]);
+  }, [billingYm, seesMoney]);
 
   // The month: the billing month until someone picks another.
   const [pickedYm, setPickedYm] = useState<string | null>(null);
@@ -200,7 +208,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   // Bumped when the open job's figure changes, so the list re-reads the month.
   const [monthRefresh, setMonthRefresh] = useState(0);
   const refreshMonth = useCallback(() => setMonthRefresh((n) => n + 1), []);
-  const { jobs: monthJobs } = useMonthJobs(ym, monthRefresh);
+  // No month figures without Tracking Sheets: "" asks for none.
+  const { jobs: monthJobs } = useMonthJobs(seesMoney ? ym : "", monthRefresh);
 
   // Each client job's month: bills and labor, sales tax and warranty out.
   const ranked = useMemo(
@@ -292,6 +301,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
     const docId = q.get("bill");
     if (!docId) return;
     window.history.replaceState(null, "", window.location.pathname);
+    // A bill is money: without Tracking Sheets the link opens the page alone.
+    if (!seesMoney) return;
     const fallback = () =>
       window.location.replace(
         `/bill/${encodeURIComponent(docId)}?page=1${q.get("jobId") ? `&jobId=${encodeURIComponent(q.get("jobId")!)}` : ""}`,
@@ -304,7 +315,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
         setLinkedBill({ docId, jobId: d.jobId, ym: (d.header?.issueDate ?? "").slice(0, 7), label });
       })
       .catch(fallback);
-  }, []);
+  }, [seesMoney]);
   useEffect(() => {
     if (!linkedBill || !jobs) return;
     setLinkedBill(null);
@@ -441,12 +452,13 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   useEffect(() => setRingScope("month"), [selectedId, ym]);
   const allTimeOn = !!selectedId && tab === "sheet" && ringScope === "job";
   // One row — the rings' scope switch, then the month.
-  const monthControls = (
+  // The month only picks money (rings, the sheet's month): none without it.
+  const monthControls = seesMoney ? (
     <div className="flex items-center gap-3">
       {selected && tab === "sheet" && <div ref={setScopeSlot} />}
       {!allTimeOn && monthSelect}
     </div>
-  );
+  ) : null;
 
   // The picked job's month buttons. The board draws them in the menu that opens
   // beside Save Changes, so the job card carries none (owner, 2026-11-14).
@@ -477,7 +489,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
       {selected && <HeaderTitle>{jobLabel(selected)}</HeaderTitle>}
       {/* Home's masthead and ribbon: the date, as on Home (owner, 2026-11-21). */}
       <HomeMasthead
-        backdrop={<YearRibbon url="/api/jobs-hub/ribbon" focusId={selected?.id ?? null} />}
+        backdrop={
+          seesMoney ? <YearRibbon url="/api/jobs-hub/ribbon" focusId={selected?.id ?? null} /> : undefined
+        }
         pinned
       />
       <div className="min-w-0 space-y-6">
@@ -512,9 +526,11 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                             className={`flex w-full items-center gap-2 rounded-inner px-2 py-1 text-left text-[13px] hover:bg-line-soft ${j.id === selectedId ? "bg-accent/10 font-semibold shadow-[inset_3px_0_0_rgb(var(--accent))]" : j.id === hoverId ? "bg-line-soft" : ""}`}
                           >
                             <span className="min-w-0 flex-1 truncate">{jobLabel(j)}</span>
-                            <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
-                              {r && r.bills + r.labor > 0 ? money0(r.bills + r.labor) : "—"}
-                            </span>
+                            {seesMoney && (
+                              <span className="shrink-0 text-[12px] font-normal tabular-nums text-neutral-500 dark:text-neutral-400">
+                                {r && r.bills + r.labor > 0 ? money0(r.bills + r.labor) : "—"}
+                              </span>
+                            )}
                           </button>
                         </li>
                       );
@@ -534,6 +550,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                 <JobCard
                   c={details.get(selected.id)!}
                   nameLink={false}
+                  jtLink={seesMoney}
                   onCustomer={can("clients") ? () => setCustomerOf(selected.id) : undefined}
                   // No buttons on the card: the month's actions are in the menu
                   // beside Save Changes (`jobActions`, owner 2026-11-14).
@@ -564,6 +581,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
               ) : (
                 <Skeleton className="h-40 w-full rounded-card" />
               )
+            ) : !seesMoney ? (
+              // No money: the month card's rings and actions are all figures.
+              <EmptyState className="h-full">Pick a job to see its schedule, plans, photos, notes and punch list.</EmptyState>
             ) : (
               // The list's height, with the tabs on their own row at the foot.
               <Card className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
@@ -604,7 +624,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
               </Card>
             )}
             {/* A picked job's card carries these in its head row (owner, 2026-11-06). */}
-            {!selected && (
+            {!selected && seesMoney && (
               <div className="order-first flex items-center justify-end gap-4 pad:absolute pad:right-4 pad:top-3 pad:z-10">
                 {monthControls}
               </div>
@@ -635,7 +655,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
                     return (
                       <option key={j.id} value={j.id}>
                         {jobLabel(j)}
-                        {r && r.bills + r.labor > 0 ? ` · ${money0(r.bills + r.labor)}` : ""}
+                        {seesMoney && r && r.bills + r.labor > 0 ? ` · ${money0(r.bills + r.labor)}` : ""}
                       </option>
                     );
                   })}

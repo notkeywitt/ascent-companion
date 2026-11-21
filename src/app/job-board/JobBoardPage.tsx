@@ -100,7 +100,11 @@ export function JobCard({
   footer,
   onCustomer,
   nameLink = true,
+  jtLink = true,
 }: {
+  /** False: no "JT ↗" link. JobTread's job page shows its budget (the Jobs
+   *  page for a field user, who sees no money — owner, 2026-11-21). */
+  jtLink?: boolean;
   /** False: the name is plain text, not a link to the job's page (the Jobs
    *  page's card, which already is that page — owner, 2026-11-02). */
   nameLink?: boolean;
@@ -138,15 +142,17 @@ export function JobCard({
       {c.number && (
         <span className="shrink-0 text-[11px] tabular-nums text-neutral-500">#{c.number}</span>
       )}
-      <a
-        href={jtJobUrl(c.id)}
-        target="_blank"
-        rel="noreferrer"
-        aria-label={`${c.name} in JobTread`}
-        className="shrink-0 text-[11px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
-      >
-        JT ↗
-      </a>
+      {jtLink && (
+        <a
+          href={jtJobUrl(c.id)}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`${c.name} in JobTread`}
+          className="shrink-0 text-[11px] font-semibold text-neutral-500 hover:text-accent dark:text-neutral-400"
+        >
+          JT ↗
+        </a>
+      )}
     </div>
   );
   const customer =

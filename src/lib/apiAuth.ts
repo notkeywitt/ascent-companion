@@ -36,9 +36,15 @@ export const FORBIDDEN = () => NextResponse.json({ error: "Forbidden" }, { statu
  * src/lib/authMode.ts for why that branch exists and what is wrong with it.
  */
 export async function holdsView(viewId: string): Promise<boolean> {
+  return holdsAnyView([viewId]);
+}
+
+/** Does the signed-in caller hold at least one of `viewIds`? Same rule as `holdsView`. */
+export async function holdsAnyView(viewIds: string[]): Promise<boolean> {
   const session = await auth();
   const user = session?.user;
   if (!user) return noAuthConfigured();
   if (user.revoked) return false;
-  return resolveAllowedViews(user.role, user.viewsAllow, user.viewsDeny, user.roleBase).has(viewId);
+  const views = resolveAllowedViews(user.role, user.viewsAllow, user.viewsDeny, user.roleBase);
+  return viewIds.some((id) => views.has(id));
 }
