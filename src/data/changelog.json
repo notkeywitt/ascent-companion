@@ -1,5 +1,17 @@
 [
  {
+  "sha": "01be9a70",
+  "date": "2026-11-21T05:32:05Z",
+  "title": "jobs hub ribbon shows the date",
+  "plain": "The Jobs Hub ribbon shows the date, as Home does, instead of the job name."
+ },
+ {
+  "sha": "2c652405",
+  "date": "2026-11-21T05:31:27Z",
+  "title": "tracking sheet sort and filter behind icons",
+  "plain": "On a job's Tracking Sheet, the Bills and Labor filter and sort controls now sit behind filter and sort icons, like the Bills list."
+ },
+ {
   "sha": "42812268",
   "date": "2026-11-21T05:28:07Z",
   "title": "boids drawn as hieroglyph birds, no tail",
