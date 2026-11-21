@@ -1,5 +1,11 @@
 [
  {
+  "sha": "45d529c5",
+  "date": "2026-11-21T05:49:08Z",
+  "title": "admin skin is a push, people can change their own skin after",
+  "plain": "Everyone can pick their own skin again; when an admin sets someone's skin it switches their devices, and they can change it after."
+ },
+ {
   "sha": "dce29db2",
   "date": "2026-11-21T05:39:30Z",
   "title": "boid birds turn to face where they fly",
