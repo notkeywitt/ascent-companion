@@ -65,12 +65,15 @@ import {
   monthIsInvoiced,
   monthInvoicedTotal,
 } from "./boardMath";
+import { FilterIconButton, SortIconButton } from "@/components/FilterSortButtons";
 import { TimeCodingCard } from "./TimeCodingCard";
 import { AllTimeLists } from "./AllTimeLists";
 import {
   TimeEntryList,
+  TimeFilterStrip,
   TimeGroupSwitch,
   TimeRecodeCard,
+  timeFilterCount,
   type CodeHeadroom,
   type TimeEntryRow,
 } from "@/components/TimeEntryList";
@@ -927,6 +930,9 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
      *  what ties the banner below to the arc that set it. */
     color?: string;
   } | null>(null);
+  // The Labor block's filter and sort panels start folded; the icons open them.
+  const [laborFilterOpen, setLaborFilterOpen] = useState(false);
+  const [laborSortOpen, setLaborSortOpen] = useState(false);
 
   /**
    * The month's bills, narrowed to the picked codes. A bill is IN when any of
@@ -2293,10 +2299,20 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
               </span>
               Labor ({monthTime.length} {monthTime.length === 1 ? "entry" : "entries"})
             </button>
-            {/* Group sits in the header, not under the filters (owner, 2026-11-02). */}
+            {/* Filter and sort sit behind icons, like the Bills list. */}
             {timeBlockOpen && monthTime.length > 0 && (
-              <div className="shrink-0 self-center">
-                <TimeGroupSwitch filters={timeFilters} />
+              <div className="flex shrink-0 items-center gap-1.5 self-center">
+                <FilterIconButton
+                  open={laborFilterOpen}
+                  onClick={() => setLaborFilterOpen((o) => !o)}
+                  label="Filter labor"
+                  count={timeFilterCount(timeFilters)}
+                />
+                <SortIconButton
+                  open={laborSortOpen}
+                  onClick={() => setLaborSortOpen((o) => !o)}
+                  label="Group labor"
+                />
               </div>
             )}
             {/* Logging FOR somebody — /employee-time can only log for the
@@ -2334,9 +2350,16 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                   single-entry editor (hours, day, code, job, approve),
                   which is this board's own affordance and the reason a
                   correction no longer means leaving the month. */}
+              {laborFilterOpen && <TimeFilterStrip filters={timeFilters} hideGroup />}
+              {laborSortOpen && (
+                <div className="flex flex-wrap items-center gap-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                  <TimeGroupSwitch filters={timeFilters} />
+                </div>
+              )}
               <TimeEntryList
                 filters={timeFilters}
                 hideGroup
+                hideFilters
                 jobId={jobId}
                 monthEntries={monthTime}
                 codeOf={timeCodeOf}

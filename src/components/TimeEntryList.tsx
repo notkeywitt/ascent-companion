@@ -422,6 +422,13 @@ export function TimeGroupSwitch({
   );
 }
 
+/** How many of the filters are set — the badge on a Filter icon. */
+export function timeFilterCount(f: TimeFilters): number {
+  return (
+    (f.employees.size > 0 ? 1 : 0) + (f.code ? 1 : 0) + (f.day || f.rangeOn ? 1 : 0)
+  );
+}
+
 export function TimeFilterStrip({
   filters,
   hideGroup = false,
@@ -755,6 +762,8 @@ export interface TimeEntryListProps {
   filters: TimeFilters;
   /** The Group switch is drawn by the caller (TimeGroupSwitch). */
   hideGroup?: boolean;
+  /** The caller shows the filter strip itself (behind a Filter icon). */
+  hideFilters?: boolean;
   /** The job these entries belong to, so a row's ↗ opens THAT job's time page
    *  rather than the org's. Omitted → the org-wide one (lib/jtLinks). */
   jobId?: string;
@@ -828,6 +837,7 @@ function RowBody({
 export function TimeEntryList({
   filters,
   hideGroup = false,
+  hideFilters = false,
   jobId,
   monthEntries,
   codeOf,
@@ -906,7 +916,7 @@ export function TimeEntryList({
 
   return (
     <>
-      <TimeFilterStrip filters={f} hideGroup={hideGroup} />
+      {!hideFilters && <TimeFilterStrip filters={f} hideGroup={hideGroup} />}
 
       {/* What's on screen when that isn't the whole month, and what narrowed it,
           in words. A range especially: "12 of 87 shown" reads as a mistake until

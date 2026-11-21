@@ -1,7 +1,8 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import { Card, EmptyState, Label, Select } from "@/components/ui";
+import { FilterIconButton, SortIconButton } from "@/components/FilterSortButtons";
 import { money } from "./BillCodingCard";
 import type { BillRef } from "./Board";
 
@@ -52,6 +53,9 @@ export function BillListView({
   sunsetBlockOpen: boolean;
   sunsetTotal: number;
 }) {
+  // The filter and sort panels start folded; the icons open them.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   return (
     <>
             {mode === "bill" && filteredBills.length === 0 ? (
@@ -104,7 +108,21 @@ export function BillListView({
                         Bills ({nonSunsetBills.length} bill
                         {nonSunsetBills.length === 1 ? "" : "s"})
                       </button>
-                      {groupSwitch && <div className="shrink-0 self-center">{groupSwitch}</div>}
+                      <div className="flex shrink-0 items-center gap-1.5 self-center">
+                        <FilterIconButton
+                          open={filterOpen}
+                          onClick={() => setFilterOpen((o) => !o)}
+                          label="Filter bills"
+                          count={billCodeFilter ? 1 : 0}
+                        />
+                        {groupSwitch && (
+                          <SortIconButton
+                            open={sortOpen}
+                            onClick={() => setSortOpen((o) => !o)}
+                            label="Group bills"
+                          />
+                        )}
+                      </div>
                       <span className="shrink-0 text-sm font-semibold tabular-nums">
                         {money(nonSunsetTotal)}
                       </span>
@@ -117,6 +135,12 @@ export function BillListView({
                             ring above sets the same state, so picking a slice
                             moves this select and picking here lights that
                             slice: one filter, two ways in. */}
+                        {groupSwitch && sortOpen && (
+                          <div className="flex flex-wrap items-center gap-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
+                            {groupSwitch}
+                          </div>
+                        )}
+                        {filterOpen && (
                         <div className="flex flex-wrap items-end gap-x-3 gap-y-2 border-t border-line-soft bg-neutral-50 px-3 py-2 dark:bg-ink-raised/50">
                           <div className="min-w-[10rem] flex-1">
                             <Label htmlFor="bill-code">Cost code</Label>
@@ -160,6 +184,7 @@ export function BillListView({
                             </Select>
                           </div>
                         </div>
+                        )}
                         <ul className="divide-y divide-line-soft border-t border-line-soft">
                           {nonSunsetBills.map(renderBillCard)}
                         </ul>
