@@ -1,5 +1,16 @@
 # THEME.md — the app's colour palettes
 
+**Read only the section your task needs.** Most of this file is palette
+history. List the sections with `grep -n '^## ' THEME.md`, then read that range.
+
+| Task | Section |
+|---|---|
+| Build or change any UI | "Rules for writing UI" (enough for most tasks) |
+| Light/dark or palette switching | "Palette vs. theme" |
+| A skin's type, corners or paper | "Skins — palette plus type, corners and paper" |
+| Tune a colour value | "Editing a palette — `/theme`" |
+| One palette's exact values or reasoning | That palette's or skin's own section |
+
 A record of each named palette, its exact values, and the reasoning that fixed
 them. Add a palette here when you add one; change a value here in the same
 commit that changes it in the code.
