@@ -1,5 +1,11 @@
 [
  {
+  "sha": "cfd99060",
+  "date": "2026-11-22T15:22:38Z",
+  "title": "point sessions at doc sections, not whole files",
+  "plain": "Behind the scenes: Claude reads less of the long reference docs per task, so changes cost less."
+ },
+ {
   "sha": "fb5c2942",
   "date": "2026-11-21T17:14:28Z",
   "title": "weekly summary page under Office",
