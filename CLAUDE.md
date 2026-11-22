@@ -11,8 +11,8 @@ JobTread↔Sheet↔Drive mirror).
 | Before you… | Read |
 |---|---|
 | touch `src/` | the task table in `CODEBASE_MAP.md`. It is not auto-loaded. Do not guess where a file lives. If it does not name the file: `docs/CODEBASE_DIRS.md` |
-| write UI | "Rules for writing UI" in `THEME.md` |
-| compose or change a Pave query | `PAVE_GOTCHAS.md`, then `JT_API_REFERENCE.md` (the full schema) |
+| write UI | "Rules for writing UI" in `THEME.md`. Only that section, unless the task is a palette |
+| compose or change a Pave query | `PAVE_GOTCHAS.md`, then only the `JT_API_REFERENCE.md` section you need (`PAVE_GOTCHAS.md` says how) |
 | refactor, or ask "should we rewrite X" | `ARCHITECTURE_REVIEW.md`. Do not re-open its closed decisions. Tick its checklist as stages land |
 | change how views reach JobTread | `FRONTEND_ARCHITECTURE.md` |
 
