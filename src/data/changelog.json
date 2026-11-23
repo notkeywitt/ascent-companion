@@ -1,5 +1,11 @@
 [
  {
+  "sha": "92f9b0f1",
+  "date": "2026-11-23T16:03:51Z",
+  "title": "needs attention shows stuck bills, drops bills to code",
+  "plain": "Needs Attention no longer lists bills to code; it now shows Stuck bills that need a job picked."
+ },
+ {
   "sha": "2f3b83c5",
   "date": "2026-11-23T06:39:59Z",
   "title": "record owner decisions on precon and permits plans",
