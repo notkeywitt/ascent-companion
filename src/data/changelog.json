@@ -1,5 +1,11 @@
 [
  {
+  "sha": "8951d30f",
+  "date": "2026-11-23T02:16:03Z",
+  "title": "cast kloi to a chromecast speaker",
+  "plain": "KLOI radio can now play on a Chromecast or Google speaker: tap Cast KLOI and pick the speaker."
+ },
+ {
   "sha": "cfd99060",
   "date": "2026-11-22T15:22:38Z",
   "title": "point sessions at doc sections, not whole files",
