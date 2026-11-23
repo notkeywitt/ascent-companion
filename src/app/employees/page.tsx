@@ -81,6 +81,7 @@ export default function EmployeesPage() {
   const [statuses, setStatuses] = useState<string[]>([]);
   const [jtUsers, setJtUsers] = useState<JtUser[]>([]);
   const [orgTypes, setOrgTypes] = useState<string[]>([]); // fallback pay-type names
+  const [clock, setClock] = useState<Record<string, { state: "in" | "break" | "out"; job: string }>>({});
   const [jtErr, setJtErr] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadErr, setLoadErr] = useState("");
@@ -128,6 +129,18 @@ export default function EmployeesPage() {
         setLoading(false);
       }
     })();
+    // Who is clocked in loads on its own, then refreshes every minute.
+    const loadClock = async () => {
+      try {
+        const res = await fetch("/api/employees/clock-status");
+        const json = await res.json();
+        if (res.ok && json.ok) setClock(json.people ?? {});
+      } catch {
+        /* the dots just stay as they were */
+      }
+    };
+    loadClock();
+    const clockTimer = setInterval(loadClock, 60_000);
     // JobTread users load independently — the roster still works without them.
     (async () => {
       try {
@@ -143,6 +156,7 @@ export default function EmployeesPage() {
         setJtErr(e instanceof Error ? e.message : "Could not load JobTread users.");
       }
     })();
+    return () => clearInterval(clockTimer);
   }, []);
 
   const jtById = useMemo(() => {
@@ -458,14 +472,41 @@ export default function EmployeesPage() {
                 {view.map((e) => (
                   <tr key={e.id} className={tableCls.tr}>
                     <td className={`${tableCls.td} font-medium`}>
-                      <button
-                        type="button"
-                        onClick={() => openEdit(e)}
-                        className="text-left text-accent hover:underline"
-                        title="Edit this employee"
-                      >
-                        {e.firstName} {e.lastName}
-                      </button>
+                      {(() => {
+                        const c = e.jtUserName ? clock[e.jtUserName] : undefined;
+                        const dot =
+                          c?.state === "in"
+                            ? "bg-green-500"
+                            : c?.state === "break"
+                              ? "bg-yellow-400"
+                              : "bg-neutral-400";
+                        const label =
+                          c?.state === "in" ? "Clocked in" : c?.state === "break" ? "On break" : "Clocked out";
+                        return (
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`}
+                                title={label}
+                                aria-label={label}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => openEdit(e)}
+                                className="text-left text-accent hover:underline"
+                                title="Edit this employee"
+                              >
+                                {e.firstName} {e.lastName}
+                              </button>
+                            </div>
+                            {c?.job && (
+                              <div className="text-[12px] font-normal text-neutral-600 dark:text-neutral-400">
+                                {c.job}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className={`${tableCls.td} text-neutral-600 dark:text-neutral-400`}>{e.position}</td>
                     <td className={tableCls.td}>

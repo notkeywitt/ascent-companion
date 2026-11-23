@@ -437,7 +437,7 @@ export const VIEWS: ViewDef[] = [
     id: "employees",
     label: "Employees",
     group: "Office",
-    paths: ["/employees", "/api/employees/email", "/api/employees/jt-members", "/api/employees/job-access"],
+    paths: ["/employees", "/api/employees/email", "/api/employees/clock-status", "/api/employees/jt-members", "/api/employees/job-access"],
   },
   // New Hires — the office side of new-hire paperwork: invite a hire, upload
   // the blank forms, download the signed packet for the bookkeeper. Office +
