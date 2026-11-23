@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getJobBoard, getJobs, getRecentJobToDos } from "@/lib/jobtread";
 import { getPaveConfig, hasGrant } from "@/lib/config";
+import { readPreconSummary } from "@/lib/preconRead";
 import {
   ACTIVE_PHASE,
   COMPLETE_PHASE,
@@ -27,10 +28,12 @@ export async function GET() {
   }
   try {
     const cfg = getPaveConfig();
-    const [board, jobs, todos] = await Promise.all([
+    const [board, jobs, todos, precon] = await Promise.all([
       getJobBoard(cfg),
       getJobs(cfg),
       getRecentJobToDos(cfg, 3),
+      // The PreCon cards' checklist line. Optional: a failed read drops the line, not the board.
+      readPreconSummary().catch(() => ({}) as Awaited<ReturnType<typeof readPreconSummary>>),
     ]);
     const jobById = new Map(jobs.map((j) => [j.id, j]));
     const toCard = (c: JobBoardCard): JobsPageCard => ({
@@ -42,6 +45,7 @@ export async function GET() {
       phase: c.phase,
       schedule: c.schedule,
       todos: todos[c.id] ?? [],
+      precon: c.phase && PRECON_PHASES.includes(c.phase) ? (precon[c.id] ?? null) : null,
     });
     const inPhase = (keep: (phase: string) => boolean) =>
       sortJobsPageCards(board.filter((c) => c.phase !== null && keep(c.phase)).map(toCard));

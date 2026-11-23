@@ -9,6 +9,8 @@
  * covers today, and the next one to start.
  */
 
+import type { PreconProgress } from "@/lib/preconChecklist";
+
 /** One JobTread schedule task (`task` with isToDo=false) reduced to its bar. */
 export interface ScheduleTask {
   name: string;
@@ -87,6 +89,8 @@ export interface JobsPageCard {
   phase: string | null;
   schedule: JobSchedule | null;
   todos: JobToDo[];
+  /** A PreCon job's checklist progress, once someone has started it. */
+  precon?: PreconProgress | null;
 }
 
 /** Each job's newest to-dos, newest first, at most `perJob` per job. */
