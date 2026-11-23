@@ -1,6 +1,6 @@
 # PRECON_CHECKLIST_PLAN.md — the preconstruction checklist per job
 
-Status: draft — 2026-11-23
+Status: agreed — 2026-11-23
 
 The plan for the Roadmap feature `precon` (`src/lib/roadmap.ts`): "The 27-step
 precon checklist per job (DD review → estimate → contract → deposit →
@@ -59,14 +59,13 @@ already solves "a fixed template, ticked per job, items added or hidden per job"
 | 4 — the board line | Progress on the PreCon cards of `/job-board`. Set `built` in `roadmap.ts` | S |
 | 5 (later) | Tick "10% deposit received" by itself from the deposit read (`readDeposits`). Tick "Contract estimate" when an approved Proposal exists. Read only | S |
 
-## Open questions for the owner
+## Owner decisions (2026-11-23)
 
-1. **Who ticks it.** Office + admin only, or leads too? The plan includes leads.
-2. **The 27 steps as-is, or trimmed.** Several pairs could merge ("Receive
-   customer's feedback" + "Receive architect's feedback"). Keep 27, or let Ty
-   trim the template before stage 1?
-3. **Old jobs.** Import Seely and Killen-Gall's three filled rows, or start
-   fresh? The plan starts fresh.
-4. **Per-person to-dos** (the Velorum doc's "Casey/Ty", "Tommy", "Ben" lists).
-   These are JobTread to-dos today in other jobs. Keep them in JobTread, not in
-   this checklist? The plan says yes.
+1. **Who ticks it:** leads and office (admin too). The `precon` VIEW grants
+   office, admin and lead.
+2. **The steps:** keep all 27 as the sheet has them. Spelling fixes only.
+3. **Per-person to-dos** stay in JobTread, not in this checklist.
+4. **Old jobs** (Seely, Killen-Gall): not imported. Every job starts fresh.
+
+Stage 2 adds the `precon_checklists` table. Build it on Opus and show the owner
+before shipping (a schema change).
