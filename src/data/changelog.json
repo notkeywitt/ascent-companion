@@ -1,5 +1,11 @@
 [
  {
+  "sha": "d6056cd1",
+  "date": "2026-11-23T23:01:15Z",
+  "title": "employee list defaults to active",
+  "plain": "The Employees list now opens showing Active employees only; the status filter still shows everyone."
+ },
+ {
   "sha": "ac86bf9a",
   "date": "2026-11-23T22:14:58Z",
   "title": "add inbox widget to home (office inbox + keillor label)",
