@@ -1,5 +1,11 @@
 [
  {
+  "sha": "dc64ad08",
+  "date": "2026-11-23T03:41:00Z",
+  "title": "slow the boid birds about a fifth",
+  "plain": "On the Boids page, the birds now fly a little slower."
+ },
+ {
   "sha": "4db4099e",
   "date": "2026-11-23T03:09:14Z",
   "title": "boid birds face forward, slightly larger",
