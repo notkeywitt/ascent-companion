@@ -4,7 +4,7 @@ import { getPaveConfig, hasGrant } from "@/lib/config";
 import { getOrgTimeEntries } from "@/lib/jobtread";
 
 /**
- * GET /api/home/clocked → { ok, jobs: [{ jobId, jobName, people }] } — who is
+ * GET /api/home/clocked → { ok, jobs: [{ jobId, jobName, people: [{ name, code }] }] } — who is
  * clocked in right now, grouped by job, for Home's "Clocked in" map card.
  * READ-ONLY: open time entries (`endedAt` null) from the last 3 days, so a
  * clock forgotten for weeks does not show as live.
@@ -18,7 +18,7 @@ export async function GET() {
   try {
     const since = new Date(Date.now() - 3 * 86_400_000).toISOString();
     const open = await getOrgTimeEntries(getPaveConfig(), { openOnly: true, sinceIso: since });
-    const byJob = new Map<string, { jobId: string; jobName: string; people: string[] }>();
+    const byJob = new Map<string, { jobId: string; jobName: string; people: { name: string; code: string }[] }>();
     for (const e of open) {
       if (!e.jobId) continue;
       const j = byJob.get(e.jobId) ?? {
@@ -26,7 +26,10 @@ export async function GET() {
         jobName: e.customer ? `${e.customer} - ${e.jobName}` : e.jobName,
         people: [],
       };
-      if (e.userName && !j.people.includes(e.userName)) j.people.push(e.userName);
+      const code = [e.costCode, e.costItemName].filter(Boolean).join(" ");
+      if (e.userName && !j.people.some((p) => p.name === e.userName && p.code === code)) {
+        j.people.push({ name: e.userName, code });
+      }
       byJob.set(e.jobId, j);
     }
     return NextResponse.json({ ok: true, jobs: [...byJob.values()].sort((a, b) => a.jobName.localeCompare(b.jobName)) });

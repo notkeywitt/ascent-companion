@@ -505,7 +505,7 @@ function WeekWidget() {
 interface ClockedJob {
   jobId: string;
   jobName: string;
-  people: string[];
+  people: { name: string; code: string }[];
 }
 
 /** Who is clocked in, and where: the island map with a dot per job that has
@@ -548,7 +548,14 @@ function CrewWidget() {
               {clocked.map((c) => (
                 <li key={c.jobId} className="py-1.5 text-[13px]">
                   <span className="font-medium">{c.jobName}</span>
-                  <span className="text-neutral-500"> · {c.people.join(", ")}</span>
+                  <ul className="text-neutral-500">
+                    {c.people.map((p) => (
+                      <li key={`${p.name}|${p.code}`}>
+                        {p.name}
+                        {p.code ? ` · ${p.code}` : " · no cost code"}
+                      </li>
+                    ))}
+                  </ul>
                 </li>
               ))}
             </ul>
