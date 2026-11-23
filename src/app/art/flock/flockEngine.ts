@@ -522,7 +522,7 @@ export class FlockEngine {
           for (let i = 0; i < n; i++) {
             if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b || shadeOf(i) !== sh) continue;
             const k = this.sc[i] * sim.scale[i];
-            const px = Math.max(6, (3 + sim.size[i] * 4) * k * 3);
+            const px = Math.max(7, (3 + sim.size[i] * 4) * k * 3.45);
             ctx.font = `${px.toFixed(1)}px "Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif`;
             // Turn toward the heading; a bird heading left mirrors, so it never flies upside down.
             const ux = this.hx[i];
@@ -534,7 +534,8 @@ export class FlockEngine {
             const bk = this.bank[i];
             ctx.rotate(Math.atan2(uy, ux * flip) * flip + bk * 0.35);
             const beat = reduced ? 1 : 0.7 + 0.3 * Math.sin(this.flap[i]) * (1 - Math.abs(bk));
-            ctx.scale(flip, beat * Math.cos(bk * 0.8));
+            // The glyph faces left at rest, so mirror it to face the heading.
+            ctx.scale(-flip, beat * Math.cos(bk * 0.8));
             ctx.fillText("\u{131E2}", 0, 0);
             ctx.restore();
           }
