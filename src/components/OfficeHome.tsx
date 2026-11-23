@@ -39,6 +39,7 @@ import { orgDay } from "@/lib/orgTime";
 import { fmtDate } from "@/lib/leadBoard";
 import { money, money0 } from "@/lib/money";
 import type { UnpaidBills } from "@/lib/unpaidBills";
+import { threadUrl, type InboxSource, type InboxThread } from "@/lib/officeInbox";
 
 /**
  * Home for ADMIN and OFFICE (OVERHAUL_PLAN Phase 4, 2026-11-13). Field and lead
@@ -48,7 +49,7 @@ import type { UnpaidBills } from "@/lib/unpaidBills";
  *   Phone:   four big action buttons (HomeActions), under the count, then
  *            This week, To-dos and Unpaid bills.
  *   Desktop: widgets — This week, To-dos, Clocked in, Monthly invoicing,
- *            Newest leads, Unpaid bills —
+ *            Newest leads, Unpaid bills, Inbox —
  *            that each person shows, hides, orders and sizes (saved per user
  *            in `home_layouts`, read on the server and passed in). This week
  *            is always full width (owner, 2026-11-14: it replaced Today).
@@ -127,6 +128,7 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
           {allowed("week") && <WeekWidget />}
           {allowed("todos") && <TodosWidget />}
           {allowed("bills") && <UnpaidBillsWidget />}
+          {allowed("inbox") && <InboxWidget />}
         </>
       )}
 
@@ -146,6 +148,8 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
                   <InvoicingWidget />
                 ) : id === "bills" ? (
                   <UnpaidBillsWidget />
+                ) : id === "inbox" ? (
+                  <InboxWidget />
                 ) : (
                   <HubLeadsCard className="h-full max-h-[420px]" />
                 )}
@@ -735,6 +739,123 @@ function UnpaidBillsWidget() {
       )}
     </WidgetCard>
   );
+}
+
+/**
+ * The office inbox and the mail forwarded from keillor@ (label Keillor), newest
+ * first (`src/lib/officeInbox.ts`). Read-only; a tap opens the thread in Gmail.
+ */
+function InboxWidget() {
+  const [threads, setThreads] = useState<InboxThread[] | null>(null);
+  const [partial, setPartial] = useState(false);
+  const [error, setError] = useState("");
+  const [show, setShow] = useState<"all" | InboxSource>("all");
+  const [reload, setReload] = useState(0);
+  useEffect(() => {
+    fetch("/api/home/inbox", { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "Could not read the mailbox.");
+        setThreads(j.threads ?? []);
+        setPartial(Boolean(j.partial));
+        setError("");
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not read the mailbox."));
+  }, [reload]);
+
+  const rows = (threads ?? []).filter((t) => show === "all" || t.source === show);
+
+  return (
+    <WidgetCard
+      title="Inbox"
+      trailing={
+        <span className="flex items-baseline gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setThreads(null);
+              setReload((n) => n + 1);
+            }}
+            className="text-[11px] font-semibold text-accent hover:underline"
+          >
+            Refresh
+          </button>
+          <a
+            href="https://mail.google.com/mail/u/?authuser=office%40ascentbuildingco.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-[11px] font-semibold text-accent hover:underline"
+          >
+            Gmail
+          </a>
+        </span>
+      }
+    >
+      <Segmented
+        label="Which mail"
+        value={show}
+        onChange={setShow}
+        options={[
+          { value: "all", label: "All" },
+          { value: "office", label: "Office" },
+          { value: "keillor", label: "Keillor" },
+        ]}
+      />
+      {error ? (
+        <p className="mt-2 text-[12px] text-neutral-500">{error}</p>
+      ) : !threads ? (
+        <Skeleton className="mt-2 h-32 w-full rounded-control" />
+      ) : (
+        <>
+          {partial && (
+            <p className="mt-2 text-[12px] text-warn">One of the two mailboxes did not answer.</p>
+          )}
+          {rows.length === 0 ? (
+            <p className="mt-2 text-[12px] text-neutral-500">No mail here.</p>
+          ) : (
+            <ul className="mt-2 max-h-[360px] divide-y divide-line-soft overflow-y-auto">
+              {rows.map((t) => (
+                <li key={t.threadId}>
+                  <a
+                    href={threadUrl(t.threadId)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-h-11 w-full items-start gap-3 rounded-inner px-1 py-1.5 text-[13px] hover:bg-line-soft"
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline gap-2">
+                        <span className="truncate font-medium">{t.sender}</span>
+                        {t.messages > 1 && (
+                          <span className="shrink-0 text-[11px] text-neutral-500">{t.messages}</span>
+                        )}
+                      </span>
+                      <span className="block truncate">{t.subject}</span>
+                      <span className="block truncate text-[12px] text-neutral-500">{t.preview}</span>
+                    </span>
+                    <span className="flex shrink-0 flex-col items-end gap-0.5 text-[12px] tabular-nums text-neutral-500">
+                      <span>{mailTime(t.date)}</span>
+                      {t.source === "keillor" && <Chip>Keillor</Chip>}
+                      {t.attachments > 0 && <span aria-label="Has attachments">📎</span>}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </WidgetCard>
+  );
+}
+
+/** Today: "2:15 PM". Earlier: "Nov 18". */
+function mailTime(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toDateString() === new Date().toDateString()
+    ? d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 /** "Nov 18" — the year is plain from the list's start date. */

@@ -16,6 +16,7 @@ export const WIDGETS = [
   { id: "invoicing", label: "Monthly invoicing", view: "invoicing-summary" },
   { id: "leads", label: "Newest leads", view: "leads" },
   { id: "bills", label: "Unpaid bills", view: "accounts-payable" },
+  { id: "inbox", label: "Inbox", view: "office-inbox" },
 ] as const;
 
 export type WidgetId = (typeof WIDGETS)[number]["id"];
