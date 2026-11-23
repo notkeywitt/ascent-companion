@@ -101,6 +101,10 @@
    "file": "src/app/budget-import/page.tsx"
   },
   {
+   "route": "/change-orders",
+   "file": "src/app/change-orders/page.tsx"
+  },
+  {
    "route": "/changelog",
    "file": "src/app/changelog/page.tsx"
   },
@@ -1484,6 +1488,10 @@
   {
    "from": "/jobs-hub",
    "to": "/budget-import"
+  },
+  {
+   "from": "/jobs-hub",
+   "to": "/change-orders"
   },
   {
    "from": "/jobs-hub",

@@ -38,6 +38,7 @@ const LopezMap = dynamic(() => import("@/components/LopezMap").then((m) => m.Lop
 const NotesPanel = dynamic(() => import("@/components/NotesPanel").then((m) => m.NotesPanel));
 const Board = dynamic(() => import("@/app/trackingsheet/Board").then((m) => m.Board));
 const PunchList = dynamic(() => import("./PunchList").then((m) => m.PunchList));
+const ChangeOrders = dynamic(() => import("@/app/change-orders/ChangeOrders").then((m) => m.ChangeOrders));
 const ClientsBrowser = dynamic(() => import("@/app/clients/ClientsBrowser").then((m) => m.ClientsBrowser));
 const CustomerPopup = dynamic(() => import("@/app/clients/CustomerPopup").then((m) => m.CustomerPopup));
 const BudgetImport = dynamic(() => import("@/app/budget-import/BudgetImport").then((m) => m.BudgetImport));
@@ -76,7 +77,7 @@ const InvoicingSummary = dynamic(() => import("@/app/invoicing-summary/Invoicing
 type HubJob = MapJob & { customer?: string | null };
 // "month" is the all-jobs view (no job picked); "checks" and "status" are the
 // month's invoice review and invoice status, with or without a job.
-type Tab = "sheet" | "schedule" | "plans" | "photos" | "punch" | "record" | "budget" | "specs" | "manual" | "month" | "checks" | "status";
+type Tab = "sheet" | "schedule" | "plans" | "photos" | "punch" | "co" | "record" | "budget" | "specs" | "manual" | "month" | "checks" | "status";
 
 /** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
  *  the list and the totals: overhead, not client work (owner, 2026-11-01). */
@@ -434,6 +435,7 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
               { value: "plans" as const, label: "Plans" },
               { value: "photos" as const, label: "Photos" },
               { value: "punch" as const, label: "Punch List" },
+              ...(can("change-orders") ? [{ value: "co" as const, label: "Change Orders" }] : []),
               // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
               // Each shows only to someone who holds its view.
               ...(can("clients") ? [{ value: "record" as const, label: "Job Details" }] : []),
@@ -703,6 +705,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
           <JobPhotos state={files} />
         ) : tab === "punch" ? (
           <PunchList key={selected.id} jobId={selected.id} />
+        ) : tab === "co" && can("change-orders") ? (
+          <ChangeOrders key={selected.id} jobId={selected.id} />
         ) : tab === "record" && can("clients") ? (
           <ClientsBrowser key={selected.id} jobId={selected.id} />
         ) : tab === "budget" && can("budget-import") ? (

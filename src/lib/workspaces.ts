@@ -84,6 +84,7 @@ export const WORKSPACES: Workspace[] = [
       // Customers = Leads + Directory's list, as sections (stage 4).
       tab("leads", "/leads", "Customers", "Leads to follow up, and every customer and job"),
       tab("punch-list", "/punch-list", "Punch List", "The final inspection checklist for a job"),
+      tab("change-orders", "/change-orders", "Change Orders", "Every change order, and a new one"),
       tab("ar-aging", "/ar-aging", "Receivables", "Unpaid client invoices, oldest first"),
       tab("deposit-tracker", "/deposit-tracker", "Deposit Checks", "Photograph the checks, mark their invoices paid, email Sara and Casey"),
     ],
@@ -440,6 +441,8 @@ const DESK_TOP: BarSlot[] = [
   // Roadmap on the office rail (owner, 2026-11-17). App Feedback already has
   // its own entry under Help.
   { kind: "tab", view: "roadmap" },
+  // Change Orders on the office and admin rails (owner, 2026-11-23).
+  { kind: "tab", view: "change-orders" },
 ];
 export const RAIL_TOP: Partial<Record<Role, BarSlot[]>> = { admin: DESK_TOP, office: DESK_TOP };
 

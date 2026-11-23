@@ -354,3 +354,5 @@ export { getArtRows } from "./jobtread/artCloud";
 export { getVendorMonthDocs, cloneVendorDocument } from "./jobtread/billClone";
 export { getClientBudgetInputs } from "./jobtread/clientBudget";
 export type { ClientBudgetRead } from "./jobtread/clientBudget";
+export { createChangeOrder, getChangeOrderForm, getChangeOrderLog } from "./jobtread/changeOrders";
+export type { CoFormData } from "./jobtread/changeOrders";
