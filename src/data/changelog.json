@@ -1,5 +1,11 @@
 [
  {
+  "sha": "ac86bf9a",
+  "date": "2026-11-23T22:14:58Z",
+  "title": "add inbox widget to home (office inbox + keillor label)",
+  "plain": "Home has a new Inbox card showing the office inbox and Keillor's forwarded mail in one list."
+ },
+ {
   "sha": "43e22b2f",
   "date": "2026-11-23T19:54:00Z",
   "title": "add duration field to Log a range",
