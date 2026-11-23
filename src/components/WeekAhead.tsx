@@ -730,6 +730,14 @@ export function ItemForm({
       {error && <Banner tone="error">{error}</Banner>}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
+        <a
+          href={`https://app.jobtread.com/jobs/${encodeURIComponent(job.id)}`}
+          target="_blank"
+          rel="noreferrer"
+          className="mr-auto text-[13px] text-neutral-500 underline"
+        >
+          Open in JobTread
+        </a>
         <Button
           variant={editable ? "ghost" : "primary"}
           size="sm"
