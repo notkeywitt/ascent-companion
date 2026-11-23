@@ -79,6 +79,24 @@ const AccountIcon = () => (
   </svg>
 );
 
+const ThemesIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="h-[19px] w-[19px] shrink-0"
+    aria-hidden
+  >
+    <path d="M12 3a9 9 0 1 0 0 18c1.1 0 1.8-.9 1.8-1.8 0-.5-.2-.9-.5-1.2-.3-.3-.5-.7-.5-1.2 0-1 .8-1.8 1.8-1.8H16a5 5 0 0 0 5-5c0-3.9-4-7-9-7Z" />
+    <circle cx="7.5" cy="11" r="1" />
+    <circle cx="10" cy="7" r="1" />
+    <circle cx="14.5" cy="7" r="1" />
+  </svg>
+);
+
 export function AppMenu({
   qs = "",
   account = false,
@@ -195,6 +213,9 @@ export function AppMenu({
     <>
       {controlled ? null : account ? (
         // Styled as one of the sidebar's own items (TabBar's rail links).
+        // Themes sits right below Account and opens the same drawer, so people
+        // see the themes exist (owner, 2026-11-23).
+        <>
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -204,6 +225,16 @@ export function AppMenu({
           <AccountIcon />
           <span className="rail-label min-w-0">Account</span>
         </button>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-expanded={open}
+          className="flex w-full flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight text-neutral-500 transition hover:text-accent active:bg-accent/15 dark:text-neutral-400 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px]"
+        >
+          <ThemesIcon />
+          <span className="rail-label min-w-0">Themes</span>
+        </button>
+        </>
       ) : (
         <button
           type="button"
