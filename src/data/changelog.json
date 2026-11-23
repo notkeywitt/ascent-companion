@@ -1,5 +1,17 @@
 [
  {
+  "sha": "2f3b83c5",
+  "date": "2026-11-23T06:39:59Z",
+  "title": "record owner decisions on precon and permits plans",
+  "plain": "Recorded the owner's choices for the precon checklist and permits tracker plans."
+ },
+ {
+  "sha": "8f381151",
+  "date": "2026-11-23T06:38:26Z",
+  "title": "change orders page, jobs tab and new co",
+  "plain": "New Change Orders page and Jobs tab: see every change order from today on, and create a new one as a JobTread draft."
+ },
+ {
   "sha": "25e6cf78",
   "date": "2026-11-23T06:22:43Z",
   "title": "plan the precon checklist and permits tracker",
