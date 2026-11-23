@@ -1,5 +1,11 @@
 [
  {
+  "sha": "a54a6e0b",
+  "date": "2026-11-23T06:01:28Z",
+  "title": "plan the change-order log",
+  "plain": "Added the plan for the change-order log from the Roadmap."
+ },
+ {
   "sha": "dc64ad08",
   "date": "2026-11-23T03:41:00Z",
   "title": "slow the boid birds about a fifth",
