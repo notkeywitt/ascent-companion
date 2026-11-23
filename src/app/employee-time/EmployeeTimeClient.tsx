@@ -20,6 +20,7 @@ import {
 import { jtTimeUrl } from "@/lib/jtLinks";
 import { setUrlParam } from "@/lib/urlParam";
 import { fmtHM } from "@/lib/leaveFormat";
+import { endAfter, parseHours } from "./weekGrid";
 import { fmtMiles, useNearestJobs } from "@/lib/nearestJob";
 import {
   LS_CLOCK,
@@ -410,6 +411,15 @@ function fmtDuration(startLocal: string, endLocal: string): string {
   return fmtMinutes(Math.round((e - s) / 60000));
 }
 
+// The Duration field's face: the Start-to-Stop length as H:MM, or "".
+function durationField(startLocal: string, endLocal: string): string {
+  const s = new Date(startLocal).getTime();
+  const e = new Date(endLocal).getTime();
+  if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) return "";
+  const min = Math.round((e - s) / 60000);
+  return `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`;
+}
+
 // The running clock's face — H:MM:SS, counting seconds so it visibly moves.
 function fmtElapsed(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -676,6 +686,9 @@ export function EmployeeTimeClient({
   // Log-a-range-only fields.
   const [startTime, setStartTime] = useState(nowLocal());
   const [endTime, setEndTime] = useState(nowLocal());
+  // The Duration field's text while it is being typed ("2:30", "2.5"). null
+  // means show the length of the Start-to-Stop range instead.
+  const [durText, setDurText] = useState<string | null>(null);
 
   // Shared note/photos — used by Log a range (upfront) and the clock (the note
   // can be written before clocking in; it's required to clock out).
@@ -3077,6 +3090,24 @@ export function EmployeeTimeClient({
                 onChange={(t) => t && setStartTime(`${startTime.slice(0, 10)}T${t.slice(0, 5)}`)}
               />
             </span>
+          </div>
+          <div className="flex min-h-[56px] items-center justify-between gap-3 border-t border-line-soft px-3 py-2.5">
+            <span className="text-[13px] text-neutral-500">Duration</span>
+            <input
+              type="text"
+              inputMode="decimal"
+              aria-label="Duration in hours"
+              placeholder="2:30 or 2.5"
+              value={durText ?? durationField(startTime, endTime)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setDurText(v);
+                const m = parseHours(v);
+                if (m && startTime) setEndTime(endAfter(startTime.slice(0, 10), startTime.slice(11, 16), m));
+              }}
+              onBlur={() => setDurText(null)}
+              className="w-28 rounded-pill border border-line-soft bg-transparent px-3 py-1.5 text-right text-sm"
+            />
           </div>
           <div className="flex min-h-[56px] items-center justify-between gap-3 border-t border-line-soft px-3 py-2.5">
             <span className="text-[13px] text-neutral-500">
