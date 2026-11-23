@@ -1,6 +1,6 @@
 # PERMITS_PLAN.md — permits and inspections per job
 
-Status: draft — 2026-11-23
+Status: agreed — 2026-11-23
 
 The plan for the Roadmap feature `permits` (`src/lib/roadmap.ts`): "Each job's
 permits and inspections with dates and results, plus the combo inspection
@@ -61,20 +61,22 @@ sub-items become five items. State lives in a new table `combo_checklists`
 | 2 — the inspection read | `getJobInspections(jobId)` in `src/lib/jobtread/`, re-exported from `jobtread.ts`. Fixture test on the live names above | S |
 | 3 — store and routes | Tables `job_permits`, `inspection_results`, combo state (schema change: Opus, owner ok before shipping). `GET/POST /api/permits?jobId=`, gated by a new `permits` VIEW | S |
 | 4 — the tab | Jobs-page "Permits" tab: permits, then inspections with result chips, then the combo checklist. Phone-first: a lead records a result on site | M |
+| 4b — back-fill | One run per open job: read the permit PDFs in the job's Drive folder, propose permit rows marked "to confirm". The office confirms or fixes each | S |
 | 5 — warnings | Permit expiry on the Renewals list and the Office Dashboard. Failed inspections on the job board card. Set `built` in `roadmap.ts` | S |
 | 6 (later) | AscentBot answers "what's the permit number on Studio?" and "did framing pass?" from these tables | S |
 
-## Open questions for the owner
+## Owner decisions (2026-11-23)
 
-1. **Who records results.** Leads on site, or only the office? The plan lets
-   leads (and field) record a result and a photo.
-2. **Back-fill.** Enter permits for the open jobs now (Studio, Main House,
-   Job 37, Beach Shack), or only new ones? A one-time AI read of the Drive
-   permit PDFs could pencil them in for the office to confirm. That is extra
-   work (S).
-3. **Combo checklist storage.** A new table, or one `punch_lists`-style table
-   with a `kind` column for both checklists? The plan prefers the `kind` column:
-   one engine, one table.
-4. **Inspection names.** The plan matches "Inspection" in the task name. A to-do
-   like "Schedule sub slab plumbing inspection" would match too. Skip to-dos
-   (`isToDo`)? The plan says skip them.
+1. **Who records results:** leads and field, on site, with a photo of the
+   inspection card. Office and admin too. The `permits` VIEW grants all four
+   roles. Field sees no money here: there is none on this tab.
+2. **Back-fill:** yes. A one-time AI read of each open job's Drive permit PDFs
+   pencils in its permits (type, number, issuer, dates). The office confirms
+   each one before it counts. Added as stage 4b (S).
+3. **Combo checklist storage:** one engine with the Punch List. Add a `kind`
+   column to `punch_lists` (`final` today, `combo` new) rather than a new table.
+4. **Inspection names:** match "Inspection" in a schedule task's name and skip
+   to-dos (`isToDo`), so "Schedule sub slab plumbing inspection" stays off.
+
+Stage 3 adds tables `job_permits` and `inspection_results` and the `kind`
+column. Build it on Opus and show the owner before shipping (a schema change).

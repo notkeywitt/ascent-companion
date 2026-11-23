@@ -85,6 +85,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "A job's change orders — pending and approved — with the revised contract total and % increase.",
     was: "Tracking sheet change columns per month, and one signed Estimated Change Order doc per change (Berger).",
     size: "M",
+    built: "2026-11-23",
   },
   {
     id: "client-budget",

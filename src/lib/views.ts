@@ -222,6 +222,9 @@ export const VIEWS: ViewDef[] = [
   { id: "unbilled", label: "Unbilled", group: "Financials", paths: ["/unbilled"] },
   // The printable client budget report sent with each invoice. Read only.
   { id: "client-budget", label: "Client Budget", group: "Financials", paths: ["/client-budget", "/api/client-budget"] },
+  // Change orders: the log and New CO, which creates a DRAFT customer order in
+  // JobTread (owner, 2026-11-23). Office + admin by default.
+  { id: "change-orders", label: "Change Orders", group: "Financials", paths: ["/change-orders", "/api/change-orders"] },
   // Receivables — unpaid client invoices, aged. Read-only, and every figure is
   // JobTread's own (it derives balance/amountPaid from QuickBooks). Office +
   // admin by default, like the rest of Financials; the API route is listed
