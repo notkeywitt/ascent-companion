@@ -16,6 +16,7 @@ import {
   btn,
   Button,
 } from "@/components/ui";
+import { KloiCastButton } from "@/components/KloiCast";
 import { toggleKloi, useKloi } from "@/lib/kloi";
 import { toast } from "@/components/Toast";
 import { useAccess } from "@/components/AccessProvider";
@@ -161,8 +162,9 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
             aria-pressed={kloi.playing}
             className={btn("secondary", "md", "min-h-12 w-full")}
           >
-            {kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
+            {kloi.castDevice && kloi.playing ? `❚❚ Pause KLOI on ${kloi.castDevice}` : kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
           </button>
+          <KloiCastButton className={btn("secondary", "md", "col-span-2 min-h-12 w-full")} />
           {can("lopezrocks") ? (
             <Link href="/lopezrocks" className={btn("secondary", "md", "min-h-12 w-full")}>
               Lopez Rocks

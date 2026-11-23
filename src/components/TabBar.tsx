@@ -9,7 +9,8 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { LinkPendingOverlay } from "@/components/LinkPending";
-import { toggleKloi, useKloi } from "@/lib/kloi";
+import { CastIcon } from "@/components/KloiCast";
+import { castKloi, toggleKloi, useKloi } from "@/lib/kloi";
 import { AppMenu } from "@/components/AppMenu";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
@@ -668,6 +669,22 @@ export function TabBar() {
               {kloi.playing ? "Pause KLOI" : "Listen to KLOI"}
             </span>
           </button>
+          {(kloi.castReady || kloi.castDevice) && (
+            <button
+              type="button"
+              onClick={castKloi}
+              aria-pressed={!!kloi.castDevice}
+              title={kloi.castDevice ? `Stop casting to ${kloi.castDevice}` : "Play KLOI on a Chromecast or Google speaker"}
+              className={`relative mb-1 flex w-full flex-col items-center gap-1 rounded-card px-1 py-2 text-center text-[11px] font-semibold leading-tight transition active:bg-accent/15 wide:flex-row wide:gap-3 wide:px-2 wide:text-left wide:text-[13px] ${
+                kloi.castDevice
+                  ? "bg-accent/10 text-accent dark:text-accent-soft"
+                  : "text-neutral-500 hover:text-accent dark:text-neutral-400"
+              }`}
+            >
+              <CastIcon />
+              <span className="rail-label min-w-0">{kloi.castDevice ? "Stop cast" : "Cast KLOI"}</span>
+            </button>
+          )}
           {access.can("lopezrocks") && (
             <Link
               href="/lopezrocks"

@@ -4,7 +4,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { signOut } from "next-auth/react";
 
-import { toggleKloi, useKloi } from "@/lib/kloi";
+import { CastIcon, castLabel } from "@/components/KloiCast";
+import { castKloi, toggleKloi, useKloi } from "@/lib/kloi";
 import { useAccess } from "@/components/AccessProvider";
 import { AppearanceCard } from "@/components/AppearanceCard";
 import { Sheet } from "@/components/Sheet";
@@ -317,6 +318,23 @@ export function AppMenu({
                         className="shrink-0 text-base text-accent dark:text-accent-soft"
                       >
                         {kloi.playing ? "❚❚" : "▶"}
+                      </span>
+                    }
+                  />
+                )}
+                {!pinning && (kloi.castReady || kloi.castDevice) && (
+                  <ListRow
+                    onClick={castKloi}
+                    label={castLabel(kloi.castDevice)}
+                    desc={
+                      kloi.castDevice
+                        ? "KLOI plays on the speaker, not this phone"
+                        : "Play KLOI on a Chromecast or Google speaker"
+                    }
+                    chevron={false}
+                    trailing={
+                      <span aria-hidden className="shrink-0 text-accent dark:text-accent-soft">
+                        <CastIcon />
                       </span>
                     }
                   />
