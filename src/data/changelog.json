@@ -1,5 +1,11 @@
 [
  {
+  "sha": "546f3043",
+  "date": "2026-11-23T16:50:48Z",
+  "title": "employee list shows who is clocked in",
+  "plain": "The Employees list now shows a green, yellow or grey dot for clocked in, on break or clocked out, with the job under it."
+ },
+ {
   "sha": "92f9b0f1",
   "date": "2026-11-23T16:03:51Z",
   "title": "needs attention shows stuck bills, drops bills to code",
