@@ -576,6 +576,10 @@ export const VIEWS: ViewDef[] = [
   // strip, the merged to-do list and the widget layout. Office + admin; field
   // and lead keep their own Home and never call these.
   { id: "home", label: "Office Home", group: "System", paths: ["/api/home"] },
+  // Home's Inbox widget (2026-11-23): the office inbox plus mail forwarded from
+  // keillor@. Mail is private, so admin-only (ADMIN_MENU); a per-user grant
+  // hands it to someone else. The longer prefix wins over "home".
+  { id: "office-inbox", label: "Inbox widget", group: "System", paths: ["/api/home/inbox"] },
   // The in-app instructions — /help. EVERY role holds this one (it is in
   // FIELD_VIEWS below, the base every role inherits): a help page a crew member
   // cannot open is worse than no help page. Read-only and self-contained — the
@@ -747,6 +751,8 @@ const ADMIN_MENU: string[] = [
   // Deposit checks — the owner asked for it on the ADMIN home screen. A
   // per-user grant in /admin hands it to an office user.
   "deposit-tracker",
+  // Home's Inbox widget: the office mailbox and Keillor's forwarded mail.
+  "office-inbox",
 ];
 // Office gets Financials, Office (was HR), and Utilities ("everything else") — i.e. every
 // view except the admin consoles, including the header Sync button.
