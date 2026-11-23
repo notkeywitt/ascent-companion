@@ -1,5 +1,17 @@
 [
  {
+  "sha": "4efbcbee",
+  "date": "2026-11-23T10:14:07-08:00",
+  "title": "add Themes link below Account in the side rail",
+  "plain": "add Themes link below Account in the side rail"
+ },
+ {
+  "sha": "22e4d86a",
+  "date": "2026-11-23T10:14:03-08:00",
+  "title": "clocked in widget shows each person's cost code",
+  "plain": "clocked in widget shows each person's cost code"
+ },
+ {
   "sha": "8e168e13",
   "date": "2026-11-23T16:57:21Z",
   "title": "precon checklist tab and job board progress",
