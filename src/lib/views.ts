@@ -83,9 +83,8 @@ export const VIEWS: ViewDef[] = [
       // a bill. /api/bill-review is the exception, gated below.
       //
       // /api/coding-queue is the exception among the reads, gated 2026-09-30:
-      // it lists EVERY job's draft bills (vendor, amount, job), and its only
-      // callers — Today's "Bills to code" row and the bill page's pager — both
-      // already require this view.
+      // it lists EVERY job's draft bills (vendor, amount, job), and its callers
+      // (the Bills list and the bill page's pager) already require this view.
       "/api/coding-queue",
       // The Bill Corrections queue. Gated 2026-10-18: GET returned the whole
       // queue to any signed-in role. Every caller (the bill page, the board,
