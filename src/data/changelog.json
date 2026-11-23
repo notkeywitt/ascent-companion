@@ -1,5 +1,11 @@
 [
  {
+  "sha": "43e22b2f",
+  "date": "2026-11-23T19:54:00Z",
+  "title": "add duration field to Log a range",
+  "plain": "Log a range on the Time clock now has a Duration box: type 2:30 or 2.5 and the stop time fills in."
+ },
+ {
   "sha": "a3d8cda2",
   "date": "2026-11-23T10:15:19-08:00",
   "title": "add Open in JobTread link to the to-do popup",
