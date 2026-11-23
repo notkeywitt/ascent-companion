@@ -87,7 +87,7 @@ export default function EmployeesPage() {
   const [loadErr, setLoadErr] = useState("");
 
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("Active");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
