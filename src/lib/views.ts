@@ -372,6 +372,9 @@ export const VIEWS: ViewDef[] = [
   // Final Inspection Punch List for every role (owner, 2026-11-20). Same
   // /api/punch-list as the Jobs hub tab; writes only the companion DB.
   { id: "punch-list", label: "Punch List", group: "Field", paths: ["/punch-list", "/api/punch-list"] },
+  // The Jobs page's Precon tab: a job's 27 preconstruction steps. Office, admin
+  // and leads tick it (owner, 2026-11-23). Writes only the companion DB.
+  { id: "precon", label: "Precon Checklist", group: "Field", paths: ["/api/precon-checklist"] },
   // Batch add (lib/toolBatch.ts): every role captures through /api/tools/batch;
   // only "tools-batch-analyze" (office + admin) asks the office Mac to analyze.
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer", "/api/tools/batch"] },
@@ -721,6 +724,7 @@ const LEAD_VIEWS: string[] = [
   "clients",
   "specs",
   "house-manual",
+  "precon",
 ];
 // The admin-only consoles — access control + the audit log. No one below admin
 // gets these by default (a per-user grant can still hand them to an individual).

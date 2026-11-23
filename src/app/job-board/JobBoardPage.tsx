@@ -73,6 +73,21 @@ function ScheduleNow({ c }: { c: JobsPageCard }) {
   );
 }
 
+/** A PreCon job's checklist: the phase it is in and steps done (the Jobs page's Precon tab). */
+function PreconLine({ c }: { c: JobsPageCard }) {
+  const p = c.precon;
+  if (!p) return null;
+  return (
+    <div className="border-t border-line-soft pt-2">
+      <BlockLabel>Precon</BlockLabel>
+      <p className="text-[13px] font-semibold leading-snug">
+        {p.phase} · {p.done}/{p.total}
+      </p>
+      {p.blocked > 0 && <p className="text-[12px] text-warn">{p.blocked} blocked</p>}
+    </div>
+  );
+}
+
 function ToDoLine({ t }: { t: JobToDo }) {
   return (
     <li>
@@ -194,6 +209,7 @@ export function JobCard({
     <>
       {address}
       <ScheduleNow c={c} />
+      <PreconLine c={c} />
       {todos}
     </>
   );
@@ -253,6 +269,7 @@ export function JobCard({
         {address}
       </div>
       <ScheduleNow c={c} />
+      <PreconLine c={c} />
       {todos}
       {footer && (
         <div className="flex shrink-0 justify-center border-t border-line-soft pt-3">{footer}</div>

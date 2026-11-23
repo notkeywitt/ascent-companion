@@ -26,7 +26,7 @@ import { WARRANTY_SLICE_KEY } from "@/lib/warranty";
 import { billingMonths } from "@/lib/billingMonths";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
 import type { MapJob } from "@/lib/lopezMap";
-import type { JobsPageCard } from "@/lib/jobBoard";
+import { PRECON_PHASES, type JobsPageCard } from "@/lib/jobBoard";
 import { money0 } from "@/lib/money";
 import { appScrollTo, appScrollY } from "@/lib/appScroll";
 
@@ -38,6 +38,7 @@ const LopezMap = dynamic(() => import("@/components/LopezMap").then((m) => m.Lop
 const NotesPanel = dynamic(() => import("@/components/NotesPanel").then((m) => m.NotesPanel));
 const Board = dynamic(() => import("@/app/trackingsheet/Board").then((m) => m.Board));
 const PunchList = dynamic(() => import("./PunchList").then((m) => m.PunchList));
+const PreconChecklist = dynamic(() => import("./PreconChecklist").then((m) => m.PreconChecklist));
 const ChangeOrders = dynamic(() => import("@/app/change-orders/ChangeOrders").then((m) => m.ChangeOrders));
 const ClientsBrowser = dynamic(() => import("@/app/clients/ClientsBrowser").then((m) => m.ClientsBrowser));
 const CustomerPopup = dynamic(() => import("@/app/clients/CustomerPopup").then((m) => m.CustomerPopup));
@@ -77,7 +78,7 @@ const InvoicingSummary = dynamic(() => import("@/app/invoicing-summary/Invoicing
 type HubJob = MapJob & { customer?: string | null };
 // "month" is the all-jobs view (no job picked); "checks" and "status" are the
 // month's invoice review and invoice status, with or without a job.
-type Tab = "sheet" | "schedule" | "plans" | "photos" | "punch" | "co" | "record" | "budget" | "specs" | "manual" | "month" | "checks" | "status";
+type Tab = "sheet" | "schedule" | "plans" | "photos" | "precon" | "punch" | "co" | "record" | "budget" | "specs" | "manual" | "month" | "checks" | "status";
 
 /** Ascent's own jobs — customer "Ascent" (Office, Shop, Electrical) — stay out of
  *  the list and the totals: overhead, not client work (owner, 2026-11-01). */
@@ -151,6 +152,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
    *  month's Sync hide then (owner, 2026-11-02). A new board starts on This
    *  Month, so a new job or month does too. */
   const [ringScope, setRingScope] = useState<"month" | "job">("month");
+  // Jobs whose precon checklist someone has started: their Precon tab stays
+  // after the job leaves the PreCon phases.
+  const [preconStarted, setPreconStarted] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -434,6 +438,9 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
               { value: "schedule" as const, label: "Schedule" },
               { value: "plans" as const, label: "Plans" },
               { value: "photos" as const, label: "Photos" },
+              ...(can("precon") && (PRECON_PHASES.includes(selected.phase ?? "") || preconStarted.has(selected.id))
+                ? [{ value: "precon" as const, label: "Precon" }]
+                : []),
               { value: "punch" as const, label: "Punch List" },
               ...(can("change-orders") ? [{ value: "co" as const, label: "Change Orders" }] : []),
               // The job's own pages, drawn here instead of opened (owner, 2026-11-02).
@@ -452,6 +459,18 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
   );
 
   useEffect(() => setRingScope("month"), [selectedId, ym]);
+  const canPrecon = can("precon");
+  useEffect(() => {
+    if (!canPrecon) return;
+    let cancelled = false;
+    fetch("/api/precon-checklist?summary=1")
+      .then((r) => r.json())
+      .then((d) => !cancelled && d.summary && setPreconStarted(new Set(Object.keys(d.summary))))
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [canPrecon]);
   const allTimeOn = !!selectedId && tab === "sheet" && ringScope === "job";
   // One row — the rings' scope switch, then the month.
   // The month only picks money (rings, the sheet's month): none without it.
@@ -703,6 +722,8 @@ export function JobsHub({ billingYm = "" }: { billingYm?: string } = {}) {
           <JobPlans state={files} />
         ) : tab === "photos" ? (
           <JobPhotos state={files} />
+        ) : tab === "precon" && can("precon") ? (
+          <PreconChecklist key={selected.id} jobId={selected.id} />
         ) : tab === "punch" ? (
           <PunchList key={selected.id} jobId={selected.id} />
         ) : tab === "co" && can("change-orders") ? (

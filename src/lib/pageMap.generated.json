@@ -1312,11 +1312,6 @@
   },
   {
    "from": "/widget",
-   "to": "/bill/[docId]",
-   "kind": "link"
-  },
-  {
-   "from": "/widget",
    "to": "/invoice-review",
    "kind": "link"
   },

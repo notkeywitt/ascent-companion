@@ -1721,6 +1721,18 @@ export const punchLists = sqliteTable("punch_lists", {
 });
 
 /**
+ * A job's Preconstruction Checklist (src/lib/preconChecklist.ts): one JSON
+ * `PreconState` per job — step statuses and notes, hidden and added steps, open
+ * questions. Companion data only.
+ */
+export const preconChecklists = sqliteTable("precon_checklists", {
+  jobId: text("job_id").primaryKey(), // JobTread job id
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+  updatedBy: text("updated_by").notNull().default(""), // signed-in email
+});
+
+/**
  * NOTES — kept forever (src/lib/notes.ts). One row per note, edited in place.
  * Nothing deletes a row here, and no route offers to.
  *

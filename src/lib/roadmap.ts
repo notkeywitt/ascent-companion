@@ -152,6 +152,7 @@ export const FEATURES: RoadmapFeature[] = [
     what: "The 27-step precon checklist per job (DD review → estimate → contract → deposit → schedule), each with a status.",
     was: "Preconstruction Process Checklist sheet in every job folder.",
     size: "S",
+    built: "2026-11-23",
   },
   {
     id: "bid-log",
