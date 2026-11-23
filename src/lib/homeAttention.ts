@@ -7,7 +7,7 @@ import { list as listFindings } from "@/lib/findings";
 import { refreshSources } from "@/lib/findingSources";
 import { monthLabel } from "@/lib/billingMonths";
 import { previousMonth } from "@/lib/homeFacts";
-import { getAllDraftBills, getLastAmazonBillMonth } from "@/lib/jobtread";
+import { getLastAmazonBillMonth } from "@/lib/jobtread";
 import { listRequests } from "@/lib/leaveService";
 import { resolveAllowedViews } from "@/lib/views";
 
@@ -64,16 +64,17 @@ const SOURCES: Source[] = [
     },
   },
   {
-    key: "drafts",
-    view: "recode",
-    label: "Bills to code",
-    href: "",
+    // Ingested bills held for a job decision (often a Sunset "Sold-To" with
+    // more than one job). Not in JobTread until a job is picked in Inbox → Stuck.
+    key: "stuck",
+    view: "needs-project",
+    label: "Stuck",
+    href: "/email?section=stuck",
     load: async () => {
-      if (!hasGrant()) throw new Error("no grant");
-      const bills = await getAllDraftBills(getPaveConfig());
-      // By id: two customers each have a "Main House".
-      const jobs = new Set(bills.map((b) => b.jobId || b.jobName || "No job")).size;
-      return { count: bills.length, detail: `${plural(bills.length, "draft bill")} on ${plural(jobs, "job")}` };
+      const r = await callAppsScript<{ ok?: boolean; items?: unknown[]; error?: string }>({ action: "listNeedsProject" });
+      if (r.error || !r.data?.ok) throw new Error(r.error || r.data?.error || "listNeedsProject failed");
+      const n = (r.data.items ?? []).length;
+      return { count: n, detail: `${plural(n, "bill")} with no job` };
     },
   },
   {

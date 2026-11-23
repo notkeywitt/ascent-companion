@@ -14,7 +14,7 @@ import { useAccess } from "@/components/AccessProvider";
  * the root layout needs no special case for this route.
  *
  * A link opens in a new window, not in the widget. The Mac panel turns every
- * new-window request into the default browser, so a tap on "Bills to code"
+ * new-window request into the default browser, so a tap on a Needs Attention row
  * opens the full app there and the widget stays on this page.
  */
 export function WidgetView() {

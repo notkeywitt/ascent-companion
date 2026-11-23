@@ -35,7 +35,7 @@ import { toast } from "@/components/Toast";
  * Bills — the draft bills waiting to be coded, newest first, with the open
  * bill's summary in a panel beside the list (SplitView).
  *
- * The list is the same one Today's "Bills to code" row opens (/api/coding-queue).
+ * The list is every draft bill (/api/coding-queue).
  * The panel IS the bill page (BillView, embedded): the same coding, Save,
  * actions drawer and ‹ prev / next ›. The selected bill rides in the URL
  * (?docId=…) so Back and a shared link keep it.
