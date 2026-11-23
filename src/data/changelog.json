@@ -1,5 +1,11 @@
 [
  {
+  "sha": "4db4099e",
+  "date": "2026-11-23T03:09:14Z",
+  "title": "boid birds face forward, slightly larger",
+  "plain": "On the Boids page, birds now face the way they fly and are a little larger."
+ },
+ {
   "sha": "8951d30f",
   "date": "2026-11-23T02:16:03Z",
   "title": "cast kloi to a chromecast speaker",
