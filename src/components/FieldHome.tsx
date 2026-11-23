@@ -8,6 +8,7 @@ import { useAccess } from "@/components/AccessProvider";
 import { useCopy } from "@/components/CopyProvider";
 import { NoticeText } from "@/components/NoticeText";
 import { Button, Card, Loading, SectionHeading, btn, inputCls } from "@/components/ui";
+import { KloiCastButton } from "@/components/KloiCast";
 import { toggleKloi, useKloi } from "@/lib/kloi";
 import type { MapJob } from "@/lib/lopezMap";
 import { useNearestJobs } from "@/lib/nearestJob";
@@ -82,8 +83,9 @@ export function FieldHome() {
           aria-pressed={kloi.playing}
           className={btn("secondary", "md", "min-h-12 w-full")}
         >
-          {kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
+          {kloi.castDevice && kloi.playing ? `❚❚ Pause KLOI on ${kloi.castDevice}` : kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
         </button>
+          <KloiCastButton className={btn("secondary", "md", "col-span-2 min-h-12 w-full")} />
         {access.can("lopezrocks") ? (
           <Link href="/lopezrocks" className={btn("secondary", "md", "min-h-12 w-full")}>
             Lopez Rocks
