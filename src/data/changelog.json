@@ -1,5 +1,11 @@
 [
  {
+  "sha": "a3d8cda2",
+  "date": "2026-11-23T10:15:19-08:00",
+  "title": "add Open in JobTread link to the to-do popup",
+  "plain": "add Open in JobTread link to the to-do popup"
+ },
+ {
   "sha": "4efbcbee",
   "date": "2026-11-23T10:14:07-08:00",
   "title": "add Themes link below Account in the side rail",
