@@ -17,8 +17,8 @@ export const SIDE = 1000;
 const R = 58; // how far a bird sees its own flock
 const SEP = 32; // how close is too close (loose flocks fill the box: owner, 2026-11-17)
 const SHY = 280; // unrelated flocks keep about this far apart
-const BASE_SPEED = 2.6;
-const MIN_SPEED = 0.9;
+const BASE_SPEED = 2.1;
+const MIN_SPEED = 0.72;
 const MARGIN = 70;
 const CELL = R * MAX_SIGHT;
 

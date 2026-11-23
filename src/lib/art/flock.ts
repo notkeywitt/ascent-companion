@@ -51,8 +51,8 @@ export interface FlockParams {
 const R = 34; // how far a bird sees its own flock
 const SEP = 13; // how close is too close
 const SHY = 170; // unrelated flocks keep about this far apart
-const BASE_SPEED = 1.6; // px per step at pace 1
-const MIN_SPEED = 0.55;
+const BASE_SPEED = 1.3; // px per step at pace 1
+const MIN_SPEED = 0.45;
 const MARGIN = 36;
 const CELL = R * MAX_SIGHT;
 
