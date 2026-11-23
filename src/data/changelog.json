@@ -1,5 +1,11 @@
 [
  {
+  "sha": "8e168e13",
+  "date": "2026-11-23T16:57:21Z",
+  "title": "precon checklist tab and job board progress",
+  "plain": "New Precon tab on the Jobs page: the 27 preconstruction steps per job with a status and note each, and progress on the Job Board's PreCon cards."
+ },
+ {
   "sha": "546f3043",
   "date": "2026-11-23T16:50:48Z",
   "title": "employee list shows who is clocked in",
