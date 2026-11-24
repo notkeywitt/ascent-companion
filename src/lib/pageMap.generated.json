@@ -423,11 +423,6 @@
   },
   {
    "from": "/",
-   "to": "/email",
-   "kind": "link"
-  },
-  {
-   "from": "/",
    "to": "/employee-time",
    "kind": "link"
   },
@@ -1317,11 +1312,6 @@
   },
   {
    "from": "/widget",
-   "to": "/email",
-   "kind": "link"
-  },
-  {
-   "from": "/widget",
    "to": "/invoice-review",
    "kind": "link"
   },
@@ -1362,6 +1352,10 @@
   }
  ],
  "embeds": [
+  {
+   "from": "/",
+   "to": "/add-bill"
+  },
   {
    "from": "/",
    "to": "/art/flock"
@@ -1589,6 +1583,10 @@
   {
    "from": "/trackingsheet",
    "to": "/schedule"
+  },
+  {
+   "from": "/widget",
+   "to": "/add-bill"
   },
   {
    "from": "/widget",
