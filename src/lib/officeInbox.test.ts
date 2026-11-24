@@ -4,7 +4,7 @@ import {
   isAppleTouch,
   isTagKind,
   mergeInbox,
-  messagePdfs,
+  isPdfAttachment,
   senderName,
   tagNeedsJob,
 } from "./officeInbox";
@@ -59,25 +59,12 @@ describe("tag kinds", () => {
   });
 });
 
-describe("messagePdfs", () => {
-  it("finds the PDFs and the message id", () => {
-    expect(
-      messagePdfs({
-        from: "",
-        to: "",
-        date: "",
-        text: "",
-        attachments: [
-          { name: "inv.pdf", type: "application/octet-stream", attachmentId: "18c2ab:0" },
-          { name: "photo.jpg", type: "image/jpeg", attachmentId: "18c2ab:1" },
-          { name: "quote", type: "application/pdf", attachmentId: "18c2ab:2" },
-        ],
-      }),
-    ).toEqual({ messageId: "18c2ab", names: ["inv.pdf", "quote"] });
-    expect(messagePdfs({ from: "", to: "", date: "", text: "", attachments: [] })).toEqual({
-      messageId: "",
-      names: [],
-    });
+describe("isPdfAttachment", () => {
+  it("takes a PDF by type or name, with an id", () => {
+    expect(isPdfAttachment({ name: "inv.pdf", type: "application/octet-stream", attachmentId: "18c2ab:0" })).toBe(true);
+    expect(isPdfAttachment({ name: "quote", type: "application/pdf", attachmentId: "18c2ab:2" })).toBe(true);
+    expect(isPdfAttachment({ name: "photo.jpg", type: "image/jpeg", attachmentId: "18c2ab:1" })).toBe(false);
+    expect(isPdfAttachment({ name: "inv.pdf", type: "application/pdf" })).toBe(false);
   });
 });
 

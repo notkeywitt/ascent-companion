@@ -1,12 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 
 import {
   Card,
-  Checkbox,
   Chip,
   CountBadge,
   IconButton,
@@ -44,7 +43,7 @@ import type { UnpaidBills } from "@/lib/unpaidBills";
 import {
   GMAIL_APP_URL,
   isAppleTouch,
-  messagePdfs,
+  isPdfAttachment,
   senderName,
   TAG_KINDS,
   tagNeedsJob,
@@ -90,6 +89,11 @@ const FindingsInbox = dynamic(
 const BillView = dynamic(() => import("@/app/bill/[docId]/BillView").then((m) => m.BillView), {
   ssr: false,
 });
+// The Add bill form, for the Inbox widget's Log invoice pop-up.
+const AddBillForm = dynamic(
+  () => import("@/app/add-bill/AddBillForm").then((m) => m.AddBillForm),
+  { ssr: false },
+);
 const CreateTodo = dynamic(() => import("@/components/DigestFindings").then((m) => m.CreateTodo), {
   ssr: false,
 });
@@ -930,14 +934,21 @@ function MailThread({ threadId, onClose }: { threadId: string; onClose: () => vo
                 {m.text || "(no text)"}
               </p>
               {m.attachments.length > 0 && (
-                <MetaLine className="mt-1.5" items={m.attachments.map((a) => `📎 ${a.name}`)} />
+                <ul className="mt-1.5 space-y-1">
+                  {m.attachments.map((a, j) => (
+                    <li key={j} className="flex items-center gap-2 text-[12px]">
+                      <span className="min-w-0 flex-1 truncate text-neutral-500">📎 {a.name}</span>
+                      {isPdfAttachment(a) && (
+                        <LogInvoice
+                          threadId={threadId}
+                          attachmentId={String(a.attachmentId)}
+                          name={a.name}
+                        />
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
-              {(() => {
-                const p = messagePdfs(m);
-                return p.messageId ? (
-                  <LogInvoice messageId={p.messageId} pdfs={p.names.length} />
-                ) : null;
-              })()}
             </div>
           ))}
           <TagThread threadId={threadId} />
@@ -1091,81 +1102,89 @@ function ThreadTags({ threadId }: { threadId: string }) {
 }
 
 /**
- * Log one email's invoice now (`/api/home/inbox/log` → appscript `logInvoice`,
- * the To log page's path). Claude reads the PDF (15–45 s), the bill is logged
- * on the job and the email is marked Processed. Several PDFs → the To log page,
- * which splits them across jobs.
+ * Log one email PDF as a bill. The tap fetches the PDF
+ * (`/api/home/inbox/attachment`) and opens the Add bill form in a pop-up with
+ * it already picked — the same form, route and checks as /add-bill. When the
+ * bill is written, the email is tagged Processed plus the job's customer
+ * (`/api/home/inbox/tag`, kind `processed`), so the To log list and the Sunset
+ * scan skip it.
  */
-function LogInvoice({ messageId, pdfs }: { messageId: string; pdfs: number }) {
-  const [open, setOpen] = useState(false);
-  const [projectId, setProjectId] = useState("");
-  const [paid, setPaid] = useState(false);
-  const [busy, setBusy] = useState(false);
+function LogInvoice({
+  threadId,
+  attachmentId,
+  name,
+}: {
+  threadId: string;
+  attachmentId: string;
+  name: string;
+}) {
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
-  const { jobs, error: jobsError } = useInboxJobs(open);
 
-  if (pdfs > 1) {
-    return (
-      <p className="mt-2 text-[12px] text-neutral-500">
-        {pdfs} PDFs.{" "}
-        <Link href="/email" className="font-semibold text-accent hover:underline">
-          Log them on the To log page
-        </Link>{" "}
-        to split them across jobs.
-      </p>
-    );
-  }
-  if (done) return <p className="mt-2 text-[13px] text-ok">{done}</p>;
-  if (!open) {
-    return (
-      <Button size="xs" variant="secondary" className="mt-2" onClick={() => setOpen(true)}>
-        Log invoice
-      </Button>
-    );
-  }
-
-  const log = async () => {
-    if (!projectId) return;
-    setBusy(true);
+  const open = async () => {
+    setLoading(true);
     setError("");
     try {
-      const r = await fetch("/api/home/inbox/log", {
+      const r = await fetch(`/api/home/inbox/attachment?id=${encodeURIComponent(attachmentId)}`, {
+        cache: "no-store",
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error(j.error || "Could not open the PDF.");
+      }
+      const blob = await r.blob();
+      const fileName = /\.pdf$/i.test(name) ? name : `${name || "invoice"}.pdf`;
+      setFile(new File([blob], fileName, { type: "application/pdf" }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not open the PDF.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const tagEmail = async (jobId: string) => {
+    try {
+      const r = await fetch("/api/home/inbox/tag", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messageId, projectId, paid }),
+        body: JSON.stringify({ threadId, kind: "processed", jobId }),
       });
       const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "The invoice was not logged.");
-      setDone(j.message || "Logged.");
-      toast("Invoice logged");
+      if (!r.ok) throw new Error(j.error || "The email was not tagged.");
+      setDone("Logged · email tagged Processed");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The invoice was not logged.");
-    } finally {
-      setBusy(false);
+      setDone(`Logged · email not tagged: ${e instanceof Error ? e.message : "unknown error"}`);
     }
   };
 
   return (
-    <div className="mt-2 space-y-2 rounded-control border border-line p-2">
-      {jobs ? (
-        <JobSelect jobs={jobs} value={projectId} onChange={setProjectId} by="projectId" />
-      ) : jobsError ? (
-        <p className="text-[12px] text-danger">{jobsError}</p>
+    <>
+      {done ? (
+        <span className="shrink-0 text-ok">{done}</span>
       ) : (
-        <Skeleton className="h-11 w-full rounded-control" />
+        <Button size="xs" variant="secondary" disabled={loading} onClick={open}>
+          {loading ? "Opening…" : "Log invoice"}
+        </Button>
       )}
-      <Checkbox label="Paid" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
-      {error && <p className="text-[12px] text-danger">{error}</p>}
-      <div className="flex gap-2">
-        <Button size="xs" disabled={!projectId || busy} onClick={log}>
-          {busy ? "Logging… (up to a minute)" : "Log"}
-        </Button>
-        <Button size="xs" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-      </div>
-    </div>
+      {error && <span className="shrink-0 text-danger">{error}</span>}
+      {file && (
+        <Dialog size="xl" label="Add bill" onClose={() => setFile(null)}>
+          <Suspense fallback={<Skeleton className="h-40 w-full rounded-control" />}>
+            <AddBillForm
+              embedded
+              initialFile={file}
+              onClose={() => setFile(null)}
+              onCreated={({ jobId }) => {
+                toast("Bill logged");
+                void tagEmail(jobId);
+              }}
+            />
+          </Suspense>
+        </Dialog>
+      )}
+    </>
   );
 }
 

@@ -98,15 +98,10 @@ export interface ThreadMessage {
   text: string;
 }
 
-/** A message's PDFs. appscript's attachmentId is "<messageId>:<index>". */
-export function messagePdfs(m: ThreadMessage): { messageId: string; names: string[] } {
-  const pdfs = m.attachments.filter(
-    (a) => a.attachmentId && (a.type === "application/pdf" || /\.pdf$/i.test(a.name)),
-  );
-  return {
-    messageId: pdfs.length ? String(pdfs[0].attachmentId).split(":")[0] : "",
-    names: pdfs.map((a) => a.name),
-  };
+/** An attachment the Log invoice button can open: a PDF with an id
+ *  ("<messageId>:<index>", from appscript `chatReadThread`). */
+export function isPdfAttachment(a: { name: string; type?: string; attachmentId?: string }): boolean {
+  return Boolean(a.attachmentId) && (a.type === "application/pdf" || /\.pdf$/i.test(a.name));
 }
 
 export interface ThreadRead {
