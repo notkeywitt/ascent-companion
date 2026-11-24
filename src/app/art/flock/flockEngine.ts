@@ -77,6 +77,8 @@ export function flockItems(set: CloudSetId, rows: unknown[], by: FlockBy): Flock
 const SETTLE_STEPS = 500;
 /** Opacity steps a group's birds are drawn in, so each is one fill. */
 const BUCKETS = 4;
+/** The one font size birds are drawn at; each bird scales from it. */
+const GLYPH_PX = 24;
 /** Hue steps within a flock's colour; a bird's `shade` picks one. */
 const SHADES = 5;
 /** The widest hue shift either way, in degrees, and the lightness shift, in %. */
@@ -173,6 +175,9 @@ export class FlockEngine {
   private hy = new Float32Array(0);
   private sc = new Float32Array(0);
   private fade = new Float32Array(0);
+  private order = new Int32Array(0);
+  private cellOf = new Int32Array(0);
+  private cellStart = new Int32Array(0);
   /** Per bird: wingbeat phase, last screen heading, and bank (lean into a turn). */
   private flap = new Float32Array(0);
   private px = new Float32Array(0);
@@ -508,40 +513,66 @@ export class FlockEngine {
     // One fill per group per opacity step: life × depth fog × face fade.
     const bucketOf = (i: number) => Math.min(BUCKETS - 1, Math.floor(sim.alpha[i] * this.fade[i] * BUCKETS));
 
+    // Sort the live birds once by (group, opacity step, shade), so each pass
+    // below walks only its own birds, not all of them.
+    const cells = G * BUCKETS * SHADES;
+    if (this.cellStart.length !== cells + 1) this.cellStart = new Int32Array(cells + 1);
+    if (this.order.length !== n) {
+      this.order = new Int32Array(n);
+      this.cellOf = new Int32Array(n);
+    }
+    const start = this.cellStart.fill(0);
+    for (let i = 0; i < n; i++) {
+      const c = sim.live[i] ? (sim.group[i] * BUCKETS + bucketOf(i)) * SHADES + shadeOf(i) : -1;
+      this.cellOf[i] = c;
+      if (c >= 0) start[c + 1]++;
+    }
+    for (let c = 0; c < cells; c++) start[c + 1] += start[c];
+    const at = start.slice(0, cells);
+    for (let i = 0; i < n; i++) if (this.cellOf[i] >= 0) this.order[at[this.cellOf[i]]++] = i;
+    const order = this.order;
+
+    // One font for every bird, sized by the transform: setting a font string
+    // per bird was the slow part. The matrix is set by hand, not save/restore.
+    const base = ctx.getTransform();
+    const d = base.a;
+    ctx.font = `${GLYPH_PX}px "Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
     for (let g = 0; g < G; g++) {
       const col = colorOf(g);
+      const shades = shadesOf(col);
       for (let b = 0; b < BUCKETS; b++) {
-        const a = alphaOf(g) * ((b + 1) / BUCKETS);
-        // Each bird in its own shade of the flock's colour, from its data.
-        const shades = shadesOf(col);
-        ctx.globalAlpha = 0.9 * a;
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        ctx.globalAlpha = 0.9 * alphaOf(g) * ((b + 1) / BUCKETS);
         for (let sh = 0; sh < SHADES; sh++) {
+          const c = (g * BUCKETS + b) * SHADES + sh;
+          if (start[c] === start[c + 1]) continue;
           ctx.fillStyle = shades[sh];
-          for (let i = 0; i < n; i++) {
-            if (sim.group[i] !== g || !sim.live[i] || bucketOf(i) !== b || shadeOf(i) !== sh) continue;
+          for (let o = start[c]; o < start[c + 1]; o++) {
+            const i = order[o];
             const k = this.sc[i] * sim.scale[i];
             const px = Math.max(7, (3 + sim.size[i] * 4) * k * 3.45);
-            ctx.font = `${px.toFixed(1)}px "Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif`;
             // Turn toward the heading; a bird heading left mirrors, so it never flies upside down.
             const ux = this.hx[i];
             const uy = this.hy[i];
             const flip = ux < 0 ? -1 : 1;
-            ctx.save();
-            ctx.translate(this.sx[i], this.sy[i]);
             // Lean into the turn, and fold the wings: a hard turn glides.
             const bk = this.bank[i];
-            ctx.rotate(Math.atan2(uy, ux * flip) * flip + bk * 0.35);
+            const th = Math.atan2(uy, ux * flip) * flip + bk * 0.35;
             const beat = reduced ? 1 : 0.7 + 0.3 * Math.sin(this.flap[i]) * (1 - Math.abs(bk));
             // The glyph faces left at rest, so mirror it to face the heading.
-            ctx.scale(-flip, beat * Math.cos(bk * 0.8));
+            const m = px / GLYPH_PX;
+            const sx = -flip * m;
+            const sy = beat * Math.cos(bk * 0.8) * m;
+            const cs = Math.cos(th);
+            const sn = Math.sin(th);
+            ctx.setTransform(d * cs * sx, d * sn * sx, -d * sn * sy, d * cs * sy, d * this.sx[i], d * this.sy[i]);
             ctx.fillText("\u{131E2}", 0, 0);
-            ctx.restore();
           }
         }
       }
     }
+    ctx.setTransform(base);
 
     if (this.labels) {
       ctx.font = "600 11px ui-sans-serif, system-ui, sans-serif";

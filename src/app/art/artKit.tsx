@@ -194,7 +194,7 @@ export function ArtCanvas({
     const fit = () => {
       const w = box.clientWidth;
       const h = fill ? box.clientHeight : Math.round(Math.min(Math.max(w * aspect, 300), 640));
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = Math.min(1.5, window.devicePixelRatio || 1); // ponytail: soft on retina, 4x fewer pixels
       c.width = Math.round(w * dpr);
       c.height = Math.round(h * dpr);
       c.style.height = `${h}px`;

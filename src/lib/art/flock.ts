@@ -89,6 +89,14 @@ export class Flock {
   /** Wrap around at the edges instead of turning back at walls. */
   wrap = false;
   private rand: () => number;
+  /** Scratch arrays kept between steps, so a step allocates nothing. */
+  private scratch: Record<string, Float32Array | Int32Array> = {};
+  private buf<T extends Float32Array | Int32Array>(key: string, len: number, make: (n: number) => T, fill = 0): T {
+    let a = this.scratch[key] as T | undefined;
+    if (!a || a.length !== len) a = this.scratch[key] = make(len);
+    a.fill(fill);
+    return a;
+  }
 
   constructor(birds: FlockBirdInit[], params: FlockParams, w: number, h: number, seed = 9) {
     let s = seed >>> 0 || 1;
@@ -227,10 +235,10 @@ export class Flock {
     this.cx.fill(0);
     this.cy.fill(0);
     this.count.fill(0);
-    const sxC = new Float32Array(G);
-    const sxS = new Float32Array(G);
-    const syC = new Float32Array(G);
-    const syS = new Float32Array(G);
+    const sxC = this.buf("sxC", G, (n) => new Float32Array(n));
+    const sxS = this.buf("sxS", G, (n) => new Float32Array(n));
+    const syC = this.buf("syC", G, (n) => new Float32Array(n));
+    const syS = this.buf("syS", G, (n) => new Float32Array(n));
     const TAU = Math.PI * 2;
     for (let i = 0; i < n; i++) {
       if (!live[i]) continue;
@@ -260,8 +268,8 @@ export class Flock {
     // Per group, once: its roaming goal, the pull of related groups and the
     // push of unrelated ones. Every bird of the group gets the same nudge.
     this.t++;
-    const gx = new Float32Array(G);
-    const gy = new Float32Array(G);
+    const gx = this.buf("gx", G, (n) => new Float32Array(n));
+    const gy = this.buf("gy", G, (n) => new Float32Array(n));
     for (let g = 0; g < G; g++) {
       if (!this.count[g]) continue;
       const ph = g * 2.399; // golden angle: goals start spread out
@@ -296,8 +304,8 @@ export class Flock {
     // looks at its neighbours only.
     const cols = Math.max(1, Math.ceil(w / CELL));
     const rows = Math.max(1, Math.ceil(h / CELL));
-    const head = new Int32Array(cols * rows).fill(-1);
-    const next = new Int32Array(n);
+    const head = this.buf("head", cols * rows, (n) => new Int32Array(n), -1);
+    const next = this.buf("next", n, (n) => new Int32Array(n));
     const cellOf = (i: number) =>
       Math.min(rows - 1, Math.max(0, Math.floor(y[i] / CELL))) * cols + Math.min(cols - 1, Math.max(0, Math.floor(x[i] / CELL)));
     for (let i = 0; i < n; i++) {
@@ -307,8 +315,8 @@ export class Flock {
       head[c] = i;
     }
 
-    const ax = new Float32Array(n);
-    const ay = new Float32Array(n);
+    const ax = this.buf("ax", n, (n) => new Float32Array(n));
+    const ay = this.buf("ay", n, (n) => new Float32Array(n));
     for (let i = 0; i < n; i++) {
       if (!live[i]) continue;
       const g = group[i];
