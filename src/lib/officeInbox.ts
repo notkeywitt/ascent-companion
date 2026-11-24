@@ -104,3 +104,21 @@ export interface ThreadRead {
   olderLeftOut: number;
   messages: ThreadMessage[];
 }
+
+/**
+ * The job tags Home's Inbox widget applies (appscript `tagEmailThread`). Each
+ * is a tag the office already applies by hand in Gmail; the Apps Script scans
+ * that act on them are unchanged. `job` = the kind names a JobTread job.
+ */
+export const TAG_KINDS = [
+  { kind: "todo", label: "To-do on a job", job: true, note: "The next scan makes a JobTread to-do on the job." },
+  { kind: "invoice", label: "Invoice for a job", job: true, note: "The next scan (every 15 min) logs it as a bill on the job." },
+  { kind: "ai-todo", label: "AI to-do (_todo)", job: false, note: "Claude picks the job and writes the to-do on the next scan." },
+  { kind: "processed", label: "Processed (already in JobTread)", job: true, note: "Tags the job and Processed. Nothing is logged." },
+  { kind: "not-invoice", label: "Not an invoice", job: false, note: "Drops it from the To log list." },
+] as const;
+
+export type TagKind = (typeof TAG_KINDS)[number]["kind"];
+
+export const isTagKind = (v: unknown): v is TagKind => TAG_KINDS.some((t) => t.kind === v);
+export const tagNeedsJob = (k: TagKind) => TAG_KINDS.find((t) => t.kind === k)?.job ?? true;
