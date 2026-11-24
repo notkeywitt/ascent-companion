@@ -17,8 +17,8 @@ import {
 } from "@/lib/jobtread";
 
 /**
- * The Schedule page's bills and estimates on tasks (docs/plans/SCHEDULE_PLAN.md
- * stage 4). JobTread's own link: `document.task`.
+ * The Schedule page's bills and estimates on tasks (rules: PAVE_GOTCHAS.md,
+ * "Tasks and schedules"). JobTread's own link: `document.task`.
  *
  *   GET  /api/schedule/links                → { links: { [taskId]: TaskDocument[] } }
  *   GET  /api/schedule/links?jobId=<id>     → { documents: TaskDocument[] } on that job with no task

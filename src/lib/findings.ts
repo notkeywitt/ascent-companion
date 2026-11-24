@@ -20,7 +20,7 @@
  * The reader's own state is three columns: snoozed until, dismissed by, and
  * resolved. `list` hides a snoozed or dismissed row unless asked.
  *
- * How to wire a source: docs/plans/OVERHAUL_PLAN.md, Phase 5.
+ * How to wire a source: the findings section of docs/CODEBASE_DIRS.md.
  */
 import { and, eq } from "drizzle-orm";
 

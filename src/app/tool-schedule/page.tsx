@@ -3,7 +3,7 @@ import { ToolSchedule } from "./ToolSchedule";
 
 /**
  * Tool Schedule — which tool types each job needs, and when, from the JobTread
- * schedules (docs/plans/TOOL_SCHEDULE_PLAN.md). Data from /api/tool-schedule.
+ * schedules (docs/CODEBASE_DIRS.md). Data from /api/tool-schedule.
  * Gated by the "tool-schedule" view (every role); the Edit link shows only to
  * a person with "tool-schedule-edit".
  */

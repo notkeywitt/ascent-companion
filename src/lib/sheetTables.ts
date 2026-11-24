@@ -6,7 +6,7 @@ import { callAppsScriptOrThrow } from "@/lib/appsScript";
 
 /**
  * STAGE 7 — the Tools and Mileage tabs, copied into the companion DB.
- * Plan and flip steps: docs/plans/STAGE7_TOOLS_MILEAGE.md.
+ * Flip steps: the Stage 7 checklist in ARCHITECTURE_REVIEW.md.
  *
  * The sheet is still the record. Every write still goes to Apps Script first,
  * exactly as before. With a flag on, the route ALSO copies the result here.

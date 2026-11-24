@@ -129,7 +129,7 @@ function Requests() {
         <EmptyState>No {filter} requests.</EmptyState>
       )}
 
-      {/* One hairline list, one column, not a box per request (CONSOLIDATION_PLAN look rule 1). */}
+      {/* One hairline list, one column, not a box per request (THEME.md: a hairline, not a box). */}
       {shown.length > 0 && (
       <ul className="divide-y divide-line-soft overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
         {shown.map((r) => (

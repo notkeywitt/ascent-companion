@@ -293,7 +293,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
             {results.length}
             {results.length === 200 ? "+" : ""} match{results.length === 1 ? "" : "es"}
           </p>
-          {/* One hairline list, not a box per hit (CONSOLIDATION_PLAN look rule 1). */}
+          {/* One hairline list, not a box per hit (THEME.md: a hairline, not a box). */}
           <div className="divide-y divide-line-soft lg:grid lg:grid-cols-2 lg:divide-y-0 lg:[&>*]:border-b lg:[&>*]:border-line-soft lg:[&>*:nth-child(odd)]:border-r overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
             {results.map((r) => (
               <ResultCard key={r.id} r={r} terms={terms} />

@@ -379,7 +379,7 @@ export const VIEWS: ViewDef[] = [
   // only "tools-batch-analyze" (office + admin) asks the office Mac to analyze.
   { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer", "/api/tools/batch"] },
   { id: "tools-batch-analyze", label: "Tools (analyze batch)", group: "Field", paths: ["/api/tools/batch/analyze"] },
-  // The tool schedule (docs/plans/TOOL_SCHEDULE_PLAN.md): which tools each job
+  // The tool schedule (docs/CODEBASE_DIRS.md, `toolSchedule.ts`): which tools each job
   // needs when, from the JobTread schedules. Everyone sees it (owner,
   // 2026-11-10); only "tool-schedule-edit" changes what it counts. The edit
   // routes are longer prefixes, so they win over "/api/tool-schedule" here.
@@ -464,7 +464,7 @@ export const VIEWS: ViewDef[] = [
   // (lead since 2026-11-03: the Jobs Hub's job card reads /api/job-board).
   { id: "job-board", label: "Jobs", group: "Office", paths: ["/job-board", "/api/job-board"] },
   // The Schedule page: a Gantt of every open JobTread schedule task
-  // (docs/plans/SCHEDULE_PLAN.md). Read-only in stage 1. Office + admin by default.
+  // (CODEBASE_MAP.md, "The Schedule page"). Office + admin by default.
   { id: "schedule", label: "Schedule", group: "Office", paths: ["/schedule", "/api/schedule"] },
   // The bills and estimates on a schedule task (stage 4). The route READS their
   // amounts and WRITES one thing: a document's task (`updateDocument taskId`).

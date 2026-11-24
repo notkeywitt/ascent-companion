@@ -9,7 +9,7 @@ import { DOC_TYPE_LABEL, codesLine, docMatches, docTotals, money } from "@/lib/t
 
 /**
  * The bills and estimates on one schedule task, inside the Schedule dialog
- * (docs/plans/SCHEDULE_PLAN.md stage 4). Lists what sits on the task, with a
+ * (rules: PAVE_GOTCHAS.md, "Tasks and schedules"). Lists what sits on the task, with a
  * total for bills and for estimates. "Attach" lists the job's documents that
  * sit on no task (drafts only: JobTread's rule);
  * a tap on Attach puts one on this task. "Remove" takes one off. Both go

@@ -2033,7 +2033,7 @@ export const vendorCoi = sqliteTable("vendor_coi", {
 });
 
 /**
- * The tool schedule (docs/plans/TOOL_SCHEDULE_PLAN.md, src/lib/toolSchedule.ts).
+ * The tool schedule (src/lib/toolSchedule.ts; docs/CODEBASE_DIRS.md).
  * JobTread has no equipment object and links no schedule task to a cost code, so
  * the plan lives here and the schedule is only read.
  *
@@ -2219,7 +2219,7 @@ export const toolBatchEvents = sqliteTable("tool_batch_events", {
 
 /**
  * STAGE 7 — the Tools list, moving off the Project Database "Tools" tab
- * (ARCHITECTURE_REVIEW.md finding 1, docs/plans/STAGE7_TOOLS_MILEAGE.md).
+ * (ARCHITECTURE_REVIEW.md finding 1 and Stage 7).
  *
  * One row per tool, keyed by the sheet's ToolId. The columns are the fields
  * Apps Script's tool object carries; `locationLabel` and `photoUrl` are derived

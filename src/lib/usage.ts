@@ -144,7 +144,8 @@ export interface UsageSummary {
 /**
  * Page views per page: views and distinct people. A page with a view id groups
  * under it (so /bill/<id> and /bill/<other> count as one); any other path
- * groups under itself. Phase 7 of OVERHAUL_PLAN reads this to order the folds.
+ * groups under itself. The page folds on the roadmap (`page-folds`) use it to
+ * pick their order.
  */
 export function rollupRoutes(
   rows: { email: string; kind: string; path: string; viewId: string }[],
