@@ -59,6 +59,12 @@ what is queued for production. Do not show git output.
   through": `npm run ship -- --now "companion: <message>"`.
 - Commit message: short, lowercase, imperative, prefixed `companion:`. End it
   with a `Co-Authored-By:` trailer naming the model in use.
+- **The code ratchet** (`src/lib/codeRatchet.test.ts`) fails when a retired
+  habit grows: `any`, raw `<button>`/`<input>`, `process.env` outside
+  `config.ts`, a local money formatter, a hand-tinted warning box, a new file
+  over 1,500 lines. Fix what it names. When it says a count went DOWN, run
+  `npm run ratchet` and stage `src/lib/codeRatchet.baseline.json`. Never raise
+  a count to make it pass.
 - Never force-push `main`. Never rewrite history on `main`.
 - A branch the lander cannot land moves to `stuck/<name>`. The session-start
   hook lists stuck branches and prints the fix.
