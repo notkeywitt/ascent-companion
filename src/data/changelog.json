@@ -1,5 +1,17 @@
 [
  {
+  "sha": "96bd9a95",
+  "date": "2026-11-24T01:00:28Z",
+  "title": "add the inbox to-log link to the page map",
+  "plain": "An email opened from Home's Inbox card can now be logged as an invoice straight away, and its job tags can be removed."
+ },
+ {
+  "sha": "f8d83fb9",
+  "date": "2026-11-24T01:00:15Z",
+  "title": "log invoices and remove tags from the home inbox",
+  "plain": "An email opened from Home's Inbox card can now be logged as an invoice straight away, and its job tags can be removed."
+ },
+ {
   "sha": "e6d893da",
   "date": "2026-11-24T00:33:30Z",
   "title": "tag an inbox email for a job from home",
