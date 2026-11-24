@@ -1,5 +1,11 @@
 [
  {
+  "sha": "b933c550",
+  "date": "2026-11-24T02:49:43Z",
+  "title": "log an inbox pdf through the add bill pop-up, then tag the email",
+  "plain": "Each PDF in an email on Home's Inbox card has a Log invoice button that opens Add bill with the PDF, and tags the email Processed once the bill is saved."
+ },
+ {
   "sha": "96bd9a95",
   "date": "2026-11-24T01:00:28Z",
   "title": "add the inbox to-log link to the page map",
