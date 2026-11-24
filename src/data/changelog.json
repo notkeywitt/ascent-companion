@@ -1,5 +1,11 @@
 [
  {
+  "sha": "85230359",
+  "date": "2026-11-24T05:40:13Z",
+  "title": "refuse api routes on no view, gate bill and job cost reads",
+  "plain": "Field accounts can no longer read bills or job costs by typing an app address; every page they use works as before."
+ },
+ {
   "sha": "e960dbb9",
   "date": "2026-11-24T05:30:57Z",
   "title": "add the code ratchet, a test that only lets debt counts fall",
