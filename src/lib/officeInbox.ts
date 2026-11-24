@@ -94,8 +94,19 @@ export interface ThreadMessage {
   from: string;
   to: string;
   date: string;
-  attachments: { name: string }[];
+  attachments: { name: string; type?: string; attachmentId?: string }[];
   text: string;
+}
+
+/** A message's PDFs. appscript's attachmentId is "<messageId>:<index>". */
+export function messagePdfs(m: ThreadMessage): { messageId: string; names: string[] } {
+  const pdfs = m.attachments.filter(
+    (a) => a.attachmentId && (a.type === "application/pdf" || /\.pdf$/i.test(a.name)),
+  );
+  return {
+    messageId: pdfs.length ? String(pdfs[0].attachmentId).split(":")[0] : "",
+    names: pdfs.map((a) => a.name),
+  };
 }
 
 export interface ThreadRead {
@@ -106,13 +117,14 @@ export interface ThreadRead {
 }
 
 /**
- * The job tags Home's Inbox widget applies (appscript `tagEmailThread`). Each
+ * The job tags Home's Inbox widget applies (appscript `tagEmailThread`). The
+ * invoice tag is left out: the widget logs an invoice directly (Log invoice,
+ * appscript `logInvoice`) instead of waiting for the tag scan. Each
  * is a tag the office already applies by hand in Gmail; the Apps Script scans
  * that act on them are unchanged. `job` = the kind names a JobTread job.
  */
 export const TAG_KINDS = [
   { kind: "todo", label: "To-do on a job", job: true, note: "The next scan makes a JobTread to-do on the job." },
-  { kind: "invoice", label: "Invoice for a job", job: true, note: "The next scan (every 15 min) logs it as a bill on the job." },
   { kind: "ai-todo", label: "AI to-do (_todo)", job: false, note: "Claude picks the job and writes the to-do on the next scan." },
   { kind: "processed", label: "Processed (already in JobTread)", job: true, note: "Tags the job and Processed. Nothing is logged." },
   { kind: "not-invoice", label: "Not an invoice", job: false, note: "Drops it from the To log list." },
