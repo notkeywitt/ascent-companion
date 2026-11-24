@@ -1,5 +1,11 @@
 [
  {
+  "sha": "d14d7ad7",
+  "date": "2026-11-24T20:03:28Z",
+  "title": "add a download icon to a bill's drive backup row",
+  "plain": "A bill's Actions panel now has a download button next to Drive backup that saves the filed, renamed PDF."
+ },
+ {
   "sha": "f9b1783d",
   "date": "2026-11-24T17:49:57Z",
   "title": "show gmail labels on home inbox rows, leave out sunset mail",
