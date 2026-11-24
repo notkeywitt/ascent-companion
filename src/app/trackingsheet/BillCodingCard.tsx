@@ -130,6 +130,17 @@ function useDriveBackup(docId: string | undefined): DriveBackup | null {
   return drive;
 }
 
+/**
+ * Drive's direct-download link for a filed file, so the PDF saves under its
+ * Drive name (the re-filed "code - amount - vendor" name). The viewer's own
+ * Google sign-in grants it; the app still needs no Drive grant. "" when the
+ * link carries no file id.
+ */
+function driveDownloadUrl(fileUrl: string): string {
+  const id = fileUrl.match(/\/d\/([\w-]{10,})/)?.[1] ?? fileUrl.match(/[?&]id=([\w-]{10,})/)?.[1];
+  return id ? `https://drive.google.com/uc?export=download&id=${id}` : "";
+}
+
 /** The bill the card is coding, as both callers can describe it. */
 export interface CodingBill {
   id: string;
@@ -827,12 +838,30 @@ export function BillCodingCard({ ctl }: { ctl: CodingCardCtl }) {
               the re-file pipeline rewrites from this bill's coding, so it is
               where you check that a recode reached the filed backup. */}
           {drive?.fileUrl && (
-            <ListRow
-              href={drive.fileUrl}
-              external
-              label="Drive backup"
-              desc={drive.fileName || "The filed PDF"}
-            />
+            <div className="flex items-center border-b border-line-soft last:border-b-0">
+              <div className="min-w-0 flex-1">
+                <ListRow
+                  className="!border-b-0"
+                  href={drive.fileUrl}
+                  external
+                  label="Drive backup"
+                  desc={drive.fileName || "The filed PDF"}
+                />
+              </div>
+              {driveDownloadUrl(drive.fileUrl) && (
+                <a
+                  href={driveDownloadUrl(drive.fileUrl)}
+                  download={drive.fileName || undefined}
+                  aria-label="Download the filed PDF"
+                  title="Download the filed PDF"
+                  className="mr-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-control text-neutral-500 transition hover:bg-accent/10 hover:text-accent active:scale-95 dark:text-neutral-400 dark:hover:bg-accent/20 dark:hover:text-accent-soft"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" />
+                  </svg>
+                </a>
+              )}
+            </div>
           )}
           {drive?.folderUrl && (
             <ListRow
