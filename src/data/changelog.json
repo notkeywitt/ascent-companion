@@ -1,5 +1,11 @@
 [
  {
+  "sha": "25c3fc2d",
+  "date": "2026-11-24T04:56:27Z",
+  "title": "close nine finished plans, move their rules into the owning docs",
+  "plain": "The Roadmap page now lists the work left over from earlier plans, such as Supplies and the invoice PDF amount check, so everyone can set its priority."
+ },
+ {
   "sha": "b933c550",
   "date": "2026-11-24T02:49:43Z",
   "title": "log an inbox pdf through the add bill pop-up, then tag the email",
