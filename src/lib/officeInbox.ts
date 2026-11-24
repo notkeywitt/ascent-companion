@@ -5,17 +5,21 @@
  *
  * The forwarded mail skips the office inbox by a Gmail filter on office@ and
  * carries the label `KEILLOR_LABEL`. So the widget runs two searches that
- * never overlap: the inbox without that label, and the label itself.
+ * never overlap: the inbox without that label, and the label itself. Both
+ * leave out Sunset Builders Supply's mail (`SUNSET_DOMAIN`).
  */
 
 /** The Gmail label office@'s filter puts on mail forwarded from keillor@. */
 export const KEILLOR_LABEL = "Keillor";
 
+/** Sunset Builders Supply's mail domain. The widget never shows its mail. */
+export const SUNSET_DOMAIN = "sunsetbuilderssupply.com";
+
 export type InboxSource = "office" | "keillor";
 
 export const INBOX_QUERIES: Record<InboxSource, string> = {
-  office: `in:inbox -label:${KEILLOR_LABEL}`,
-  keillor: `label:${KEILLOR_LABEL}`,
+  office: `in:inbox -label:${KEILLOR_LABEL} -from:${SUNSET_DOMAIN}`,
+  keillor: `label:${KEILLOR_LABEL} -from:${SUNSET_DOMAIN}`,
 };
 
 /** One thread as appscript `chatSearchMail` returns it. */
@@ -26,6 +30,8 @@ export interface RawThread {
   date?: string;
   messages?: number;
   attachments?: string[];
+  /** The thread's user labels, by name. */
+  labels?: string[];
   text?: string;
 }
 
@@ -37,7 +43,18 @@ export interface InboxThread {
   date: string;
   messages: number;
   attachments: number;
+  labels: string[];
   preview: string;
+}
+
+/**
+ * The labels a row shows: Keillor left out (the row's own Keillor chip says
+ * it), no blanks or repeats, sorted.
+ */
+export function rowLabels(labels: unknown): string[] {
+  if (!Array.isArray(labels)) return [];
+  const names = labels.map((l) => String(l ?? "").trim()).filter((l) => l && l !== KEILLOR_LABEL);
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b));
 }
 
 /** Characters of the newest message shown under the subject. */
@@ -68,6 +85,7 @@ export function mergeInbox(found: Record<InboxSource, RawThread[]>): InboxThread
         date: String(t.date ?? ""),
         messages: Number(t.messages) || 1,
         attachments: Array.isArray(t.attachments) ? t.attachments.length : 0,
+        labels: rowLabels(t.labels),
         preview: String(t.text ?? "").slice(0, PREVIEW_CHARS),
       });
     }

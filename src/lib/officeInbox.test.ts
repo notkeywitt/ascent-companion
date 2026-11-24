@@ -4,6 +4,7 @@ import {
   isAppleTouch,
   isTagKind,
   mergeInbox,
+  rowLabels,
   isPdfAttachment,
   senderName,
   tagNeedsJob,
@@ -23,7 +24,20 @@ describe("senderName", () => {
 describe("INBOX_QUERIES", () => {
   it("never overlap", () => {
     expect(INBOX_QUERIES.office).toContain("-label:Keillor");
-    expect(INBOX_QUERIES.keillor).toBe("label:Keillor");
+    expect(INBOX_QUERIES.keillor).toContain("label:Keillor");
+  });
+  it("leave out Sunset's mail", () => {
+    expect(INBOX_QUERIES.office).toContain("-from:sunsetbuilderssupply.com");
+    expect(INBOX_QUERIES.keillor).toContain("-from:sunsetbuilderssupply.com");
+  });
+});
+
+describe("rowLabels", () => {
+  it("drops Keillor, blanks and repeats, and sorts", () => {
+    expect(rowLabels(["To-do", "Keillor", "", "Bids", "To-do"])).toEqual(["Bids", "To-do"]);
+  });
+  it("is empty when the script sends no labels", () => {
+    expect(rowLabels(undefined)).toEqual([]);
   });
 });
 
@@ -32,7 +46,7 @@ describe("mergeInbox", () => {
     const rows = mergeInbox({
       office: [
         { threadId: "a", subject: "Old", from: "A <a@x>", date: "2026-11-20T10:00:00Z" },
-        { threadId: "b", subject: "", from: "b@x", date: "2026-11-22T10:00:00Z", attachments: ["q.pdf"] },
+        { threadId: "b", labels: ["Processed"], subject: "", from: "b@x", date: "2026-11-22T10:00:00Z", attachments: ["q.pdf"] },
       ],
       keillor: [
         { threadId: "c", subject: "Mine", from: "C <c@x>", date: "2026-11-21T10:00:00Z", messages: 3 },
@@ -41,7 +55,7 @@ describe("mergeInbox", () => {
       ],
     });
     expect(rows.map((r) => r.threadId)).toEqual(["b", "c", "a"]);
-    expect(rows[0]).toMatchObject({ subject: "(no subject)", sender: "b@x", attachments: 1, source: "office" });
+    expect(rows[0]).toMatchObject({ subject: "(no subject)", sender: "b@x", attachments: 1, source: "office", labels: ["Processed"] });
     expect(rows[1]).toMatchObject({ source: "keillor", messages: 3 });
     expect(rows[2].source).toBe("keillor");
   });
