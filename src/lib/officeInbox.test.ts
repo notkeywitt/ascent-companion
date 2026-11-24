@@ -4,6 +4,7 @@ import {
   isAppleTouch,
   isTagKind,
   mergeInbox,
+  messagePdfs,
   senderName,
   tagNeedsJob,
 } from "./officeInbox";
@@ -48,12 +49,35 @@ describe("mergeInbox", () => {
 
 describe("tag kinds", () => {
   it("know which kinds name a job", () => {
-    expect(isTagKind("invoice")).toBe(true);
+    expect(isTagKind("todo")).toBe(true);
+    expect(isTagKind("invoice")).toBe(false);
     expect(isTagKind("delete")).toBe(false);
     expect(tagNeedsJob("todo")).toBe(true);
     expect(tagNeedsJob("processed")).toBe(true);
     expect(tagNeedsJob("ai-todo")).toBe(false);
     expect(tagNeedsJob("not-invoice")).toBe(false);
+  });
+});
+
+describe("messagePdfs", () => {
+  it("finds the PDFs and the message id", () => {
+    expect(
+      messagePdfs({
+        from: "",
+        to: "",
+        date: "",
+        text: "",
+        attachments: [
+          { name: "inv.pdf", type: "application/octet-stream", attachmentId: "18c2ab:0" },
+          { name: "photo.jpg", type: "image/jpeg", attachmentId: "18c2ab:1" },
+          { name: "quote", type: "application/pdf", attachmentId: "18c2ab:2" },
+        ],
+      }),
+    ).toEqual({ messageId: "18c2ab", names: ["inv.pdf", "quote"] });
+    expect(messagePdfs({ from: "", to: "", date: "", text: "", attachments: [] })).toEqual({
+      messageId: "",
+      names: [],
+    });
   });
 });
 

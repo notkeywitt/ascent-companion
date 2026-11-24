@@ -6,6 +6,7 @@ import Link from "next/link";
 
 import {
   Card,
+  Checkbox,
   Chip,
   CountBadge,
   IconButton,
@@ -43,6 +44,7 @@ import type { UnpaidBills } from "@/lib/unpaidBills";
 import {
   GMAIL_APP_URL,
   isAppleTouch,
+  messagePdfs,
   senderName,
   TAG_KINDS,
   tagNeedsJob,
@@ -838,11 +840,15 @@ function InboxWidget() {
                       <span className="flex items-baseline gap-2">
                         <span className="truncate font-medium">{t.sender}</span>
                         {t.messages > 1 && (
-                          <span className="shrink-0 text-[11px] text-neutral-500">{t.messages}</span>
+                          <span className="shrink-0 text-[11px] text-neutral-500">
+                            {t.messages}
+                          </span>
                         )}
                       </span>
                       <span className="block truncate">{t.subject}</span>
-                      <span className="block truncate text-[12px] text-neutral-500">{t.preview}</span>
+                      <span className="block truncate text-[12px] text-neutral-500">
+                        {t.preview}
+                      </span>
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5 text-[12px] tabular-nums text-neutral-500">
                       <span>{mailTime(t.date)}</span>
@@ -908,7 +914,8 @@ function MailThread({ threadId, onClose }: { threadId: string; onClose: () => vo
         <div className="divide-y divide-line-soft">
           {data.olderLeftOut > 0 && (
             <p className="pb-2 text-[12px] text-neutral-500">
-              {data.olderLeftOut} older {data.olderLeftOut === 1 ? "message" : "messages"} not shown.
+              {data.olderLeftOut} older {data.olderLeftOut === 1 ? "message" : "messages"} not
+              shown.
             </p>
           )}
           {data.messages.map((m, i) => (
@@ -925,6 +932,12 @@ function MailThread({ threadId, onClose }: { threadId: string; onClose: () => vo
               {m.attachments.length > 0 && (
                 <MetaLine className="mt-1.5" items={m.attachments.map((a) => `📎 ${a.name}`)} />
               )}
+              {(() => {
+                const p = messagePdfs(m);
+                return p.messageId ? (
+                  <LogInvoice messageId={p.messageId} pdfs={p.names.length} />
+                ) : null;
+              })()}
             </div>
           ))}
           <TagThread threadId={threadId} />
@@ -936,28 +949,20 @@ function MailThread({ threadId, onClose }: { threadId: string; onClose: () => vo
 
 /**
  * Tag the thread for a job (`/api/home/inbox/tag` → appscript `tagEmailThread`).
- * The Apps Script scans act on the tag; a to-do or invoice tag writes to
- * JobTread on the next scan, so the button names what will happen.
+ * The Apps Script scans act on the tag; a to-do tag writes to JobTread on the
+ * next scan, so the note names what will happen. Invoices are logged directly
+ * (LogInvoice), not tagged. Above the picker: the thread's job tags, each
+ * removable (ThreadTags).
  */
 function TagThread({ threadId }: { threadId: string }) {
   const [kind, setKind] = useState<TagKind | "">("");
-  const [jobs, setJobs] = useState<{ jobId: string; label: string }[] | null>(null);
   const [jobId, setJobId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const [tagsKey, setTagsKey] = useState(0);
   const needsJob = kind !== "" && tagNeedsJob(kind);
-
-  useEffect(() => {
-    if (!needsJob || jobs) return;
-    fetch("/api/home/inbox/tag", { cache: "no-store" })
-      .then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || "Could not read the job list.");
-        setJobs(j.jobs ?? []);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Could not read the job list."));
-  }, [needsJob, jobs]);
+  const { jobs, error: jobsError } = useInboxJobs(needsJob);
 
   const apply = async () => {
     if (!kind || (needsJob && !jobId)) return;
@@ -972,6 +977,9 @@ function TagThread({ threadId }: { threadId: string }) {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || "Could not tag the email.");
       setDone(j.message || "Tagged.");
+      setKind("");
+      setJobId("");
+      setTagsKey((n) => n + 1);
       toast("Tagged");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not tag the email.");
@@ -984,47 +992,229 @@ function TagThread({ threadId }: { threadId: string }) {
 
   return (
     <div className="space-y-2 pt-3">
-      <p className="text-[12px] font-semibold text-neutral-500">Tag for a job</p>
-      {done ? (
-        <p className="text-[13px] text-ok">{done}</p>
-      ) : (
-        <>
-          <Select
-            aria-label="Tag"
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as TagKind | "");
-              setError("");
-            }}
-          >
-            <option value="">Pick a tag…</option>
-            {TAG_KINDS.map((t) => (
-              <option key={t.kind} value={t.kind}>
-                {t.label}
-              </option>
-            ))}
-          </Select>
-          {needsJob &&
-            (jobs ? (
-              <Select aria-label="Job" value={jobId} onChange={(e) => setJobId(e.target.value)}>
-                <option value="">Pick a job…</option>
-                {jobs.map((j) => (
-                  <option key={j.jobId} value={j.jobId}>
-                    {j.label}
-                  </option>
-                ))}
-              </Select>
-            ) : (
-              !error && <Skeleton className="h-11 w-full rounded-control" />
-            ))}
-          {note && <p className="text-[12px] text-neutral-500">{note}</p>}
-          {error && <p className="text-[12px] text-danger">{error}</p>}
-          <Button disabled={!kind || (needsJob && !jobId) || busy} onClick={apply}>
-            {busy ? "Tagging…" : "Apply tag"}
-          </Button>
-        </>
-      )}
+      <p className="text-[12px] font-semibold text-neutral-500">Tags</p>
+      <ThreadTags key={tagsKey} threadId={threadId} />
+      {done && <p className="text-[13px] text-ok">{done}</p>}
+      <>
+        <Select
+          aria-label="Tag"
+          value={kind}
+          onChange={(e) => {
+            setKind(e.target.value as TagKind | "");
+            setError("");
+            setDone("");
+          }}
+        >
+          <option value="">Pick a tag…</option>
+          {TAG_KINDS.map((t) => (
+            <option key={t.kind} value={t.kind}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+        {needsJob &&
+          (jobs ? (
+            <JobSelect jobs={jobs} value={jobId} onChange={setJobId} by="jobId" />
+          ) : jobsError ? (
+            <p className="text-[12px] text-danger">{jobsError}</p>
+          ) : (
+            <Skeleton className="h-11 w-full rounded-control" />
+          ))}
+        {note && <p className="text-[12px] text-neutral-500">{note}</p>}
+        {error && <p className="text-[12px] text-danger">{error}</p>}
+        <Button disabled={!kind || (needsJob && !jobId) || busy} onClick={apply}>
+          {busy ? "Tagging…" : "Apply tag"}
+        </Button>
+      </>
     </div>
+  );
+}
+
+/** The job tags on a thread, each with a remove button (`/api/home/inbox/tag`). */
+function ThreadTags({ threadId }: { threadId: string }) {
+  const [tags, setTags] = useState<string[] | null>(null);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState("");
+  useEffect(() => {
+    fetch(`/api/home/inbox/tag?thread=${encodeURIComponent(threadId)}`, { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "Could not read the tags.");
+        setTags(j.tags ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not read the tags."));
+  }, [threadId]);
+
+  const remove = async (tag: string) => {
+    setBusy(tag);
+    setError("");
+    try {
+      const r = await fetch("/api/home/inbox/tag", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ threadId, tag }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Could not remove the tag.");
+      setTags(j.tags ?? []);
+      toast("Tag removed");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not remove the tag.");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  if (error) return <p className="text-[12px] text-danger">{error}</p>;
+  if (!tags) return <Skeleton className="h-6 w-40 rounded-control" />;
+  if (tags.length === 0) return <p className="text-[12px] text-neutral-500">No job tags.</p>;
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {tags.map((t) => (
+        <li key={t}>
+          <span className="inline-flex items-center gap-1 rounded-full border border-line py-0.5 pl-2.5 pr-1 text-[12px]">
+            {t}
+            <button
+              type="button"
+              aria-label={`Remove ${t}`}
+              disabled={busy !== ""}
+              onClick={() => remove(t)}
+              className="flex h-7 w-7 items-center justify-center rounded-full text-neutral-500 hover:bg-line-soft disabled:opacity-50"
+            >
+              {busy === t ? "…" : "✕"}
+            </button>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Log one email's invoice now (`/api/home/inbox/log` → appscript `logInvoice`,
+ * the To log page's path). Claude reads the PDF (15–45 s), the bill is logged
+ * on the job and the email is marked Processed. Several PDFs → the To log page,
+ * which splits them across jobs.
+ */
+function LogInvoice({ messageId, pdfs }: { messageId: string; pdfs: number }) {
+  const [open, setOpen] = useState(false);
+  const [projectId, setProjectId] = useState("");
+  const [paid, setPaid] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  const { jobs, error: jobsError } = useInboxJobs(open);
+
+  if (pdfs > 1) {
+    return (
+      <p className="mt-2 text-[12px] text-neutral-500">
+        {pdfs} PDFs.{" "}
+        <Link href="/email" className="font-semibold text-accent hover:underline">
+          Log them on the To log page
+        </Link>{" "}
+        to split them across jobs.
+      </p>
+    );
+  }
+  if (done) return <p className="mt-2 text-[13px] text-ok">{done}</p>;
+  if (!open) {
+    return (
+      <Button size="xs" variant="secondary" className="mt-2" onClick={() => setOpen(true)}>
+        Log invoice
+      </Button>
+    );
+  }
+
+  const log = async () => {
+    if (!projectId) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/home/inbox/log", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ messageId, projectId, paid }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "The invoice was not logged.");
+      setDone(j.message || "Logged.");
+      toast("Invoice logged");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The invoice was not logged.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-2 space-y-2 rounded-control border border-line p-2">
+      {jobs ? (
+        <JobSelect jobs={jobs} value={projectId} onChange={setProjectId} by="projectId" />
+      ) : jobsError ? (
+        <p className="text-[12px] text-danger">{jobsError}</p>
+      ) : (
+        <Skeleton className="h-11 w-full rounded-control" />
+      )}
+      <Checkbox label="Paid" checked={paid} onChange={(e) => setPaid(e.target.checked)} />
+      {error && <p className="text-[12px] text-danger">{error}</p>}
+      <div className="flex gap-2">
+        <Button size="xs" disabled={!projectId || busy} onClick={log}>
+          {busy ? "Logging… (up to a minute)" : "Log"}
+        </Button>
+        <Button size="xs" variant="ghost" disabled={busy} onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+interface InboxJob {
+  jobId: string;
+  projectId: string;
+  label: string;
+}
+
+/** The jobs a tag or a Log invoice can name, read once per page load. */
+let inboxJobsRead: Promise<InboxJob[]> | null = null;
+function useInboxJobs(wanted: boolean): { jobs: InboxJob[] | null; error: string } {
+  const [jobs, setJobs] = useState<InboxJob[] | null>(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    if (!wanted || jobs) return;
+    inboxJobsRead ??= fetch("/api/home/inbox/tag", { cache: "no-store" }).then(async (r) => {
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Could not read the job list.");
+      return (j.jobs ?? []) as InboxJob[];
+    });
+    inboxJobsRead.then(setJobs).catch((e) => {
+      inboxJobsRead = null;
+      setError(e instanceof Error ? e.message : "Could not read the job list.");
+    });
+  }, [wanted, jobs]);
+  return { jobs, error };
+}
+
+function JobSelect({
+  jobs,
+  value,
+  onChange,
+  by,
+}: {
+  jobs: InboxJob[];
+  value: string;
+  onChange: (v: string) => void;
+  by: "jobId" | "projectId";
+}) {
+  return (
+    <Select aria-label="Job" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">Pick a job…</option>
+      {jobs.map((j) => (
+        <option key={j.jobId} value={j[by]}>
+          {j.label}
+        </option>
+      ))}
+    </Select>
   );
 }
 

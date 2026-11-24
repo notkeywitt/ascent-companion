@@ -423,6 +423,11 @@
   },
   {
    "from": "/",
+   "to": "/email",
+   "kind": "link"
+  },
+  {
+   "from": "/",
    "to": "/employee-time",
    "kind": "link"
   },
@@ -1308,6 +1313,11 @@
   {
    "from": "/widget",
    "to": "/accounts-payable",
+   "kind": "link"
+  },
+  {
+   "from": "/widget",
+   "to": "/email",
    "kind": "link"
   },
   {
