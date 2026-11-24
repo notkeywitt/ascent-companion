@@ -115,8 +115,9 @@ Do not read `HANDOFF.md` unless the owner asks.
 2. **Server page → client component.** `page.tsx` renders a `"use client"`
    component that fetches the route (`jobs/page.tsx` → `JobsBrowser.tsx`).
 3. **Gate it.** Add a `VIEW` in `src/lib/views.ts` (a new id defaults to
-   office+admin). List every API route the page calls in its `paths`, or any
-   signed-in role can call it. Add a tab in `src/lib/workspaces.ts`.
+   office+admin). List every API route the page calls in its `paths`. A route
+   on no view gets a 403, and `apiGate.test.ts` fails. Add a tab in
+   `src/lib/workspaces.ts`.
 4. **Build on `ui.tsx` primitives.** Mobile-first (`max-w-2xl`, thumb-sized
    targets), theme-aware. Match `src/app/jobs`, `src/app/unbilled`.
 5. **Ship.** Run `npm run build` first when you add a page or a route.

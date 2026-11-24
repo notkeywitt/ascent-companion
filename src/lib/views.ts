@@ -78,14 +78,20 @@ export const VIEWS: ViewDef[] = [
       // 2026-09-09 — the pages that call them ride this gate, but the routes
       // themselves did not, so any signed-in role could POST one directly.
       // Listing them here is what makes "bill editing is office+admin" true at
-      // the route, not just in the UI. Read-only bill routes (/api/bill,
-      // /api/bill-reviewed) stay OFF this list on purpose: anyone may look at
-      // a bill. /api/bill-review is the exception, gated below.
+      // the route, not just in the UI. The bill reads joined them on
+      // 2026-11-24 (security item M-1): /api/bill (+ files, drive, create-file),
+      // the "reviewed" flag, the shop job, /api/stage (uninvoiced bills) and
+      // /api/job-budget. Every caller already requires this view.
       //
       // /api/coding-queue is the exception among the reads, gated 2026-09-30:
       // it lists EVERY job's draft bills (vendor, amount, job), and its callers
       // (the Bills list and the bill page's pager) already require this view.
       "/api/coding-queue",
+      "/api/bill",
+      "/api/bill-reviewed",
+      "/api/shop-job",
+      "/api/stage",
+      "/api/job-budget",
       // The Bill Corrections queue. Gated 2026-10-18: GET returned the whole
       // queue to any signed-in role. Every caller (the bill page, the board,
       // Bill Corrections, Today) already requires this view.
@@ -267,7 +273,7 @@ export const VIEWS: ViewDef[] = [
   // it must ride the same gate as the page — office + admin, never a field role.
   // Bills — the draft bills with the open one beside the list (2026-10-26,
   // owner). It reads /api/coding-queue, which stays on "recode" because the
-  // bill page's pager reads it too, and /api/bill, which is ungated on purpose.
+  // bill page's pager reads it too, and /api/bill, which rides "recode" too.
   { id: "bills", label: "Bills", group: "Financials", paths: ["/bills"] },
   {
     id: "vendors",
@@ -299,7 +305,7 @@ export const VIEWS: ViewDef[] = [
     id: "needs-project",
     label: "Not in JobTread",
     group: "Financials",
-    paths: ["/needs-project", "/api/needs-project"],
+    paths: ["/needs-project", "/api/needs-project", "/api/vendor-bill-count"],
   },
   {
     id: "payments",
@@ -366,7 +372,7 @@ export const VIEWS: ViewDef[] = [
     paths: ["/amazon-import", "/api/amazon-import"],
   },
   // Field
-  { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting"] },
+  { id: "safety-meeting", label: "Safety Meeting", group: "Field", paths: ["/safety-meeting", "/api/safety-meeting"] },
   { id: "mileage", label: "Miles", group: "Field", paths: ["/mileage-tracker"] },
   { id: "employee-time", label: "Time", group: "Field", paths: ["/employee-time"] },
   // Final Inspection Punch List for every role (owner, 2026-11-20). Same
@@ -377,7 +383,7 @@ export const VIEWS: ViewDef[] = [
   { id: "precon", label: "Precon Checklist", group: "Field", paths: ["/api/precon-checklist"] },
   // Batch add (lib/toolBatch.ts): every role captures through /api/tools/batch;
   // only "tools-batch-analyze" (office + admin) asks the office Mac to analyze.
-  { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer", "/api/tools/batch"] },
+  { id: "tools", label: "Tools", group: "Field", paths: ["/tools", "/tool-tracker", "/api/tools/trailer", "/api/tools/batch", "/api/ocr-serial"] },
   { id: "tools-batch-analyze", label: "Tools (analyze batch)", group: "Field", paths: ["/api/tools/batch/analyze"] },
   // The tool schedule (docs/CODEBASE_DIRS.md, `toolSchedule.ts`): which tools each job
   // needs when, from the JobTread schedules. Everyone sees it (owner,
@@ -462,7 +468,9 @@ export const VIEWS: ViewDef[] = [
   // Job Cost. The API prefix rides the same gate, so a role without the page
   // can't read every job's to-dos by calling the route. Office, admin and lead
   // (lead since 2026-11-03: the Jobs Hub's job card reads /api/job-board).
-  { id: "job-board", label: "Jobs", group: "Office", paths: ["/job-board", "/api/job-board"] },
+  // /api/jobs/cost-detail rides it too (2026-11-24): a job's cost by division,
+  // read by Job Cost, Labor and the lead's job panel. Field never fetches it.
+  { id: "job-board", label: "Jobs", group: "Office", paths: ["/job-board", "/api/job-board", "/api/jobs/cost-detail"] },
   // The Schedule page: a Gantt of every open JobTread schedule task
   // (CODEBASE_MAP.md, "The Schedule page"). Office + admin by default.
   { id: "schedule", label: "Schedule", group: "Office", paths: ["/schedule", "/api/schedule"] },
@@ -815,4 +823,99 @@ export function viewIdForPath(pathname: string): string | null {
     }
   }
   return best?.id ?? null;
+}
+
+/**
+ * Routes that skip the session check entirely (middleware step 1). Everything
+ * here authenticates ITSELF: being listed removes the session requirement, NOT
+ * the authorization. Never add a route that has no credential of its own.
+ *
+ * - `/api/digest/run`, `/api/invoice-review/run`: called by the scheduler, which
+ *   carries no Google session. Each verifies a cron bearer secret (or an admin
+ *   session) in its own handler.
+ * - `/api/invoice-review/agent`: Claude Code on the office Mac. Checks its own
+ *   bearer token, REVIEW_AGENT_TOKEN. Only the `/run` and `/agent` SUBPATHS of
+ *   invoice review are public: `/api/invoice-review` itself stays behind its
+ *   view, or a prefix match would open the whole month's billing.
+ * - `/m`: a published house manual for the Squarespace page
+ *   (src/app/m/[token]/route.ts). GET-only, read-only, nothing but the html the
+ *   office chose to publish. The unguessable token is its key. Keep anything
+ *   else out of `/m/`.
+ * - `/api/google-chat`: Google Chat for the bot's spaces. Verifies a
+ *   Google-signed token before reading the event, then answers only the emails
+ *   on its pilot list.
+ *
+ * This list does NOT skip the cross-site check, which runs first. The scheduler
+ * sends no Origin header, so it passes that check on its own.
+ */
+export const PUBLIC_PATHS = [
+  "/login",
+  "/api/auth",
+  "/privacy",
+  "/api/digest/run",
+  "/api/invoice-review/run",
+  "/api/invoice-review/agent",
+  "/api/google-chat",
+  "/m",
+];
+
+export function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATHS.some((p) => pathMatches(pathname, p));
+}
+
+/**
+ * API routes on no view that ANY signed-in role may call (security item M-1,
+ * closed 2026-11-24). Middleware refuses every other API route that no view
+ * lists, so a new route is closed until it joins a view or this list.
+ *
+ * Each entry is ONE route, matched exactly (a `[param]` segment matches any one
+ * segment), never a prefix: a new route under the same folder stays closed.
+ * Each is here because its callers span roles, and the handler itself scopes
+ * the answer to the caller or checks the role for anything more.
+ */
+export const SIGNED_IN_API: { path: string; why: string }[] = [
+  { path: "/api/attention", why: "Today's counts; gates each queue by its own view" },
+  { path: "/api/notices", why: "every role's notices" },
+  { path: "/api/notices/dismiss", why: "a reader dismisses their own notice" },
+  { path: "/api/version", why: "the new-version notice; build id only" },
+  { path: "/api/usage-track", why: "the page-view beacon; records the caller only" },
+  { path: "/api/page-guide", why: "every page's help overlay; PUT checks admin" },
+  { path: "/api/billing-month", why: "the masthead's month; POST checks admin/office" },
+  { path: "/api/feature-requests", why: "App Feedback, every role" },
+  { path: "/api/feature-requests/[id]", why: "status change checks admin/office" },
+  { path: "/api/jobs", why: "the job list behind every job picker; no money" },
+  { path: "/api/vendors", why: "vendor names for pickers and search; no money" },
+  { path: "/api/jt-users", why: "the JobTread user list, cut to the caller's role (rosterForRole)" },
+  { path: "/api/employees", why: "roster open; full read and edits check the employees view" },
+  { path: "/api/employee-time", why: "the caller's own time; acting for others checks admin/office" },
+  { path: "/api/employee-time/clock", why: "the caller's own clock" },
+  { path: "/api/employee-time/email", why: "checks the role" },
+  { path: "/api/employee-time/history", why: "the caller's own history" },
+  { path: "/api/employee-time/jobs", why: "jobs to clock into" },
+  { path: "/api/employee-time/pay-rules", why: "the caller's own pay rules" },
+  { path: "/api/mileage", why: "Miles and Payroll; scoped to the caller (mileageScope)" },
+  { path: "/api/mileage/active", why: "the caller's open trip" },
+  { path: "/api/mileage/map", why: "a trip's map image" },
+  { path: "/api/mileage/report", why: "checks seesAllMileage" },
+  { path: "/api/mileage/route-miles", why: "driving miles for a typed trip" },
+  { path: "/api/tools", why: "Tools, Miles and the tool schedule; field cannot delete" },
+  { path: "/api/tool-tracker", why: "Tools and Miles" },
+  { path: "/api/team", why: "checks admin in the handler" },
+  { path: "/api/team/menu", why: "checks admin in the handler" },
+  { path: "/api/team/roles", why: "checks admin in the handler" },
+  { path: "/api/usage", why: "checks admin in the handler" },
+  { path: "/api/admin/build", why: "checks admin in the handler" },
+  { path: "/api/admin/digest-settings", why: "checks admin in the handler" },
+  { path: "/api/admin/sheet-tables", why: "checks admin in the handler" },
+];
+
+function routeMatches(pathname: string, route: string): boolean {
+  const a = pathname.split("/");
+  const b = route.split("/");
+  return a.length === b.length && b.every((seg, i) => seg === a[i] || (seg.startsWith("[") && a[i] !== ""));
+}
+
+/** True when `pathname` is one of the SIGNED_IN_API routes. */
+export function isSignedInApi(pathname: string): boolean {
+  return SIGNED_IN_API.some((r) => routeMatches(pathname, r.path));
 }
