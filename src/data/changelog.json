@@ -1,5 +1,11 @@
 [
  {
+  "sha": "f600f33f",
+  "date": "2026-11-24T09:03:37-08:00",
+  "title": "flock is flat only, birds drawn from cached glyph sprites",
+  "plain": "flock is flat only, birds drawn from cached glyph sprites"
+ },
+ {
   "sha": "7d7f7fba",
   "date": "2026-11-24T08:49:31-08:00",
   "title": "smooth the flock on laptops: one font, sorted draw, reused sim arrays, lighter canvas",
