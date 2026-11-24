@@ -1,5 +1,11 @@
 [
  {
+  "sha": "f9b1783d",
+  "date": "2026-11-24T17:49:57Z",
+  "title": "show gmail labels on home inbox rows, leave out sunset mail",
+  "plain": "The Home Inbox no longer shows Sunset Builders Supply emails, and each email shows its Gmail labels."
+ },
+ {
   "sha": "f600f33f",
   "date": "2026-11-24T09:03:37-08:00",
   "title": "flock is flat only, birds drawn from cached glyph sprites",
