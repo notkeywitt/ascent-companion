@@ -15,7 +15,8 @@
     "ship": "sh scripts/ship.sh",
     "preview": "sh scripts/preview.sh",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "ratchet": "node scripts/code-ratchet.mjs --update"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",

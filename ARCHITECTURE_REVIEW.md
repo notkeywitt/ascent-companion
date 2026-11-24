@@ -446,6 +446,14 @@ The audit's done items (paging, the test gate, dead code, the gateway route, the
 `jobtread.ts` split, shared `money.ts`) are in the code. These are open. Each is
 one session unless marked.
 
+- [x] **The code ratchet** (2026-11-24). `scripts/code-ratchet.mjs` counts eight
+      habits per file; `src/lib/codeRatchet.test.ts` fails when a count rises, and
+      when one falls until `npm run ratchet` lowers the baseline. Baseline that day:
+      227 `any`, 394 raw `<button>`, 82 raw `<input>`, 80 stray `process.env`
+      reads, 21 local money formatters, 37 tinted boxes, 14
+      `dark:border-neutral-600`, 13 files over 1,500 lines. It blocks new debt
+      only; a file already over 1,500 lines may still grow.
+
 - [ ] **One schema.** All tables are written twice: Drizzle in `src/db/schema.ts` and
       raw SQL in `applySchema` (`src/db/index.ts`). Nothing checks that they agree. Add
       `drizzle-kit` (a tool that writes SQL from the schema), generate the first
