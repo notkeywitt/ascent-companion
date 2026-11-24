@@ -1,5 +1,11 @@
 [
  {
+  "sha": "e6d893da",
+  "date": "2026-11-24T00:33:30Z",
+  "title": "tag an inbox email for a job from home",
+  "plain": "An email opened from Home's Inbox card can now be tagged as a job to-do, a job invoice, an AI to-do, Processed or Not an invoice."
+ },
+ {
   "sha": "8bb94bce",
   "date": "2026-11-24T00:10:10Z",
   "title": "read inbox email in the app, with gmail app button",
