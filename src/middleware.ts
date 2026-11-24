@@ -2,35 +2,11 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { noAuthConfigured } from "@/lib/authMode";
 import { isSameSiteRequest } from "@/lib/origin";
-import { resolveAllowedViews, viewIdForPath } from "@/lib/views";
+import { isPublicPath, isSignedInApi, resolveAllowedViews, viewIdForPath } from "@/lib/views";
 
-// Routes that skip the session check entirely. Everything here authenticates
-// ITSELF — /api/digest/run and /api/invoice-review/run are called by the
-// scheduler, which carries no Google session, so each verifies a cron bearer
-// secret (or an admin session) in its own handler. Being listed here removes
-// the session requirement, NOT the authorization; don't add a route that has no
-// credential of its own.
-//
-// `/api/invoice-review/agent` is called by Claude Code on the office Mac (no
-// Google session). It checks its own bearer token, REVIEW_AGENT_TOKEN.
-//
-// Note the review pair: only the `/run` and `/agent` SUBPATHS are public. `/api/invoice-review`
-// itself is not listed, so it stays behind the `invoice-review` view gate — a
-// prefix match here would have opened the whole month's billing to anyone.
-//
-// `/m` is the one exception to "authenticates itself": it serves a published
-// house manual to the Squarespace page (src/app/m/[token]/route.ts). It is
-// GET-only, read-only, and shows nothing but the html the office chose to
-// publish — the same content the public Squarespace page already shows. The
-// unguessable token is its key. Keep anything else out of `/m/`.
-//
-// `/api/google-chat` is called by Google Chat for the bot's spaces. It verifies a
-// Google-signed token (audience = its own URL, sender = Chat's service account)
-// before reading the event, then answers only the emails on its pilot list.
-//
-// This list does NOT skip the cross-site check below, which runs first. The
-// scheduler sends no Origin header, so it passes that check on its own.
-const PUBLIC = ["/login", "/api/auth", "/privacy", "/api/digest/run", "/api/invoice-review/run", "/api/invoice-review/agent", "/api/google-chat", "/m"];
+// The public routes (no session; each authenticates itself) and the API routes
+// any signed-in role may call both live in src/lib/views.ts, beside the views,
+// so one test (src/lib/apiGate.test.ts) can check every route has a gate.
 
 export default auth(async (req) => {
   const { pathname } = req.nextUrl;
@@ -58,7 +34,7 @@ export default auth(async (req) => {
     return NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
   }
 
-  if (PUBLIC.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+  if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
@@ -87,7 +63,13 @@ export default auth(async (req) => {
     // land on /login, where signing in re-tests the allowlist and refuses them.
     if (req.auth.user.revoked) return unauthenticated();
 
-    if (!viewId) return NextResponse.next(); // ungated route
+    if (!viewId) {
+      // An API route on no view is closed unless SIGNED_IN_API names it
+      // (security item M-1, 2026-11-24). A page on no view (Today, Help…)
+      // stays open: pages hold no data of their own.
+      if (isApi && !isSignedInApi(pathname)) return forbidden();
+      return NextResponse.next();
+    }
     const u = req.auth.user;
     const allowed = resolveAllowedViews(u.role, u.viewsAllow, u.viewsDeny, u.roleBase);
     return allowed.has(viewId) ? NextResponse.next() : forbidden();

@@ -47,9 +47,9 @@ only `/api/pave`, so it gates nothing. `COMPANION_WRITES_ENABLED` is the master
 switch for every write.
 
 The `jobs` page is the worked example of a purpose-built read:
-`src/app/jobs/` reads `/api/jobs/browser` and `/api/jobs/cost-detail`. Those two
-routes are not on the `jobs` view's `paths`, because a lead's job panel also
-reads cost-detail.
+`src/app/jobs/` reads `/api/jobs/browser` and `/api/jobs/cost-detail`.
+Cost-detail rides the `job-board` view, not `jobs`, because a lead's job panel
+also reads it.
 
 ## Views, gates and links — rules that hold for every page
 
@@ -70,10 +70,12 @@ reads cost-detail.
 - **Today's rows read stored or cached results.** A live sweep (vendor mail
   runs up to 120 s) never runs on Today's load.
 - **Keep the Chrome side panel's `/?jobId=` contract on Today.**
-- **Open security item (M-1):** an API route that no view lists in `paths`
-  is open to any signed-in role. A few are open on purpose
-  (`/api/jobs/cost-detail`, read by a lead's job panel). Refusing unlisted
-  routes in `src/middleware.ts` closes them together; it needs the owner's ok.
+- **An API route on no view is refused (403)** unless `SIGNED_IN_API` in
+  `src/lib/views.ts` names it (security item M-1, closed 2026-11-24). That list
+  holds shared plumbing every role calls (job pickers, the caller's own time
+  and miles, notices), each entry one exact route with its reason. A new route
+  joins the view whose page calls it; `src/lib/apiGate.test.ts` fails until it
+  does. Public routes (no session) are `PUBLIC_PATHS` in the same file.
 
 ## View roadmap (each maps to a JT_API_REFERENCE.md domain)
 

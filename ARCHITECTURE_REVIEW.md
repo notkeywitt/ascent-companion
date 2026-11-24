@@ -490,8 +490,10 @@ one session unless marked.
       Keep a dated note of a live API probe. Only in files already being edited.
 - [ ] **`USER_MANUAL.md`** still names retired pages and workspaces (Month Close,
       Clients, People, RFIs, Actions). Rewrite it against `src/lib/workspaces.ts`.
-- [ ] **Security M-1.** Refuse an API route no view lists (`src/middleware.ts`). Stop
-      and ask.
+- [x] **Security M-1** (2026-11-24, owner's ok). Middleware refuses an API route no
+      view lists, unless `SIGNED_IN_API` (`src/lib/views.ts`) names it. Bill reads,
+      job cost detail, uninvoiced bills and job budgets moved onto views; field
+      accounts can no longer read them. `src/lib/apiGate.test.ts` checks every route.
 
 Do not, for any of these: add a data-fetching, component or state library (16
 runtime dependencies is an asset); weaken the repeated write guard to remove
