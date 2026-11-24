@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INBOX_QUERIES, mergeInbox, senderName } from "./officeInbox";
+import { INBOX_QUERIES, isAppleTouch, mergeInbox, senderName } from "./officeInbox";
 
 describe("senderName", () => {
   it("takes the display name", () => {
@@ -36,5 +36,14 @@ describe("mergeInbox", () => {
     expect(rows[0]).toMatchObject({ subject: "(no subject)", sender: "b@x", attachments: 1, source: "office" });
     expect(rows[1]).toMatchObject({ source: "keillor", messages: 3 });
     expect(rows[2].source).toBe("keillor");
+  });
+});
+
+describe("isAppleTouch", () => {
+  it("knows an iPhone and an iPad, not a Mac or Android", () => {
+    expect(isAppleTouch("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", 5)).toBe(true);
+    expect(isAppleTouch("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 5)).toBe(true);
+    expect(isAppleTouch("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 0)).toBe(false);
+    expect(isAppleTouch("Mozilla/5.0 (Linux; Android 15; Pixel 9)", 5)).toBe(false);
   });
 });
