@@ -761,7 +761,8 @@ function UnpaidBillsWidget() {
 
 /**
  * The office inbox and the mail forwarded from keillor@ (label Keillor), newest
- * first (`src/lib/officeInbox.ts`). Read-only; a tap opens the thread in Gmail.
+ * first, Sunset's mail left out, each row with its Gmail labels
+ * (`src/lib/officeInbox.ts`). Read-only; a tap opens the thread in Gmail.
  */
 function InboxWidget() {
   const [threads, setThreads] = useState<InboxThread[] | null>(null);
@@ -853,6 +854,13 @@ function InboxWidget() {
                       <span className="block truncate text-[12px] text-neutral-500">
                         {t.preview}
                       </span>
+                      {t.labels.length > 0 && (
+                        <span className="mt-0.5 flex flex-wrap gap-1">
+                          {t.labels.map((l) => (
+                            <Chip key={l}>{l}</Chip>
+                          ))}
+                        </span>
+                      )}
                     </span>
                     <span className="flex shrink-0 flex-col items-end gap-0.5 text-[12px] tabular-nums text-neutral-500">
                       <span>{mailTime(t.date)}</span>
