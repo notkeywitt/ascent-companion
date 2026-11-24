@@ -1,5 +1,11 @@
 [
  {
+  "sha": "8bb94bce",
+  "date": "2026-11-24T00:10:10Z",
+  "title": "read inbox email in the app, with gmail app button",
+  "plain": "Tapping an email on Home's Inbox card now opens it in the app, with buttons to open Gmail or the Gmail app."
+ },
+ {
   "sha": "d6056cd1",
   "date": "2026-11-23T23:01:15Z",
   "title": "employee list defaults to active",
