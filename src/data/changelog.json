@@ -1,5 +1,11 @@
 [
  {
+  "sha": "7d7f7fba",
+  "date": "2026-11-24T08:49:31-08:00",
+  "title": "smooth the flock on laptops: one font, sorted draw, reused sim arrays, lighter canvas",
+  "plain": "smooth the flock on laptops: one font, sorted draw, reused sim arrays, lighter canvas"
+ },
+ {
   "sha": "85230359",
   "date": "2026-11-24T05:40:13Z",
   "title": "refuse api routes on no view, gate bill and job cost reads",
