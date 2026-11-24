@@ -13,8 +13,6 @@ import {
   type FlockSetup,
   type YearClock,
 } from "@/lib/art/flock";
-import { Camera3D, TankCamera, tankSize } from "@/lib/art/camera3d";
-import { Flock3D, SIDE } from "@/lib/art/flock3d";
 import type { DrawFrame } from "../artKit";
 
 /**
@@ -23,15 +21,10 @@ import type { DrawFrame } from "../artKit";
  * desktop screen saver (src/components/FlockSaver.tsx) both drive one.
  * Not React: a page keeps it in a ref and calls `draw` from ArtCanvas.
  *
- * Three spaces. Flat: the 2-D flock (src/lib/art/flock.ts) in canvas pixels.
- * 3D: the flock in a cube (flock3d.ts), seen through an orbit camera
- * (camera3d.ts) that turns slowly on its own, and by drag and wheel. Tank: the
- * same 3D flock in a wide, shallow box seen straight on, like a fish tank
- * (TankCamera): depth shows as size, fog and a slow sway of the eye. All are
- * reduced each frame to the same screen arrays (place, heading, size, fade),
- * and one drawing routine draws either. Switching space keeps every bird
- * where it appears: flat → 3D lifts the picture onto a sheet in the box and
- * tilts the camera back; 3D → flat starts each bird at its projected place.
+ * The 2-D flock (src/lib/art/flock.ts) in canvas pixels. 3D and Tank were
+ * removed (owner, 2026-11-24): too slow on a laptop. Each bird is a glyph
+ * drawn once per colour into a small sprite canvas, then stamped with
+ * drawImage: text drawn per bird at a new angle each frame was the lag.
  */
 
 export type FlockBy = "job" | "division" | "vendor" | "type" | "person";
@@ -77,8 +70,10 @@ export function flockItems(set: CloudSetId, rows: unknown[], by: FlockBy): Flock
 const SETTLE_STEPS = 500;
 /** Opacity steps a group's birds are drawn in, so each is one fill. */
 const BUCKETS = 4;
-/** The one font size birds are drawn at; each bird scales from it. */
-const GLYPH_PX = 24;
+/** A bird sprite's size in CSS px; each bird scales from it. */
+const SPRITE_PX = 32;
+const GLYPH = "\u{131E2}";
+const GLYPH_FONT = '"Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif';
 /** Hue steps within a flock's colour; a bird's `shade` picks one. */
 const SHADES = 5;
 /** The widest hue shift either way, in degrees, and the lightness shift, in %. */
@@ -128,19 +123,33 @@ function shadesOf(c: string): string[] {
   return out;
 }
 
-export type FlockSpace = "flat" | "3d" | "tank";
-
-/** A camera that has not been touched for this long starts orbiting again. */
-const IDLE_ORBIT_MS = 4000;
+const spriteCache = new Map<string, HTMLCanvasElement>();
+/** The bird glyph in one colour, drawn once at `scale` device px per CSS px. */
+function spriteOf(color: string, scale: number): HTMLCanvasElement {
+  const key = `${color}|${scale}`;
+  const hit = spriteCache.get(key);
+  if (hit) return hit;
+  const c = document.createElement("canvas");
+  c.width = c.height = Math.ceil(SPRITE_PX * scale);
+  const x = c.getContext("2d");
+  if (x) {
+    x.scale(scale, scale);
+    x.font = `${SPRITE_PX * 0.8}px ${GLYPH_FONT}`;
+    x.textAlign = "center";
+    x.textBaseline = "middle";
+    x.fillStyle = color;
+    x.fillText(GLYPH, SPRITE_PX / 2, SPRITE_PX / 2);
+  }
+  // A colour fade makes new colours every frame; keep the cache small.
+  if (spriteCache.size > 256) spriteCache.clear();
+  spriteCache.set(key, c);
+  return c;
+}
 
 export class FlockEngine {
   setup: FlockSetup | null = null;
   flock: Flock | null = null;
-  flock3: Flock3D | null = null;
-  camera = new Camera3D();
-  tank = new TankCamera();
   clock: YearClock | null = null;
-  space: FlockSpace = "flat";
   /** Year mode on, and how long one loop of the year takes. */
   year = false;
   loopMs = 120_000;
@@ -165,15 +174,11 @@ export class FlockEngine {
   private lastNow = 0;
   private targets: Float32Array<ArrayBuffer> | null = null;
   private frames = 0;
-  private touched = 0;
-  /** The camera's tilt eases toward this after a switch into 3D. */
-  private pitchTo: number | null = null;
   // Screen arrays, refilled each frame.
   private sx = new Float32Array(0);
   private sy = new Float32Array(0);
   private hx = new Float32Array(0);
   private hy = new Float32Array(0);
-  private sc = new Float32Array(0);
   private fade = new Float32Array(0);
   private order = new Int32Array(0);
   private cellOf = new Int32Array(0);
@@ -210,23 +215,10 @@ export class FlockEngine {
     this.hawk = null;
   }
 
-  /** Turn the 3D camera by a drag of (dx, dy) pixels. */
-  drag(dx: number, dy: number) {
-    this.touched = performance.now();
-    this.pitchTo = null;
-    this.camera.orbit(dx * 0.006, dy * 0.006);
-  }
-
-  /** Zoom the 3D camera; a wheel's deltaY. */
-  wheel(dy: number) {
-    this.touched = performance.now();
-    this.camera.zoom(Math.exp(dy * 0.0012));
-  }
-
   /** The flock nearest (x, y) on screen within 60px, or -1. */
   groupAt(x: number, y: number): number {
     if (!this.setup || !this.gsx.length) return -1;
-    const count = this.sim()?.count;
+    const count = this.flock?.count;
     let best = -1;
     let bd = 60 * 60;
     for (let g = 0; g < this.setup.names.length; g++) {
@@ -245,84 +237,25 @@ export class FlockEngine {
     return this.year && this.clock ? clockLabel(this.clock, this.t) : "";
   }
 
-  /** The simulation now running. */
-  private sim(): Flock | Flock3D | null {
-    return this.space === "flat" ? this.flock : this.flock3;
-  }
-
-  /** The box this space wants: a cube, or the tank for a canvas of w × h. */
-  private fitBox(f: Flock3D, w: number, h: number) {
-    if (this.space === "tank") {
-      const t = tankSize(w, h);
-      f.resize(t.sx, t.sy, t.sz);
-    } else {
-      f.resize(SIDE, SIDE, SIDE);
-    }
-  }
-
-  /** Make sure the right simulation exists for the space, the rows and the grouping. */
+  /** Make sure the flock exists for the rows and the grouping. */
   private ensure(setup: FlockSetup, w: number, h: number, reduced: boolean) {
-    const settle = (f: Flock | Flock3D) => {
+    const settle = (f: Flock) => {
       if (reduced) for (let s = 0; s < SETTLE_STEPS; s++) f.step();
     };
-    if (this.space !== "flat") {
-      if (!this.flock3 || this.flockGen !== this.gen) {
-        const fresh = new Flock3D(setup.birds, setup.params);
-        this.fitBox(fresh, w, h);
-        if (this.flock3) fresh.inherit(this.flock3);
-        else if (this.flock) {
-          // Lift the flat picture into the box, seen face-on, then tilt back.
-          const f = this.flock;
-          fresh.fromFlat(f.x, f.y, f.w, f.h, f.vx, f.vy);
-          if (this.space === "3d") {
-            this.camera.yaw = 0;
-            this.camera.pitch = 0;
-            this.pitchTo = 0.32;
-            this.touched = 0;
-          }
-        }
-        this.flock3 = fresh;
-        this.flock = null;
-        this.flockGen = this.gen;
-        settle(fresh);
-      } else {
-        if (this.shownSetup !== setup) {
-          this.flock3.regroup(
-            setup.birds.map((b) => b.group),
-            setup.params,
-          );
-          settle(this.flock3);
-        }
-        // Cube ↔ tank: every bird keeps its place as a share of the box.
-        this.fitBox(this.flock3, w, h);
-      }
-    } else {
-      if (!this.flock || this.flockGen !== this.gen) {
-        const fresh = new Flock(setup.birds, setup.params, w, h);
-        if (this.flock) fresh.inherit(this.flock);
-        else if (this.flock3 && this.sx.length) {
-          // Start each bird where it appeared in 3D.
-          const f3 = this.flock3;
-          for (let i = 0; i < fresh.n && i < f3.n; i++) {
-            fresh.x[i] = Math.max(0, Math.min(w, this.sx[i]));
-            fresh.y[i] = Math.max(0, Math.min(h, this.sy[i]));
-            fresh.vx[i] = this.hx[i] * 1.4;
-            fresh.vy[i] = this.hy[i] * 1.4;
-          }
-        }
-        this.flock = fresh;
-        this.flock3 = null;
-        this.flockGen = this.gen;
-        settle(fresh);
-      } else if (this.shownSetup !== setup) {
-        this.flock.regroup(
-          setup.birds.map((b) => b.group),
-          setup.params,
-        );
-        settle(this.flock);
-      }
-      this.flock.resize(w, h);
+    if (!this.flock || this.flockGen !== this.gen) {
+      const fresh = new Flock(setup.birds, setup.params, w, h);
+      if (this.flock) fresh.inherit(this.flock);
+      this.flock = fresh;
+      this.flockGen = this.gen;
+      settle(fresh);
+    } else if (this.shownSetup !== setup) {
+      this.flock.regroup(
+        setup.birds.map((b) => b.group),
+        setup.params,
+      );
+      settle(this.flock);
     }
+    this.flock.resize(w, h);
     this.shownSetup = setup;
   }
 
@@ -334,28 +267,9 @@ export class FlockEngine {
     this.lastNow = now;
 
     this.ensure(setup, w, h, reduced);
-    const sim = this.sim();
+    const sim = this.flock;
     if (!sim) return;
     sim.wrap = this.wrap;
-    const cam = this.camera;
-    cam.w = w;
-    cam.h = h;
-    const tankCam = this.tank;
-    const inTank = this.space === "tank" && sim instanceof Flock3D;
-    if (inTank) {
-      tankCam.w = w;
-      tankCam.h = h;
-      tankCam.sx = sim.sx;
-      tankCam.sy = sim.sy;
-      tankCam.sz = sim.sz;
-      // A slow sway of the eye, so the back of the tank slides against the front.
-      if (!reduced) {
-        tankCam.offX = Math.sin(now / 5200) * sim.sx * 0.07;
-        tankCam.offY = Math.sin(now / 7300 + 1) * sim.sy * 0.03;
-      }
-    }
-    // One projection for either 3D camera.
-    const proj = (x: number, y: number, z: number) => (inTank ? tankCam.project(x, y, z) : cam.project(x, y, z));
 
     // The year: move the clock, set who is alive, and let each flock's pace
     // follow how many of its birds are alive now.
@@ -382,34 +296,16 @@ export class FlockEngine {
       sim.params = setup.params;
     }
 
-    // The camera: ease into its tilt after a switch, then orbit on its own
-    // unless someone turned it in the last few seconds.
-    if (this.space === "3d" && !reduced) {
-      if (this.pitchTo !== null) {
-        cam.pitch += (this.pitchTo - cam.pitch) * 0.03;
-        if (Math.abs(this.pitchTo - cam.pitch) < 0.002) this.pitchTo = null;
-      }
-      if (now - this.touched > IDLE_ORBIT_MS) cam.yaw += 0.00012 * dt;
-    }
-
     const hk = this.hawk && this.hawk.until > now ? this.hawk : null;
-    if (!reduced || yearOn) {
-      if (sim instanceof Flock3D) {
-        // The pointer is a hawk at mid-depth.
-        const hawk = hk && !reduced ? (inTank ? tankCam.unproject(hk.x, hk.y, sim.sz / 2) : cam.unproject(hk.x, hk.y)) : null;
-        sim.step(hawk);
-      }
-      else sim.step(hk && !reduced ? hk : null);
-    }
+    if (!reduced || yearOn) sim.step(hk && !reduced ? hk : null);
 
-    // Reduce either space to screen arrays.
+    // Screen arrays.
     const n = sim.n;
     if (this.sx.length !== n) {
       this.sx = new Float32Array(n);
       this.sy = new Float32Array(n);
       this.hx = new Float32Array(n);
       this.hy = new Float32Array(n);
-      this.sc = new Float32Array(n);
       this.fade = new Float32Array(n);
     }
     const G = setup.names.length;
@@ -417,44 +313,17 @@ export class FlockEngine {
       this.gsx = new Float32Array(G);
       this.gsy = new Float32Array(G);
     }
-    if (sim instanceof Flock3D) {
-      // Depth fog: the nearest birds full strength, the farthest at a third.
-      const near = inTank ? tankCam.sz * tankCam.eye : cam.dist - SIDE * 0.87;
-      const far = inTank ? tankCam.sz * (tankCam.eye + 1) : cam.dist + SIDE * 0.87;
-      const ref = inTank ? proj(sim.sx / 2, sim.sy / 2, sim.sz * 0.35).scale : proj(SIDE / 2, SIDE / 2, SIDE / 2).scale;
-      for (let i = 0; i < n; i++) {
-        const p = proj(sim.x[i], sim.y[i], sim.z[i]);
-        const q = proj(sim.x[i] + sim.vx[i] * 6, sim.y[i] + sim.vy[i] * 6, sim.z[i] + sim.vz[i] * 6);
-        const dx = q.sx - p.sx;
-        const dy = q.sy - p.sy;
-        const len = Math.hypot(dx, dy) || 1;
-        this.sx[i] = p.sx;
-        this.sy[i] = p.sy;
-        this.hx[i] = dx / len;
-        this.hy[i] = dy / len;
-        this.sc[i] = Math.max(0.35, Math.min(2.2, p.scale / ref));
-        const fog = 1 - ((p.depth - near) / (far - near)) * 0.67;
-        this.fade[i] = Math.max(0.2, Math.min(1, fog)) * sim.faceFade(i);
-      }
-      for (let g = 0; g < G; g++) {
-        const p = proj(sim.cx[g], sim.cy[g], sim.cz[g]);
-        this.gsx[g] = p.sx;
-        this.gsy[g] = p.sy;
-      }
-    } else {
-      for (let i = 0; i < n; i++) {
-        const sp = Math.hypot(sim.vx[i], sim.vy[i]) || 1;
-        this.sx[i] = sim.x[i];
-        this.sy[i] = sim.y[i];
-        this.hx[i] = sim.vx[i] / sp;
-        this.hy[i] = sim.vy[i] / sp;
-        this.sc[i] = 1;
-        this.fade[i] = 1;
-      }
-      for (let g = 0; g < G; g++) {
-        this.gsx[g] = sim.cx[g];
-        this.gsy[g] = sim.cy[g];
-      }
+    for (let i = 0; i < n; i++) {
+      const sp = Math.hypot(sim.vx[i], sim.vy[i]) || 1;
+      this.sx[i] = sim.x[i];
+      this.sy[i] = sim.y[i];
+      this.hx[i] = sim.vx[i] / sp;
+      this.hy[i] = sim.vy[i] / sp;
+      this.fade[i] = 1;
+    }
+    for (let g = 0; g < G; g++) {
+      this.gsx[g] = sim.cx[g];
+      this.gsy[g] = sim.cy[g];
     }
 
     // Wingbeats and banking. A bird flaps faster the faster it flies, glides
@@ -467,8 +336,7 @@ export class FlockEngine {
       this.bank = new Float32Array(n);
     }
     {
-      const base = sim instanceof Flock3D ? 2.6 : 1.6;
-      const vz = sim instanceof Flock3D ? sim.vz : null;
+      const base = 1.6;
       for (let i = 0; i < n; i++) {
         const turn = this.px[i] * this.hy[i] - this.py[i] * this.hx[i];
         this.px[i] = this.hx[i];
@@ -476,35 +344,10 @@ export class FlockEngine {
         const want = Math.max(-0.9, Math.min(0.9, turn * 12));
         this.bank[i] += (want - this.bank[i]) * 0.12;
         if (!reduced) {
-          const sp = Math.hypot(sim.vx[i], sim.vy[i], vz ? vz[i] : 0) / base;
+          const sp = Math.hypot(sim.vx[i], sim.vy[i]) / base;
           this.flap[i] = (this.flap[i] + dt * (0.006 + 0.018 * sp)) % (Math.PI * 2);
         }
       }
-    }
-
-    // The cube's twelve edges, faint (dashed when the faces wrap). The tank
-    // draws no box (owner, 2026-11-17): depth reads from size and fog alone.
-    if (sim instanceof Flock3D && !inTank) {
-      ctx.strokeStyle = ink;
-      ctx.globalAlpha = 0.12;
-      ctx.lineWidth = 1;
-      ctx.setLineDash(this.wrap ? [4, 6] : []);
-      ctx.beginPath();
-      {
-        const c = [0, SIDE];
-        const corners = c.flatMap((x) => c.flatMap((y) => c.map((z) => proj(x, y, z))));
-        const edges = [
-          [0, 1], [2, 3], [4, 5], [6, 7],
-          [0, 2], [1, 3], [4, 6], [5, 7],
-          [0, 4], [1, 5], [2, 6], [3, 7],
-        ];
-        for (const [a, b] of edges) {
-          ctx.moveTo(corners[a].sx, corners[a].sy);
-          ctx.lineTo(corners[b].sx, corners[b].sy);
-        }
-      }
-      ctx.stroke();
-      ctx.setLineDash([]);
     }
 
     const colorOf = (g: number) => (setup.names[g] === OTHER ? quiet : colors[g % colors.length]);
@@ -532,26 +375,21 @@ export class FlockEngine {
     for (let i = 0; i < n; i++) if (this.cellOf[i] >= 0) this.order[at[this.cellOf[i]]++] = i;
     const order = this.order;
 
-    // One font for every bird, sized by the transform: setting a font string
-    // per bird was the slow part. The matrix is set by hand, not save/restore.
+    // Each bird stamps its colour's sprite through its own matrix.
     const base = ctx.getTransform();
     const d = base.a;
-    ctx.font = `${GLYPH_PX}px "Noto Sans Egyptian Hieroglyphs", "Segoe UI Historic", serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
+    const half = SPRITE_PX / 2;
     for (let g = 0; g < G; g++) {
-      const col = colorOf(g);
-      const shades = shadesOf(col);
+      const shades = shadesOf(colorOf(g));
       for (let b = 0; b < BUCKETS; b++) {
         ctx.globalAlpha = 0.9 * alphaOf(g) * ((b + 1) / BUCKETS);
         for (let sh = 0; sh < SHADES; sh++) {
           const c = (g * BUCKETS + b) * SHADES + sh;
           if (start[c] === start[c + 1]) continue;
-          ctx.fillStyle = shades[sh];
+          const sprite = spriteOf(shades[sh], d);
           for (let o = start[c]; o < start[c + 1]; o++) {
             const i = order[o];
-            const k = this.sc[i] * sim.scale[i];
-            const px = Math.max(7, (3 + sim.size[i] * 4) * k * 3.45);
+            const px = Math.max(7, (3 + sim.size[i] * 4) * sim.scale[i] * 3.45);
             // Turn toward the heading; a bird heading left mirrors, so it never flies upside down.
             const ux = this.hx[i];
             const uy = this.hy[i];
@@ -561,13 +399,13 @@ export class FlockEngine {
             const th = Math.atan2(uy, ux * flip) * flip + bk * 0.35;
             const beat = reduced ? 1 : 0.7 + 0.3 * Math.sin(this.flap[i]) * (1 - Math.abs(bk));
             // The glyph faces left at rest, so mirror it to face the heading.
-            const m = px / GLYPH_PX;
+            const m = px / (SPRITE_PX * 0.8);
             const sx = -flip * m;
             const sy = beat * Math.cos(bk * 0.8) * m;
             const cs = Math.cos(th);
             const sn = Math.sin(th);
             ctx.setTransform(d * cs * sx, d * sn * sx, -d * sn * sy, d * cs * sy, d * this.sx[i], d * this.sy[i]);
-            ctx.fillText("\u{131E2}", 0, 0);
+            ctx.drawImage(sprite, -half, -half, SPRITE_PX, SPRITE_PX);
           }
         }
       }
