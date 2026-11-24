@@ -39,7 +39,15 @@ import { orgDay } from "@/lib/orgTime";
 import { fmtDate } from "@/lib/leadBoard";
 import { money, money0 } from "@/lib/money";
 import type { UnpaidBills } from "@/lib/unpaidBills";
-import { threadUrl, type InboxSource, type InboxThread } from "@/lib/officeInbox";
+import {
+  GMAIL_APP_URL,
+  isAppleTouch,
+  senderName,
+  threadUrl,
+  type InboxSource,
+  type InboxThread,
+  type ThreadRead,
+} from "@/lib/officeInbox";
 
 /**
  * Home for ADMIN and OFFICE (OVERHAUL_PLAN Phase 4, 2026-11-13). Field and lead
@@ -751,6 +759,7 @@ function InboxWidget() {
   const [error, setError] = useState("");
   const [show, setShow] = useState<"all" | InboxSource>("all");
   const [reload, setReload] = useState(0);
+  const [openId, setOpenId] = useState("");
   useEffect(() => {
     fetch("/api/home/inbox", { cache: "no-store" })
       .then(async (r) => {
@@ -816,11 +825,10 @@ function InboxWidget() {
             <ul className="mt-2 max-h-[360px] divide-y divide-line-soft overflow-y-auto">
               {rows.map((t) => (
                 <li key={t.threadId}>
-                  <a
-                    href={threadUrl(t.threadId)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex min-h-11 w-full items-start gap-3 rounded-inner px-1 py-1.5 text-[13px] hover:bg-line-soft"
+                  <button
+                    type="button"
+                    onClick={() => setOpenId(t.threadId)}
+                    className="flex min-h-11 w-full items-start gap-3 rounded-inner px-1 py-1.5 text-left text-[13px] hover:bg-line-soft"
                   >
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline gap-2">
@@ -837,14 +845,87 @@ function InboxWidget() {
                       {t.source === "keillor" && <Chip>Keillor</Chip>}
                       {t.attachments > 0 && <span aria-label="Has attachments">📎</span>}
                     </span>
-                  </a>
+                  </button>
                 </li>
               ))}
             </ul>
           )}
         </>
       )}
+      {openId && <MailThread threadId={openId} onClose={() => setOpenId("")} />}
     </WidgetCard>
+  );
+}
+
+/**
+ * One email thread, read in the app (`/api/home/inbox/thread`), newest message
+ * last. Under it: Gmail on the web (opens this thread) and, on an iPhone or
+ * iPad, the Gmail app (opens the app; Gmail has no app link to one thread).
+ */
+function MailThread({ threadId, onClose }: { threadId: string; onClose: () => void }) {
+  const [data, setData] = useState<ThreadRead | null>(null);
+  const [error, setError] = useState("");
+  const [apple, setApple] = useState(false);
+  useEffect(() => {
+    setApple(isAppleTouch(navigator.userAgent, navigator.maxTouchPoints ?? 0));
+    fetch(`/api/home/inbox/thread?id=${encodeURIComponent(threadId)}`, { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "Could not read the email.");
+        setData(j);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not read the email."));
+  }, [threadId]);
+
+  return (
+    <Dialog
+      size="lg"
+      label="Email"
+      title={data?.subject ?? "Email"}
+      onClose={onClose}
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          {apple && (
+            <a href={GMAIL_APP_URL} className={btn("secondary")}>
+              Gmail app
+            </a>
+          )}
+          <a href={threadUrl(threadId)} target="_blank" rel="noreferrer" className={btn("primary")}>
+            Open in Gmail
+          </a>
+        </div>
+      }
+    >
+      {error ? (
+        <p className="text-[13px] text-neutral-500">{error}</p>
+      ) : !data ? (
+        <Skeleton className="h-40 w-full rounded-control" />
+      ) : (
+        <div className="divide-y divide-line-soft">
+          {data.olderLeftOut > 0 && (
+            <p className="pb-2 text-[12px] text-neutral-500">
+              {data.olderLeftOut} older {data.olderLeftOut === 1 ? "message" : "messages"} not shown.
+            </p>
+          )}
+          {data.messages.map((m, i) => (
+            <div key={i} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex items-baseline justify-between gap-3 text-[13px]">
+                <span className="truncate font-semibold">{senderName(m.from)}</span>
+                <span className="shrink-0 text-[12px] tabular-nums text-neutral-500">
+                  {mailTime(m.date)}
+                </span>
+              </div>
+              <p className="mt-1.5 whitespace-pre-wrap break-words text-[13px] leading-relaxed">
+                {m.text || "(no text)"}
+              </p>
+              {m.attachments.length > 0 && (
+                <MetaLine className="mt-1.5" items={m.attachments.map((a) => `📎 ${a.name}`)} />
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </Dialog>
   );
 }
 

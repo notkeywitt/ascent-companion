@@ -78,3 +78,29 @@ export function mergeInbox(found: Record<InboxSource, RawThread[]>): InboxThread
 /** The thread in the office account's Gmail. */
 export const threadUrl = (threadId: string) =>
   `https://mail.google.com/mail/u/?authuser=office%40ascentbuildingco.com#all/${threadId}`;
+
+/** The Gmail app on an iPhone or iPad. It opens the app, not one thread:
+ *  Gmail has no app link to a thread. */
+export const GMAIL_APP_URL = "googlegmail://";
+
+/** An iPhone or iPad, the only phones the Gmail app link works on. iPadOS
+ *  reports itself as a Mac, so a Mac with a touch screen counts. */
+export function isAppleTouch(ua: string, touchPoints: number): boolean {
+  return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && touchPoints > 1);
+}
+
+/** One message as appscript `chatReadThread` returns it. */
+export interface ThreadMessage {
+  from: string;
+  to: string;
+  date: string;
+  attachments: { name: string }[];
+  text: string;
+}
+
+export interface ThreadRead {
+  subject: string;
+  messageCount: number;
+  olderLeftOut: number;
+  messages: ThreadMessage[];
+}
