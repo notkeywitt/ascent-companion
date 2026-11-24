@@ -12,6 +12,7 @@ import {
   MetaLine,
   Segmented,
   Skeleton,
+  Select,
   Toggle,
   btn,
   Button,
@@ -43,7 +44,10 @@ import {
   GMAIL_APP_URL,
   isAppleTouch,
   senderName,
+  TAG_KINDS,
+  tagNeedsJob,
   threadUrl,
+  type TagKind,
   type InboxSource,
   type InboxThread,
   type ThreadRead,
@@ -923,9 +927,104 @@ function MailThread({ threadId, onClose }: { threadId: string; onClose: () => vo
               )}
             </div>
           ))}
+          <TagThread threadId={threadId} />
         </div>
       )}
     </Dialog>
+  );
+}
+
+/**
+ * Tag the thread for a job (`/api/home/inbox/tag` → appscript `tagEmailThread`).
+ * The Apps Script scans act on the tag; a to-do or invoice tag writes to
+ * JobTread on the next scan, so the button names what will happen.
+ */
+function TagThread({ threadId }: { threadId: string }) {
+  const [kind, setKind] = useState<TagKind | "">("");
+  const [jobs, setJobs] = useState<{ jobId: string; label: string }[] | null>(null);
+  const [jobId, setJobId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState("");
+  const needsJob = kind !== "" && tagNeedsJob(kind);
+
+  useEffect(() => {
+    if (!needsJob || jobs) return;
+    fetch("/api/home/inbox/tag", { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || "Could not read the job list.");
+        setJobs(j.jobs ?? []);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Could not read the job list."));
+  }, [needsJob, jobs]);
+
+  const apply = async () => {
+    if (!kind || (needsJob && !jobId)) return;
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/home/inbox/tag", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ threadId, kind, jobId: needsJob ? jobId : undefined }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Could not tag the email.");
+      setDone(j.message || "Tagged.");
+      toast("Tagged");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not tag the email.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const note = TAG_KINDS.find((t) => t.kind === kind)?.note;
+
+  return (
+    <div className="space-y-2 pt-3">
+      <p className="text-[12px] font-semibold text-neutral-500">Tag for a job</p>
+      {done ? (
+        <p className="text-[13px] text-ok">{done}</p>
+      ) : (
+        <>
+          <Select
+            aria-label="Tag"
+            value={kind}
+            onChange={(e) => {
+              setKind(e.target.value as TagKind | "");
+              setError("");
+            }}
+          >
+            <option value="">Pick a tag…</option>
+            {TAG_KINDS.map((t) => (
+              <option key={t.kind} value={t.kind}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+          {needsJob &&
+            (jobs ? (
+              <Select aria-label="Job" value={jobId} onChange={(e) => setJobId(e.target.value)}>
+                <option value="">Pick a job…</option>
+                {jobs.map((j) => (
+                  <option key={j.jobId} value={j.jobId}>
+                    {j.label}
+                  </option>
+                ))}
+              </Select>
+            ) : (
+              !error && <Skeleton className="h-11 w-full rounded-control" />
+            ))}
+          {note && <p className="text-[12px] text-neutral-500">{note}</p>}
+          {error && <p className="text-[12px] text-danger">{error}</p>}
+          <Button disabled={!kind || (needsJob && !jobId) || busy} onClick={apply}>
+            {busy ? "Tagging…" : "Apply tag"}
+          </Button>
+        </>
+      )}
+    </div>
   );
 }
 

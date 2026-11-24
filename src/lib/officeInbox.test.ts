@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { INBOX_QUERIES, isAppleTouch, mergeInbox, senderName } from "./officeInbox";
+import {
+  INBOX_QUERIES,
+  isAppleTouch,
+  isTagKind,
+  mergeInbox,
+  senderName,
+  tagNeedsJob,
+} from "./officeInbox";
 
 describe("senderName", () => {
   it("takes the display name", () => {
@@ -36,6 +43,17 @@ describe("mergeInbox", () => {
     expect(rows[0]).toMatchObject({ subject: "(no subject)", sender: "b@x", attachments: 1, source: "office" });
     expect(rows[1]).toMatchObject({ source: "keillor", messages: 3 });
     expect(rows[2].source).toBe("keillor");
+  });
+});
+
+describe("tag kinds", () => {
+  it("know which kinds name a job", () => {
+    expect(isTagKind("invoice")).toBe(true);
+    expect(isTagKind("delete")).toBe(false);
+    expect(tagNeedsJob("todo")).toBe(true);
+    expect(tagNeedsJob("processed")).toBe(true);
+    expect(tagNeedsJob("ai-todo")).toBe(false);
+    expect(tagNeedsJob("not-invoice")).toBe(false);
   });
 });
 
