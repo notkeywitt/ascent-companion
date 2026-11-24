@@ -1,5 +1,11 @@
 [
  {
+  "sha": "e960dbb9",
+  "date": "2026-11-24T05:30:57Z",
+  "title": "add the code ratchet, a test that only lets debt counts fall",
+  "plain": "Nothing changes on screen: a new check stops the app's code from picking up habits the team is retiring."
+ },
+ {
   "sha": "25c3fc2d",
   "date": "2026-11-24T04:56:27Z",
   "title": "close nine finished plans, move their rules into the owning docs",
