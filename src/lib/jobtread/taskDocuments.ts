@@ -9,8 +9,7 @@ import { pageAll, pave, type PaveConfig } from "./core";
 //
 // A bill, an estimate, a vendor order or a bid request can carry one schedule
 // task (`taskId` on createDocument / updateDocument; `task.documents` reads it
-// back). The Schedule page shows the link and sets it (docs/plans/SCHEDULE_PLAN.md,
-// stage 4). Nothing else in the app reads or writes `document.task`.
+// back). The Schedule page shows the link and sets it. Nothing else in the app reads or writes `document.task`.
 //
 // Reads page the org's documents with a task, with NO nested connection
 // (PAVE_GOTCHAS: two-phase rule). A voided bill (`denied`) is left out: it

@@ -401,8 +401,13 @@ once and eyeball the range → commit.
   **Under way, 2026-09-29:** now `src/app/trackingsheet/Board.tsx` (the `recode/` path
   in finding 2 is gone). 5,059 → about 2,850 lines, 20 modules moved out one per push, with
   tests for the budget math and Save (`headroom.test.ts`, `saveCoding.test.ts`).
-  What is left in `Board()` is listed in `docs/plans/SIMPLICITY_AUDIT.md` finding 01. The pre-push
-  hook now runs `npm test` too, so the tests block a production push, not only CI.
+  **2026-11-24: 3,224 lines** (it grew back from 2,851). Left in `Board()`: the
+  bill-coding state (staged, edits, tax, the open bill's math), the coding card's
+  wiring, `renderBillCard`, the labor lane (it reads about 30 of the board's values),
+  the header and the commit bar. Tax is not a block of its own: its one state is read
+  by the draft, the load, the open bill's math and Save. Move one block per push.
+  Never split and add a Board feature in the same week. The pre-push hook runs
+  `npm test`, so the tests block a production push, not only CI.
 - **Stage 7** — move companion-only data off Sheets (finding 1). Per dataset, smallest
   first (Requisitions → Tools → Mileage → Employees → Safety → EmployeeTime), five
   reversible phases: table behind a flag → backfill → dual-write a week → **flip reads
@@ -410,6 +415,77 @@ once and eyeball the range → commit.
   needs the DB→Sheet mirror** (finding 1). Drive/Docs dependencies — safety roster PDF,
   mileage report PDF, tool and time photos — stay on Apps Script as narrow calls.
   **Tools and Mileage: phases 1–3 built 2026-11-10, both flags off** (table, backfill,
-  dual-write, sheet-against-table check). Reads are not flipped. The mirror needs no
-  Apps Script change: after the flip the existing write actions keep the tab current.
-  Steps and the read-flip plan: `docs/plans/STAGE7_TOOLS_MILEAGE.md`.
+  dual-write, sheet-against-table check; how to run them: the `sheetTables.ts` row in
+  `docs/CODEBASE_DIRS.md`).
+  - [ ] **Owner:** set `COMPANION_TOOLS_DB_WRITES=true` in Vercel, open the Tools
+        backfill URL once, then open the check URL a few times over a week. It must
+        read clean.
+  - [ ] **Tools read flip** (about 1 day, for review). `GET /api/tools`,
+        `GET /api/tool-tracker`, `getSheetTools` (`toolScheduleStore.ts`) and the chat
+        tool `find_tools` read `tools` behind a second flag, `COMPANION_TOOLS_DB_READS`.
+        `photoUrl` comes from `photoLink`. The job-site list and the Condition / Tool
+        group options are not tool data: they stay on the sheet, read through an
+        hour-long cache. Writes go DB first, reply, then the same Apps Script action
+        after the reply — that call IS the DB→Sheet mirror, with no Apps Script change.
+        Photos stay on Apps Script (`updateToolPhoto` first; its answer gives
+        `photoLink`). A missed sheet write is fixed by hand; a real repair needs a new
+        Apps Script action (owner's ok, a deploy).
+  - [ ] **Mileage reads.** Apps Script makes the TripID, so writes stay sheet first,
+        DB copy second, even after the flip. Only `GET /api/mileage` and the chat tool
+        `get_mileage` move to the DB. First the copy must be awaited, with a warning on
+        failure. Scoping (`lib/mileageScope.ts`) moves from Apps Script's email list to
+        the companion role, on `driver` and `logged_by` — owner's ok. The monthly PDF
+        stays on Apps Script and keeps reading the sheet.
+  - [ ] **Employee Time** — last and separate. Time entries are a JobTread write
+        (stop and ask). Only the sheet-side staging (photos, the roster read behind
+        `/api/employees`, 3.7 s at p50) is a candidate.
+
+### Stage 8 — open cleanup · ⬜ (from the Simplicity Audit, closed 2026-11-24)
+
+The audit's done items (paging, the test gate, dead code, the gateway route, the
+`jobtread.ts` split, shared `money.ts`) are in the code. These are open. Each is
+one session unless marked.
+
+- [ ] **One schema.** All tables are written twice: Drizzle in `src/db/schema.ts` and
+      raw SQL in `applySchema` (`src/db/index.ts`). Nothing checks that they agree. Add
+      `drizzle-kit` (a tool that writes SQL from the schema), generate the first
+      migration, compare it with `applySchema`, fix every difference, then replace
+      `applySchema`. Owner's ok and Opus: the preview uses the production database.
+- [ ] **Remove the gateway's leftovers.** `paveGateway.ts`'s per-role allowlist (it still
+      lists `deletePayment` and `deleteDocumentPayment`) and `gatewayWritesEnabled()`
+      (`config.ts`) gate nothing. `findMutations` stays: `pave()` uses it. Stop and ask.
+- [ ] **One bill-field route.** `bill-duedate`, `bill-issuedate`, `bill-number`,
+      `bill-status`, `bill-tax`, `bill-fields` repeat one shape (gate → parse → validate
+      → preview → lock → journal → error). One helper, one route, one commit with its
+      callers. JobTread write paths: stop and ask. Then one helper for the 502 answer.
+- [ ] **One load hook** for the browser (data, loading, error). New pages use it; an old
+      page moves when next edited. No data-fetching library.
+- [ ] **Formatting.** `src/lib/money.ts` exists; about 17 local `money` copies remain.
+      Add the short-date and month-name formatters there. Six old copies round on
+      purpose: read each before you replace it. `isDivisionLevelCode` lives in three
+      files (`jobtread/jobCostDetail.ts`, `trackingsheet/boardMath.ts`,
+      `trackingsheet/DraftWorkbench.tsx`): keep one.
+- [ ] **Names.** `/api/tracking-sheet` and `/api/trackingsheet` are different features
+      one hyphen apart. `billing.ts`, `billingMonth.ts`, `billingMonths.ts` are three
+      files. `/requests` (feedback) and `/requisitions` (purchases). Owner picks the new
+      names; every old path redirects. Write down one style for API route names.
+- [ ] **One Claude client.** Four files build their own (`anthropic.ts`,
+      `claudeExtract.ts`, `digest/claude.ts`, `invoiceReview/learn.ts`). One builder with
+      the key check; each caller passes its model. Then read every env value through
+      `config.ts` (stop and ask: `config.ts`).
+- [ ] **Type the Pave answers** in `src/lib/jobtread/` (about 170 `any`). One function
+      each time someone edits it. No fixed end.
+- [ ] **Design system.** Convert raw `<button>`/`<input>`, hand-tinted warning boxes
+      (to `Notice`), and `dark:border-neutral-600` (to `border-line-strong`; delete the
+      two override rules in `globals.css` last). Page by page, field pages first.
+- [ ] **Comments.** Delete a comment that says what the code used to be; git holds it.
+      Keep a dated note of a live API probe. Only in files already being edited.
+- [ ] **`USER_MANUAL.md`** still names retired pages and workspaces (Month Close,
+      Clients, People, RFIs, Actions). Rewrite it against `src/lib/workspaces.ts`.
+- [ ] **Security M-1.** Refuse an API route no view lists (`src/middleware.ts`). Stop
+      and ask.
+
+Do not, for any of these: add a data-fetching, component or state library (16
+runtime dependencies is an asset); weaken the repeated write guard to remove
+duplication (it is the cost of the gate working); delete a comment that records a
+live API probe.

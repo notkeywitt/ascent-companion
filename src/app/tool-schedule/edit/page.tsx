@@ -4,7 +4,7 @@ import { ToolCatalogEditor, type EditorTab } from "./ToolCatalogEditor";
 
 /**
  * Edit Tool Schedule — the tool tracker's tools and the tasks each is assigned to, the task → tool rules, bookings and
- * left-out jobs (docs/plans/TOOL_SCHEDULE_PLAN.md). Gated by the
+ * left-out jobs (docs/CODEBASE_DIRS.md). Gated by the
  * "tool-schedule-edit" view (office + admin). `?tab=tasks` opens Tasks, `?tab=bookings` Bookings.
  */
 const TABS: EditorTab[] = ["tools", "tasks", "bookings", "jobs"];

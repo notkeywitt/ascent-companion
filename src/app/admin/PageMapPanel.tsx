@@ -39,7 +39,7 @@ const MAP = raw as {
   embeds: { from: string; to: string }[];
 };
 
-/** The Phase 7 folds named in docs/plans/OVERHAUL_PLAN.md. Update with the plan. */
+/** The page folds proposed on the roadmap (`page-folds` in src/lib/roadmap.ts). */
 const PHASE7: { id: string; label: string; routes: string[] }[] = [
   { id: "bills", label: "Bills hub", routes: ["/bills", "/email", "/payments", "/lswdd", "/amazon-import", "/add-bill"] },
   { id: "find", label: "Find", routes: ["/vendors", "/bill-search", "/expenditure-history", "/vendor-mail/index"] },
@@ -218,8 +218,8 @@ export function PageMapPanel() {
             {ROLE_NAME[r]} sees
           </FilterChip>
         ))}
-        <FilterChip on={lens === "p7"} onClick={() => setLens(lens === "p7" ? "" : "p7")} title="Pages named in OVERHAUL_PLAN Phase 7">
-          Phase 7 folds
+        <FilterChip on={lens === "p7"} onClick={() => setLens(lens === "p7" ? "" : "p7")} title="Pages the roadmap proposes to fold into hubs">
+          Proposed folds
         </FilterChip>
         <FilterChip on={lens === "noway"} onClick={() => setLens(lens === "noway" ? "" : "noway")} title="No menu row, no bar slot, no link from another page">
           No way in ({flagged})

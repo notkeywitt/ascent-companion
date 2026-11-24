@@ -11,8 +11,8 @@ import { countNewRequisitions } from "@/lib/requisitionsSeen";
  *
  * THE SOURCE is `loadAttention` below: one request to /api/attention, which
  * counts every queue on the server and gates each by its own view
- * (lib/homeAttention). Phase 5 of OVERHAUL_PLAN swaps that function for the
- * findings inbox; the rows keep their shape. Cached per tab for a few minutes,
+ * (lib/homeAttention). If the work queues move to the findings inbox, only
+ * that function changes; the rows keep their shape. Cached per tab for a few minutes,
  * because Today is opened many times a day and some counts are slow.
  *
  * Two readers: the lead and field Home draws `TodayQueue` (a "Needs you"

@@ -16,7 +16,7 @@ import {
 } from "@/lib/toolSchedule";
 
 /**
- * The tool schedule's stored plan (docs/plans/TOOL_SCHEDULE_PLAN.md): the tool
+ * The tool schedule's stored plan (docs/CODEBASE_DIRS.md): the tool
  * types the office added by hand, the task → tool rules, bookings and left-out
  * jobs. The tools themselves, and their types, are the Tools list
  * (`getSheetTools`). All companion data — nothing here writes to JobTread. The

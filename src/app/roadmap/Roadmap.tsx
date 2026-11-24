@@ -79,7 +79,7 @@ export function Roadmap() {
     <>
       <PageHeader
         title="Roadmap"
-        description="What the old Drive folders and tracking sheets did that the app does not do yet. Set your priority on each; the list sorts by everyone's total."
+        description="What the app does not do yet: what the old Drive folders and tracking sheets did, and work left from earlier plans. Set your priority on each; the list sorts by everyone's total."
       />
       {error && <Notice tone="error" className="mb-4" onDismiss={() => setError("")}>{error}</Notice>}
 
@@ -150,10 +150,12 @@ export function Roadmap() {
                   {isOpen && (
                     <div className="space-y-3 px-3 pb-4 pl-12 text-sm">
                       <p>{f.what}</p>
-                      <p className="text-[13px] text-neutral-500">
-                        <span className="font-semibold">Old system: </span>
-                        {f.was}
-                      </p>
+                      {f.was && (
+                        <p className="text-[13px] text-neutral-500">
+                          <span className="font-semibold">Old system: </span>
+                          {f.was}
+                        </p>
+                      )}
                       <MetaLine items={[`Size ${f.size} — ${SIZE[f.size]}`, f.built && `Built ${f.built}`]} />
                       {!f.built && (
                         <Segmented

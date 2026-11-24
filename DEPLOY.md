@@ -49,7 +49,7 @@ Two options:
 | `GOOGLE_MAPS_API_KEY` | Maps key for **Mileage** (enable the **Routes API**; **Geocoding API** for addresses) |
 | `APPS_SCRIPT_SYNC_URL` | the Apps Script `/exec` URL (Sheets/Drive features: employees, tools, safety, mileage, email logging, payments) |
 | `APPS_SCRIPT_SYNC_SECRET` | must equal Script Property `SYNC_TRIGGER_SECRET` on the Apps Script side |
-| `CRON_SECRET` | any long random string — Vercel Cron sends it as `Authorization: Bearer …` to the **Daily Digest** run (`vercel.json` → 13:00 UTC = 6am Pacific). Without it the schedule fires and gets a 401, and the digest only builds when an admin taps **Refresh now**. (`DIGEST_CRON_SECRET` overrides it if you want a separate secret.) |
+| `CRON_SECRET` | any long random string — Vercel Cron sends it as `Authorization: Bearer …` to the **Daily Digest** run (`vercel.json` → 08:00 and 17:00 UTC). Without it the schedule fires and gets a 401, and the digest only builds when an admin taps **Refresh now**. (`DIGEST_CRON_SECRET` overrides it if you want a separate secret.) |
 
 Set them for the Production environment, then deploy (Vercel builds automatically).
 The last few are only needed by the features that use them — the app runs without
@@ -91,6 +91,33 @@ The digest's Gmail, Calendar and Sheet reads run in the **Apps Script** repo
 > 2026-08-31). The four billing checks are `enabled: false` in
 > `src/lib/digest/settings.ts`; nothing needs deploying to turn one back on beyond
 > flipping that flag and redeploying.
+
+### Cron jobs — keep to two
+
+`vercel.json` holds the scheduled calls. On the Vercel Hobby plan a project
+gets two Cron Jobs. A third entry once made Vercel drop the WHOLE `crons` list:
+the Daily Digest stopped firing the same night, with no error. If the project
+is on Hobby, fold a new scheduled task into an existing firing (the digest run
+already starts the scheduled invoice review), never add a third entry. Today
+`vercel.json` holds three (the digest twice, plus `/api/google-chat/sync`):
+confirm the plan tier, or the digest and the invoice review can stop silently.
+
+### Analytics
+
+Vercel Web Analytics and Speed Insights are mounted in `src/app/layout.tsx`.
+They record nothing until each is switched on in the Vercel project's dashboard.
+
+### Phone preview (`npm run preview`)
+
+- Vercel builds only `main` and `preview` (`ignoreCommand` in `vercel.json`).
+  `npm run preview` (`scripts/preview.sh`) puts the current commit on the
+  `preview` branch, at `https://ascent-companion-git-preview-keywitt.vercel.app`.
+- `COMPANION_WRITES_ENABLED=false` is set for the `preview` branch only. The
+  shared value covers Production and Preview, so the branch value is what turns
+  writes off there.
+- Google sign-in on the preview needs its callback URL registered (step 2 of
+  "Google sign-in" below): `…-git-preview-keywitt.vercel.app/api/auth/callback/google`.
+- The preview reads live JobTread and uses the PRODUCTION companion database.
 
 ## 4. Use it
 

@@ -36,6 +36,34 @@ queries:
   re-read by id). A **write** of an unfamiliar field should be probed against the
   live API first — trust the reference for shape, verify behavior for writes.
 
+## Behaviour seen live (the reference does not say it)
+
+**Payments and deposits** (probed 2026-10-05):
+
+- A payment has no job. A job reaches its payments only through
+  `organization.documentPayments` where `document.job.id` is the job.
+- A payment applied in JobTread's web app starts `isLinkedToQbo: false`.
+  JobTread linked only the first application of each deposit.
+- Payments taken in QuickBooks arrive with `source: "qbo"`. Their
+  `amountUnapplied` is usually money QuickBooks applied to an invoice JobTread
+  never held. **`amountUnapplied` is not a deposit balance.**
+- A deposit draw is a CD-coded line on a DRAFT invoice. Never add it with
+  `createLine`: that sets `taxRate` to 0. Recognise a deposit by cost code CD,
+  never by its name. CD posts to QuickBooks item 38.
+
+**Tasks and schedules** (probed 2026-11-10 and 2026-11-19):
+
+- Pave has no equipment, resource or inventory object.
+- A `task` has no `costCode`, no `costItem` and no `customFieldValues`.
+  `createTasksFromBudget` keeps no link back to the budget.
+- `taskType` exists (36 types), but almost no live task has one set.
+- Gantt order is `task.position` within `parentTask.position`.
+- A document links to a task with `updateDocument { taskId }`. JobTread takes
+  only a DRAFT document (bill, expense, estimate, bid request).
+- `scheduledDocuments.taskId` on `createDocument` is a different thing: it
+  bills an invoice when a task finishes. Do not mix the two.
+- `updateTask` with no flags notifies the assignees and shifts dependent tasks.
+
 ## Reading `JT_API_REFERENCE.md`
 
 It is over 1,100 lines. Never read it whole. Find the entity or mutation, then

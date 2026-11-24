@@ -65,8 +65,8 @@ Moved here from `CLAUDE.md` so they load only for UI work.
   `Notice` in place, not a toast). Never hand-roll an open state, an
   outside-click listener and an Escape handler again. `Notice` is a `Banner`
   with one action, Later and ✕; the caller owns where dismissal is stored.
-  **Why Base UI over the native Popover API (decided 2026-11-13, OVERHAUL_PLAN
-  3.1):** the native API gives top-layer stacking and light dismiss, but not
+  **Why Base UI over the native Popover API (owner,
+  2026-11-13):** the native API gives top-layer stacking and light dismiss, but not
   anchor placement on iOS Safari before 26, not arrow-key or typeahead
   navigation of menu items, and no drawer swipe or snap points. Base UI covers
   all four in one dependency, is unstyled (so the tokens above still apply),
@@ -87,6 +87,40 @@ Moved here from `CLAUDE.md` so they load only for UI work.
   per record. Ordinary state goes in a `MetaLine`; a `Chip` is spent only on the
   exception (flagged, over budget, unsaved). A dense editing row uses quiet fields,
   not a stroke around every input.
+- **One left edge, three widths.** Every page shell starts at `px-4 pad:px-7`,
+  so the header, notices and content share one edge. Fixed bottom docks follow
+  it. Widths: form `max-w-2xl`, read `max-w-4xl`, wide (`110rem` or none: Today,
+  Job Board, Job Cost, the Jobs page's board, Specifications). Login, Privacy
+  and LopezRocks stay centred.
+- **No second heading in a section.** A page embedded under a tab keeps its
+  title for screen readers only and drops its description. The tab names it.
+- **The first screen shows the list.** Tools and settings fold, or sit below it.
+- **A warning is a `Notice` or a `Banner`, never a hand-tinted box.** Do not
+  write `bg-amber-50` or `bg-red-50` boxes. About 27 pages still carry old ones;
+  convert a page's boxes when you edit that page.
+- **One save rule.** An edit that changes money (a line added or deleted, a
+  buyback, a void, coding) stages behind **Save Changes**. Anything else
+  (approve, billing month, due date, bill number) saves at once with a `toast`.
+  The board follows it (`trackingsheet/useLineOps.ts`). The bill page
+  `/bill/<id>` does not yet: it still writes delete, add, buyback and void at once.
+- **A job that runs on a timer shows its last run, not a Run button.** Use
+  `LastRun` (`src/components/LastRun.tsx`): "updated 3 min ago" plus a small
+  retry link.
+- **Name things in the office's words.**
+  1. Name a page for the work done there. Keep a name people already use
+     (Tracking Sheets, Invoicing Package, LSWDD) unless it collides.
+  2. One word for one thing: "job", never "project". "Sync" only for the
+     JobTread mirror. "Push to sheet" for tracking sheets. "Save" for every
+     JobTread write. "Void" for a void.
+  3. Never give a retired name to a different page. That is why Requisitions
+     kept its name and Requests became App Feedback.
+  4. A tab label must make sense alone: in search, the browser title, a link.
+  5. One label per page on every surface: bar, title, Help.
+  6. Title Case for page and tab names. Sentence case for descriptions.
+  7. No variable names on screen.
+
+  A rename is a copy-registry label change; the route stays. **Read production
+  `page_copy` first**: an old override there hides a rename on some screens.
 - **Two Tailwind utilities for the same property are resolved by STYLESHEET order,
   not attribute order.** `` `${quietInputCls} w-16` `` only works because the base
   carries no width — if a base class string and a caller's extra both set one, the

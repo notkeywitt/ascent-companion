@@ -25,7 +25,7 @@ import { AssignedTasks, call, MATCH_LABEL, useTaskRules, type Editing, type Phas
 import { RequisitionPrompt, TargetPicker, targetLabel, type PickGroup, type PickTool, type PickType } from "../ToolPickers";
 
 /**
- * The tool schedule's editor (docs/plans/TOOL_SCHEDULE_PLAN.md), for the office.
+ * The tool schedule's editor (docs/CODEBASE_DIRS.md), for the office.
  * Each tool's tasks, group and trailer are set on the Tools page, in its edit
  * dialog; each schedule task's tools on the Tool Schedule's Gantt. Here:
  *   Types & groups — "any tool of a type" and whole groups: which tasks

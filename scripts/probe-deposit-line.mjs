@@ -1,6 +1,6 @@
 // Probe: can the Assistant draw a deposit with a CD line on a customer invoice?
-// DEPOSITS_PLAN.md, Stage 4. Answers the plan's five questions against the
-// live API before any route writes a deposit line:
+// Written for the deposit draw (src/lib/jobtread/depositDraws.ts). Answers five
+// questions against the live API before any route writes a deposit line:
 //   1. createCostItem on a customer invoice — is jobCostItemId required (it is
 //      for a vendor bill)?
 //   2. A negative unitPrice with isTaxable false, on an invoice whose taxRate
@@ -13,7 +13,7 @@
 // Writes only on the internal Office job (007): one "ZZ probe" customer invoice
 // (VOIDED at the end — status denied, never deleted; see CLAUDE.md) and, if the
 // job has none, one $0 CD budget leaf plus one $0 work leaf. The owner must
-// approve a live run first (DEPOSITS_PLAN.md §6).
+// approve a live run first.
 //
 // Uses the app's key from .env.local, like probe-budget-write.mjs.
 // Dry by default — prints the plan and exits:

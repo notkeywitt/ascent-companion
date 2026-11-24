@@ -75,6 +75,7 @@ Get the owner's ok before you change any of these. Do not ship them on your own.
 - `src/auth.ts`, `src/middleware.ts` (who can do what)
 - `src/lib/config.ts`, `src/lib/paveGateway.ts` (the write gates)
 - Any JobTread write path, including a new one. New pages are read-first.
+- A new inline Fix on a warnings-inbox row (`src/components/findingFix.ts`).
 
 **`COMPANION_WRITES_ENABLED` is armed in production.** Coding saves, bill
 creation, invoicing, time entries and leave posting write to the live JobTread
@@ -154,3 +155,10 @@ ingestion. `CODEBASE_MAP.md` names the file.
 - A plan or audit goes in `docs/plans/`, with a status line under its title
   (`Status: draft | agreed | in progress | done — YYYY-MM-DD`). A test enforces it.
 - When a plan is done, move its still-true rules to the owning doc, then delete it.
+  Open work goes to the `ARCHITECTURE_REVIEW.md` checklist (code) or
+  `src/lib/roadmap.ts` (features, shown on `/roadmap`). Code comments that
+  cite a deleted plan (`OVERHAUL_PLAN`, `CONSOLIDATION_PLAN`, …) are history.
+  To read one: `git log --oneline -1 -- docs/plans/<NAME>.md` names the commit
+  that deleted it; `git show <commit>^:docs/plans/<NAME>.md` prints it.
+- Keep a code comment that records a live API probe, with its date. Delete one
+  that says what the code used to be; git holds that.

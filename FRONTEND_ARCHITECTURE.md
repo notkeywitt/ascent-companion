@@ -51,6 +51,30 @@ The `jobs` page is the worked example of a purpose-built read:
 routes are not on the `jobs` view's `paths`, because a lead's job panel also
 reads cost-detail.
 
+## Views, gates and links — rules that hold for every page
+
+- **Never rename or merge a view id.** Role Defaults, per-user grants, rail
+  pins and `home.dest.<view>` copy keys all hang off it.
+- **A new view id reaches a user only at their next sign-in.** The role sits in
+  the session token.
+- **A tab that needs its own gate is its own path,** listed in that view's
+  `paths` in `src/lib/views.ts`. Middleware ignores the query string.
+- **Gate each section, not only the tab,** when a page calls another view's API
+  (the `TrackingSheetSync.tsx` pattern).
+- **Folding pages into a hub.** Every old route redirects, non-permanent, in
+  `next.config.mjs`. Staff have bookmarks. Each section keeps its own view gate.
+  Two patterns exist: hub tabs with embedded pages (the Jobs page,
+  `src/app/jobs-hub/`) and `?section=` strips (Inbox, Payroll).
+- **Link to a job with `hubHref`** (`src/lib/hubUrl.ts`), never
+  `/trackingsheet?jobId=`.
+- **Today's rows read stored or cached results.** A live sweep (vendor mail
+  runs up to 120 s) never runs on Today's load.
+- **Keep the Chrome side panel's `/?jobId=` contract on Today.**
+- **Open security item (M-1):** an API route that no view lists in `paths`
+  is open to any signed-in role. A few are open on purpose
+  (`/api/jobs/cost-detail`, read by a lead's job panel). Refusing unlisted
+  routes in `src/middleware.ts` closes them together; it needs the owner's ok.
+
 ## View roadmap (each maps to a JT_API_REFERENCE.md domain)
 
 Build on `ui.tsx` + role gating, in priority order:

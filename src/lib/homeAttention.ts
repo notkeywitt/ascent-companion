@@ -15,7 +15,8 @@ import { resolveAllowedViews } from "@/lib/views";
  * NEEDS ATTENTION — every queue waiting on the reader, counted on the server in
  * one request (/api/attention). Home's count and TodayQueue both read it.
  *
- * Phase 5 of OVERHAUL_PLAN replaces this with the findings inbox. Swap
+ * Warnings live in the findings inbox (src/lib/findings.ts). The rows left here
+ * are work queues. Whether they move too is open with the owner. If they do, swap
  * `loadAttention` and keep the row shape; nothing else reads the queues.
  *
  * Each source is gated by the view whose page its row opens, checked here

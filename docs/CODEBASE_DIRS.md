@@ -61,7 +61,7 @@ including edge middleware.
 | `emailSignature.ts` ⟂ | Keillor's Gmail signature (HTML + text), shared by the drafts the app saves (time entries, deposit checks). |
 | `depositTracker.ts` ⟂ | **Deposit checks** — the rules behind Home's Deposit checks button: checking the selected invoices and grouping them into one payment per customer account (`planDepositPayments`), the payment's externalId (the retry guard), the photo names, and the email to Sara and Casey. No I/O. |
 | `deposits.ts` ⟂ | **Job deposits** — one balance per job: Deposit − Previously applied − Draws. The deposit is the paid part of the job's deposit invoices (a positive CD line), or the figure the office entered by hand for a deposit taken before JobTread, which replaces it. Draws are negative CD lines on client invoices (drafts shown, not counted). Rules only; `deposits.test.ts` pins them to Berger, Studio and Ferron. |
-| `depositRead.ts` | The one read both deposit routes answer with: the ledger, the deposit entered by hand, the client payments. |
+| `depositRead.ts` | The one read both deposit routes answer with: the ledger, the deposit entered by hand, the client payments. `writeDepositSheet` fills each tracking sheet's code-owned "Deposits" tab (Apps Script `writeTrackingDeposits`); dry run `GET /api/deposits/sheet-preview?jobId=&ym=`. **Not wired:** the main tab's Deposit row formulas, set by hand per sheet: CONTRACT ESTIMATE `='Deposits'!B3`; TOTAL PREVIOUSLY INVOICED `='Deposits'!B4+'Deposits'!B5`; CURRENT INVOICE `='Deposits'!B6`; TOTAL INVOICED TO DATE = their sum; % = that / B3. |
 | `depositLinks.ts` | The DB half of job deposits — the `deposit_links` row per job: the deposit entered by hand and what was previously applied before JobTread. |
 | `billLineMath.ts` ⟂ | Money math for editing a vendor bill's lines. Identity now; still de-taxes a pre-2026-09-05 bill. |
 | `salesTax.ts` ⟂ | Sales tax is a bill LINE coded 88 80 00, not the document tax field: the constants, the line matcher, and the job-derived recoverable/consumed split. Mirrors `CONFIG.JOBTREAD.SALES_TAX_*` in appscript `Config.js`. |
@@ -103,7 +103,7 @@ including edge middleware.
 | `sunsetStatementBill.ts` | The shape of a Sunset statement's bill on the Office job ("Create Bills" on `/payments`): issue date, and two 88 70 00 lines — the total and the prompt discount as a negative line. Pure, unit-tested; the write is `src/app/api/sunset-statement-bills/`. |
 | `sunsetStatementMonth.ts` | The Sunset Statements page's month: which statements Approve all and Print act on, and what a statement's Office-job bill says about payment. Pure. |
 | `sunsetLinks.ts` | **Sunset statement line → bill links** (the "Link" on `/payments`). `sunsetLineKey` must match appscript `_sunreconNormNum` — the reconcile finds a link by it. `rankCandidates` orders the picker: unclaimed first, then closest amount, then same date. The links live in `sunset_statement_links`; the write is `src/app/api/sunset-statement-links/`; the reconcile route passes them to appscript, whose month-wide match (`_sunreconAssignMonth`) applies them before any automatic match. Pure, unit-tested. |
-| `toolSchedule.ts` ⟂ | **The tool schedule's rules** (`docs/plans/TOOL_SCHEDULE_PLAN.md`). The catalogue is the Tools list, typed by ToolType. A rule (one task, task name, task type, phase — added together, "needs no tools" stops the rest) or a booking names a specific tool (`tool:<id>`) or any of a type (`type:<key>`); JobTread keeps no tool on a task. `findShortfalls` finds the days a type runs short, or one tool is booked for two jobs at once; `findMoves` sends a named tool where it is needed. `suggestTools` proposes targets from names already mapped; nothing counts until saved. Pure, unit-tested. |
+| `toolSchedule.ts` ⟂ | **The tool schedule's rules.** JobTread holds no tool or equipment, so the companion holds the plan and only reads the schedule. A tool location matches a job by its label (`matchJobByLabel`), so the move list depends on Tools-sheet labels matching job names. Two jobs that carry one schedule (Studio and Studio PreCon) both count until the office leaves one out on the editor's Jobs tab. The catalogue is the Tools list, typed by ToolType. A rule (one task, task name, task type, phase — added together, "needs no tools" stops the rest) or a booking names a specific tool (`tool:<id>`) or any of a type (`type:<key>`); JobTread keeps no tool on a task. `findShortfalls` finds the days a type runs short, or one tool is booked for two jobs at once; `findMoves` sends a named tool where it is needed. `suggestTools` proposes targets from names already mapped; nothing counts until saved. Pure, unit-tested. |
 | `toolScheduleView.ts` ⟂ | How the tool schedule page lays its answer out: Gantt lanes, a day's needs, weeks of need, job colours, the job filter (`filterScheduleByJobs` finds the shortfalls again for the jobs on view) and the editor's sorts. Client-safe, unit-tested. |
 | `searchWords.ts` ⟂ | `matchesAllWords`: every typed word must appear, in any order. Used by `CostCodeSelect` and the tool schedule's job filter. |
 | `toolScheduleData.ts` | Builds the tool schedule on the server: JobTread tasks (less left-out jobs) + the Tools list as the catalogue (`buildCatalog`) + the stored plan → `buildToolSchedule`; also the editor's phases, task names and suggestions (`taskRules`), the scheduled jobs, and `shortagesFor` (a newly named type none of is free → the requisition prompt). |
@@ -128,7 +128,7 @@ including edge middleware.
 | `mileageSaves.ts` | **One sheet row per trip, however often the phone resends.** `POST /api/mileage` claims the client key in table `mileage_saves` before it calls Apps Script: saved → answers the first reply again; saving (<90 s) → 409; failed or gone quiet → looks for the key's row on the sheet (`listMileage`) and saves only if absent. A save that lands also drops the server's open trip for that key (`closeOpenTrip`), and `/api/mileage/active` refuses a late backup push of a saved trip (`isSaved`). DB down → saves without the guard. |
 | `mileageRoute.ts` | **Miles for a trip logged by hand.** The driver names a From and a To (typed, the job's address, or "where I am"); `milesBetween` asks Google Routes for the one-way driving miles, and the page doubles a round trip with `tripMiles`. Backs `/api/mileage/route-miles`, which saves nothing — the save is still `POST /api/mileage { manual: true }`. Also holds the `reverseGeocode` the GPS tracker uses. |
 | `mileagePlace.ts` | **A From or To in plain words.** `resolvePlace` matches "Office", "the shop", "the dump", "Berger" or "#142" against the open jobs and the crew's regular stops (`KNOWN_PLACES`: Sunset, Blossom, LVM, the dump — add one there), and returns an address for Google to route. Office and Shop are ordinary jobs under the "Ascent" customer. Text that names no job is routed as typed; text that fits several jobs is refused with the names. `suggestPlaces` feeds the list that drops under each field as the driver types (`src/app/mileage-tracker/PlaceInput.tsx`). Pure — the page passes in the job list it holds. |
-| `sheetTables.ts` | **Stage 7 — the Tools and Mileage tabs, copied into the companion DB.** The two flags (both default off), the copy each write route calls after Apps Script succeeds (`mirrorToolWrite`, `mirrorMileageWrite`), the backfill (`syncTools`, `syncMileage`) and the sheet-against-table check behind `/api/admin/sheet-tables`. Nothing reads the tables yet. Plan and flip steps: `docs/plans/STAGE7_TOOLS_MILEAGE.md`. |
+| `sheetTables.ts` | **Stage 7 — the Tools and Mileage tabs, copied into the companion DB.** The two flags (both default off), the copy each write route calls after Apps Script succeeds (`mirrorToolWrite`, `mirrorMileageWrite`), the backfill (`syncTools`, `syncMileage`) and the sheet-against-table check behind `/api/admin/sheet-tables`. Nothing reads the tables yet. The remaining steps are the Stage 7 checklist in `ARCHITECTURE_REVIEW.md`. Flags (Vercel env, unset = off): `COMPANION_TOOLS_DB_WRITES`, `COMPANION_MILEAGE_DB_WRITES`. A failed copy logs `[stage7] …` and never changes the route's answer. Mileage re-reads that person's trips after each write, because `logMileage` does not answer with the row it wrote. **Backfill and check** (admin): `/api/admin/sheet-tables?dataset=tools&backfill=1` copies the tab in; without `backfill=1` it compares sheet and table; the same with `dataset=mileage`, whose signed-in email must be on Apps Script's mileage admin list. A clean check reads `"missingFromDb":[], "notOnSheet":[], "changed":[]`. Re-running the backfill is safe and repairs drift. Known limits: a hand edit in the sheet reaches the DB only at the next backfill; two keyless legacy trips with one TripID become one row (`sheet` one above `db`, lists empty); two tool writes in the same second can copy out of order (shows under `changed`). |
 | `mileageScope.ts` | **Whose logged miles a person sees.** Apps Script `listMileage` decides admin from its own email list; `scopeMileageList` then applies the companion role, so only `admin` and `office` see every driver. Everyone else gets their own trips (Driver = their roster name, or Logged By = their email) and no driver list. `GET /api/mileage` and the report route (`seesAllMileage`) use it. |
 | `nearestJob.ts` | **"Which job am I standing on?"** — the location-aware half of the field job pickers (`JobPicker`'s `showNearest`, Employee Time's job sheet). `useNearestJobs(jobs, enabled)` turns the device's fix plus each job's `location.latitude/longitude` into a distance per job and one nearest job. It asks for the fix only when a picker OPENS, never on mount, and remembers a denial for two minutes so re-opening the list can't nag. The picker's DEFAULT is still the last job logged; this only reorders the menu. |
 | `sentry.shared.ts` | Shared Sentry init. |
@@ -155,6 +155,55 @@ including edge middleware.
 | `leaveLast.ts` ⟂ | Puts PTO and Sick Time at the bottom of a job's Work list on the time clock. |
 | `safetyTopics.ts` ⟂ | The safety meeting topic catalog — a year-plus of weekly talks picked for a small residential crew, each with its own talking points so it works with no signal. |
 
+### `src/lib/findings.ts` — the warnings inbox (`/attention`)
+
+Every warning in the app is one row in table `findings`. A row's identity is
+`(source, scope, key)`. `scope` is `""` for a company-wide source, a billing
+month (`2026-11`) for invoice review, or the reader's email for a per-user row.
+`list` hides a row whose scope holds `@` from every other reader.
+
+| Call | What it does |
+|---|---|
+| `report(source, items, scope = "", …, keep?)` | Upserts every item. Resolves every open row of that source and scope that is not in `items`. A resolved row reported again reopens and keeps its first-seen date. `keep` names kinds and subjects whose open rows stay as they are (a partial read; `unreadParts` in `invoiceReview/inbox.ts` builds it). |
+| `list({ source?, scope?, reader?, hidden? })` | Open rows, worst first. Leaves out snoozed, dismissed and closed-month rows unless `hidden`. |
+| `snooze(id, untilIso)` · `dismiss(id, by, reason?)` · `restore(id)` · `resolve(id)` | Hide until a time · hide for good (the row still tracks last-seen and still auto-resolves) · undo both · close one row by hand. |
+
+An item is `{ key, title, kind?, subject?, severity?, link?, fixAction?, dismissed? }`.
+`severity` is `error`, `warning` (default) or `info`. `link` is where Fix goes.
+Pass `dismissed` only when the source owns its dismissals (invoice review
+passes its rulings).
+
+**Two rules.** A source whose read failed must NOT call `report`: an empty list
+means "nothing is wrong" and resolves every row. `key` must be stable between
+runs: use the record's id, never its title.
+
+**To wire a source.** A source with no job of its own is one entry in `PULL`
+(`src/lib/findingSources.ts`); `refreshSources` runs each at most once a minute,
+6 s limit each, and a throw reports nothing. A source that already runs as a job
+(a cron, a save, a button) calls `report` as its last step instead (invoice
+review: `run.ts`). Then add its heading to `SOURCE_LABEL`
+(`src/components/FindingsInbox.tsx`) and delete its row from `SOURCES`
+(`src/lib/homeAttention.ts`), or Home counts it twice. `/api/findings` is office
+and admin only; field and lead read their own rows through `NoticeCenter` and
+the LSWDD pop-up.
+
+**Inline fixes.** `fixAction` keys a Fix button that acts in place
+(`src/components/findingFix.ts`). The owner approved two on 2026-11-16: approve
+a bill, mark a to-do done. Each new one needs its own sign-off.
+
+**Four dismissal stores stay outside `findings`, on purpose** (owner, 2026-11-15):
+Apps Script `dismissUncaptured` / `dismissNeedsProject` (the sheet stamp is
+what takes the bill out of the Apps Script queues); `ascent.presend.v1:<ym>:<jobId>`
+(a per-device cache of the last pre-send run); `timeBug.dismissedOn` (hides the
+clock widget, not a warning); `ascent.stuckVendors.dismissed` (one person's
+"Later"; a snooze in the store would hide the rows from every office user).
+`requisitions.seenReqId` is a "new" marker, not a dismissal.
+
+**Open (owner):** whether Home's work-queue rows in `homeAttention.ts` (drafts,
+to-log, time-off, requisitions, amazon, lswdd, feedback) move into findings,
+and whether `sheet-tracking-tab-off` is a real signal (it compares a filled
+month block with live rows, so it depends on Apps Script timing).
+
 ### `src/lib/invoiceReview/` — the monthly client-invoice review
 
 Cross-checks a billing month's CLIENT invoices (JobTread `customerInvoice`
@@ -163,7 +212,7 @@ Drive invoicing tree, and the office mailbox. READ-ONLY against JobTread, Drive,
 Gmail and the Sheet; the only things it writes anywhere are two rows in the
 companion DB — a standing "ruling", and the run itself.
 
-Staged expansion plan: `docs/plans/INVOICE_ACCURACY_PLAN.md`.
+Learning only ADDS scrutiny on its own. Removing scrutiny is always a person's ruling. A new check ships at `warning`. Not built: a check that reads the amount printed on each backup PDF (on `/roadmap`).
 
 | File | Purpose |
 |---|---|
@@ -189,7 +238,7 @@ Staged expansion plan: `docs/plans/INVOICE_ACCURACY_PLAN.md`.
 | `checks/lineCodeMismatch.ts` ⟂ | An invoice line whose text names a different cost code than the one it is billed under ("Shipping 01 71 23" under 01 71 13), or only the placeholder "00 00 00". One finding per invoice per pair of codes. Unit-tested. |
 | `schedule.ts` ⟂ | **When the review runs on its own** — the office's timeline as code: early looks on the 5th and 8th, the first full review on the 11th (the day after the cutoff), nightly to send day on the 15th. Nothing has its own timer: the digest's scheduler call asks `scheduledReview` and starts the run as a separate request (Hobby's 2-cron cap). Unit-tested. |
 | `checks/shared.ts` ⟂ | Only what more than one check needs: name-token comparison and the one-to-one backup pairing (`matchBackup`). Anything one check owns stays in that check. |
-| `settings.ts` ⟂ | POLICY, in one editable file: every threshold, and `enabled` per check. A check declares behavior; this declares what it runs with. Severity is deliberately NOT here yet — that's set from evidence in the plan's Stage 3. |
+| `settings.ts` ⟂ | POLICY, in one editable file: every threshold, and `enabled` per check. A check declares behavior; this declares what it runs with. Severity is deliberately NOT here: promotion and demotion from evidence were not built, on purpose. |
 | `registry.ts` ⟂ | The one list of checks, and the runner. Asserts at load that no two checks share an id or a finding KIND (a kind is half of a suppression identity — two owners would let one ruling silence findings nobody saw). A check that throws is caught, recorded on `evidence.warnings`, and does not take the review down. |
 | `summary.ts` ⟂ | The one-line summary every run carries. Claude Code's fuller reading is the pass note (`investigations.ts`). |
 | `sheetCompare.ts` ⟂ | **A legacy client's Google Tracking Sheet vs JobTread**, for the monthly check's Step 4b. Pure: Claude Code posts the cells it read (`/api/invoice-review/agent` `sheet-check`), the route adds the month's bill lines and time entries. Finds bills the sync missed, codes with no column or row, broken FILTER/lookup/total formulas, `#REF!`-style errors, and labor priced at another rate than JobTread costed it. Sales tax and warranty are left out, as the sync leaves them out. Pinned by `sheetCompare.test.ts` with the Berger Bunkhouse and Main House cases |
@@ -544,6 +593,10 @@ Grouped by domain; each folder is `…/route.ts`.
   `axisTicks` in `lib/jobBoard.ts`, data from `/api/home/gantt`).
 
 ## `src/db/` — companion DB (Drizzle + libSQL; companion-only data, NOT JobTread)
+
+**Retiring a table:** `applySchema` uses `copyThenDrop` — copy the rows to
+their new home while the table exists, then drop it. A database that never ran
+the copy keeps its rows. Never drop without the copy step.
 
 `schema.ts` tables: `allowed_users`, `role_access`, `role_menu`, `usage_events`,
 `saved_bills`, `feature_requests`, `flagged_time_entries`,

@@ -18,7 +18,7 @@ import { findShortages, RequisitionPrompt, TargetPicker, type PickGroup, type Pi
 
 /**
  * The tool schedule: which tools each job needs on which days, from the
- * JobTread schedules, against what the company owns (docs/plans/TOOL_SCHEDULE_PLAN.md).
+ * JobTread schedules, against what the company owns (docs/CODEBASE_DIRS.md).
  * The Gantt has the JobTread tasks down the side, by job; tapping a bar shows
  * that task's tools, and the office adds or removes them there. The calendar
  * and list show need per tool type, with a detail dialog per type.

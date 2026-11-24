@@ -1,5 +1,5 @@
 /**
- * Admin → Stage 7 backfill and check (docs/plans/STAGE7_TOOLS_MILEAGE.md).
+ * Admin → Stage 7 backfill and check (ARCHITECTURE_REVIEW.md, Stage 7).
  *
  *   GET ?dataset=tools|mileage            → the sheet against the DB table:
  *        { ok, dataset, sheet, db, missingFromDb, notOnSheet, changed }

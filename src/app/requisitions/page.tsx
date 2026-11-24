@@ -362,7 +362,7 @@ function Requisitions() {
               : "You haven't submitted any requests yet. Tap “New request” to start one."}
         </EmptyState>
       ) : (
-        // One hairline list, not a card per request (CONSOLIDATION_PLAN look rule 1).
+        // One hairline list, not a card per request (THEME.md: a hairline, not a box).
         <Card pad={false} className="overflow-hidden">
         <ul className="divide-y divide-line-soft xl:grid xl:grid-cols-2 xl:divide-y-0 xl:[&>li]:border-t xl:[&>li]:border-line-soft">
           {rows.map((r) => (

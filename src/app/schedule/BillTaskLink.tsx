@@ -8,7 +8,7 @@ import { Banner, Button, Dialog } from "@/components/ui";
 import { ScheduleView } from "./ScheduleView";
 
 /**
- * "Link to Task" on a bill (docs/plans/SCHEDULE_PLAN.md stage 4). The button
+ * "Link to Task" on a bill. The button
  * opens the bill's job schedule at full size; a tap on a task bar puts the bill
  * on that task (JobTread's own `document.task`, POST /api/schedule/links). When
  * the bill is already on a task the button names it, the popup outlines it, and

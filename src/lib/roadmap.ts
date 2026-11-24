@@ -1,6 +1,7 @@
 /**
- * Roadmap — the features proposed by the Drive survey of 2026-11-17: what the
- * old Drive folders and tracking sheets did that the app does not do yet.
+ * Roadmap — the features proposed by the Drive survey of 2026-11-17 (what the
+ * old Drive folders and tracking sheets did that the app does not do yet), and
+ * the work left open when the plans in docs/plans/ closed on 2026-11-24.
  * The /roadmap page lists them; each person sets a priority per feature and
  * the list sorts by the total. Votes live in the companion DB (roadmap_votes).
  *
@@ -27,8 +28,9 @@ export interface RoadmapFeature {
   cls: RoadmapClass;
   /** What the feature does, in one or two sentences. */
   what: string;
-  /** Where the old system did it, and how live that work is. */
-  was: string;
+  /** Where the old system did it, and how live that work is. None for work
+   *  left open by an earlier plan. */
+  was?: string;
   /** Rough size: S = a day, M = a few days, L = a week or more. */
   size: "S" | "M" | "L";
   /** Date shipped, once built. */
@@ -210,6 +212,69 @@ export const FEATURES: RoadmapFeature[] = [
     was: "Two 2026-11-03 folders and three 2026-07-20 folders in Safety Meetings.",
     size: "S",
     built: "2026-11-20",
+  },
+  {
+    id: "supplies",
+    title: "Supplies on the Tools page",
+    cls: "field",
+    what: "A Supplies tab on Tools: name, unit, quantity on hand, reorder level, location, with plus and minus buttons. A supply under its reorder level shows in the warnings inbox and can open a requisition.",
+    size: "M",
+  },
+  {
+    id: "invoice-pdf-amount",
+    title: "Check the amount on each backup PDF",
+    cls: "money",
+    what: "The invoice review reads the total printed on each vendor's backup PDF and flags a bill whose amount differs. Today it trusts the file name. Mostly Apps Script work.",
+    size: "S",
+  },
+  {
+    id: "page-folds",
+    title: "Fewer pages: Bills, Find, People and Admin hubs",
+    cls: "fix",
+    what: "Fold the bill pages, the search pages, the people pages and the admin pages into four hubs, as the Jobs page did. Old addresses redirect. Also: Access's Activity tab joins Audit, Vendors gets a bill-number box, and the Bill Archive reads a search handed to it.",
+    size: "M",
+  },
+  {
+    id: "payroll-period",
+    title: "Payroll: each person's period total",
+    cls: "money",
+    what: "Payroll shows each employee's hours and pay for the pay period, and Time Sync checks the whole period, not the last 7 days.",
+    size: "S",
+  },
+  {
+    id: "bill-page-save",
+    title: "Bill page: one Save, like the board",
+    cls: "fix",
+    what: "On the bill page, deleting or adding a line, a buyback and a void wait for Save Changes, as they do on the board. Today they write to JobTread at once. Changes a JobTread write: needs the owner's ok.",
+    size: "S",
+  },
+  {
+    id: "schedule-finished",
+    title: "Schedule: finished tasks, and quiet moves",
+    cls: "projects",
+    what: "The Schedule page shows finished tasks too. Decide whether dragging a task notifies its assignees (JobTread does by default) and shifts the tasks that depend on it.",
+    size: "S",
+  },
+  {
+    id: "leads-timer",
+    title: "Leads import on a timer",
+    cls: "growth",
+    what: "New leads come in on a timer, not when someone opens the Leads page. Needs a signed-in-free path for the timer: owner's ok.",
+    size: "S",
+  },
+  {
+    id: "sunset-lead-view",
+    title: "Read-only Sunset bill for leads",
+    cls: "fix",
+    what: "A lead can open a Sunset bill and read it. Today the bill page is the coding editor, so leads do not get it.",
+    size: "S",
+  },
+  {
+    id: "expense-card",
+    title: "Push as Expense: pick the card",
+    cls: "money",
+    what: "Push as Expense always posts to Capital One Sparks (271). 8 of 36 past expenses used another card. Decide whether the office picks the card.",
+    size: "S",
   },
 ];
 

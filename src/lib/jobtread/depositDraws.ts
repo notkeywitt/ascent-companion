@@ -12,8 +12,8 @@ import { pEq } from "./jobDeposits";
 // #386. The rules that allow it are planDepositDraw (src/lib/deposits.ts); the
 // route is /api/deposits/apply. Never createLine: it forces the document's
 // taxRate to 0, which would erase the invoice's sales tax.
-// UNVERIFIED until scripts/probe-deposit-line.mjs runs live: whether JobTread
-// takes the line at face value on an invoice with a tax rate.
+// Seen live 2026-11-24: Bunkhouse #379 carries a −$12,280 non-taxable Deposit
+// line added 2026-10-14, and the invoice kept its sales tax ($8,369.10).
 // ---------------------------------------------------------------------------
 
 /** The invoice a draw lands on, as JobTread holds it now. */

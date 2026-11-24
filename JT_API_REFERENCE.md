@@ -195,6 +195,9 @@ An ACE (access-control entry) binds an assignee to one target; exactly one targe
   uploadRequest? · `calendar` (args `{isToDo, taskAssignedMembershipIds, timeZone}`) · `upcomingInvoice` ·
   `remainingSetupTasks` setupTask[] · `workflowActionTypes` workflowActionType[] · `workflowTriggerTypes`
   workflowTriggerType[]
+- **Seen live 2026-10-05, not in the walk:** `qboIntegration { showUnsyncedDocumentPaymentsAfter }`
+  (null in this org). Unverified: setting it may make JobTread list payment applications that
+  never reached QuickBooks.
 - **References:** `customerSuccessManager → customerSuccessManager?` · `defaultCustomerRole → role?` ·
   `defaultVendorRole → role?` · `defaultRetainageCostCode → costCode?` · `defaultRetainageCostType →
   costType?` · `poolcorpIntegration → poolcorpIntegration?` · `qbdIntegration → qbdIntegration?`
@@ -535,7 +538,8 @@ each with `value`, `unit` inch/foot/yard/centimeter/meter, and a `measurements` 
 - **Scalars:** `id` jobtreadId · `type` paymentType · `amount` number · `amountApplied` number ·
   `amountUnapplied` number · `paidAt` datetime · `description` string? · `source` string? · `externalId`
   string? · `evoKey` string? · `stripeId` string? · `trussId` string? · `plaidTransactionId` string? ·
-  `qboId` string? · `qboSyncedPaymentIds` string[] · `createdAt` datetime.
+  `qboId` string? · `qboSyncedPaymentIds` string[] · `createdAt` datetime · `feeAmount` number?
+  (seen live 2026-10-05).
 - **References:** `account → account?` · `organization → organization`.
 - **Connections (standard):** `documentPayments`.
 
@@ -609,7 +613,8 @@ true), `showFinancing`/`showProfit`/`showProgress` (def false), `showLinesAtDept
   openJobIds, scale, searchQuery, showCriticalPath, showDetails, showNonWorkingDays,
   showBaselineDatesAndTimes, sortId, sortOrder}`.
 - **`closeNegativePayable`** → `root`: `id` (req); `description?`, `paidAt?`, `type` oneOf `{credit | refund}`
-  (distinct from `paymentType`).
+  (distinct from `paymentType`). Also takes `createCreditPayment` (default true, seen live 2026-10-05): a
+  negative invoice closed as a credit becomes an unapplied payment.
 
 ---
 

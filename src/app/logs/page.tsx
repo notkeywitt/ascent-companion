@@ -106,7 +106,7 @@ export default function LogsPage() {
       {error && <Banner tone="error">{error}</Banner>}
       {!loading && !error && items.length === 0 && <EmptyState>No log entries match.</EmptyState>}
 
-      {/* One hairline list, not a box per entry (CONSOLIDATION_PLAN look rule 1). */}
+      {/* One hairline list, not a box per entry (THEME.md: a hairline, not a box). */}
       {items.length > 0 && (
       <ul className="divide-y divide-line-soft overflow-hidden rounded-card border border-line bg-white dark:bg-ink-raised">
         {items.map((it, i) => (
