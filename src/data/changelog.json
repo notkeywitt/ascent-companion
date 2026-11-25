@@ -1,5 +1,11 @@
 [
  {
+  "sha": "c5061242",
+  "date": "2026-11-25T21:33:32Z",
+  "title": "reorder cards on phone home and office dashboard",
+  "plain": "On a phone, tap Arrange to move the Home cards and Office Dashboard sections up or down."
+ },
+ {
   "sha": "e0c837ff",
   "date": "2026-11-25T21:06:58Z",
   "title": "make office dashboard sections collapsible on mobile",
