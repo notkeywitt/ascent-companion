@@ -4,14 +4,14 @@ import { createContext, useContext, useEffect, useState } from "react";
 
 import { useAccess } from "@/components/AccessProvider";
 import { ReorderArrows } from "@/components/ReorderArrows";
-import { Button, SectionHeading } from "@/components/ui";
+import { IconButton, SectionHeading } from "@/components/ui";
 import { completeOrder, moveAmong } from "@/lib/reorder";
 
 /** Every section on the Office dashboard, in its default order. */
-export const OFFICE_SECTIONS = ["attention", "notices", "details", "vehicles", "bills", "files"] as const;
+export const OFFICE_SECTIONS = ["details", "vehicles", "bills", "files", "attention", "notices"] as const;
 export type OfficeSectionId = (typeof OFFICE_SECTIONS)[number];
 
-const LS_KEY = "office-dash-order";
+const LS_KEY = "office-dash-order-v2";
 
 interface Ctx {
   order: OfficeSectionId[];
@@ -54,9 +54,16 @@ export function OfficeSections({ children }: { children: React.ReactNode }) {
   return (
     <OrderContext.Provider value={{ order, shown, arranging, move }}>
       <div className="mb-3 flex justify-end lg:hidden">
-        <Button variant="secondary" size="xs" onClick={() => setArranging((a) => !a)}>
-          {arranging ? "Done" : "Arrange sections"}
-        </Button>
+        <IconButton
+          label={arranging ? "Done arranging" : "Arrange sections"}
+          aria-pressed={arranging}
+          onClick={() => setArranging((a) => !a)}
+          className="!h-9 !w-9 border border-line"
+        >
+          <svg aria-hidden viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            {arranging ? <path d="M5 12.5l4.5 4.5L19 7.5" /> : <path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4" />}
+          </svg>
+        </IconButton>
       </div>
       <div className="flex flex-col items-stretch gap-x-8 lg:grid lg:grid-cols-2 lg:items-start xl:grid-cols-4">
         {children}
