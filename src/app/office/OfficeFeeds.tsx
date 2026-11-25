@@ -3,7 +3,7 @@
 import { FindingsInbox } from "@/components/FindingsInbox";
 import { NoticesAdmin } from "@/components/NoticesAdmin";
 import { useAccess } from "@/components/AccessProvider";
-import { SectionHeading } from "@/components/ui";
+import { MobileSection } from "./MobileSection";
 
 /**
  * The Office dashboard's warnings inbox and notices authoring panel (they were
@@ -15,16 +15,14 @@ export function OfficeFeeds() {
   return (
     <>
       {can("attention") && (
-        <section className="mb-6 min-w-0">
-          <SectionHeading>Needs attention</SectionHeading>
+        <MobileSection title="Needs attention">
           <FindingsInbox />
-        </section>
+        </MobileSection>
       )}
       {can("notices") && (
-        <section className="mb-6 min-w-0">
-          <SectionHeading>Notices</SectionHeading>
+        <MobileSection title="Notices">
           <NoticesAdmin />
-        </section>
+        </MobileSection>
       )}
     </>
   );
