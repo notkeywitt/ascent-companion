@@ -108,6 +108,7 @@ export function FindingsInbox({ limit }: { limit?: number }) {
   const [mac, setMac] = useState<MacCheckStatus | null>(null);
   const [error, setError] = useState("");
   const [showHidden, setShowHidden] = useState(false);
+  const [folded, setFolded] = useState<Set<string>>(new Set());
   const access = useAccess();
   // Inline fixes: the row being written (a ref as well, so a double tap cannot
   // start a second write before React re-renders), the rows fixed on this
@@ -203,6 +204,14 @@ export function FindingsInbox({ limit }: { limit?: number }) {
         return (
           <section key={source} className="space-y-2">
             <SectionHeading
+              open={!folded.has(source)}
+              onToggle={() =>
+                setFolded((f) => {
+                  const n = new Set(f);
+                  if (!n.delete(source)) n.add(source);
+                  return n;
+                })
+              }
               trailing={
                 source === "invoice-review" && mac?.lastRunAt ? (
                   <span className="text-[12px] text-neutral-500">Mac check ran {dayTime(mac.lastRunAt)}</span>
@@ -211,7 +220,7 @@ export function FindingsInbox({ limit }: { limit?: number }) {
             >
               {SOURCE_LABEL[source] ?? source} · {open.filter((r) => r.source === source).length}
             </SectionHeading>
-            {mine.map((r) => {
+            {!folded.has(source) && mine.map((r) => {
               const t = fixTarget(r);
               const fix = t && access.can(FIX_VIEW[t.action]) ? t : null;
               return (
