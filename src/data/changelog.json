@@ -1,5 +1,11 @@
 [
  {
+  "sha": "e0c837ff",
+  "date": "2026-11-25T21:06:58Z",
+  "title": "make office dashboard sections collapsible on mobile",
+  "plain": "On a phone, each Office Dashboard section now folds open and closed when you tap its title."
+ },
+ {
   "sha": "d14d7ad7",
   "date": "2026-11-24T20:03:28Z",
   "title": "add a download icon to a bill's drive backup row",
