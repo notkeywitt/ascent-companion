@@ -1,3 +1,5 @@
+import { completeOrder } from "@/lib/reorder";
+
 /**
  * The desktop Home's widgets and each person's arrangement of them: which show,
  * in what order, and which take the full width. Saved per user in
@@ -21,15 +23,21 @@ export const WIDGETS = [
 
 export type WidgetId = (typeof WIDGETS)[number]["id"];
 
+/** The cards a phone stacks, in the order it shows them by default. */
+export const PHONE_CARDS = ["week", "todos", "bills", "inbox", "radio", "attention"] as const;
+export type PhoneCard = (typeof PHONE_CARDS)[number];
+
 export interface HomeLayout {
   order: WidgetId[];
   hidden: WidgetId[];
   wide: WidgetId[];
+  /** The phone's own card order (separate from the desktop `order`). */
+  phone: PhoneCard[];
 }
 
 const IDS = WIDGETS.map((w) => w.id) as WidgetId[];
 
-export const DEFAULT_LAYOUT: HomeLayout = { order: IDS, hidden: [], wide: ["invoicing"] };
+export const DEFAULT_LAYOUT: HomeLayout = { order: IDS, hidden: [], wide: ["invoicing"], phone: [...PHONE_CARDS] };
 
 /** This week always takes both columns: its details panel needs the room. */
 export const isWide = (l: HomeLayout, id: WidgetId) => id === "week" || l.wide.includes(id);
@@ -51,5 +59,6 @@ export function normalizeLayout(raw: unknown): HomeLayout {
     order,
     hidden: ids(r.hidden),
     wide: Array.isArray(r.wide) ? ids(r.wide) : DEFAULT_LAYOUT.wide,
+    phone: completeOrder(r.phone, PHONE_CARDS),
   };
 }

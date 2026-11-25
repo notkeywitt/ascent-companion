@@ -15,12 +15,12 @@ export function OfficeFeeds() {
   return (
     <>
       {can("attention") && (
-        <MobileSection title="Needs attention">
+        <MobileSection id="attention" title="Needs attention">
           <FindingsInbox />
         </MobileSection>
       )}
       {can("notices") && (
-        <MobileSection title="Notices">
+        <MobileSection id="notices" title="Notices">
           <NoticesAdmin />
         </MobileSection>
       )}
