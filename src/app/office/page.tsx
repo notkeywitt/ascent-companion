@@ -9,7 +9,6 @@ import {
   Loading,
   MetaLine,
   PageHeader,
-  SectionHeading,
 } from "@/components/ui";
 import { getPaveConfig, hasGrant } from "@/lib/config";
 import { listDocuments, readDetails } from "@/lib/companyDetails";
@@ -31,6 +30,7 @@ import { listVehicles } from "@/lib/vehicles";
 import { AscentDetails } from "./AscentDetails";
 import { Vehicles } from "./Vehicles";
 import { OfficeImages } from "./OfficeImages";
+import { MobileSection } from "./MobileSection";
 import { OfficeFeeds } from "./OfficeFeeds";
 import { CoiDot } from "@/components/CoiDot";
 
@@ -76,34 +76,30 @@ export default async function OfficePage({
             <OfficeFeeds />
 
             <div className="min-w-0">
-              <section className="mb-6">
-                <SectionHeading>Ascent Details</SectionHeading>
+              <MobileSection title="Ascent Details">
                 <Suspense fallback={<Loading label="Loading details…" />}>
                   <AscentDetailsSection />
                 </Suspense>
-              </section>
+              </MobileSection>
 
-              <section className="mb-6">
-                <SectionHeading>Vehicles</SectionHeading>
+              <MobileSection title="Vehicles">
                 <Suspense fallback={<Loading label="Loading vehicles…" />}>
                   <VehiclesSection />
                 </Suspense>
-              </section>
+              </MobileSection>
 
-              <section className="mb-6">
-                <SectionHeading>{monthLabel(ym)} bills</SectionHeading>
+              <MobileSection title={`${monthLabel(ym)} bills`}>
                 <Suspense fallback={<Loading label="Loading bills…" />}>
                   <Bills year={billingYear} month={billingMonthNum} />
                 </Suspense>
-              </section>
+              </MobileSection>
             </div>
 
-            <section className="min-w-0">
-              <SectionHeading trailing={<JtLink href={`${jobUrl}/files`} />}>Files</SectionHeading>
+            <MobileSection title="Files" trailing={<JtLink href={`${jobUrl}/files`} />} className="">
               <Suspense key={folder} fallback={<Loading label="Loading files…" />}>
                 <Files folder={folder} />
               </Suspense>
-            </section>
+            </MobileSection>
           </div>
         </>
       )}
