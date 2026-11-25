@@ -96,6 +96,7 @@ async function callClaude(
   bytes?: Buffer | null,
   mimeType?: string,
   maxTokens = MAX_TOKENS,
+  model = MODEL,
 ): Promise<unknown | null> {
   const content: Anthropic.ContentBlockParam[] = [];
   if (bytes && mimeType) {
@@ -123,7 +124,7 @@ async function callClaude(
   content.push({ type: "text", text: prompt });
 
   const params = {
-    model: MODEL,
+    model,
     max_tokens: maxTokens,
     messages: [{ role: "user" as const, content }],
     output_config: { format: { type: "json_schema" as const, schema } },
@@ -142,8 +143,8 @@ async function callClaude(
     // platform timeout all look like "Extraction failed — try again". Say what
     // actually went wrong: the caller decides whether to show it or fall back.
     const why = e instanceof Error ? e.message : String(e);
-    console.error(`[claudeExtract] ${MODEL} call failed: ${why}`);
-    throw new Error(`The reader (${MODEL}) could not be reached: ${why}`);
+    console.error(`[claudeExtract] ${model} call failed: ${why}`);
+    throw new Error(`The reader (${model}) could not be reached: ${why}`);
   }
   // Which reader this was, for the cost log — the schema names the job.
   const feature =
@@ -157,8 +158,10 @@ async function callClaude(
             ? "spec-list"
             : schema === SCAN_SCHEMA
               ? "spec-doc-ocr"
-              : "extract";
-  trackClaudeUsage(feature, MODEL, res.usage);
+              : schema === HANDWRITING_SCHEMA
+                ? "bill-handwriting"
+                : "extract";
+  trackClaudeUsage(feature, model, res.usage);
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") {
     console.error(`[claudeExtract] stop_reason=${res.stop_reason}`);
     throw new Error(
@@ -523,4 +526,36 @@ RULES:
   const pages = (out as { pages?: unknown } | null)?.pages;
   if (!Array.isArray(pages)) throw new Error("The reader returned no pages.");
   return pages.map((p) => String(p ?? ""));
+}
+
+/* ------------------------------------------------------------------ *
+ * HANDWRITTEN INVOICE CHECK
+ * ------------------------------------------------------------------ */
+
+const HANDWRITING_SCHEMA = {
+  type: "object",
+  properties: { handwritten: { type: "boolean" } },
+  required: ["handwritten"],
+  additionalProperties: false,
+};
+
+/** A yes/no look at one page image — the small model is enough. */
+const HANDWRITING_MODEL = "claude-haiku-5-5";
+
+/**
+ * Is this invoice handwritten? `bytes` is JobTread's page-1 JPEG of the bill's
+ * scan. Handwritten amounts are where the bill reader misreads (a blank
+ * "Sales Tax" box read as a tax, 2026-11-12), so the office reviews these by
+ * hand. Throws when the reader fails; the caller tries again later.
+ */
+export async function isHandwrittenWithClaude(bytes: Buffer, mimeType: string): Promise<boolean> {
+  const prompt =
+    "This is page 1 of a vendor invoice or receipt. Answer handwritten: true when any amount, " +
+    "quantity, total or line description on it is written by hand (a filled-in paper form counts). " +
+    "Answer false when every amount is printed or typed, even if it carries a handwritten " +
+    "signature, initials or a note.";
+  const out = await callClaude(prompt, HANDWRITING_SCHEMA, TIMEOUT_OCR_MS, bytes, mimeType, 200, HANDWRITING_MODEL);
+  const v = (out as { handwritten?: unknown } | null)?.handwritten;
+  if (typeof v !== "boolean") throw new Error("The reader gave no answer.");
+  return v;
 }

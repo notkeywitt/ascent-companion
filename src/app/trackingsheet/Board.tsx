@@ -90,6 +90,7 @@ import { useCodeDrill } from "./useCodeDrill";
 import { useBillFiles } from "./useBillFiles";
 import { useLineEdits } from "./useLineEdits";
 import { useBillReview } from "./useBillReview";
+import { useHandwriting } from "./useHandwriting";
 import { useBillFields } from "./useBillFields";
 import { useCodingDraft } from "./useCodingDraft";
 import { useMonthLoad } from "./useMonthLoad";
@@ -1086,6 +1087,10 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
     load,
     openDocId,
   });
+  // The ✍ chip: bills whose invoice is handwritten — ./useHandwriting
+  const handwritten = useHandwriting(
+    (data?.bills ?? []).filter((b) => b.fileCount !== 0).map((b) => b.id),
+  );
   const openLines = openDocId ? (linesByDoc.get(openDocId) ?? []) : [];
 
   // Tax is staged the same way as edits/staged (keyed by docId, not line id) —
@@ -1777,6 +1782,15 @@ export function Board({ embed }: { embed?: BoardEmbed } = {}) {
                     title="Flagged for a billing correction — open the bill to see the note"
                   >
                     ⚑ Needs review
+                  </Chip>
+                ),
+                handwritten.has(b.id) && (
+                  <Chip
+                    key="hand"
+                    tone="warning"
+                    title="Handwritten invoice — check every amount against the scan"
+                  >
+                    ✍ Handwritten
                   </Chip>
                 ),
                 b.fileCount === 0 && (
