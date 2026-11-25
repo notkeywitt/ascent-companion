@@ -1,5 +1,11 @@
 [
  {
+  "sha": "d33bf9b6",
+  "date": "2026-11-25T14:44:42-08:00",
+  "title": "tag handwritten bills with a ✍ chip",
+  "plain": "Bills on a handwritten invoice now show a ✍ Handwritten tag on the bill lists, so they get a closer check."
+ },
+ {
   "sha": "96a497ee",
   "date": "2026-11-25T21:41:16Z",
   "title": "fold warning groups, new phone order on office dashboard, edit icon",
