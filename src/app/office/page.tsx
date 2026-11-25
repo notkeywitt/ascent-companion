@@ -30,7 +30,7 @@ import { listVehicles } from "@/lib/vehicles";
 import { AscentDetails } from "./AscentDetails";
 import { Vehicles } from "./Vehicles";
 import { OfficeImages } from "./OfficeImages";
-import { MobileSection } from "./MobileSection";
+import { MobileSection, OfficeSections } from "./MobileSection";
 import { OfficeFeeds } from "./OfficeFeeds";
 import { CoiDot } from "@/components/CoiDot";
 
@@ -72,35 +72,35 @@ export default async function OfficePage({
       ) : (
         <>
           {/* Desktop: warnings | notices | details and bills | files. Phones stack. */}
-          <div className="grid items-start gap-x-8 lg:grid-cols-2 xl:grid-cols-4">
+          <OfficeSections>
             <OfficeFeeds />
 
-            <div className="min-w-0">
-              <MobileSection title="Ascent Details">
+            <div className="contents min-w-0 lg:block">
+              <MobileSection id="details" title="Ascent Details">
                 <Suspense fallback={<Loading label="Loading details…" />}>
                   <AscentDetailsSection />
                 </Suspense>
               </MobileSection>
 
-              <MobileSection title="Vehicles">
+              <MobileSection id="vehicles" title="Vehicles">
                 <Suspense fallback={<Loading label="Loading vehicles…" />}>
                   <VehiclesSection />
                 </Suspense>
               </MobileSection>
 
-              <MobileSection title={`${monthLabel(ym)} bills`}>
+              <MobileSection id="bills" title={`${monthLabel(ym)} bills`}>
                 <Suspense fallback={<Loading label="Loading bills…" />}>
                   <Bills year={billingYear} month={billingMonthNum} />
                 </Suspense>
               </MobileSection>
             </div>
 
-            <MobileSection title="Files" trailing={<JtLink href={`${jobUrl}/files`} />} className="">
+            <MobileSection id="files" title="Files" trailing={<JtLink href={`${jobUrl}/files`} />} className="mb-6 lg:mb-0">
               <Suspense key={folder} fallback={<Loading label="Loading files…" />}>
                 <Files folder={folder} />
               </Suspense>
             </MobileSection>
-          </div>
+          </OfficeSections>
         </>
       )}
     </main>

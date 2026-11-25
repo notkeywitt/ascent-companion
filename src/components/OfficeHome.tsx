@@ -28,7 +28,9 @@ import { PaymentMark, liveTotals, useInvoicingSummary } from "@/app/invoicing-su
 import { ItemForm, WeekAhead } from "@/components/WeekAhead";
 import { Dialog } from "@/components/Dialog";
 import type { MapJob } from "@/lib/lopezMap";
-import { WIDGETS, isWide, type HomeLayout, type WidgetId } from "@/lib/homeWidgets";
+import { WIDGETS, isWide, type HomeLayout, type PhoneCard, type WidgetId } from "@/lib/homeWidgets";
+import { moveAmong } from "@/lib/reorder";
+import { ReorderArrows } from "@/components/ReorderArrows";
 import {
   DEFAULT_PREFS,
   applyTodoPrefs,
@@ -124,6 +126,48 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
     return can("home") && (!w || !("view" in w) || can(w.view));
   };
 
+  const phoneAllowed = (id: PhoneCard) => (id === "radio" || id === "attention" ? true : allowed(id));
+  const [arranging, setArranging] = useState(false);
+  const phoneShown = layout.phone.filter(phoneAllowed);
+  const movePhone = (id: PhoneCard, by: -1 | 1) => {
+    const prev = layout;
+    const next = { ...layout, phone: moveAmong(layout.phone, phoneShown, id, by) };
+    setLayout(next);
+    void fetch("/api/home/layout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(next),
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error();
+      })
+      .catch(() => {
+        setLayout(prev);
+        toast("Could not save the order", { tone: "error" });
+      });
+  };
+
+  const radioButtons = (
+    <div className="grid grid-cols-2 gap-3">
+      <button
+        type="button"
+        onClick={toggleKloi}
+        aria-pressed={kloi.playing}
+        className={btn("secondary", "md", "min-h-12 w-full")}
+      >
+        {kloi.castDevice && kloi.playing ? `❚❚ Pause KLOI on ${kloi.castDevice}` : kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
+      </button>
+      <KloiCastButton className={btn("secondary", "md", "col-span-2 min-h-12 w-full")} />
+      {can("lopezrocks") ? (
+        <Link href="/lopezrocks" className={btn("secondary", "md", "min-h-12 w-full")}>
+          Lopez Rocks
+        </Link>
+      ) : (
+        <span />
+      )}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
       {desktop && (
@@ -142,13 +186,41 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
       <HomeActions />
 
       {desktop === false && (
-        <>
-          {allowed("week") && <WeekWidget />}
-          {allowed("todos") && <TodosWidget />}
-          {allowed("bills") && <UnpaidBillsWidget />}
-          {allowed("inbox") && <InboxWidget />}
-        </>
+        <div className="flex justify-end">
+          <Button variant="secondary" size="xs" onClick={() => setArranging((a) => !a)}>
+            {arranging ? "Done" : "Arrange cards"}
+          </Button>
+        </div>
       )}
+
+      {desktop === false &&
+        phoneShown.map((id, i) => (
+          <div key={id} className={arranging ? "rounded-card ring-2 ring-accent/40" : ""}>
+            {arranging && (
+              <div className="flex justify-end">
+                <ReorderArrows
+                  first={i === 0}
+                  last={i === phoneShown.length - 1}
+                  onUp={() => movePhone(id, -1)}
+                  onDown={() => movePhone(id, 1)}
+                />
+              </div>
+            )}
+            {id === "week" ? (
+              <WeekWidget />
+            ) : id === "todos" ? (
+              <TodosWidget />
+            ) : id === "bills" ? (
+              <UnpaidBillsWidget />
+            ) : id === "inbox" ? (
+              <InboxWidget />
+            ) : id === "radio" ? (
+              radioButtons
+            ) : (
+              <NeedsAttention />
+            )}
+          </div>
+        ))}
 
       {desktop && (
         <div className="grid grid-cols-2 gap-4">
@@ -176,28 +248,6 @@ export function OfficeHome({ layout: initial }: { layout: HomeLayout }) {
         </div>
       )}
 
-      {desktop === false && (
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={toggleKloi}
-            aria-pressed={kloi.playing}
-            className={btn("secondary", "md", "min-h-12 w-full")}
-          >
-            {kloi.castDevice && kloi.playing ? `❚❚ Pause KLOI on ${kloi.castDevice}` : kloi.playing ? "❚❚ Pause KLOI" : kloi.failed ? "KLOI — try again" : "▶ KLOI radio"}
-          </button>
-          <KloiCastButton className={btn("secondary", "md", "col-span-2 min-h-12 w-full")} />
-          {can("lopezrocks") ? (
-            <Link href="/lopezrocks" className={btn("secondary", "md", "min-h-12 w-full")}>
-              Lopez Rocks
-            </Link>
-          ) : (
-            <span />
-          )}
-        </div>
-      )}
-
-      {desktop === false && <NeedsAttention />}
 
       {settingsUsed && (
         <WidgetSettings
