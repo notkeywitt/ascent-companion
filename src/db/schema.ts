@@ -1947,6 +1947,18 @@ export const fileTexts = sqliteTable("file_texts", {
 });
 
 /**
+ * Whether a bill's scanned invoice is handwritten (src/lib/billHandwriting.ts).
+ * Claude looks at the scan once; the answer is kept here so the bill lists can
+ * show the ✍ chip without a second call. Companion-only, never JobTread.
+ */
+export const billHandwriting = sqliteTable("bill_handwriting", {
+  docId: text("doc_id").primaryKey(),
+  fileId: text("file_id").notNull().default(""),
+  handwritten: integer("handwritten", { mode: "boolean" }).notNull().default(false),
+  checkedAt: text("checked_at").notNull(),
+});
+
+/**
  * The Signal chats on the office Mac mini (signalChats.ts), reported by
  * scripts/signal-sync/ each run and assigned on the AscentBot page. `rule`:
  * "" = not set yet, "job", "office" or "skip". Only "job" and "office" chats

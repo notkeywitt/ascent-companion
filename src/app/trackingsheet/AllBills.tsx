@@ -26,6 +26,7 @@ import {
 } from "./DraftWorkbench";
 import { CoiDot } from "@/components/CoiDot";
 import { AllLabor } from "./AllLabor";
+import { useHandwriting } from "./useHandwriting";
 
 /**
  * Tracking Sheets with NO job selected — every vendor bill issued in the
@@ -136,6 +137,8 @@ export interface BillPick {
 /** The month's bills, all jobs. The billing month picker is the page's (AllJobs). */
 export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
   const [bills, setBills] = useState<AllBill[] | null>(null);
+  // The ✍ chip: bills whose invoice is handwritten — ./useHandwriting
+  const handwritten = useHandwriting((bills ?? []).map((b) => b.id));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   // Sunset folds into its own collapsible pane, collapsed by default — same as
@@ -392,6 +395,11 @@ export function AllBills({ ym, pick }: { ym: string; pick?: BillPick }) {
               title="Flagged for a billing correction — open the bill to see the note"
             >
               ⚑ Needs review
+            </Chip>
+          )}
+          {handwritten.has(b.id) && (
+            <Chip tone="warning" title="Handwritten invoice — check every amount against the scan">
+              ✍ Handwritten
             </Chip>
           )}
           {b.status === "draft" && <Chip tone="neutral">draft</Chip>}

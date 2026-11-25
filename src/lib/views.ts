@@ -96,6 +96,8 @@ export const VIEWS: ViewDef[] = [
       // queue to any signed-in role. Every caller (the bill page, the board,
       // Bill Corrections, Today) already requires this view.
       "/api/bill-review",
+      // The ✍ handwritten chip on the bill lists (Board, AllBills).
+      "/api/bill-handwriting",
       "/api/add-bill",
       "/api/add-line",
       "/api/combine-lines",

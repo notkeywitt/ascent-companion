@@ -120,7 +120,7 @@ export function fingerprintOf(source: string): string {
  * `fingerprintOf` over `applySchema`'s source text in this file. Update it to the
  * value `schemaFingerprint.test.ts` prints whenever you change `applySchema`.
  */
-export const SCHEMA_FINGERPRINT = "1hlt-128563i";
+export const SCHEMA_FINGERPRINT = "1hsh-xu4m9y";
 
 async function runEnsure(): Promise<void> {
   const fingerprint = SCHEMA_FINGERPRINT;
@@ -1467,6 +1467,14 @@ async function applySchema() {
       text TEXT NOT NULL DEFAULT '',
       note TEXT NOT NULL DEFAULT '',
       read_at TEXT NOT NULL
+    )
+  `);
+  await getClient().execute(`
+    CREATE TABLE IF NOT EXISTS bill_handwriting (
+      doc_id TEXT PRIMARY KEY,
+      file_id TEXT NOT NULL DEFAULT '',
+      handwritten INTEGER NOT NULL DEFAULT 0,
+      checked_at TEXT NOT NULL
     )
   `);
   await getClient().execute(`
