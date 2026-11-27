@@ -66,7 +66,8 @@ also reads it.
   Three patterns exist: hub tabs with embedded pages (the Jobs page,
   `src/app/jobs-hub/`), `?section=` strips (Inbox, Payroll), and a tab row of
   routes that keep their own address (Bills, `src/app/bills/BillsDashboard.tsx`;
-  nothing redirects).
+  Admin, `src/app/admin/AdminTabs.tsx`; nothing redirects). `MENU_ROWS` in
+  `src/lib/workspaces.ts` trims a hub's ☰ menu rows.
 - **Link to a job with `hubHref`** (`src/lib/hubUrl.ts`), never
   `/trackingsheet?jobId=`.
 - **Today's rows read stored or cached results.** A live sweep (vendor mail

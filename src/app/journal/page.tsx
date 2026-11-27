@@ -16,6 +16,7 @@ import {
   PageHeader,
   SectionHeading,
 } from "@/components/ui";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * THE FINANCIAL JOURNAL — every write this app has made to a money record.
@@ -171,6 +172,7 @@ export default function JournalPage() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
+      <AdminTabs />
       <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="Financial journal"

@@ -21,6 +21,7 @@ import {
   btn,
 } from "@/components/ui";
 import { AGENT_SCRIPTS, MODELS, STALL_MINUTES, scriptById, type AgentModel, type AgentScript } from "@/lib/agentScripts";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * AI SCRIPTS (/ai-scripts, admin) — the Claude Code scripts the Macs run.
@@ -156,6 +157,7 @@ export function AiScripts() {
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 pb-24 pt-3 pad:px-7 lg:max-w-4xl">
+      <AdminTabs />
       <PageHeader
         title="AI Scripts"
         description="The Claude Code scripts the Macs run. A change here applies to the next run. Watching a run costs no tokens."

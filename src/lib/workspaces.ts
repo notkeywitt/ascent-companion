@@ -158,9 +158,10 @@ export const WORKSPACES: Workspace[] = [
     title: "Admin",
     desc: "Access, the app's wording and look, the audit trails, and the data art.",
     tabs: [
+      // The Admin hub (owner, 2026-11-27): every page here draws the Admin tab
+      // row (src/app/admin/AdminTabs.tsx); the menu lists only MENU_ROWS.
       tab("admin", "/admin", "Access", "Who can sign in, and what each role can open"),
-      // Also a tab of /admin; its own page so the phone menu can link it
-      // (owner, 2026-11-21).
+      // Its own menu row so the phone menu can link it (owner, 2026-11-21, kept 2026-11-27).
       tab("skins", "/admin/skins", "Skins", "Set a person's skin on all their devices"),
       tab("ascentbot", "/ascentbot", "AscentBot", "Who can ask the Chat bot, and what each role's answers may include"),
       // Pairs joined by a PageTabs row (stage 6): Look & Text opens Page Text
@@ -260,6 +261,18 @@ export const NO_STRIP_WORKSPACES = new Set(["close"]);
  * Customers, Receivables and Deposit Checks are on the Jobs workspace's tab
  * strip and in the header search. */
 export const MENU_SINGLE_WORKSPACES = new Set(["close", "clients"]);
+
+/** Hubs whose own tab row reaches their other pages: the ☰ menu and the phone
+ *  drawer list only these rows (views) of the workspace. Search and the rail
+ *  still know every page. Admin is one hub (owner, 2026-11-27); Skins keeps its
+ *  row at the owner's ask, and AI Scripts keeps its rail entry (OWN_ENTRY_UNDER). */
+export const MENU_ROWS: Record<string, string[]> = { admin: ["admin", "skins"] };
+
+/** The tabs a workspace lists in the ☰ menu and the drawer. */
+export function menuRows<T extends WorkspaceTab>(workspaceId: string, tabs: T[]): T[] {
+  const keep = MENU_ROWS[workspaceId];
+  return keep ? tabs.filter((t) => keep.includes(t.view)) : tabs;
+}
 
 /** Today — the home page. Not a workspace: it is the bar's first slot. */
 export const TODAY: WorkspaceTab = tab("", "/", "Home", "What needs you today");
@@ -625,7 +638,7 @@ export function drawerFor(
     add(next ? page(next) : i);
   }
   for (const ws of WORKSPACES) {
-    for (const t of reachableTabs(ws, can)) add(page(t));
+    for (const t of menuRows(ws.id, reachableTabs(ws, can))) add(page(t));
   }
   for (const t of EXTRA_LINKS) {
     if (can(t.view)) add(page(t));

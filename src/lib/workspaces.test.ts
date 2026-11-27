@@ -221,6 +221,13 @@ describe("the phone bar's drawer", () => {
       expect(drawerFor(role, can(role)).map((i) => i.href), role).toContain("/payroll");
     }
   });
+  it("lists the Admin hub as its menu rows, not every Admin page", () => {
+    const hrefs = drawerFor("admin", can("admin")).map((i) => i.href);
+    expect(hrefs).toContain("/admin/skins");
+    expect(hrefs).toContain("/ai-scripts");
+    expect(hrefs).not.toContain("/ascentbot");
+    expect(hrefs).not.toContain("/logs");
+  });
   it("holds pages each role can open, none already on the bar, none twice", () => {
     for (const role of ROLES) {
       const items = drawerFor(role, can(role));

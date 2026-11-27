@@ -17,6 +17,7 @@ import {
 } from "@/components/ui";
 import { JobPicker, type JobRef } from "@/components/JobPicker";
 import { money } from "@/lib/money";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * Admin utility: capture a job's historical costs — the spend its Google
@@ -214,6 +215,7 @@ export function HistoricalCost({
     // The app's standard page container — this was a bare <div> with no padding,
     // so every card sat hard against both screen edges on a phone.
     <Wrap embedded={embedded}>
+      {!embedded && <AdminTabs />}
       <PageHeader
         title="Historical Cost Import"
         titleSlot={embedded ? <span className="sr-only">Historical cost bill</span> : undefined}

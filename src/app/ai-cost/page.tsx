@@ -13,6 +13,7 @@ import {
   StatementBlock,
   tableCls,
 } from "@/components/ui";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * AI COST — what the app's Claude calls have cost, by month and by feature.
@@ -94,6 +95,7 @@ export default function AiCostPage() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 py-6">
+      <AdminTabs />
       <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="AI cost"

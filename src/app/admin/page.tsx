@@ -10,6 +10,7 @@ import {
   PageHeader,
   SectionLabel,
   Select,
+  Tabs,
   Toggle,
 } from "@/components/ui";
 import {
@@ -28,13 +29,7 @@ import {
 } from "@/lib/workspaces";
 import { ROLE_LABEL, PREVIEW_COOKIE, parsePreviewRole } from "@/lib/preview";
 import { startPreview, stopPreview } from "@/lib/previewClient";
-import { useAccess } from "@/components/AccessProvider";
-import AscentBotPage from "../ascentbot/page";
-import PageCopyPage from "./copy/page";
-import LogsPage from "../logs/page";
-import HistoricalCostPage from "../historical-cost/page";
-import { ActivityPanel } from "./ActivityPanel";
-import { SkinsPanel } from "./SkinsPanel";
+import { AdminTabs } from "./AdminTabs";
 import { PageMapPanel } from "./PageMapPanel";
 import { DigestSettingsPanel } from "./DigestSettingsPanel";
 import { BuildFooter } from "./BuildFooter";
@@ -63,84 +58,39 @@ const GROUPED = GROUP_ORDER.map((g) => ({
   views: VIEWS.filter((v) => v.group === g),
 })).filter((g) => g.views.length > 0);
 
-type AdminTab = "access" | "skins" | "activity" | "digest" | "ascentbot" | "look" | "audit" | "historical" | "map" | "changelog";
+type AdminTab = "access" | "digest" | "map" | "changelog";
 
-// One picker for every Admin page. The first three are this page's own panels;
-// the rest are the pages that used to be separate Admin menu rows.
-const ADMIN_TABS: { id: AdminTab; label: string; view: string }[] = [
-  { id: "access", label: "Access", view: "admin" },
-  { id: "skins", label: "Skins", view: "skins" },
-  { id: "activity", label: "Activity", view: "admin" },
-  { id: "digest", label: "Digest", view: "admin" },
-  { id: "map", label: "Page Map", view: "admin" },
-  { id: "changelog", label: "Change Log", view: "admin" },
-  { id: "ascentbot", label: "AscentBot", view: "ascentbot" },
-  { id: "look", label: "Look & Text", view: "page-copy" },
-  { id: "audit", label: "Audit", view: "logs" },
-  { id: "historical", label: "Historical Cost Import", view: "historical-cost" },
+// The Access page's own sections. The other Admin pages are their own routes
+// on the Admin tab row (AdminTabs); Activity moved to Audit (2026-11-27).
+const ADMIN_SECTIONS: { id: AdminTab; label: string }[] = [
+  { id: "access", label: "Access" },
+  { id: "digest", label: "Digest" },
+  { id: "map", label: "Page Map" },
+  { id: "changelog", label: "Change Log" },
 ];
 
 export default function AdminPage() {
   // No Notices tab since 2026-09-29: /notices is the one place to post one.
-  const { can } = useAccess();
   const [tab, setTab] = useState<AdminTab>("access");
-  const tabs = ADMIN_TABS.filter((t) => can(t.view));
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
-      <PageHeader title="Admin" className="!mb-4" />
-      <div className="mb-5 inline-flex max-w-full flex-wrap rounded-control border border-line p-0.5 ">
-        {tabs.map((t) => (
-          <TabButton key={t.id} active={tab === t.id} onClick={() => setTab(t.id)}>
-            {t.label}
-          </TabButton>
-        ))}
-      </div>
+      <AdminTabs />
+      <PageHeader title="Access" className="!mb-4" />
+      <Tabs
+        label="Access sections"
+        items={ADMIN_SECTIONS.map((t) => ({ key: t.id, label: t.label, active: tab === t.id, onClick: () => setTab(t.id) }))}
+      />
       {tab === "access" ? (
         <AccessPanel />
-      ) : tab === "skins" ? (
-        <SkinsPanel />
-      ) : tab === "activity" ? (
-        <ActivityPanel />
       ) : tab === "map" ? (
         <PageMapPanel />
       ) : tab === "changelog" ? (
         <ChangeLogPanel />
-      ) : tab === "digest" ? (
-        <DigestSettingsPanel />
-      ) : tab === "ascentbot" ? (
-        <AscentBotPage />
-      ) : tab === "look" ? (
-        <PageCopyPage />
-      ) : tab === "audit" ? (
-        <LogsPage />
       ) : (
-        <HistoricalCostPage />
+        <DigestSettingsPanel />
       )}
       <BuildFooter />
     </main>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-inner px-3 py-1 text-sm font-medium transition ${
-        active
-          ? "bg-accent text-accent-fg shadow-sm"
-          : "text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
 

@@ -17,6 +17,7 @@ import {
   BAR_PIN_KEY,
   EXTRA_LINKS,
   MENU_SINGLE_WORKSPACES,
+  menuRows,
   TODAY,
   WORKSPACES,
   locate,
@@ -307,7 +308,7 @@ export function AppMenu({
               ) : (
                 <div key={w.id} className="space-y-1.5">
                   <SectionLabel>{w.title}</SectionLabel>
-                  <ListCard>{w.tabs.map(row)}</ListCard>
+                  <ListCard>{(pinning ? w.tabs : menuRows(w.id, w.tabs)).map(row)}</ListCard>
                 </div>
               ),
             )}

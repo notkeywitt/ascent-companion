@@ -40,6 +40,7 @@ import {
   type PaletteDraft,
   type ThemeName,
 } from "@/lib/paletteDraft";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * The theme editor — pickers and sliders over the live palette.
@@ -199,6 +200,7 @@ export default function ThemeEditorPage() {
 
   return (
     <main className="w-full max-w-4xl px-4 pad:px-7 pb-10 pt-5">
+      <AdminTabs />
       <PageTabs tabs={LOOK_TABS} />
       <PageHeader
         title="Theme"
