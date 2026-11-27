@@ -13,6 +13,7 @@ import {
   SectionHeading,
   Textarea,
 } from "@/components/ui";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * Admin → Page Text — reword the app's on-screen copy without a deploy.
@@ -137,6 +138,7 @@ export default function PageTextEditor() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 lg:max-w-[1600px]">
+      <AdminTabs />
       <PageTabs tabs={LOOK_TABS} />
       <PageHeader title="Page Text" />
 

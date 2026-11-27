@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/ui";
 
 import { AscentBotAccess } from "./AscentBotAccess";
 import { SignalChats } from "./SignalChats";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 /**
  * AscentBot — who may ask the Google Chat bot, and what each person's answers
@@ -17,6 +18,7 @@ import { SignalChats } from "./SignalChats";
 export default function AscentBotPage() {
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-3xl xl:max-w-[1600px]">
+      <AdminTabs />
       <PageHeader
         title="AscentBot"
         description="Who may ask AscentBot in Google Chat, and what their answers may draw on."

@@ -20,6 +20,8 @@ export const AUDIT_TABS: PageTab[] = [
   { view: "logs", href: "/logs", label: "System Logs" },
   { view: "journal", href: "/journal", label: "Financial Journal" },
   { view: "ai-cost", href: "/ai-cost", label: "AI Cost" },
+  // Per-page visits, from Access since 2026-11-27. Rides the `admin` view.
+  { view: "admin", href: "/admin/activity", label: "Activity" },
 ];
 export const LOOK_TABS: PageTab[] = [
   { view: "page-copy", href: "/admin/copy", label: "Page Text" },

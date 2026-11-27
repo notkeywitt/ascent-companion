@@ -17,6 +17,10 @@
    "file": "src/app/admin/page.tsx"
   },
   {
+   "route": "/admin/activity",
+   "file": "src/app/admin/activity/page.tsx"
+  },
+  {
    "route": "/admin/copy",
    "file": "src/app/admin/copy/page.tsx"
   },
@@ -542,13 +546,48 @@
    "kind": "link"
   },
   {
+   "from": "/admin/activity",
+   "to": "/ai-cost",
+   "kind": "strip"
+  },
+  {
+   "from": "/admin/activity",
+   "to": "/journal",
+   "kind": "strip"
+  },
+  {
+   "from": "/admin/activity",
+   "to": "/logs",
+   "kind": "strip"
+  },
+  {
+   "from": "/admin",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
    "from": "/admin",
    "to": "/admin/copy",
    "kind": "link"
   },
   {
    "from": "/admin",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
    "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/art",
    "kind": "link"
   },
   {
@@ -574,6 +613,11 @@
   {
    "from": "/admin",
    "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/admin",
+   "to": "/historical-cost",
    "kind": "link"
   },
   {
@@ -630,6 +674,11 @@
    "from": "/admin",
    "to": "/vendors",
    "kind": "link"
+  },
+  {
+   "from": "/ai-cost",
+   "to": "/admin/activity",
+   "kind": "strip"
   },
   {
    "from": "/ai-cost",
@@ -958,6 +1007,11 @@
   },
   {
    "from": "/journal",
+   "to": "/admin/activity",
+   "kind": "strip"
+  },
+  {
+   "from": "/journal",
    "to": "/ai-cost",
    "kind": "strip"
   },
@@ -1010,6 +1064,11 @@
    "from": "/leads/research/[id]",
    "to": "/leads",
    "kind": "link"
+  },
+  {
+   "from": "/logs",
+   "to": "/admin/activity",
+   "kind": "strip"
   },
   {
    "from": "/logs",
@@ -1381,24 +1440,24 @@
    "to": "/trackingsheet"
   },
   {
+   "from": "/admin/activity",
+   "to": "/admin"
+  },
+  {
+   "from": "/admin/copy",
+   "to": "/admin"
+  },
+  {
    "from": "/admin/skins",
    "to": "/admin"
   },
   {
-   "from": "/admin",
-   "to": "/admin/copy"
+   "from": "/ai-cost",
+   "to": "/admin"
   },
   {
-   "from": "/admin",
-   "to": "/ascentbot"
-  },
-  {
-   "from": "/admin",
-   "to": "/historical-cost"
-  },
-  {
-   "from": "/admin",
-   "to": "/logs"
+   "from": "/ai-scripts",
+   "to": "/admin"
   },
   {
    "from": "/amazon-import",
@@ -1433,6 +1492,14 @@
    "to": "/art"
   },
   {
+   "from": "/art",
+   "to": "/admin"
+  },
+  {
+   "from": "/ascentbot",
+   "to": "/admin"
+  },
+  {
    "from": "/bill-clone",
    "to": "/bills"
   },
@@ -1455,6 +1522,10 @@
   {
    "from": "/employees",
    "to": "/onboarding/office"
+  },
+  {
+   "from": "/historical-cost",
+   "to": "/admin"
   },
   {
    "from": "/invoice-review",
@@ -1513,6 +1584,10 @@
    "to": "/trackingsheet"
   },
   {
+   "from": "/journal",
+   "to": "/admin"
+  },
+  {
    "from": "/labor",
    "to": "/"
   },
@@ -1527,6 +1602,10 @@
   {
    "from": "/leads",
    "to": "/clients"
+  },
+  {
+   "from": "/logs",
+   "to": "/admin"
   },
   {
    "from": "/lswdd",
@@ -1555,6 +1634,10 @@
   {
    "from": "/punch-list",
    "to": "/jobs-hub"
+  },
+  {
+   "from": "/theme",
+   "to": "/admin"
   },
   {
    "from": "/tool-schedule/edit",

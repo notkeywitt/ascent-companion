@@ -4,6 +4,7 @@ import { PageTabs, AUDIT_TABS } from "@/components/PageTabs";
 import { useCallback, useEffect, useState } from "react";
 
 import { Banner, Button, EmptyState, Loading, PageHeader, inputCls } from "@/components/ui";
+import { AdminTabs } from "@/app/admin/AdminTabs";
 
 interface LogItem {
   timestamp: string;
@@ -64,6 +65,7 @@ export default function LogsPage() {
 
   return (
     <main className="w-full max-w-4xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
+      <AdminTabs />
       <PageTabs tabs={AUDIT_TABS} />
       <PageHeader
         title="System Logs"
