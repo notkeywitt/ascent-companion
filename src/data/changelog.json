@@ -1,5 +1,11 @@
 [
  {
+  "sha": "2aa0dc8e",
+  "date": "2026-11-27T19:05:14Z",
+  "title": "fold inbox and add bill into the bills hub",
+  "plain": "Inbox and Add bill are now tabs on the Bills page, and the menu shows one Bills row."
+ },
+ {
   "sha": "d33bf9b6",
   "date": "2026-11-25T14:44:42-08:00",
   "title": "tag handwritten bills with a ✍ chip",
