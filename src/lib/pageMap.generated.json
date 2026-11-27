@@ -543,22 +543,12 @@
   },
   {
    "from": "/admin",
-   "to": "/add-bill",
-   "kind": "link"
-  },
-  {
-   "from": "/admin",
    "to": "/admin/copy",
    "kind": "link"
   },
   {
    "from": "/admin",
    "to": "/ai-cost",
-   "kind": "link"
-  },
-  {
-   "from": "/admin",
-   "to": "/amazon-import",
    "kind": "link"
   },
   {
@@ -572,19 +562,9 @@
    "kind": "link"
   },
   {
-   "from": "/admin",
-   "to": "/bills",
-   "kind": "link"
-  },
-  {
    "from": "/admin/copy",
    "to": "/theme",
    "kind": "strip"
-  },
-  {
-   "from": "/admin",
-   "to": "/email",
-   "kind": "link"
   },
   {
    "from": "/admin",
@@ -618,22 +598,12 @@
   },
   {
    "from": "/admin",
-   "to": "/lswdd",
-   "kind": "link"
-  },
-  {
-   "from": "/admin",
    "to": "/office",
    "kind": "link"
   },
   {
    "from": "/admin",
    "to": "/onboarding/office",
-   "kind": "link"
-  },
-  {
-   "from": "/admin",
-   "to": "/payments",
    "kind": "link"
   },
   {
@@ -728,12 +698,22 @@
   },
   {
    "from": "/bills",
+   "to": "/add-bill",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
    "to": "/amazon-import",
    "kind": "link"
   },
   {
    "from": "/bills",
    "to": "/bill-clone",
+   "kind": "link"
+  },
+  {
+   "from": "/bills",
+   "to": "/email",
    "kind": "link"
   },
   {
@@ -1390,6 +1370,10 @@
   },
   {
    "from": "/add-bill",
+   "to": "/bills"
+  },
+  {
+   "from": "/add-bill",
    "to": "/deposit-tracker"
   },
   {
@@ -1463,6 +1447,10 @@
   {
    "from": "/email",
    "to": "/"
+  },
+  {
+   "from": "/email",
+   "to": "/bills"
   },
   {
    "from": "/employees",

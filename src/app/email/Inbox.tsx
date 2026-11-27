@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAccess } from "@/components/AccessProvider";
-import { PageHeader, Tabs } from "@/components/ui";
+import { Tabs } from "@/components/ui";
 import { setUrlParam } from "@/lib/urlParam";
 import { EmailInvoices } from "./EmailInvoices";
 import { NotInJobTread } from "@/app/needs-project/NotInJobTread";
@@ -18,7 +18,8 @@ import { ScriptJobs } from "@/components/ScriptJobs";
  *   Check mail  — every vendor email and whether it was captured (was Mail Check)
  * Each section shows only to someone who holds its view, and only the open one
  * loads: Check mail's sweep can take two minutes. ?section= picks one;
- * /needs-project and /vendor-mail redirect here.
+ * /needs-project and /vendor-mail redirect here. It is the Bills dashboard's
+ * Inbox tab, so the dashboard draws the page frame.
  */
 const SECTIONS = [
   { id: "log", label: "To log", view: "email" },
@@ -36,8 +37,7 @@ export function Inbox() {
   });
 
   return (
-    <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
-      <PageHeader title="Inbox" description="Bills arriving by email, at each stage." />
+    <>
       <Tabs
         label="Inbox sections"
         items={sections.map((x) => ({
@@ -46,7 +46,7 @@ export function Inbox() {
           active: section === x.id,
           onClick: () => {
             setSection(x.id);
-                setUrlParam("section", x.id === sections[0].id ? "" : x.id);
+            setUrlParam("section", x.id === sections[0].id ? "" : x.id);
           },
         }))}
       />
@@ -64,6 +64,6 @@ export function Inbox() {
         {section === "stuck" && can("needs-project") && <NotInJobTread embedded />}
         {section === "mail" && can("vendor-mail") && <VendorMail embedded />}
       </div>
-    </main>
+    </>
   );
 }

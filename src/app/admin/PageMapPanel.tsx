@@ -39,9 +39,8 @@ const MAP = raw as {
   embeds: { from: string; to: string }[];
 };
 
-/** The page folds proposed on the roadmap (`page-folds` in src/lib/roadmap.ts). */
+/** The page folds proposed on the roadmap (`page-folds` in src/lib/roadmap.ts). The Bills hub landed 2026-11-27. */
 const PHASE7: { id: string; label: string; routes: string[] }[] = [
-  { id: "bills", label: "Bills hub", routes: ["/bills", "/email", "/payments", "/lswdd", "/amazon-import", "/add-bill"] },
   { id: "find", label: "Find", routes: ["/vendors", "/bill-search", "/expenditure-history", "/vendor-mail/index"] },
   { id: "people", label: "People", routes: ["/employees", "/labor-rates", "/onboarding/office", "/payroll", "/time-off"] },
   { id: "admin", label: "Admin", routes: ["/admin", "/ascentbot", "/admin/copy", "/theme", "/logs", "/journal", "/ai-cost"] },

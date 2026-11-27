@@ -229,9 +229,9 @@ export const FEATURES: RoadmapFeature[] = [
   },
   {
     id: "page-folds",
-    title: "Fewer pages: Bills, Find, People and Admin hubs",
+    title: "Fewer pages: Find, People and Admin hubs",
     cls: "fix",
-    what: "Fold the bill pages, the search pages, the people pages and the admin pages into four hubs, as the Jobs page did. Old addresses redirect. Also: Access's Activity tab joins Audit, Vendors gets a bill-number box, and the Bill Archive reads a search handed to it.",
+    what: "Fold the search pages, the people pages and the admin pages into three hubs, as the Jobs page and the Bills page did. Old addresses redirect. Also: Access's Activity tab joins Audit, Vendors gets a bill-number box, and the Bill Archive reads a search handed to it.",
     size: "M",
   },
   {

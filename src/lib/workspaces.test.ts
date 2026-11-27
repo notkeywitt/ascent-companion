@@ -164,7 +164,7 @@ describe("the iPad rail", () => {
     expect(activeBarKey(rail, "/jobs")).toBe("clients");
     expect(activeBarKey(rail, "/budget-import")).toBe("clients");
     expect(activeBarKey(rail, "/bill/123")).toBe("close");
-    expect(activeBarKey(rail, "/add-bill")).toBe("close");
+    expect(activeBarKey(rail, "/add-bill")).toBe("incoming");
     expect(activeBarKey(rail, "/bill-search")).not.toBe("close");
   });
 });
@@ -203,10 +203,10 @@ describe("a role's side-menu edit", () => {
     expect(items[11].gap).toBe(true);
   });
   it("keeps only known keys", () => {
-    expect(cleanMenuKeys(["today", "ws:clients", "page:bills", "ws:nope", 3, "today"])).toEqual([
+    expect(cleanMenuKeys(["today", "ws:clients", "page:vendors", "ws:nope", 3, "today"])).toEqual([
       "today",
       "ws:clients",
-      "page:bills",
+      "page:vendors",
     ]);
   });
 });

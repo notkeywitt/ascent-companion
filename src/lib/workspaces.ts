@@ -107,11 +107,9 @@ export const WORKSPACES: Workspace[] = [
     title: "Bills",
     desc: "Bills to code, and bills arriving from the inbox, the mail and the monthly statements.",
     tabs: [
+      // The Bills hub (owner, 2026-11-27): one menu row. Inbox, Add bill and
+      // the statement pages are tabs on its tab row (BILLS_TABS).
       tab("bills", "/bills", "Bills", "Draft bills to code, with the open bill beside the list"),
-      // One inbox since 2026-10-18 (CONSOLIDATION_PLAN.md stage 3): To log,
-      // Stuck (was Not in JobTread) and Check mail (was Mail Check) are its
-      // sections; /needs-project and /vendor-mail redirect.
-      tab("email", "/email", "Inbox", "Invoice emails to log, stuck bills, and the vendor mail check"),
     ],
   },
   {
@@ -193,9 +191,12 @@ export const JOB_PAGES: WorkspaceTab[] = [
   tab("house-manual", "/house-manual", "House Manual", "A homeowner's manual to paste into Squarespace"),
   tab("unbilled", "/unbilled", "Unbilled", "A job's bills and time not yet invoiced"),
 ];
-/** The Bills dashboard's statement tabs: on no menu (its tab row reaches them),
+/** The Bills dashboard's other tabs: on no menu (its tab row reaches them),
  *  but still found by the header search, so a lead (Sunset, no Bills) has a way in. */
 export const BILLS_TABS: WorkspaceTab[] = [
+  // One inbox since 2026-10-18: To log, Stuck (was Not in JobTread) and Check
+  // mail (was Mail Check) are its sections; /needs-project and /vendor-mail redirect.
+  tab("email", "/email", "Inbox", "Invoice emails to log, stuck bills, and the vendor mail check"),
   tab("accounts-payable", "/accounts-payable", "Accounts Payable", "The month's bills, paid or not (no Sunset, no Expenses)"),
   tab("payments", "/payments", "Sunset Statements", "Pay a statement & reconcile its invoices"),
   tab("lswdd", "/lswdd", "LSWDD Statement", "Split the dump's monthly statement across jobs"),
@@ -203,6 +204,7 @@ export const BILLS_TABS: WorkspaceTab[] = [
   tab("bill-clone", "/bill-clone", "Bill Clones", "Re-file a vendor's month of Expenses as Bills"),
 ];
 export const OUTSIDE_WORKSPACES: Record<string, string> = {
+  email: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   "accounts-payable": "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   payments: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
   lswdd: "a tab on the Bills dashboard (/bills) and the header search (BILLS_TABS)",
@@ -584,7 +586,7 @@ const PARENT_WORKSPACE: [string, string][] = [
   ...JOB_PAGES.map((t) => [t.href, "clients"] as [string, string]),
   ...BILLS_TABS.map((t) => [t.href, "incoming"] as [string, string]),
   ["/bill", "close"],
-  ["/add-bill", "close"],
+  ["/add-bill", "incoming"],
 ];
 
 /**

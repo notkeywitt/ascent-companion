@@ -63,8 +63,10 @@ also reads it.
   (the `TrackingSheetSync.tsx` pattern).
 - **Folding pages into a hub.** Every old route redirects, non-permanent, in
   `next.config.mjs`. Staff have bookmarks. Each section keeps its own view gate.
-  Two patterns exist: hub tabs with embedded pages (the Jobs page,
-  `src/app/jobs-hub/`) and `?section=` strips (Inbox, Payroll).
+  Three patterns exist: hub tabs with embedded pages (the Jobs page,
+  `src/app/jobs-hub/`), `?section=` strips (Inbox, Payroll), and a tab row of
+  routes that keep their own address (Bills, `src/app/bills/BillsDashboard.tsx`;
+  nothing redirects).
 - **Link to a job with `hubHref`** (`src/lib/hubUrl.ts`), never
   `/trackingsheet?jobId=`.
 - **Today's rows read stored or cached results.** A live sweep (vendor mail
