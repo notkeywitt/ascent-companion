@@ -118,6 +118,8 @@ export interface AddBillFormProps {
   initialJobId?: string;
   /** Drawn inside a pop-up: no page frame, and the ✕ calls `onClose`. */
   embedded?: boolean;
+  /** Drawn as the Bills dashboard's Add bill tab: the dashboard owns the page frame. */
+  inHub?: boolean;
   onClose?: () => void;
   /** Called once when the bill is written (or found already on file). */
   onCreated?: (result: { docId?: string; jobId: string; alreadyExisted?: boolean }) => void;
@@ -131,6 +133,7 @@ export function AddBillForm({
   initialFile = null,
   initialJobId = "",
   embedded = false,
+  inHub = false,
   onClose,
   onCreated,
 }: AddBillFormProps = {}) {
@@ -459,10 +462,15 @@ export function AddBillForm({
       </Banner>
   ) : null;
 
+  const Frame = embedded || inHub ? "div" : "main";
   return (
-    <main
+    <Frame
       className={
-        embedded ? "w-full" : `w-full px-4 pad:px-7 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-2xl"}`
+        embedded
+          ? "w-full"
+          : inHub
+            ? `w-full ${wide ? "max-w-4xl" : "max-w-2xl"}`
+            : `w-full px-4 pad:px-7 pb-24 pt-6 ${wide ? "max-w-4xl" : "max-w-2xl"}`
       }
     >
       <PageHeader
@@ -885,6 +893,6 @@ export function AddBillForm({
           onClose={() => setReviewOpen(false)}
         />
       )}
-    </main>
+    </Frame>
   );
 }

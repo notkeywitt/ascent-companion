@@ -580,6 +580,7 @@ export const HELP: HelpSection[] = [
         ],
         notes: [
           "On a computer the button says **＋ Add bill**.",
+          "You can also open **Bills** and tap **Add bill**.",
           "A PDF or a photo up to 15 MB is permitted.",
           "The app reads the invoice, codes the lines, and makes a draft bill in JobTread.",
           "The app takes the billing month from the upload date, not from the invoice.",
@@ -625,7 +626,8 @@ export const HELP: HelpSection[] = [
         href: "/email?section=stuck",
         keywords: ["needs project", "not in jobtread", "stuck", "no job", "unassigned", "assign", "ingested"],
         steps: [
-          "Open **Inbox**, then tap **Stuck**.",
+          "Open **Bills**, then tap **Inbox**.",
+          "Tap **Stuck**.",
           "Tap **Open PDF in Drive ↗** to read the bill.",
           "Select the job in that row.",
           "Tap **Assign**.",
@@ -644,7 +646,8 @@ export const HELP: HelpSection[] = [
         href: "/email",
         keywords: ["email", "inbox", "gmail", "log invoice", "attachment"],
         steps: [
-          "Open **Inbox**, then tap **To log**.",
+          "Open **Bills**, then tap **Inbox**.",
+          "Tap **To log**.",
           "Tap **Refresh**.",
           "Select the job for the email.",
           "Tap **PAID** if the invoice is already paid.",
@@ -967,7 +970,7 @@ export const HELP: HelpSection[] = [
         href: "/email",
         keywords: ["actions", "run", "sync", "script", "schedule", "scan"],
         steps: [
-          "For an email scan, open **Inbox** and go to **Scan the mailbox now**.",
+          "For an email scan, open **Bills**, tap **Inbox**, and go to **Scan the mailbox now**.",
           "For a project, vendor or summary sync, open **Tracking Sheets** and go to **Company tools**.",
           "Tap **Run**.",
           "Read the result note.",
