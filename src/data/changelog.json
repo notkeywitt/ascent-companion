@@ -1,5 +1,11 @@
 [
  {
+  "sha": "f3138a58",
+  "date": "2026-11-27T19:36:06Z",
+  "title": "fold the admin pages into one admin hub",
+  "plain": "Every Admin page now shares one tab row, the menu lists only Access and Skins under Admin, and Activity moved to Audit."
+ },
+ {
   "sha": "2aa0dc8e",
   "date": "2026-11-27T19:05:14Z",
   "title": "fold inbox and add bill into the bills hub",
