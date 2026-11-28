@@ -14,6 +14,7 @@ import {
 } from "@/components/ui";
 import { money } from "@/lib/money";
 import { CoiDot } from "@/components/CoiDot";
+import { HubTabs } from "@/components/HubTabs";
 
 /**
  * The Bill Search screen.
@@ -232,6 +233,7 @@ export function BillSearch({ initialQuery = "" }: { initialQuery?: string }) {
 
   return (
     <main className="max-w-2xl w-full px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
+      <HubTabs hub="find" />
       <PageHeader
         title="Bill Search"
         description="Search every bill and line item — a material like “2x4”, a vendor, or an invoice number."

@@ -23,6 +23,7 @@ import {
 import { shortDay, type FieldConfig, type Profile } from "@/lib/onboarding/fields";
 
 import { FormEditor } from "./FormEditor";
+import { HubTabs } from "@/components/HubTabs";
 
 export interface OfficeForm {
   id: number;
@@ -179,6 +180,7 @@ export function OnboardingOffice() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-2xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pb-24 pt-3">
+      <HubTabs hub="people" />
       <PageHeader title="New Hires" />
       {children}
     </main>

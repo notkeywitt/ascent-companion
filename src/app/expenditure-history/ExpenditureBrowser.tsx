@@ -18,6 +18,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { money, money0 as moneyShort } from "@/lib/money";
+import { HubTabs } from "@/components/HubTabs";
 
 /**
  * Expenditure History — the whole Expenditure sheet, searchable on a phone.
@@ -765,6 +766,7 @@ export default function ExpenditureBrowser() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 pb-24 pt-6 lg:max-w-[1600px]">
+      <HubTabs hub="find" />
       <PageHeader
         title="Bill Archive"
         description="Every bill in the Expenditure sheet, including the years before JobTread."

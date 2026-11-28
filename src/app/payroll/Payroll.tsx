@@ -9,6 +9,7 @@ import { TimeOffView } from "@/app/time-off/TimeOff";
 import { TimeSync } from "@/app/time-sync/TimeSync";
 import { LaborImport } from "@/app/labor-import/LaborImport";
 import { PayPeriod } from "./PayPeriod";
+import { HubTabs } from "@/components/HubTabs";
 
 /**
  * PAYROLL (CONSOLIDATION_PLAN.md stage 5) — the pay-period work that used to
@@ -38,6 +39,7 @@ export function Payroll() {
 
   return (
     <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
+      <HubTabs hub="people" />
       <PageHeader title="Payroll" description="Time off, time that did not reach JobTread, and the month's labor." />
       <Tabs
         label="Payroll sections"

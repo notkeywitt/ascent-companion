@@ -228,6 +228,15 @@ describe("the phone bar's drawer", () => {
     expect(hrefs).not.toContain("/ascentbot");
     expect(hrefs).not.toContain("/logs");
   });
+  it("lists the People and Find hubs as their menu rows", () => {
+    const hrefs = drawerFor("office", can("office")).map((i) => i.href);
+    expect(hrefs).toContain("/safety-meeting");
+    expect(hrefs).toContain("/bill-search");
+    expect(hrefs).toContain("/vendors"); // its own rail entry
+    expect(hrefs).not.toContain("/labor-rates");
+    expect(hrefs).not.toContain("/onboarding/office");
+    expect(hrefs).not.toContain("/expenditure-history");
+  });
   it("holds pages each role can open, none already on the bar, none twice", () => {
     for (const role of ROLES) {
       const items = drawerFor(role, can(role));
