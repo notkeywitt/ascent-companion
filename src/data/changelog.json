@@ -1,5 +1,11 @@
 [
  {
+  "sha": "18f4f116",
+  "date": "2026-11-28T05:33:52Z",
+  "title": "fold the people and find pages into hubs",
+  "plain": "Employees, New Hires, Pay Rates and Payroll share one tab row, and so do Bill Search, Vendors, Bill Archive and Vendor Addresses; the menu is shorter."
+ },
+ {
   "sha": "f3138a58",
   "date": "2026-11-27T19:36:06Z",
   "title": "fold the admin pages into one admin hub",
