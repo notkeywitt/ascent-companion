@@ -14,8 +14,10 @@ import { castKloi, toggleKloi, useKloi } from "@/lib/kloi";
 import { AppMenu } from "@/components/AppMenu";
 import { carryJobAndMonth } from "@/lib/urlParam";
 import { confirmLeaveIfDirty } from "@/lib/useUnsavedChanges";
+import { HUBS } from "@/components/HubTabs";
 import {
   BAR_PIN_EVENT,
+  BILLS_TABS,
   BAR_PIN_KEY,
   MENU_SINGLE_WORKSPACES,
   WORKSPACES,
@@ -313,6 +315,28 @@ const ICONS: Record<string, () => React.ReactNode> = {
   lopezrocks: MapPinIcon,
 };
 
+/** The drawer's hub row, for admin and office (owner, 2026-11-28): one icon
+ *  per hub, each shown to someone who holds its first page's view. Jobs is
+ *  left out: it is already a bar slot. `routes` light the icon. */
+const HUB_ROW: { key: string; label: string; href: string; view: string; routes: string[] }[] = [
+  {
+    key: "incoming",
+    label: "Bills",
+    href: "/bills",
+    view: "bills",
+    routes: ["/bills", ...BILLS_TABS.map((t) => t.href), "/add-bill"],
+  },
+  { key: "people", label: "People", href: "/employees", view: "employees", routes: HUBS.people.map((t) => t.href) },
+  { key: "search", label: "Find", href: "/bill-search", view: "bill-search", routes: HUBS.find.map((t) => t.href) },
+  {
+    key: "admin",
+    label: "Admin",
+    href: "/admin",
+    view: "admin",
+    routes: HUBS.admin.flatMap((t: { href: string; also?: string[] }) => [t.href, ...(t.also ?? [])]),
+  },
+];
+
 /** Where the drawer's second icon row is kept (per device), and its first picks. */
 const DRAWER_ROW_KEY = "bar.drawerRow";
 const DRAWER_DEFAULT = ["leads", "vendors", "labor", "time-off", "roadmap"];
@@ -541,7 +565,38 @@ export function TabBar() {
         {(() => {
           // Icon rows styled like the home row. They live in the sheet, so they
           // are hidden while the drawer is closed.
-          const top =
+          // The hub row (admin and office): one tap to each hub.
+          const hubs =
+            access.role === "admin" || access.role === "office"
+              ? HUB_ROW.filter((h) => access.can(h.view))
+              : [];
+          const hubRow =
+            hubs.length > 0 ? (
+              <nav aria-label="Hubs" className="grid grid-cols-5 border-b border-line pb-1">
+                {hubs.map((h) => {
+                  const on = h.routes.includes(pathname);
+                  const Icon = ICONS[h.key] ?? PinIcon;
+                  return (
+                    <Link
+                      key={h.key}
+                      href={h.href + qs}
+                      aria-current={on ? "page" : undefined}
+                      onClick={guard}
+                      className={`relative flex h-14 flex-col items-center justify-center gap-0.5 px-0.5 text-center text-[11px] font-semibold leading-tight transition active:bg-black/5 dark:active:bg-white/10 ${
+                        on
+                          ? "text-neutral-900 dark:text-white"
+                          : "text-neutral-500 hover:text-neutral-900 dark:text-white/60 dark:hover:text-white"
+                      }`}
+                    >
+                      <Icon />
+                      {h.label}
+                      <LinkPendingOverlay spinnerClassName="h-5 w-5" />
+                    </Link>
+                  );
+                })}
+              </nav>
+            ) : null;
+          const icons =
             drawerIcons.length > 0 ? (
               <div>
               <div className="grid grid-cols-5">
@@ -590,6 +645,13 @@ export function TabBar() {
               >
                 {editing ? "Done" : "Edit icons"}
               </button>
+              </div>
+            ) : null;
+          const top =
+            hubRow || icons ? (
+              <div className="space-y-1">
+                {hubRow}
+                {icons}
               </div>
             ) : null;
           if (access.role === "field")
