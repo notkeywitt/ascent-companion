@@ -27,6 +27,7 @@ import { money } from "@/lib/money";
 import { setUrlParam } from "@/lib/urlParam";
 import { coiKey, coiRegister, gmailComposeUrl, missingW9, type VendorCoiRow } from "@/lib/vendorCoi";
 import { CoiDot } from "@/components/CoiDot";
+import { HubTabs } from "@/components/HubTabs";
 
 /**
  * Vendor bill search — job, date, amount, status, per vendor or per bill
@@ -1087,6 +1088,7 @@ function Vendors() {
 
   return (
     <main className="w-full max-w-2xl px-4 pad:px-7 lg:max-w-6xl pb-24 pt-6">
+      <HubTabs hub="find" />
       <PageHeader
         title="Vendors"
         description="Pick a vendor to see every bill — job, date, amount, status."

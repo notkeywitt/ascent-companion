@@ -265,8 +265,17 @@ export const MENU_SINGLE_WORKSPACES = new Set(["close", "clients"]);
 /** Hubs whose own tab row reaches their other pages: the ☰ menu and the phone
  *  drawer list only these rows (views) of the workspace. Search and the rail
  *  still know every page. Admin is one hub (owner, 2026-11-27); Skins keeps its
- *  row at the owner's ask, and AI Scripts keeps its rail entry (OWN_ENTRY_UNDER). */
-export const MENU_ROWS: Record<string, string[]> = { admin: ["admin", "skins"] };
+ *  row at the owner's ask, and AI Scripts keeps its rail entry (OWN_ENTRY_UNDER).
+ *  Each hub's tab row: HUBS in src/components/HubTabs.tsx. */
+export const MENU_ROWS: Record<string, string[]> = {
+  admin: ["admin", "skins"],
+  // People hub (2026-11-28): New Hires and Pay Rates are on its tab row
+  // (src/components/HubTabs.tsx). Safety Meeting keeps its row: the foreman's page.
+  employees: ["employees", "safety-meeting"],
+  // Find hub (2026-11-28): Vendors and Bill Archive are on its tab row.
+  // Vendors keeps its own rail entry (DESK_TOP).
+  search: ["bill-search"],
+};
 
 /** The tabs a workspace lists in the ☰ menu and the drawer. */
 export function menuRows<T extends WorkspaceTab>(workspaceId: string, tabs: T[]): T[] {

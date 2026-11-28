@@ -572,10 +572,6 @@ export function PageFlow({
         <Legend rel="strip" text="STRIP tab, own page" />
         <Legend rel="nav" text="NAV to another page" />
         <span>
-          <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: "var(--warn, #b45309)" }} />
-          Phase 7 fold
-        </span>
-        <span>
           <span className="mr-1 inline-block h-2 w-2 rounded-full" style={{ background: "var(--danger, #b91c1c)" }} />
           no way in
         </span>
@@ -780,7 +776,6 @@ export function PageFlow({
                     NEW
                   </text>
                 )}
-                {r?.p7 && <circle cx={W - 10} cy={H / 2} r={4} fill="var(--warn, #b45309)" />}
                 {r && !r.menu && r.bars.length === 0 && r.inn.length + r.embedsIn.length === 0 && (
                   <circle cx={W - 10} cy={H / 2} r={4} fill="var(--danger, #b91c1c)" />
                 )}

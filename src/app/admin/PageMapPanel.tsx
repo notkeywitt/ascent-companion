@@ -39,11 +39,6 @@ const MAP = raw as {
   embeds: { from: string; to: string }[];
 };
 
-/** The page folds proposed on the roadmap (`page-folds` in src/lib/roadmap.ts). The Bills and Admin hubs landed 2026-11-27. */
-const PHASE7: { id: string; label: string; routes: string[] }[] = [
-  { id: "find", label: "Find", routes: ["/vendors", "/bill-search", "/expenditure-history", "/vendor-mail/index"] },
-  { id: "people", label: "People", routes: ["/employees", "/labor-rates", "/onboarding/office", "/payroll", "/time-off"] },
-];
 
 const ROLE_LETTER: Record<Role, string> = { admin: "A", office: "O", lead: "L", field: "F" };
 const ROLE_NAME: Record<Role, string> = { admin: "Admin", office: "Office", lead: "Lead", field: "Field" };
@@ -67,7 +62,6 @@ export interface Row {
   embedsOut: string[];
   embedsIn: string[];
   redirectsIn: string[];
-  p7: string;
   views30: number | null;
 }
 
@@ -94,7 +88,6 @@ function build(): { rows: Row[]; wsIndex: Map<string, number> } {
     const bars = ROLES.filter((r) =>
       BARS[r].some((s) => (s.kind === "today" ? p.route === "/" : s.kind === "tab" && s.view === view)),
     );
-    const p7 = PHASE7.find((g) => g.routes.includes(p.route))?.label ?? "";
     return {
       route: p.route,
       label,
@@ -110,7 +103,6 @@ function build(): { rows: Row[]; wsIndex: Map<string, number> } {
       embedsOut: MAP.embeds.filter((e) => e.from === p.route).map((e) => e.to),
       embedsIn: MAP.embeds.filter((e) => e.to === p.route).map((e) => e.from),
       redirectsIn: MAP.redirects.filter((r) => r.to.split("?")[0] === p.route).map((r) => r.from),
-      p7,
       views30: null,
     };
   });
@@ -132,7 +124,7 @@ export function PageMapPanel() {
   const [q, setQ] = useState("");
   const [wsOn, setWsOn] = useState<string | null>(null);
   const [role, setRole] = useState<Role | null>(null);
-  const [lens, setLens] = useState<"" | "p7" | "noway">("");
+  const [lens, setLens] = useState<"" | "noway">("");
   const [sel, setSel] = useState<string | null>(null);
   const [mode, setMode] = useState<"flow" | "cards">("flow");
 
@@ -167,7 +159,7 @@ export function PageMapPanel() {
     const needle = q.trim().toLowerCase();
     return (
       (!role || r.roles.includes(role)) &&
-      (lens === "" || (lens === "p7" ? !!r.p7 : noWay(r))) &&
+      (lens === "" || noWay(r)) &&
       (!needle || (r.label + " " + r.route).toLowerCase().includes(needle))
     );
   };
@@ -216,24 +208,11 @@ export function PageMapPanel() {
             {ROLE_NAME[r]} sees
           </FilterChip>
         ))}
-        <FilterChip on={lens === "p7"} onClick={() => setLens(lens === "p7" ? "" : "p7")} title="Pages the roadmap proposes to fold into hubs">
-          Proposed folds
-        </FilterChip>
         <FilterChip on={lens === "noway"} onClick={() => setLens(lens === "noway" ? "" : "noway")} title="No menu row, no bar slot, no link from another page">
           No way in ({flagged})
         </FilterChip>
         <Input placeholder="Find a page" value={q} onChange={(e) => setQ(e.target.value)} className="max-w-[14rem]" />
       </div>
-
-      {lens === "p7" && (
-        <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-500 dark:text-neutral-400">
-          {PHASE7.map((g) => (
-            <span key={g.id}>
-              <b>{g.label}:</b> {g.routes.length} pages
-            </span>
-          ))}
-        </div>
-      )}
 
       <div className="mt-3">
         <Segmented
@@ -317,7 +296,6 @@ export function PageMapPanel() {
                             <span>
                               in {r.inn.length + r.embedsIn.length} · out {r.out.length}
                             </span>
-                            {r.p7 && <span className="font-semibold text-warn">P7 {r.p7}</span>}
                             {noWay(r) && <span className="font-semibold text-danger">no way in</span>}
                           </div>
                         </button>

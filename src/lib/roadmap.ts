@@ -229,9 +229,9 @@ export const FEATURES: RoadmapFeature[] = [
   },
   {
     id: "page-folds",
-    title: "Fewer pages: Find and People hubs",
+    title: "Find: a bill-number box on Vendors, and a search handed to the Bill Archive",
     cls: "fix",
-    what: "Fold the search pages and the people pages into two hubs, as the Jobs, Bills and Admin pages did. Old addresses redirect. Also: Vendors gets a bill-number box, and the Bill Archive reads a search handed to it.",
+    what: "The page folds are done (Jobs, Bills, Admin, People, Find; 2026-11-28). Left: Vendors gets a bill-number box, and the Bill Archive reads a search handed to it.",
     size: "M",
   },
   {

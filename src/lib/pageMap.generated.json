@@ -662,11 +662,6 @@
   },
   {
    "from": "/admin",
-   "to": "/time-off",
-   "kind": "link"
-  },
-  {
-   "from": "/admin",
    "to": "/vendor-mail/index",
    "kind": "link"
   },
@@ -717,7 +712,102 @@
   },
   {
    "from": "/bill-search",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
    "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/bill-search",
+   "to": "/vendors",
    "kind": "link"
   },
   {
@@ -901,6 +991,196 @@
    "kind": "link"
   },
   {
+   "from": "/employees",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/employees",
+   "to": "/vendors",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/expenditure-history",
+   "to": "/vendors",
+   "kind": "link"
+  },
+  {
    "from": "/help",
    "to": "/changelog",
    "kind": "strip"
@@ -1027,7 +1307,102 @@
   },
   {
    "from": "/labor-rates",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
    "to": "/unbilled",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/labor-rates",
+   "to": "/vendors",
    "kind": "link"
   },
   {
@@ -1122,7 +1497,102 @@
   },
   {
    "from": "/onboarding/office",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
    "to": "/onboarding",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/onboarding/office",
+   "to": "/vendors",
    "kind": "link"
   },
   {
@@ -1132,7 +1602,102 @@
   },
   {
    "from": "/payroll",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
    "to": "/employee-time",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/vendor-mail/index",
+   "kind": "link"
+  },
+  {
+   "from": "/payroll",
+   "to": "/vendors",
    "kind": "link"
   },
   {
@@ -1333,6 +1898,51 @@
   },
   {
    "from": "/vendor-mail/index",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
    "to": "/email",
    "kind": "link",
    "q": [
@@ -1340,8 +1950,153 @@
    ]
   },
   {
+   "from": "/vendor-mail/index",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/vendor-mail/index",
+   "to": "/vendors",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/admin",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/admin/activity",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/admin/copy",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/admin/skins",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/ai-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/ai-scripts",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/art",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/ascentbot",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/bill-search",
+   "kind": "link"
+  },
+  {
    "from": "/vendors",
    "to": "/bill/[docId]",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/employees",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/expenditure-history",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/historical-cost",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/journal",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/labor-rates",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/logs",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/onboarding/office",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/payroll",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/theme",
+   "kind": "link"
+  },
+  {
+   "from": "/vendors",
+   "to": "/vendor-mail/index",
    "kind": "link"
   },
   {

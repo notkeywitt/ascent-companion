@@ -22,6 +22,7 @@ import {
 import { OnboardingOffice } from "@/app/onboarding/office/OnboardingOffice";
 import { AddEmployee, type Employee } from "./AddEmployee";
 import { JobAccess, PayTypes, type PayType } from "./JobTreadSections";
+import { HubTabs } from "@/components/HubTabs";
 
 interface JtUser {
   id: string;
@@ -402,6 +403,7 @@ export default function EmployeesPage() {
 
   return (
     <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
+      <HubTabs hub="people" />
       <PageHeader
         title="Employees"
         className="!mb-3"

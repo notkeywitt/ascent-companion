@@ -6,6 +6,7 @@ import { Banner, Button, Checkbox, Dialog, Loading, PageHeader, Select, inputCls
 
 import { LaborRatesMap } from "./LaborRatesMap";
 import { PayTypeRules } from "./PayTypeRules";
+import { HubTabs } from "@/components/HubTabs";
 
 interface Group {
   id: number; // 0 = the virtual Global group
@@ -362,6 +363,7 @@ export default function LaborRatesPage() {
 
   return (
     <main className="w-full max-w-4xl lg:max-w-6xl 2xl:max-w-[1600px] px-4 pad:px-7 pb-24 pt-6">
+      <HubTabs hub="people" />
       <PageHeader
         title="Pay Rates"
         className="!mb-3"
