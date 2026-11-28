@@ -1,5 +1,11 @@
 [
  {
+  "sha": "cfb6c63b",
+  "date": "2026-11-28T06:07:36Z",
+  "title": "hub icon row at the top of the phone drawer",
+  "plain": "On a phone, the menu that slides up from the bottom bar now starts with icons for Bills, People, Find and Admin."
+ },
+ {
   "sha": "18f4f116",
   "date": "2026-11-28T05:33:52Z",
   "title": "fold the people and find pages into hubs",
